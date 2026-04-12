@@ -96,9 +96,10 @@ async function bootstrap() {
   );
 
   // Enable CORS
+  // Manor patch: CORS_ORIGIN supports comma-separated list for multi-hostname LAN access
   const allowedOrigins = [
     process.env.PUBLIC_APP_URL,
-    process.env.CORS_ORIGIN,
+    ...(process.env.CORS_ORIGIN?.split(",").map((s) => s.trim()) ?? []),
     ...(process.env.NODE_ENV !== "production"
       ? [
           "http://localhost:3001",

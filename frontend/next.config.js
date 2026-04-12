@@ -7,6 +7,8 @@ const nextConfig = {
   serverExternalPackages: ['jspdf', 'jspdf-autotable', 'fflate'],
   poweredByHeader: false, // Remove X-Powered-By: Next.js header
   serverExternalPackages: ['jspdf'],
+  // Manor LAN hostnames for dev server access
+  allowedDevOrigins: ['zforge.local', 'zforge', '192.168.1.26'],
   env: {
     PUBLIC_APP_URL: process.env.PUBLIC_APP_URL || 'http://localhost:3000',
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
