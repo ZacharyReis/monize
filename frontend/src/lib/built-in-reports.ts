@@ -14,6 +14,7 @@ import {
   BillPaymentHistoryResponse,
   UncategorizedTransactionsResponse,
   DuplicateTransactionsResponse,
+  SpendingTrendsResponse,
 } from '@/types/built-in-reports';
 import { MonthlyComparisonResponse } from '@/types/monthly-comparison';
 
@@ -164,6 +165,16 @@ export const builtInReportsApi = {
     const response = await apiClient.get<MonthlyComparisonResponse>(
       '/built-in-reports/monthly-comparison',
       { params: { month } },
+    );
+    return response.data;
+  },
+
+  getSpendingTrends: async (
+    params: { lookbackMonths?: number; accountId?: string },
+  ): Promise<SpendingTrendsResponse> => {
+    const response = await apiClient.get<SpendingTrendsResponse>(
+      '/built-in-reports/spending-trends',
+      { params },
     );
     return response.data;
   },
