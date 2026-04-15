@@ -21,15 +21,19 @@ import {
   ForecastPeriod,
   ForecastDataPoint,
   FutureTransaction,
+  TrendData,
   FORECAST_PERIOD_LABELS,
 } from '@/lib/forecast';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 
+type ForecastMode = 'scheduled' | 'projected';
+
 interface CashFlowForecastChartProps {
   scheduledTransactions: ScheduledTransaction[];
   accounts: Account[];
   futureTransactions?: FutureTransaction[];
+  trendData?: TrendData;
   isLoading: boolean;
 }
 
@@ -67,12 +71,14 @@ function CashFlowTooltip({
               <p key={i} className="text-sm text-gray-700 dark:text-gray-300">
                 <span
                   className={
-                    tx.amount >= 0
+                    tx.isTrend
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : tx.amount >= 0
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-red-600 dark:text-red-400'
                   }
                 >
-                  {formatCurrency(tx.amount)}
+                  {tx.isTrend ? '~' : ''}{formatCurrency(tx.amount)}
                 </span>{' '}
                 {tx.name}
               </p>
@@ -91,8 +97,14 @@ function CashFlowTooltip({
 }
 
 const PERIODS: ForecastPeriod[] = ['week', 'month', '90days', '6months', 'year'];
+const FORECAST_MODES: ForecastMode[] = ['scheduled', 'projected'];
+const FORECAST_MODE_LABELS: Record<ForecastMode, string> = {
+  scheduled: 'Scheduled',
+  projected: 'Projected',
+};
 const STORAGE_KEY_PERIOD = 'cashFlowForecast.period';
 const STORAGE_KEY_ACCOUNT = 'cashFlowForecast.accountId';
+const STORAGE_KEY_MODE = 'cashFlowForecast.mode';
 
 function getStoredPeriod(): ForecastPeriod {
   if (typeof window === 'undefined') return 'month';
@@ -108,16 +120,27 @@ function getStoredAccountId(): string {
   return localStorage.getItem(STORAGE_KEY_ACCOUNT) || 'all';
 }
 
+function getStoredMode(): ForecastMode {
+  if (typeof window === 'undefined') return 'scheduled';
+  const stored = localStorage.getItem(STORAGE_KEY_MODE);
+  if (stored && FORECAST_MODES.includes(stored as ForecastMode)) {
+    return stored as ForecastMode;
+  }
+  return 'scheduled';
+}
+
 export function CashFlowForecastChart({
   scheduledTransactions,
   accounts,
   futureTransactions = [],
+  trendData,
   isLoading,
 }: CashFlowForecastChartProps) {
   const { formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
   const { convertToDefault, defaultCurrency } = useExchangeRates();
   const [selectedPeriod, setSelectedPeriod] = useState<ForecastPeriod>(() => getStoredPeriod());
   const [selectedAccountId, setSelectedAccountId] = useState<string>(() => getStoredAccountId());
+  const [forecastMode, setForecastMode] = useState<ForecastMode>(() => getStoredMode());
 
   // Persist period changes
   useEffect(() => {
@@ -128,6 +151,11 @@ export function CashFlowForecastChart({
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ACCOUNT, selectedAccountId);
   }, [selectedAccountId]);
+
+  // Persist forecast mode changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_MODE, forecastMode);
+  }, [forecastMode]);
 
   const accountOptions = useMemo(() => {
     return [
@@ -166,16 +194,17 @@ export function CashFlowForecastChart({
     return buildForecast(
       accounts, scheduledTransactions, selectedPeriod, selectedAccountId, futureTransactions,
       needsConversion ? convertToDefault : undefined,
+      forecastMode === 'projected' ? trendData : undefined,
     );
-  }, [accounts, scheduledTransactions, selectedPeriod, selectedAccountId, futureTransactions, needsConversion, convertToDefault]);
+  }, [accounts, scheduledTransactions, selectedPeriod, selectedAccountId, futureTransactions, needsConversion, convertToDefault, forecastMode, trendData]);
 
   const summary = useMemo(() => {
     return getForecastSummary(forecastData);
   }, [forecastData]);
 
-  // Count total transactions in forecast for debugging
+  // Count total transactions in forecast (exclude trend items)
   const totalForecastedTransactions = useMemo(() => {
-    return forecastData.reduce((sum, dp) => sum + dp.transactions.length, 0);
+    return forecastData.reduce((sum, dp) => sum + dp.transactions.filter(t => !t.isTrend).length, 0);
   }, [forecastData]);
 
   // Index of the first data point at the minimum balance (for single callout)
@@ -214,6 +243,25 @@ export function CashFlowForecastChart({
           )}
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Forecast mode toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            {FORECAST_MODES.map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setForecastMode(mode)}
+                disabled={mode === 'projected' && !trendData}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  forecastMode === mode
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : mode === 'projected' && !trendData
+                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {FORECAST_MODE_LABELS[mode]}
+              </button>
+            ))}
+          </div>
           {/* Period selector */}
           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {PERIODS.map((period) => (
