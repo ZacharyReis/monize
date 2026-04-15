@@ -61,6 +61,15 @@ const THEME_OPTIONS = [
   { value: 'dark', label: 'Dark' },
 ];
 
+const LOOKBACK_OPTIONS = [
+  { value: '1', label: '1 month' },
+  { value: '2', label: '2 months' },
+  { value: '3', label: '3 months' },
+  { value: '6', label: '6 months' },
+  { value: '9', label: '9 months' },
+  { value: '12', label: '12 months' },
+];
+
 interface PreferencesSectionProps {
   preferences: UserPreferences;
   onPreferencesUpdated: (prefs: UserPreferences) => void;
@@ -80,6 +89,9 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
   const [timeFormat, setTimeFormat] = useState<'24h' | '12h'>(preferences.timeFormat ?? '24h');
   const [preferredExchanges, setPreferredExchanges] = useState<string[]>(
     preferences.preferredExchanges ?? [],
+  );
+  const [forecastLookbackMonths, setForecastLookbackMonths] = useState(
+    preferences.forecastLookbackMonths ?? 3,
   );
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
 
@@ -109,6 +121,7 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
         showCreatedAt,
         timeFormat,
         preferredExchanges: preferredExchanges.filter(Boolean),
+        forecastLookbackMonths,
       };
 
       const updated = await userSettingsApi.updatePreferences(data);
@@ -230,6 +243,20 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
             onChange={(e) => setTimeFormat(e.target.value as '24h' | '12h')}
           />
         )}
+
+        {/* Cash Flow Forecast */}
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Cash Flow Forecast</h3>
+          <Select
+            label="Trend Lookback Period"
+            options={LOOKBACK_OPTIONS}
+            value={String(forecastLookbackMonths)}
+            onChange={(e) => setForecastLookbackMonths(Number(e.target.value))}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            How many months of spending history to use when projecting discretionary spending trends in the cash flow forecast.
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end">
