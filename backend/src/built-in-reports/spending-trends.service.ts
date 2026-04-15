@@ -133,7 +133,8 @@ export class SpendingTrendsService {
     }
 
     // Step 3: Category fallback — scheduled monthly equivalent per category
-    // NARROWED: only unsplit scheduled transactions with a real category and no payee
+    // For unsplit scheduled transactions with a real category (any payee status).
+    // Splits are excluded — they have the category mismatch that started this fix.
     const scheduledUnsplitRows: ScheduledRow[] =
       await this.transactionsRepo.query(
         `SELECT
@@ -147,7 +148,6 @@ export class SpendingTrendsService {
           AND st.is_split = false
           AND st.is_transfer = false
           AND st.frequency != 'ONCE'
-          AND st.payee_id IS NULL
           AND st.category_id IS NOT NULL
           AND st.amount < 0
           AND (st.occurrences_remaining IS NULL OR st.occurrences_remaining > 0)
