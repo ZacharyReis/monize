@@ -249,7 +249,9 @@ export class BuiltInReportsController {
   }
 
   @Get("spending-trends")
-  @ApiOperation({ summary: "Get spending trend projections for cash flow forecast" })
+  @ApiOperation({
+    summary: "Get spending trend projections for cash flow forecast",
+  })
   @ApiResponse({ status: 200, type: SpendingTrendsResponse })
   getSpendingTrends(
     @Request() req,
@@ -259,6 +261,7 @@ export class BuiltInReportsController {
       req.user.id,
       query.lookbackMonths ?? 3,
       query.accountId ?? "all",
+      query.forecastDays ?? 365,
     );
   }
 }

@@ -279,8 +279,28 @@ export interface SpendingTrendItem {
   dailyFill: number;
 }
 
+export interface SpendingProjectionEvent {
+  date: string;
+  categoryId: string | null;
+  categoryName: string;
+  amount: number;
+  confidence: 'low' | 'medium' | 'high';
+  source: string;
+}
+
+export interface SpendingTrendOutlier {
+  date: string;
+  categoryId: string | null;
+  categoryName: string;
+  amount: number;
+  payeeName?: string | null;
+  reason: string;
+}
+
 export interface SpendingTrendsResponse {
   trends: SpendingTrendItem[];
+  projectionEvents: SpendingProjectionEvent[];
+  excludedOutliers: SpendingTrendOutlier[];
   totalMonthlyFill: number;
   totalDailyFill: number;
   lookbackMonths: number;

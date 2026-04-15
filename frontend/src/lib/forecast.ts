@@ -47,6 +47,13 @@ export interface TrendData {
     categoryName: string;
     dailyFill: number;
   }>;
+  projectionEvents?: Array<{
+    date: string;
+    categoryId?: string | null;
+    categoryName: string;
+    amount: number;
+    confidence?: 'low' | 'medium' | 'high';
+  }>;
   totalDailyFill: number;
 }
 
@@ -332,6 +339,33 @@ export function buildForecast(
     }
   }
 
+  const projectionEvents = Array.from(
+    (trendData?.projectionEvents?.filter(event =>
+      event.date >= todayKey && event.date <= formatDateKey(endDate)
+    ) || []).reduce((events, event) => {
+      const key = `${event.date}:${event.categoryName.trim().toLocaleLowerCase()}`;
+      const existing = events.get(key);
+      if (existing) {
+        existing.amount = Math.round((existing.amount + event.amount) * 100) / 100;
+      } else {
+        events.set(key, { ...event });
+      }
+      return events;
+    }, new Map<string, NonNullable<TrendData['projectionEvents']>[number]>()).values()
+  );
+  const hasProjectionEvents = projectionEvents.length > 0;
+
+  for (const event of projectionEvents) {
+    const existing = transactionsByDate.get(event.date) || [];
+    existing.push({
+      name: event.categoryName,
+      amount: event.amount,
+      scheduledTransactionId: `trend:${event.categoryId ?? 'uncategorized'}:${event.date}`,
+      isTrend: true,
+    });
+    transactionsByDate.set(event.date, existing);
+  }
+
   // Build data points
   const dataPoints: ForecastDataPoint[] = [];
   let currentBalance = startingBalance;
@@ -351,8 +385,8 @@ export function buildForecast(
       currentBalance += tx.amount;
     }
 
-    // Apply trend drip to running balance (every day, regardless of granularity)
-    if (trendData && trendData.totalDailyFill > 0) {
+    // Apply legacy trend drip only when the backend has not provided dated projection events.
+    if (!hasProjectionEvents && trendData && trendData.totalDailyFill > 0) {
       currentBalance -= trendData.totalDailyFill;
     }
 
@@ -367,7 +401,7 @@ export function buildForecast(
 
     if (shouldAddPoint || dayTransactions.length > 0 || isLastDay) {
       const pointTransactions = [...dayTransactions];
-      if (trendData && trendData.totalDailyFill > 0) {
+      if (!hasProjectionEvents && trendData && trendData.totalDailyFill > 0) {
         const daysSinceLastEmit = lastAddedTime === null
           ? 1
           : Math.max(1, Math.floor((currentTime - lastAddedTime) / (1000 * 60 * 60 * 24)));
