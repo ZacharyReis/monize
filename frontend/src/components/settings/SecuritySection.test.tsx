@@ -83,6 +83,7 @@ const mockPreferences: UserPreferences = {
   timeFormat: '24h',
   favouriteReportIds: [],
   preferredExchanges: [],
+  forecastLookbackMonths: 3,
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
 };

@@ -93,6 +93,7 @@ export interface UserPreferences {
   showCreatedAt: boolean;
   timeFormat: '24h' | '12h';
   preferredExchanges: string[];
+  forecastLookbackMonths: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -149,6 +150,7 @@ export interface UpdatePreferencesData {
   showCreatedAt?: boolean;
   timeFormat?: '24h' | '12h';
   preferredExchanges?: string[];
+  forecastLookbackMonths?: number;
 }
 
 export interface ChangePasswordData {
