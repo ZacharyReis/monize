@@ -62,34 +62,55 @@ function CashFlowTooltip({
         >
           {formatCurrency(data.balance)}
         </p>
-        {data.transactions.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Transactions:
-            </p>
-            {data.transactions.slice(0, 5).map((tx, i) => (
-              <p key={i} className="text-sm text-gray-700 dark:text-gray-300">
-                <span
-                  className={
-                    tx.isTrend
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : tx.amount >= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }
-                >
-                  {tx.isTrend ? '~' : ''}{formatCurrency(tx.amount)}
-                </span>{' '}
-                {tx.name}
-              </p>
-            ))}
-            {data.transactions.length > 5 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                +{data.transactions.length - 5} more
-              </p>
-            )}
-          </div>
-        )}
+        {data.transactions.length > 0 && (() => {
+          const scheduled = data.transactions.filter(t => !t.isTrend);
+          const trends = data.transactions.filter(t => t.isTrend);
+          return (
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              {scheduled.length > 0 && (
+                <>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Transactions:
+                  </p>
+                  {scheduled.slice(0, 5).map((tx, i) => (
+                    <p key={i} className="text-sm text-gray-700 dark:text-gray-300">
+                      <span
+                        className={
+                          tx.amount >= 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
+                        {formatCurrency(tx.amount)}
+                      </span>{' '}
+                      {tx.name}
+                    </p>
+                  ))}
+                  {scheduled.length > 5 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      +{scheduled.length - 5} more
+                    </p>
+                  )}
+                </>
+              )}
+              {trends.length > 0 && (
+                <>
+                  <p className="text-xs text-amber-500 dark:text-amber-400 mb-1 mt-2">
+                    Projected:
+                  </p>
+                  {trends.map((tx, i) => (
+                    <p key={`t${i}`} className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-amber-600 dark:text-amber-400">
+                        ~{formatCurrency(tx.amount)}
+                      </span>{' '}
+                      {tx.name}
+                    </p>
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
     );
   }
