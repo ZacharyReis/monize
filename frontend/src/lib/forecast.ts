@@ -16,6 +16,7 @@ export interface ForecastTransaction {
   name: string;
   amount: number;
   scheduledTransactionId: string;
+  isTrend?: boolean;
 }
 
 export interface ForecastDataPoint {
@@ -40,6 +41,14 @@ export const FORECAST_PERIOD_LABELS: Record<ForecastPeriod, string> = {
   '6months': '6M',
   year: '1Y',
 };
+
+export interface TrendData {
+  trends: Array<{
+    categoryName: string;
+    dailyFill: number;
+  }>;
+  totalDailyFill: number;
+}
 
 // Get granularity in days for each period to limit data points
 function getGranularity(period: ForecastPeriod): number {
@@ -237,6 +246,7 @@ export function buildForecast(
   accountId: string | 'all',
   futureTransactions: FutureTransaction[] = [],
   convertAmount?: (amount: number, currencyCode: string) => number,
+  trendData?: TrendData,
 ): ForecastDataPoint[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -341,6 +351,11 @@ export function buildForecast(
       currentBalance += tx.amount;
     }
 
+    // Apply trend drip to running balance (every day, regardless of granularity)
+    if (trendData && trendData.totalDailyFill > 0) {
+      currentBalance -= trendData.totalDailyFill;
+    }
+
     // Check if we should add a data point (based on granularity)
     const daysSinceLastPoint = lastAddedTime === null
       ? granularity
@@ -351,11 +366,24 @@ export function buildForecast(
     const isLastDay = dayOffset === days;
 
     if (shouldAddPoint || dayTransactions.length > 0 || isLastDay) {
+      const pointTransactions = [...dayTransactions];
+      if (trendData && trendData.totalDailyFill > 0) {
+        const daysSinceLastEmit = lastAddedTime === null
+          ? 1
+          : Math.max(1, Math.floor((currentTime - lastAddedTime) / (1000 * 60 * 60 * 24)));
+        pointTransactions.push({
+          name: 'Projected spending',
+          amount: -(trendData.totalDailyFill * daysSinceLastEmit),
+          scheduledTransactionId: 'trend',
+          isTrend: true,
+        });
+      }
+
       dataPoints.push({
         date: dateKey,
         balance: Math.round(currentBalance * 100) / 100,
         label: formatDateLabel(currentDate),
-        transactions: dayTransactions,
+        transactions: pointTransactions,
       });
       lastAddedTime = currentTime;
     }
