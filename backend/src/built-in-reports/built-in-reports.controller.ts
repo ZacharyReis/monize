@@ -26,6 +26,8 @@ import {
   DuplicateTransactionsQueryDto,
   MonthlyComparisonResponse,
   MonthlyComparisonQueryDto,
+  SpendingTrendsQueryDto,
+  SpendingTrendsResponse,
 } from "./dto";
 
 @ApiTags("Built-in Reports")
@@ -244,5 +246,19 @@ export class BuiltInReportsController {
     @Query() query: MonthlyComparisonQueryDto,
   ): Promise<MonthlyComparisonResponse> {
     return this.reportsService.getMonthlyComparison(req.user.id, query.month);
+  }
+
+  @Get("spending-trends")
+  @ApiOperation({ summary: "Get spending trend projections for cash flow forecast" })
+  @ApiResponse({ status: 200, type: SpendingTrendsResponse })
+  getSpendingTrends(
+    @Request() req,
+    @Query() query: SpendingTrendsQueryDto,
+  ): Promise<SpendingTrendsResponse> {
+    return this.reportsService.getSpendingTrends(
+      req.user.id,
+      query.lookbackMonths ?? 3,
+      query.accountId ?? "all",
+    );
   }
 }
