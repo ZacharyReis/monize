@@ -150,4 +150,13 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsIn(["yahoo", "msn"])
   defaultQuoteProvider?: "yahoo" | "msn";
+
+  @ApiPropertyOptional({
+    description: "Number of months of spending history for cash flow trend projection",
+    example: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2, 3, 6, 9, 12])
+  forecastLookbackMonths?: number;
 }
