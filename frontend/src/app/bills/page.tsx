@@ -152,12 +152,20 @@ function BillsContent() {
       const data = await builtInReportsApi.getSpendingTrends({
         lookbackMonths: preferences?.forecastLookbackMonths ?? 3,
         accountId: forecastAccountId,
+        forecastDays: 365,
       });
       setTrendData({
         trends: data.trends.map(t => ({
           categoryName: t.categoryName,
           dailyFill: t.dailyFill,
         })),
+        projectionEvents: data.projectionEvents?.map(event => ({
+          date: event.date,
+          categoryId: event.categoryId,
+          categoryName: event.categoryName,
+          amount: event.amount,
+          confidence: event.confidence,
+        })) ?? [],
         totalDailyFill: data.totalDailyFill,
       });
     } catch {

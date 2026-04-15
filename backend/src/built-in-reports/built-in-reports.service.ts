@@ -173,7 +173,17 @@ export class BuiltInReportsService {
     return this.monthlyComparison.getMonthlyComparison(userId, month);
   }
 
-  getSpendingTrends(userId: string, lookbackMonths: number, accountId: string): Promise<SpendingTrendsResponse> {
-    return this.spendingTrends.getSpendingTrends(userId, lookbackMonths, accountId);
+  getSpendingTrends(
+    userId: string,
+    lookbackMonths: number,
+    accountId: string,
+    forecastDays: number = 365,
+  ): Promise<SpendingTrendsResponse> {
+    return this.spendingTrends.getSpendingTrends(
+      userId,
+      lookbackMonths,
+      accountId,
+      forecastDays,
+    );
   }
 }

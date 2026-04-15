@@ -275,7 +275,12 @@ describe('BillsPage', () => {
     mockGetAllCategories.mockResolvedValue([]);
     mockGetAllAccounts.mockResolvedValue([]);
     mockGetAllTransactions.mockResolvedValue({ data: [], total: 0 });
-    mockGetSpendingTrends.mockResolvedValue({ trends: [], totalDailyFill: 0 });
+    mockGetSpendingTrends.mockResolvedValue({
+      trends: [],
+      projectionEvents: [],
+      excludedOutliers: [],
+      totalDailyFill: 0,
+    });
     mockHasOverrides.mockResolvedValue({ hasOverrides: false, count: 0 });
     mockGetOverrides.mockResolvedValue([]);
     mockDeleteAllOverrides.mockResolvedValue(undefined);
@@ -322,6 +327,7 @@ describe('BillsPage', () => {
         expect(mockGetSpendingTrends).toHaveBeenCalledWith({
           lookbackMonths: 3,
           accountId: 'all',
+          forecastDays: 365,
         });
       });
 
@@ -331,6 +337,7 @@ describe('BillsPage', () => {
         expect(mockGetSpendingTrends).toHaveBeenLastCalledWith({
           lookbackMonths: 3,
           accountId: 'acc-2',
+          forecastDays: 365,
         });
       });
     });
