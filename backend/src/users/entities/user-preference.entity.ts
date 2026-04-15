@@ -112,6 +112,9 @@ export class UserPreference {
   })
   lastClientTimezone: string | null;
 
+  @Column({ name: "forecast_lookback_months", type: "smallint", default: 3 })
+  forecastLookbackMonths: number;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

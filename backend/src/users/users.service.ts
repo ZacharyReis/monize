@@ -130,6 +130,7 @@ export class UsersService {
       preferences.twoFactorEnabled = false;
       preferences.gettingStartedDismissed = false;
       preferences.favouriteReportIds = [];
+      preferences.forecastLookbackMonths = 3;
       await this.preferencesRepository.save(preferences);
     }
 
@@ -202,6 +203,9 @@ export class UsersService {
     }
     if (dto.recentTransactionsLimit !== undefined) {
       preferences.recentTransactionsLimit = dto.recentTransactionsLimit;
+    }
+    if (dto.forecastLookbackMonths !== undefined) {
+      preferences.forecastLookbackMonths = dto.forecastLookbackMonths;
     }
 
     const saved = await this.preferencesRepository.save(preferences);
