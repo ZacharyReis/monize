@@ -60,7 +60,7 @@ describe("SpendingTrendsService", () => {
 
   // Query call order:
   // 1. Historical spending (with NOT EXISTS payee+amount exclusion baked in)
-  // 2. Unsplit scheduled fallback (category subtraction for payee-less)
+  // 2. Unsplit scheduled fallback (category subtraction for categorized schedules)
 
   it("returns empty trends when no historical spending", async () => {
     transactionsRepo.query
@@ -115,12 +115,12 @@ describe("SpendingTrendsService", () => {
   });
 
   it("applies category fallback for payee-less unsplit scheduled transactions", async () => {
-    // Historical has $7500 in Loan over 3 months (not excluded because
+    // Historical has $9000 in Loan over 3 months (not excluded because
     // the historical payee doesn't match any scheduled payee+amount)
     // Fallback: unsplit scheduled monthly $2443.65 in Loan category
-    // trendFill = 2500 - 2443.65 = 56.35
+    // trendFill = 3000 - 2443.65 = 556.35
     transactionsRepo.query
-      .mockResolvedValueOnce([{ category_id: "cat-loan", total: "7500.00" }])
+      .mockResolvedValueOnce([{ category_id: "cat-loan", total: "9000.00" }])
       .mockResolvedValueOnce([
         { category_id: "cat-loan", frequency: "MONTHLY", amount: "-2443.65" },
       ]);
@@ -132,9 +132,9 @@ describe("SpendingTrendsService", () => {
     const result = await service.getSpendingTrends(mockUserId, 3, "all");
     expect(result.trends).toHaveLength(1);
     expect(result.trends[0].categoryName).toBe("Loan");
-    expect(result.trends[0].monthlyAverage).toBe(2500);
+    expect(result.trends[0].monthlyAverage).toBe(3000);
     expect(result.trends[0].scheduledMonthly).toBe(2443.65);
-    expect(result.trends[0].trendFill).toBe(56.35);
+    expect(result.trends[0].trendFill).toBe(556.35);
   });
 
   it("returns zero trend fill when fallback scheduled covers historical", async () => {
@@ -146,6 +146,22 @@ describe("SpendingTrendsService", () => {
 
     categoriesRepo.find.mockResolvedValue([
       { id: "cat-loan", userId: mockUserId, name: "Loan" },
+    ]);
+
+    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    expect(result.trends).toHaveLength(0);
+    expect(result.totalMonthlyFill).toBe(0);
+  });
+
+  it("suppresses small residual trend fill when scheduled covers at least 90 percent", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([{ category_id: "cat-utility", total: "300.00" }])
+      .mockResolvedValueOnce([
+        { category_id: "cat-utility", frequency: "MONTHLY", amount: "-95.00" },
+      ]);
+
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-utility", userId: mockUserId, name: "Utility" },
     ]);
 
     const result = await service.getSpendingTrends(mockUserId, 3, "all");
@@ -220,6 +236,7 @@ describe("SpendingTrendsService", () => {
     expect(historicalSql).toContain("st.payee_id = t.payee_id");
     expect(historicalSql).toContain("ROUND(ABS(st.amount)::numeric, 2) = ROUND(ABS(t.amount)::numeric, 2)");
     expect(historicalSql).toContain("st.currency_code = t.currency_code");
+    expect(historicalSql).toContain("(st.is_split = true OR st.category_id IS NULL)");
     expect(historicalSql).toContain("st.amount < 0");
     expect(historicalSql).toContain("st.is_active = true");
     expect(historicalSql).toContain("st.frequency != 'ONCE'");
@@ -247,6 +264,7 @@ describe("SpendingTrendsService", () => {
 
     // accountId should be parameterized, not interpolated
     expect(historicalSql).toContain("t.account_id = $4");
+    expect(historicalSql).toContain("st.account_id = $4");
     expect(historicalSql).not.toContain("'acct-123'");
     expect(historicalParams).toContain("acct-123");
   });

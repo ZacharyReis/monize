@@ -51,6 +51,12 @@ import { getErrorMessage } from '@/lib/errors';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 
 const logger = createLogger('Bills');
+const FORECAST_ACCOUNT_STORAGE_KEY = 'cashFlowForecast.accountId';
+
+function getStoredForecastAccountId(): string {
+  if (typeof window === 'undefined') return 'all';
+  return localStorage.getItem(FORECAST_ACCOUNT_STORAGE_KEY) || 'all';
+}
 
 interface OverrideEditorState {
   isOpen: boolean;
@@ -78,6 +84,7 @@ function BillsContent() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [futureTransactions, setFutureTransactions] = useState<FutureTransaction[]>([]);
   const [trendData, setTrendData] = useState<TrendData | undefined>(undefined);
+  const [forecastAccountId, setForecastAccountId] = useState<string>(() => getStoredForecastAccountId());
   const [isLoading, setIsLoading] = useState(true);
   const { showForm, editingItem: editingTransaction, openCreate, openEdit, close, isEditing, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<ScheduledTransaction>();
   const [filterType, setFilterType] = useState<'all' | 'bills' | 'deposits'>('all');
@@ -144,6 +151,7 @@ function BillsContent() {
     try {
       const data = await builtInReportsApi.getSpendingTrends({
         lookbackMonths: preferences?.forecastLookbackMonths ?? 3,
+        accountId: forecastAccountId,
       });
       setTrendData({
         trends: data.trends.map(t => ({
@@ -155,12 +163,15 @@ function BillsContent() {
     } catch {
       setTrendData(undefined);
     }
-  }, [preferences?.forecastLookbackMonths]);
+  }, [forecastAccountId, preferences?.forecastLookbackMonths]);
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  useEffect(() => {
     loadTrends();
-  }, [loadData, loadTrends]);
+  }, [loadTrends]);
 
   useOnUndoRedo(loadData);
 
@@ -515,6 +526,7 @@ function BillsContent() {
             accounts={accounts}
             futureTransactions={futureTransactions}
             trendData={trendData}
+            onAccountIdChange={setForecastAccountId}
             isLoading={isLoading}
           />
         </ErrorBoundary>

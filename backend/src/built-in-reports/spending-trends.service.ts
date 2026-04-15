@@ -24,6 +24,8 @@ interface ScheduledRow {
   amount: string;
 }
 
+const TREND_COVERAGE_SUPPRESSION_THRESHOLD = 0.9;
+
 @Injectable()
 export class SpendingTrendsService {
   private readonly logger = new Logger(SpendingTrendsService.name);
@@ -58,10 +60,10 @@ export class SpendingTrendsService {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const windowStart = new Date(currentMonthStart);
     windowStart.setMonth(windowStart.getMonth() - lookbackMonths);
-    const startDate = windowStart.toISOString().split("T")[0];
-    const endDate = new Date(currentMonthStart.getTime() - 1)
-      .toISOString()
-      .split("T")[0]; // last day of prev month
+    const previousMonthEnd = new Date(currentMonthStart);
+    previousMonthEnd.setDate(0);
+    const startDate = this.formatDateKey(windowStart);
+    const endDate = this.formatDateKey(previousMonthEnd);
 
     // Count completed months in window
     const monthsUsed = lookbackMonths;
@@ -71,6 +73,8 @@ export class SpendingTrendsService {
       accountId !== "all" ? "AND t.account_id = $4" : "";
     const scheduledAccountCondition =
       accountId !== "all" ? "AND st.account_id = $2" : "";
+    const antiJoinAccountCondition =
+      accountId !== "all" ? "AND st.account_id = $4" : "";
 
     // Base params for historical query: [userId, startDate, endDate, accountId?]
     const histParams: (string | number)[] = [userId, startDate, endDate];
@@ -82,7 +86,8 @@ export class SpendingTrendsService {
 
     // Step 1+2: Historical monthly average per category
     // with NOT EXISTS anti-join excluding parent transactions that match
-    // a scheduled expense by (payee_id, rounded abs amount).
+    // a split or uncategorized scheduled expense by (payee_id, rounded abs amount).
+    // Unsplit categorized schedules are handled by category fallback below.
     // The NOT EXISTS runs against t.payee_id and t.amount (parent level),
     // so the entire parent transaction (including all splits) is excluded.
     const historicalRows: CategorySpendRow[] =
@@ -113,12 +118,14 @@ export class SpendingTrendsService {
               AND st.user_id = t.user_id
               AND st.is_active = true
               AND st.is_transfer = false
+              AND (st.is_split = true OR st.category_id IS NULL)
               AND st.frequency != 'ONCE'
               AND st.amount < 0
               AND (st.occurrences_remaining IS NULL OR st.occurrences_remaining > 0)
               AND (st.end_date IS NULL OR st.end_date >= CURRENT_DATE)
               AND sa.account_type != 'INVESTMENT'
               AND sa.is_closed = false
+              ${antiJoinAccountCondition}
           )
         GROUP BY COALESCE(ts.category_id, t.category_id)`,
         histParams,
@@ -175,7 +182,14 @@ export class SpendingTrendsService {
 
     for (const [catId, monthlyAvg] of historicalMap) {
       const scheduledMonthly = scheduledMap.get(catId) || 0;
-      const trendFill = Math.max(0, monthlyAvg - scheduledMonthly);
+      const coverageRatio =
+        monthlyAvg > 0 && scheduledMonthly > 0
+          ? scheduledMonthly / monthlyAvg
+          : 0;
+      const trendFill =
+        coverageRatio >= TREND_COVERAGE_SUPPRESSION_THRESHOLD
+          ? 0
+          : Math.max(0, monthlyAvg - scheduledMonthly);
 
       if (trendFill > 0.01) {
         trends.push({
@@ -226,6 +240,13 @@ export class SpendingTrendsService {
       default:
         return 0;
     }
+  }
+
+  private formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   private async getCategoryNames(

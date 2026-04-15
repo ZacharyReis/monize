@@ -34,6 +34,7 @@ interface CashFlowForecastChartProps {
   accounts: Account[];
   futureTransactions?: FutureTransaction[];
   trendData?: TrendData;
+  onAccountIdChange?: (accountId: string) => void;
   isLoading: boolean;
 }
 
@@ -155,6 +156,7 @@ export function CashFlowForecastChart({
   accounts,
   futureTransactions = [],
   trendData,
+  onAccountIdChange,
   isLoading,
 }: CashFlowForecastChartProps) {
   const { formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
@@ -171,7 +173,8 @@ export function CashFlowForecastChart({
   // Persist account changes
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ACCOUNT, selectedAccountId);
-  }, [selectedAccountId]);
+    onAccountIdChange?.(selectedAccountId);
+  }, [onAccountIdChange, selectedAccountId]);
 
   // Persist forecast mode changes
   useEffect(() => {
