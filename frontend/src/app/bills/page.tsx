@@ -33,12 +33,14 @@ import { transactionsApi } from '@/lib/transactions';
 import { categoriesApi } from '@/lib/categories';
 import { buildCategoryColorMap } from '@/lib/categoryUtils';
 import { accountsApi } from '@/lib/accounts';
+import { builtInReportsApi } from '@/lib/built-in-reports';
 import { ScheduledTransaction, ScheduledTransactionOverride } from '@/types/scheduled-transaction';
 import { Category } from '@/types/category';
 import { Account } from '@/types/account';
 import { parseLocalDate } from '@/lib/utils';
-import type { FutureTransaction } from '@/lib/forecast';
+import type { FutureTransaction, TrendData } from '@/lib/forecast';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { Modal } from '@/components/ui/Modal';
 import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
 import { useFormModal } from '@/hooks/useFormModal';
@@ -70,10 +72,12 @@ function BillsContent() {
   const searchParams = useSearchParams();
   const postBillId = searchParams.get('postBillId');
   const { formatCurrency } = useNumberFormat();
+  const preferences = usePreferencesStore((s) => s.preferences);
   const [scheduledTransactions, setScheduledTransactions] = useState<ScheduledTransaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [futureTransactions, setFutureTransactions] = useState<FutureTransaction[]>([]);
+  const [trendData, setTrendData] = useState<TrendData | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const { showForm, editingItem: editingTransaction, openCreate, openEdit, close, isEditing, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<ScheduledTransaction>();
   const [filterType, setFilterType] = useState<'all' | 'bills' | 'deposits'>('all');
@@ -136,9 +140,27 @@ function BillsContent() {
     }
   }, []);
 
+  const loadTrends = useCallback(async () => {
+    try {
+      const data = await builtInReportsApi.getSpendingTrends({
+        lookbackMonths: preferences?.forecastLookbackMonths ?? 3,
+      });
+      setTrendData({
+        trends: data.trends.map(t => ({
+          categoryName: t.categoryName,
+          dailyFill: t.dailyFill,
+        })),
+        totalDailyFill: data.totalDailyFill,
+      });
+    } catch {
+      setTrendData(undefined);
+    }
+  }, [preferences?.forecastLookbackMonths]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadTrends();
+  }, [loadData, loadTrends]);
 
   useOnUndoRedo(loadData);
 
@@ -492,6 +514,7 @@ function BillsContent() {
             scheduledTransactions={scheduledTransactions}
             accounts={accounts}
             futureTransactions={futureTransactions}
+            trendData={trendData}
             isLoading={isLoading}
           />
         </ErrorBoundary>
