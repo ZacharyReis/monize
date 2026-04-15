@@ -224,9 +224,9 @@ describe("SpendingTrendsService", () => {
     expect(historicalSql).toContain("st.is_active = true");
     expect(historicalSql).toContain("st.frequency != 'ONCE'");
 
-    // Fallback query should narrow to payee-less, unsplit, categorized, expenses
+    // Fallback query should narrow to unsplit, categorized, expenses (any payee)
     const fallbackSql = transactionsRepo.query.mock.calls[1][0] as string;
-    expect(fallbackSql).toContain("st.payee_id IS NULL");
+    expect(fallbackSql).not.toContain("st.payee_id IS NULL");
     expect(fallbackSql).toContain("st.is_split = false");
     expect(fallbackSql).toContain("st.category_id IS NOT NULL");
     expect(fallbackSql).toContain("st.amount < 0");
