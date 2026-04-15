@@ -9,6 +9,9 @@ import { ComparisonReportsService } from "./comparison-reports.service";
 import { AnomalyReportsService } from "./anomaly-reports.service";
 import { TaxRecurringReportsService } from "./tax-recurring-reports.service";
 import { DataQualityReportsService } from "./data-quality-reports.service";
+import { ScheduledTransaction } from "../scheduled-transactions/entities/scheduled-transaction.entity";
+import { ScheduledTransactionSplit } from "../scheduled-transactions/entities/scheduled-transaction-split.entity";
+import { SpendingTrendsService } from "./spending-trends.service";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
 import { Category } from "../categories/entities/category.entity";
@@ -29,6 +32,8 @@ import { MonthlyComparisonService } from "./monthly-comparison.service";
       Payee,
       Account,
       UserPreference,
+      ScheduledTransaction,
+      ScheduledTransactionSplit,
     ]),
     CurrenciesModule,
     NetWorthModule,
@@ -45,6 +50,7 @@ import { MonthlyComparisonService } from "./monthly-comparison.service";
     TaxRecurringReportsService,
     DataQualityReportsService,
     MonthlyComparisonService,
+    SpendingTrendsService,
   ],
   exports: [BuiltInReportsService, MonthlyComparisonService],
 })

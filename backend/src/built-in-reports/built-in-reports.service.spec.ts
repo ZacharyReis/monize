@@ -14,6 +14,7 @@ import { AnomalyReportsService } from "./anomaly-reports.service";
 import { TaxRecurringReportsService } from "./tax-recurring-reports.service";
 import { DataQualityReportsService } from "./data-quality-reports.service";
 import { MonthlyComparisonService } from "./monthly-comparison.service";
+import { SpendingTrendsService } from "./spending-trends.service";
 
 describe("BuiltInReportsService", () => {
   let service: BuiltInReportsService;
@@ -150,6 +151,10 @@ describe("BuiltInReportsService", () => {
         {
           provide: MonthlyComparisonService,
           useValue: { getMonthlyComparison: jest.fn() },
+        },
+        {
+          provide: SpendingTrendsService,
+          useValue: { getSpendingTrends: jest.fn() },
         },
       ],
     }).compile();
