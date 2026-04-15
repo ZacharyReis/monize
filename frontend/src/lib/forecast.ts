@@ -371,12 +371,16 @@ export function buildForecast(
         const daysSinceLastEmit = lastAddedTime === null
           ? 1
           : Math.max(1, Math.floor((currentTime - lastAddedTime) / (1000 * 60 * 60 * 24)));
-        pointTransactions.push({
-          name: 'Projected spending',
-          amount: -(trendData.totalDailyFill * daysSinceLastEmit),
-          scheduledTransactionId: 'trend',
-          isTrend: true,
-        });
+        for (const trend of trendData.trends) {
+          if (trend.dailyFill > 0) {
+            pointTransactions.push({
+              name: trend.categoryName,
+              amount: -(trend.dailyFill * daysSinceLastEmit),
+              scheduledTransactionId: 'trend',
+              isTrend: true,
+            });
+          }
+        }
       }
 
       dataPoints.push({
