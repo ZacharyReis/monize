@@ -107,6 +107,13 @@ vi.mock('@/lib/transactions', () => ({
   },
 }));
 
+const mockGetSpendingTrends = vi.fn();
+vi.mock('@/lib/built-in-reports', () => ({
+  builtInReportsApi: {
+    getSpendingTrends: (...args: any[]) => mockGetSpendingTrends(...args),
+  },
+}));
+
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: (val: number) => `$${Math.abs(val).toFixed(2)}`,
@@ -175,7 +182,14 @@ vi.mock('@/components/ui/ErrorBoundary', () => ({
 }));
 
 vi.mock('@/components/bills/CashFlowForecastChart', () => ({
-  CashFlowForecastChart: () => <div data-testid="cash-flow-chart">CashFlowForecastChart</div>,
+  CashFlowForecastChart: ({ onAccountIdChange }: any) => (
+    <button
+      data-testid="cash-flow-chart"
+      onClick={() => onAccountIdChange?.('acc-2')}
+    >
+      CashFlowForecastChart
+    </button>
+  ),
 }));
 
 vi.mock('@/components/scheduled-transactions/ScheduledTransactionForm', () => ({
@@ -236,11 +250,13 @@ const mockScheduledTransactions = [
 describe('BillsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     vi.useFakeTimers({ now, shouldAdvanceTime: true });
     mockGetAll.mockResolvedValue(mockScheduledTransactions);
     mockGetAllCategories.mockResolvedValue([]);
     mockGetAllAccounts.mockResolvedValue([]);
     mockGetAllTransactions.mockResolvedValue({ data: [], total: 0 });
+    mockGetSpendingTrends.mockResolvedValue({ trends: [], totalDailyFill: 0 });
     mockHasOverrides.mockResolvedValue({ hasOverrides: false, count: 0 });
     mockGetOverrides.mockResolvedValue([]);
     mockDeleteAllOverrides.mockResolvedValue(undefined);
@@ -277,6 +293,26 @@ describe('BillsPage', () => {
       render(<BillsPage />);
       await waitFor(() => {
         expect(screen.getByTestId('cash-flow-chart')).toBeInTheDocument();
+      });
+    });
+
+    it('fetches trend data for the selected forecast account', async () => {
+      render(<BillsPage />);
+
+      await waitFor(() => {
+        expect(mockGetSpendingTrends).toHaveBeenCalledWith({
+          lookbackMonths: 3,
+          accountId: 'all',
+        });
+      });
+
+      fireEvent.click(screen.getByTestId('cash-flow-chart'));
+
+      await waitFor(() => {
+        expect(mockGetSpendingTrends).toHaveBeenLastCalledWith({
+          lookbackMonths: 3,
+          accountId: 'acc-2',
+        });
       });
     });
   });

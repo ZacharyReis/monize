@@ -65,6 +65,7 @@ const makeAccount = (overrides: Record<string, any> = {}) => ({
 describe('CashFlowForecastChart', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mockBuildForecast.mockReturnValue([]);
     mockGetForecastSummary.mockReturnValue({
       startingBalance: 1000,
@@ -236,6 +237,26 @@ describe('CashFlowForecastChart', () => {
     expect(screen.queryByText('House')).not.toBeInTheDocument();
   });
 
+  it('notifies parent when account selector changes', () => {
+    const accounts = [
+      makeAccount({ id: 'a1', name: 'Checking' }),
+      makeAccount({ id: 'a2', name: 'Savings', accountType: 'SAVINGS' }),
+    ];
+    const onAccountIdChange = vi.fn();
+
+    render(
+      <CashFlowForecastChart
+        scheduledTransactions={[]}
+        accounts={accounts}
+        onAccountIdChange={onAccountIdChange}
+        isLoading={false}
+      />
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'a2' } });
+    expect(onAccountIdChange).toHaveBeenLastCalledWith('a2');
+  });
+
   it('passes futureTransactions to buildForecast', () => {
     const accounts = [makeAccount()];
     const futureTransactions = [
@@ -258,6 +279,7 @@ describe('CashFlowForecastChart', () => {
       expect.anything(),
       futureTransactions,
       undefined, // no conversion needed for single-currency
+      undefined,
     );
   });
 
@@ -275,6 +297,7 @@ describe('CashFlowForecastChart', () => {
       expect.anything(),
       [],
       undefined, // no conversion needed for single-currency
+      undefined,
     );
   });
 
@@ -354,6 +377,7 @@ describe('CashFlowForecastChart', () => {
         expect.anything(),
         expect.anything(),
         mockConvertToDefault,
+        undefined,
       );
     });
 
@@ -374,6 +398,7 @@ describe('CashFlowForecastChart', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
+        undefined,
         undefined,
       );
     });
