@@ -77,6 +77,15 @@ const RECENT_TRANSACTIONS_LIMIT_OPTIONS = [
   { value: '20', label: '20' },
 ];
 
+const LOOKBACK_OPTIONS = [
+  { value: '1', label: '1 month' },
+  { value: '2', label: '2 months' },
+  { value: '3', label: '3 months' },
+  { value: '6', label: '6 months' },
+  { value: '9', label: '9 months' },
+  { value: '12', label: '12 months' },
+];
+
 interface PreferencesSectionProps {
   preferences: UserPreferences;
   onPreferencesUpdated: (prefs: UserPreferences) => void;
@@ -102,6 +111,9 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
   );
   const [recentTransactionsLimit, setRecentTransactionsLimit] = useState(
     preferences.recentTransactionsLimit ?? 5,
+  );
+  const [forecastLookbackMonths, setForecastLookbackMonths] = useState(
+    preferences.forecastLookbackMonths ?? 3,
   );
   const [isUpdatingPreferences, setIsUpdatingPreferences] = useState(false);
 
@@ -141,6 +153,7 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
         preferredExchanges: preferredExchanges.filter(Boolean),
         defaultQuoteProvider,
         recentTransactionsLimit,
+        forecastLookbackMonths,
       };
 
       const updated = await userSettingsApi.updatePreferences(data);
@@ -303,6 +316,20 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Number of entries shown in the history button popover next to the Payee field on transaction forms.
+          </p>
+        </div>
+
+        {/* Cash Flow Forecast */}
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Cash Flow Forecast</h3>
+          <Select
+            label="Trend Lookback Period"
+            options={LOOKBACK_OPTIONS}
+            value={String(forecastLookbackMonths)}
+            onChange={(e) => setForecastLookbackMonths(Number(e.target.value))}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            How many months of spending history to use when projecting discretionary spending trends in the cash flow forecast.
           </p>
         </div>
       </div>
