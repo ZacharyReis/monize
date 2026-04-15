@@ -268,3 +268,22 @@ export interface DuplicateTransactionsResponse {
     potentialSavings: number;
   };
 }
+
+// Cash Flow Trend Projection
+export interface SpendingTrendItem {
+  categoryId: string | null;
+  categoryName: string;
+  monthlyAverage: number;
+  scheduledMonthly: number;
+  trendFill: number;
+  dailyFill: number;
+}
+
+export interface SpendingTrendsResponse {
+  trends: SpendingTrendItem[];
+  totalMonthlyFill: number;
+  totalDailyFill: number;
+  lookbackMonths: number;
+  monthsUsed: number;
+  currencyCode: string;
+}
