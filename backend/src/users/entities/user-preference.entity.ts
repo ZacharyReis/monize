@@ -77,6 +77,9 @@ export class UserPreference {
   })
   preferredExchanges: string[];
 
+  @Column({ name: "forecast_lookback_months", type: "smallint", default: 3 })
+  forecastLookbackMonths: number;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
 

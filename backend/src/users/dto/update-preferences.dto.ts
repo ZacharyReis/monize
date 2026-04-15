@@ -140,4 +140,13 @@ export class UpdatePreferencesDto {
   @MaxLength(20, { each: true })
   @ArrayMaxSize(3)
   preferredExchanges?: string[];
+
+  @ApiPropertyOptional({
+    description: "Number of months of spending history for cash flow trend projection",
+    example: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2, 3, 6, 9, 12])
+  forecastLookbackMonths?: number;
 }
