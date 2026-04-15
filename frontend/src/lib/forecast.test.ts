@@ -8,6 +8,7 @@ import {
   FORECAST_PERIOD_DAYS,
   FORECAST_PERIOD_LABELS,
   FutureTransaction,
+  TrendData,
 } from './forecast';
 
 vi.mock('@/lib/utils', () => ({
@@ -86,6 +87,83 @@ describe('buildForecast', () => {
     const result = buildForecast(accounts, [], 'week', 'all');
     expect(result.length).toBeGreaterThan(0);
     expect(result[0].balance).toBe(1000);
+  });
+
+  it('applies projection events on their exact dates instead of using daily drip', () => {
+    const accounts = [makeAccount({ currentBalance: 1000 })];
+    const trendData: TrendData = {
+      trends: [{ categoryName: 'Groceries', dailyFill: 10 }],
+      totalDailyFill: 10,
+      projectionEvents: [
+        {
+          date: '2025-01-20',
+          categoryName: 'Groceries',
+          categoryId: 'cat-food',
+          amount: -100,
+          confidence: 'medium',
+        },
+      ],
+    };
+
+    const result = buildForecast(accounts, [], 'week', 'all', [], undefined, trendData);
+    expect(result[0].balance).toBe(1000);
+
+    const eventDay = result.find(dp => dp.date === '2025-01-20');
+    expect(eventDay?.balance).toBe(900);
+    expect(eventDay?.transactions).toEqual([
+      expect.objectContaining({
+        name: 'Groceries',
+        amount: -100,
+        isTrend: true,
+      }),
+    ]);
+  });
+
+  it('combines same-day projection events with the same displayed category name', () => {
+    const accounts = [makeAccount({ currentBalance: 1000 })];
+    const trendData: TrendData = {
+      trends: [],
+      totalDailyFill: 0,
+      projectionEvents: [
+        {
+          date: '2025-01-20',
+          categoryName: 'Dining Out',
+          categoryId: 'cat-dining-a',
+          amount: -45,
+          confidence: 'medium',
+        },
+        {
+          date: '2025-01-20',
+          categoryName: 'Dining Out',
+          categoryId: 'cat-dining-b',
+          amount: -55,
+          confidence: 'medium',
+        },
+      ],
+    };
+
+    const result = buildForecast(accounts, [], 'week', 'all', [], undefined, trendData);
+    const eventDay = result.find(dp => dp.date === '2025-01-20');
+
+    expect(eventDay?.balance).toBe(900);
+    expect(eventDay?.transactions.filter(tx => tx.isTrend)).toEqual([
+      expect.objectContaining({
+        name: 'Dining Out',
+        amount: -100,
+        isTrend: true,
+      }),
+    ]);
+  });
+
+  it('falls back to legacy daily trend drip when no projection events are provided', () => {
+    const accounts = [makeAccount({ currentBalance: 1000 })];
+    const trendData: TrendData = {
+      trends: [{ categoryName: 'Groceries', dailyFill: 10 }],
+      totalDailyFill: 10,
+    };
+
+    const result = buildForecast(accounts, [], 'week', 'all', [], undefined, trendData);
+    expect(result[0].balance).toBe(990);
   });
 
   it('applies scheduled transaction amounts to balance', () => {

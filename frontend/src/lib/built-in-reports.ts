@@ -170,7 +170,7 @@ export const builtInReportsApi = {
   },
 
   getSpendingTrends: async (
-    params: { lookbackMonths?: number; accountId?: string },
+    params: { lookbackMonths?: number; accountId?: string; forecastDays?: number },
   ): Promise<SpendingTrendsResponse> => {
     const response = await apiClient.get<SpendingTrendsResponse>(
       '/built-in-reports/spending-trends',

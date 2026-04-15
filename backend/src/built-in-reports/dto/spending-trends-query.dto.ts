@@ -22,4 +22,16 @@ export class SpendingTrendsQueryDto {
   @IsOptional()
   @IsString()
   accountId?: string = "all";
+
+  @ApiPropertyOptional({
+    description:
+      "Number of future days to generate dated projection events for",
+    example: 365,
+    default: 365,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @IsIn([7, 30, 90, 180, 365])
+  forecastDays?: number = 365;
 }
