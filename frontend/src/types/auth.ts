@@ -101,6 +101,7 @@ export interface UserPreferences {
   preferredExchanges: string[];
   defaultQuoteProvider: 'yahoo' | 'msn';
   recentTransactionsLimit: number;
+  forecastLookbackMonths: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -159,6 +160,7 @@ export interface UpdatePreferencesData {
   preferredExchanges?: string[];
   defaultQuoteProvider?: 'yahoo' | 'msn';
   recentTransactionsLimit?: number;
+  forecastLookbackMonths?: number;
 }
 
 export interface ChangePasswordData {

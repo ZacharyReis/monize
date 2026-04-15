@@ -83,8 +83,9 @@ const mockPreferences: UserPreferences = {
   timeFormat: '24h',
   favouriteReportIds: [],
   preferredExchanges: [],
-    defaultQuoteProvider: 'yahoo' as const,
-    recentTransactionsLimit: 5,
+  defaultQuoteProvider: 'yahoo' as const,
+  recentTransactionsLimit: 5,
+  forecastLookbackMonths: 3,
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
 };
