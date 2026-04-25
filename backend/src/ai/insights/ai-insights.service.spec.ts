@@ -359,16 +359,14 @@ describe("AiInsightsService", () => {
       expect(result.insights).toEqual([]);
     });
 
-    it("rejects ambiguous response with multiple JSON arrays (LLM02-F1)", async () => {
+    it("uses non-greedy regex to extract first JSON array only (LLM02-F1)", async () => {
       const qb = mockQb();
       qb.getOne.mockResolvedValue(null);
       qb.getMany.mockResolvedValue([]);
       qb.getRawOne.mockResolvedValue(null);
       mockInsightRepo.createQueryBuilder.mockReturnValue(qb);
 
-      // Two JSON arrays in the response — spanning first [ to last ]
-      // produces invalid JSON, so nothing is saved (more secure than
-      // silently picking the first array).
+      // Two JSON arrays in the response - only the first should be parsed
       const firstArray = JSON.stringify([
         {
           type: "anomaly",
@@ -397,8 +395,11 @@ describe("AiInsightsService", () => {
 
       await service.generateInsights(userId);
 
-      // Two separate arrays can't be parsed as one — save is not called
-      expect(mockInsightRepo.save).not.toHaveBeenCalled();
+      const savedInsights = mockInsightRepo.save.mock.calls[0]?.[0];
+      if (savedInsights) {
+        expect(savedInsights).toHaveLength(1);
+        expect(savedInsights[0].title).toBe("First Insight");
+      }
     });
 
     it("handles nested arrays in data objects without truncation", async () => {
