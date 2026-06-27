@@ -1,27 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { budgetsApi } from '@/lib/budgets';
-import type { Budget, HealthScoreResult } from '@/types/budget';
 import { BudgetHealthGauge } from '@/components/budgets/BudgetHealthGauge';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportError } from '@/components/reports/ReportError';
 import { SortableHeader } from '@/components/ui/SortableHeader';
+import { useTranslations } from 'next-intl';
+import { useReportData } from '@/hooks/useReportData';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('BudgetHealthScoreReport');
 
 function getImpactColor(impact: number): string {
   if (impact > 0) return 'text-green-600 dark:text-green-400';
   if (impact < 0) return 'text-red-600 dark:text-red-400';
   return 'text-gray-500 dark:text-gray-400';
-}
-
-function getGroupLabel(group: string | null): string {
-  if (group === 'NEED') return 'Need';
-  if (group === 'WANT') return 'Want';
-  if (group === 'SAVING') return 'Saving';
-  return 'Uncategorized';
 }
 
 function getGroupColor(group: string | null): string {
@@ -34,15 +27,57 @@ function getGroupColor(group: string | null): string {
 type CategoryImpactSortField = 'category' | 'group' | 'percentUsed' | 'impact';
 
 export function BudgetHealthScoreReport() {
+  const t = useTranslations('reports');
   const chartRef = useRef<HTMLDivElement>(null);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
-  const [healthScore, setHealthScore] = useState<HealthScoreResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const getGroupLabel = (group: string | null): string => {
+    if (group === 'NEED') return t('budgetHealthScore.groupNeed');
+    if (group === 'WANT') return t('budgetHealthScore.groupWant');
+    if (group === 'SAVING') return t('budgetHealthScore.groupSaving');
+    return t('budgetHealthScore.groupUncategorized');
+  };
+  const [selectedBudgetIdState, setSelectedBudgetId] = useState<string>('');
   const { sortField, sortDirection, handleSort } = useSortableTable<CategoryImpactSortField>(
     'reports.budget-health-score.categoryImpact.sort',
     { field: 'impact', direction: 'asc' },
   );
+
+  const {
+    data: budgetsData,
+    isLoading: budgetsLoading,
+    error: budgetsError,
+    reload: reloadBudgets,
+  } = useReportData(() => budgetsApi.getAll(), []);
+
+  const budgets = useMemo(() => budgetsData ?? [], [budgetsData]);
+
+  // Auto-select the active budget (or first) until the user picks one. Derived
+  // during render rather than via setState-in-effect.
+  const autoSelectedBudgetId = useMemo(() => {
+    const active = budgets.find((b) => b.isActive);
+    return active?.id ?? budgets[0]?.id ?? '';
+  }, [budgets]);
+  const selectedBudgetId = selectedBudgetIdState || autoSelectedBudgetId;
+
+  const {
+    data: healthScore,
+    isLoading: scoreLoading,
+    error: scoreError,
+    reload: reloadScore,
+  } = useReportData(
+    () =>
+      selectedBudgetId
+        ? budgetsApi.getHealthScore(selectedBudgetId)
+        : Promise.resolve(null),
+    [selectedBudgetId],
+  );
+
+  const isLoading = budgetsLoading || scoreLoading;
+  const error = budgetsError || scoreError;
+  const reload = () => {
+    reloadBudgets();
+    reloadScore();
+  };
 
   const sortedCategoryScores = useMemo(() => {
     if (!healthScore) return [];
@@ -67,47 +102,9 @@ export function BudgetHealthScoreReport() {
     return sorted;
   }, [healthScore, sortField, sortDirection]);
 
-  useEffect(() => {
-    const loadBudgets = async () => {
-      try {
-        const data = await budgetsApi.getAll();
-        setBudgets(data);
-        const active = data.find((b) => b.isActive);
-        if (active) {
-          setSelectedBudgetId(active.id);
-        } else if (data.length > 0) {
-          setSelectedBudgetId(data[0].id);
-        }
-      } catch (error) {
-        logger.error('Failed to load budgets:', error);
-      }
-    };
-    loadBudgets();
-  }, []);
-
-  const loadHealthScore = useCallback(async () => {
-    if (!selectedBudgetId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const result = await budgetsApi.getHealthScore(selectedBudgetId);
-      setHealthScore(result);
-    } catch (error) {
-      logger.error('Failed to load health score:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBudgetId]);
-
-  useEffect(() => {
-    loadHealthScore();
-  }, [loadHealthScore]);
-
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Category', 'Group', '% Used', 'Score Impact'];
+    const headers = [t('budgetHealthScore.colCategory'), t('budgetHealthScore.colGroup'), t('budgetHealthScore.colPercentUsed'), t('budgetHealthScore.colScoreImpact')];
     const rows = healthScore
       ? healthScore.categoryScores
           .sort((a, b) => a.impact - b.impact)
@@ -122,23 +119,23 @@ export function BudgetHealthScoreReport() {
       ? healthScore.score >= 80 ? '#16a34a' : healthScore.score >= 60 ? '#ca8a04' : '#dc2626'
       : '#111827';
     await exportToPdf({
-      title: 'Budget Health Score',
+      title: t('budgetHealthScore.pdfTitle'),
       summaryCards: healthScore ? [
-        { label: 'Health Score', value: `${healthScore.score}/100`, color: scoreColor },
+        { label: t('budgetHealthScore.finalScore'), value: `${healthScore.score}/100`, color: scoreColor },
       ] : undefined,
       tableData: healthScore ? {
-        headers: ['Component', 'Value'],
+        headers: [t('budgetHealthScore.colCategory'), t('budgetHealthScore.colScoreImpact')],
         rows: [
-          ['Base Score', String(healthScore.breakdown.baseScore)],
-          ['Over-Budget Deductions', `-${healthScore.breakdown.overBudgetDeductions}`],
-          ['Essential Category Penalty', `-${healthScore.breakdown.essentialWeightPenalty}`],
-          ['Under-Budget Bonus', `+${healthScore.breakdown.underBudgetBonus}`],
-          ['Improving Trend Bonus', `+${healthScore.breakdown.trendBonus}`],
-          ['Final Score', String(healthScore.score)],
+          [t('budgetHealthScore.baseScore'), String(healthScore.breakdown.baseScore)],
+          [t('budgetHealthScore.overBudgetDeductions'), `-${healthScore.breakdown.overBudgetDeductions}`],
+          [t('budgetHealthScore.essentialPenalty'), `-${healthScore.breakdown.essentialWeightPenalty}`],
+          [t('budgetHealthScore.underBudgetBonus'), `+${healthScore.breakdown.underBudgetBonus}`],
+          [t('budgetHealthScore.improvingBonus'), `+${healthScore.breakdown.trendBonus}`],
+          [t('budgetHealthScore.finalScore'), String(healthScore.score)],
         ],
       } : undefined,
       additionalTables: rows.length > 0 ? [{
-        title: 'Category Impact',
+        title: t('budgetHealthScore.categoryImpact'),
         headers,
         rows,
       }] : undefined,
@@ -146,13 +143,17 @@ export function BudgetHealthScoreReport() {
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
           <div className="h-40 w-40 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto" />
-          <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </div>
     );
@@ -162,7 +163,7 @@ export function BudgetHealthScoreReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No budgets found. Create a budget to see your health score.
+          {t('budgetHealthScore.noBudgets')}
         </p>
       </div>
     );
@@ -197,41 +198,41 @@ export function BudgetHealthScoreReport() {
             {/* Score Breakdown */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                Score Breakdown
+                {t('budgetHealthScore.scoreBreakdown')}
               </h2>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Base Score</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('budgetHealthScore.baseScore')}</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">
                     {healthScore.breakdown.baseScore}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Over-Budget Deductions</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('budgetHealthScore.overBudgetDeductions')}</span>
                   <span className="font-medium text-red-600 dark:text-red-400">
                     -{healthScore.breakdown.overBudgetDeductions}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Essential Category Penalty</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('budgetHealthScore.essentialPenalty')}</span>
                   <span className="font-medium text-red-600 dark:text-red-400">
                     -{healthScore.breakdown.essentialWeightPenalty}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Under-Budget Bonus</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('budgetHealthScore.underBudgetBonus')}</span>
                   <span className="font-medium text-green-600 dark:text-green-400">
                     +{healthScore.breakdown.underBudgetBonus}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Improving Trend Bonus</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('budgetHealthScore.improvingBonus')}</span>
                   <span className="font-medium text-green-600 dark:text-green-400">
                     +{healthScore.breakdown.trendBonus}
                   </span>
                 </div>
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between text-sm font-semibold">
-                  <span className="text-gray-900 dark:text-gray-100">Final Score</span>
+                  <span className="text-gray-900 dark:text-gray-100">{t('budgetHealthScore.finalScore')}</span>
                   <span className="text-gray-900 dark:text-gray-100">{healthScore.score}</span>
                 </div>
               </div>
@@ -241,11 +242,11 @@ export function BudgetHealthScoreReport() {
           {/* Per-Category Impact */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Category Impact
+              {t('budgetHealthScore.categoryImpact')}
             </h2>
             {healthScore.categoryScores.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                No categories to evaluate.
+                {t('budgetHealthScore.noCategories')}
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -259,7 +260,7 @@ export function BudgetHealthScoreReport() {
                         onSort={handleSort}
                         className="py-2 pr-4 text-left font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Category
+                        {t('budgetHealthScore.colCategory')}
                       </SortableHeader>
                       <SortableHeader<CategoryImpactSortField>
                         field="group"
@@ -268,7 +269,7 @@ export function BudgetHealthScoreReport() {
                         onSort={handleSort}
                         className="py-2 pr-4 text-left font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Group
+                        {t('budgetHealthScore.colGroup')}
                       </SortableHeader>
                       <SortableHeader<CategoryImpactSortField>
                         field="percentUsed"
@@ -278,7 +279,7 @@ export function BudgetHealthScoreReport() {
                         align="right"
                         className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        % Used
+                        {t('budgetHealthScore.colPercentUsed')}
                       </SortableHeader>
                       <SortableHeader<CategoryImpactSortField>
                         field="impact"
@@ -288,7 +289,7 @@ export function BudgetHealthScoreReport() {
                         align="right"
                         className="py-2 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Score Impact
+                        {t('budgetHealthScore.colScoreImpact')}
                       </SortableHeader>
                     </tr>
                   </thead>

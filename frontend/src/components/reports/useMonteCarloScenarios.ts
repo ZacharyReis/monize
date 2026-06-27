@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import {
   monteCarloApi,
@@ -149,6 +150,7 @@ export const inputsFromForm = (f: FormState): MonteCarloScenarioInputs => {
 };
 
 export function useMonteCarloScenarios() {
+  const t = useTranslations('reports');
   const [accounts, setAccounts] = useState<BrokerageAccount[]>([]);
   const [scenarios, setScenarios] = useState<MonteCarloScenario[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => {
@@ -221,13 +223,13 @@ export function useMonteCarloScenarios() {
         }
       } catch (err) {
         logger.error('Failed to load Monte Carlo data:', err);
-        showErrorToast(err, 'Failed to load Monte Carlo data. Please refresh.');
+        showErrorToast(err, t('monteCarlo.toasts.loadFailed'));
       } finally {
         setIsLoading(false);
       }
     };
     load();
-  }, []);
+  }, [t]);
 
   // Auto-populate the starting value when "Use current balance" is on. Refetches
   // when the selected accounts change so the displayed value matches what the
@@ -258,12 +260,12 @@ export function useMonteCarloScenarios() {
       })
       .catch((err) => {
         logger.error('Failed to fetch current balance:', err);
-        showErrorToast(err, 'Failed to fetch the current portfolio value.');
+        showErrorToast(err, t('monteCarlo.toasts.currentValueFailed'));
       });
     return () => {
       cancelled = true;
     };
-  }, [form.useCurrentBalance, form.accountIds]);
+  }, [form.useCurrentBalance, form.accountIds, t]);
 
   const updateField = useCallback(
     <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -332,16 +334,16 @@ export function useMonteCarloScenarios() {
       return true;
     } catch (err) {
       logger.error('Simulation failed:', err);
-      showErrorToast(err, 'Simulation failed. Check inputs and try again.');
+      showErrorToast(err, t('monteCarlo.toasts.simulationFailed'));
       return false;
     } finally {
       setIsRunning(false);
     }
-  }, [form]);
+  }, [form, t]);
 
   const save = useCallback(async () => {
     if (!form.name.trim()) {
-      toast.error('Please enter a scenario name to save.');
+      toast.error(t('monteCarlo.toasts.scenarioNameRequired'));
       return;
     }
     try {
@@ -356,21 +358,21 @@ export function useMonteCarloScenarios() {
         setScenarios((prev) =>
           prev.map((s) => (s.id === updated.id ? updated : s)),
         );
-        toast.success('Scenario saved.');
+        toast.success(t('monteCarlo.toasts.saved'));
       } else {
         const created = await monteCarloApi.create(payload);
         setScenarios((prev) => [created, ...prev]);
         setActiveId(created.id);
-        toast.success('Scenario created.');
+        toast.success(t('monteCarlo.toasts.created'));
       }
       // Flash the Save button green for ~2s as inline confirmation.
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 2000);
     } catch (err) {
       logger.error('Save failed:', err);
-      showErrorToast(err, 'Could not save scenario.');
+      showErrorToast(err, t('monteCarlo.toasts.saveFailed'));
     }
-  }, [activeId, form]);
+  }, [activeId, form, t]);
 
   const openSaveAsDialog = useCallback(() => {
     setShowSaveAsDialog(true);
@@ -388,13 +390,13 @@ export function useMonteCarloScenarios() {
         setScenarios((prev) => [created, ...prev]);
         setActiveId(created.id);
         setForm((prev) => ({ ...prev, name: newName }));
-        toast.success('Saved as new scenario.');
+        toast.success(t('monteCarlo.toasts.savedAsNew'));
       } catch (err) {
         logger.error('Save as failed:', err);
-        showErrorToast(err, 'Could not save as new scenario.');
+        showErrorToast(err, t('monteCarlo.toasts.saveAsFailed'));
       }
     },
-    [form],
+    [form, t],
   );
 
   const handleSaveAsSubmit = useCallback(
@@ -429,15 +431,15 @@ export function useMonteCarloScenarios() {
         prev.map((s) => (s.id === updated.id ? updated : s)),
       );
       setForm((prev) => ({ ...prev, name: pendingOverwriteName }));
-      toast.success('Scenario overwritten.');
+      toast.success(t('monteCarlo.toasts.overwritten'));
     } catch (err) {
       logger.error('Overwrite failed:', err);
-      showErrorToast(err, 'Could not overwrite scenario.');
+      showErrorToast(err, t('monteCarlo.toasts.overwriteFailed'));
     } finally {
       setPendingOverwriteName(null);
       setShowSaveAsDialog(false);
     }
-  }, [activeId, pendingOverwriteName, form]);
+  }, [activeId, pendingOverwriteName, form, t]);
 
   const cancelOverwrite = useCallback(() => {
     setPendingOverwriteName(null);
@@ -458,14 +460,14 @@ export function useMonteCarloScenarios() {
       clearCachedResult(activeId);
       setScenarios((prev) => prev.filter((s) => s.id !== activeId));
       newScenario();
-      toast.success('Scenario deleted.');
+      toast.success(t('monteCarlo.toasts.deleted'));
     } catch (err) {
       logger.error('Delete failed:', err);
-      showErrorToast(err, 'Could not delete scenario.');
+      showErrorToast(err, t('monteCarlo.toasts.deleteFailed'));
     } finally {
       setShowDeleteConfirm(false);
     }
-  }, [activeId, newScenario]);
+  }, [activeId, newScenario, t]);
 
   const cancelDelete = useCallback(() => {
     setShowDeleteConfirm(false);
@@ -486,13 +488,15 @@ export function useMonteCarloScenarios() {
         return next;
       }
       if (next.size >= MAX_COMPARE_SCENARIOS) {
-        toast.error(`You can compare up to ${MAX_COMPARE_SCENARIOS} scenarios.`);
+        toast.error(
+          t('monteCarlo.toasts.maxCompare', { max: MAX_COMPARE_SCENARIOS }),
+        );
         return prev;
       }
       next.add(id);
       return next;
     });
-  }, []);
+  }, [t]);
 
   const clearCompareSelection = useCallback(() => {
     setSelectedForCompare(new Set());
@@ -520,11 +524,11 @@ export function useMonteCarloScenarios() {
         await monteCarloApi.reorder(orderedIds);
       } catch (err) {
         logger.error('Reorder failed:', err);
-        showErrorToast(err, 'Could not reorder scenarios.');
+        showErrorToast(err, t('monteCarlo.toasts.reorderFailed'));
         setScenarios(snapshot);
       }
     },
-    [],
+    [t],
   );
 
   return {

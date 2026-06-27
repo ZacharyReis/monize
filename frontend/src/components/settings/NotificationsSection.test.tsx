@@ -27,6 +27,7 @@ const mockPreferences: UserPreferences = {
   numberFormat: 'en-US',
   timezone: 'UTC',
   theme: 'system',
+  colorTheme: 'default',
   defaultCurrency: 'CAD',
   notificationEmail: false,
   notificationBrowser: false,
@@ -42,6 +43,8 @@ const mockPreferences: UserPreferences = {
   defaultQuoteProvider: 'yahoo' as const,
   recentTransactionsLimit: 5,
   forecastLookbackMonths: 3,
+  aiBubbleEnabled: false,
+  language: 'en',
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
 };

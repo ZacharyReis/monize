@@ -18,12 +18,12 @@ import {
   TimeframeType,
   GroupByType,
   TIMEFRAME_LABELS,
-  VIEW_TYPE_LABELS,
 } from '@/types/custom-report';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('CustomReportViewer');
 
@@ -32,6 +32,7 @@ interface CustomReportViewerProps {
 }
 
 export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
   const { formatDate } = useDateFormat();
@@ -48,10 +49,10 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
       const reportData = await customReportsApi.getById(reportId);
       setReport(reportData);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load report'));
+      toast.error(getErrorMessage(error, t('customReportViewer.toasts.loadFailed')));
       logger.error(error);
     }
-  }, [reportId]);
+  }, [reportId, t]);
 
   const executeReport = useCallback(async () => {
     if (!report) return;
@@ -74,12 +75,12 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
       const resultData = await customReportsApi.execute(reportId, params);
       setResult(resultData);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to execute report'));
+      toast.error(getErrorMessage(error, t('customReportViewer.toasts.executeFailed')));
       logger.error(error);
     } finally {
       setIsExecuting(false);
     }
-  }, [reportId, report, overrideTimeframe, customStartDate, customEndDate]);
+  }, [reportId, report, overrideTimeframe, customStartDate, customEndDate, t]);
 
   useEffect(() => {
     const init = async () => {
@@ -123,8 +124,8 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
   };
 
   const timeframeOptions = [
-    { value: '', label: 'Use saved timeframe' },
-    ...Object.entries(TIMEFRAME_LABELS).map(([value, label]) => ({ value, label })),
+    { value: '', label: t('customReportViewer.useSavedTimeframe') },
+    ...Object.keys(TIMEFRAME_LABELS).map((value) => ({ value, label: t(`customReportLabels.timeframe.${value}`) })),
   ];
 
   // Mirror ReportChart's colour assignment so legend swatches match chart slices/bars.
@@ -148,9 +149,9 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
   if (!report) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Report not found</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('customReportViewer.notFound')}</p>
         <Button variant="outline" onClick={() => router.push('/reports')} className="mt-4">
-          Back to Reports
+          {t('customReportViewer.backToReports')}
         </Button>
       </div>
     );
@@ -162,18 +163,18 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
         title={report.name}
         subtitle={report.description ?? undefined}
         actions={
-          <>
+          <div className="flex items-center gap-3 w-full justify-between sm:w-auto sm:justify-end">
+            <Link href="/reports" className="order-1 sm:order-2">
+              <Button variant="outline">{t('customReportViewer.backToReports')}</Button>
+            </Link>
             <Button
               variant="outline"
-              className="shrink-0"
+              className="shrink-0 order-2 sm:order-1"
               onClick={() => router.push(`/reports/custom/${reportId}/edit`)}
             >
               Edit
             </Button>
-            <Link href="/reports">
-              <Button variant="outline">Back to Reports</Button>
-            </Link>
-          </>
+          </div>
         }
       />
 
@@ -182,7 +183,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
         <div className="flex flex-wrap items-end gap-4">
             <div className="w-64">
               <Select
-                label="Timeframe"
+                label={t('customReportViewer.labelTimeframe')}
                 options={timeframeOptions}
                 value={overrideTimeframe}
                 onChange={(e) => setOverrideTimeframe(e.target.value as TimeframeType | '')}
@@ -191,13 +192,13 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
             {overrideTimeframe === TimeframeType.CUSTOM && (
               <>
                 <DateInput
-                  label="Start Date"
+                  label={t('customReportViewer.labelStartDate')}
                   value={customStartDate}
                   onDateChange={(date) => setCustomStartDate(date)}
                   onChange={(e) => setCustomStartDate(e.target.value)}
                 />
                 <DateInput
-                  label="End Date"
+                  label={t('customReportViewer.labelEndDate')}
                   value={customEndDate}
                   onDateChange={(date) => setCustomEndDate(date)}
                   onChange={(e) => setCustomEndDate(e.target.value)}
@@ -207,7 +208,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
             {isExecuting && (
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span>Updating...</span>
+                <span>{t('customReportViewer.updating')}</span>
               </div>
             )}
           </div>
@@ -218,7 +219,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-500 dark:text-gray-400">Generating report...</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('customReportViewer.generating')}</p>
           </div>
         </div>
       ) : result ? (
@@ -236,7 +237,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
               </span>
               <span className="mx-2 text-gray-300 dark:text-gray-600">|</span>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {VIEW_TYPE_LABELS[result.viewType as ReportViewType]}
+                {t(`customReportLabels.viewType.${result.viewType}`)}
               </span>
             </div>
             <div className="text-right">
@@ -244,7 +245,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
                 {formatCurrency(result.summary.total)}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {result.summary.count} transactions
+                {t('customReportViewer.transactionCount', { count: result.summary.count })}
               </div>
             </div>
           </div>
@@ -262,7 +263,7 @@ export function CustomReportViewer({ reportId }: CustomReportViewerProps) {
             />
           ) : (
             <div className="py-12 text-center text-gray-500 dark:text-gray-400">
-              No data found for the selected criteria
+              {t('customReportViewer.noData')}
             </div>
           )}
 

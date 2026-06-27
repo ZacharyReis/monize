@@ -48,6 +48,7 @@ describe("AiQueryController", () => {
         "user-1",
         "How much did I spend in January?",
         undefined,
+        undefined,
       );
     });
 
@@ -59,6 +60,7 @@ describe("AiQueryController", () => {
       expect(mockQueryService.executeQuery).toHaveBeenCalledWith(
         "user-2",
         "My balance?",
+        undefined,
         undefined,
       );
     });
@@ -206,6 +208,7 @@ describe("AiQueryController", () => {
       expect(mockQueryService.executeQueryStream).toHaveBeenCalledWith(
         "user-1",
         "My spending?",
+        undefined,
         undefined,
       );
     });

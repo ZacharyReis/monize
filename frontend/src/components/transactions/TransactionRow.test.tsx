@@ -84,6 +84,28 @@ describe('TransactionRow', () => {
     expect(onRowClick).toHaveBeenCalled();
   });
 
+  it('flashes and scrolls to the row when highlighted', () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => {});
+    renderRow({ isHighlighted: true });
+    const row = screen.getByText('Coffee Co').closest('tr')!;
+    expect(row.className).toContain('animate-highlight-flash');
+    expect(scrollSpy).toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
+
+  it('does not highlight or scroll by default', () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => {});
+    renderRow();
+    const row = screen.getByText('Coffee Co').closest('tr')!;
+    expect(row.className).not.toContain('animate-highlight-flash');
+    expect(scrollSpy).not.toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
+
   it('renders payee as button when onPayeeClick provided', () => {
     const onPayeeClick = vi.fn();
     renderRow({ onPayeeClick });
@@ -96,6 +118,32 @@ describe('TransactionRow', () => {
     // Multiple "-" in row
     const dashes = screen.getAllByText('-');
     expect(dashes.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to the linked payee name when payeeName is null (button branch)', () => {
+    const onPayeeClick = vi.fn();
+    renderRow(
+      { onPayeeClick },
+      {
+        payeeId: 'p1',
+        payeeName: null,
+        payee: { id: 'p1', name: 'Linked Payee' } as Transaction['payee'],
+      },
+    );
+    fireEvent.click(screen.getByText('Linked Payee'));
+    expect(onPayeeClick).toHaveBeenCalledWith('p1');
+  });
+
+  it('falls back to the linked payee name when payeeName is null (text branch)', () => {
+    renderRow(
+      {},
+      {
+        payeeId: 'p1',
+        payeeName: null,
+        payee: { id: 'p1', name: 'Linked Payee' } as Transaction['payee'],
+      },
+    );
+    expect(screen.getByText('Linked Payee')).toBeInTheDocument();
   });
 
   it('renders category as clickable when onCategoryClick provided', () => {
@@ -135,8 +183,29 @@ describe('TransactionRow', () => {
   });
 
   it('renders transfer without linked account', () => {
-    renderRow({}, { isTransfer: true, linkedTransaction: null, linkedTransactionId: null });
+    renderRow({}, { isTransfer: true, linkedTransaction: null, linkedTransactionId: null, category: null, categoryId: null });
     expect(screen.getByText('Transfer')).toBeInTheDocument();
+  });
+
+  it('shows the assigned category alongside the transfer arrow for a categorized transfer', () => {
+    const onCategoryClick = vi.fn();
+    renderRow(
+      { onCategoryClick },
+      {
+        isTransfer: true,
+        linkedTransactionId: 'l1',
+        linkedTransaction: { id: 'l1', account: { id: 'a2', name: 'Savings' } } as any,
+        category: { id: 'c9', name: 'Investments', color: '#00ff00' } as any,
+        categoryId: 'c9',
+        amount: -1000,
+      },
+    );
+    // The assigned category is no longer hidden behind the transfer chip.
+    expect(screen.getByText('Investments')).toBeInTheDocument();
+    expect(screen.getByText(/Savings/)).toBeInTheDocument();
+    // The category chip filters by category, like a normal category chip.
+    fireEvent.click(screen.getByText('Investments'));
+    expect(onCategoryClick).toHaveBeenCalledWith('c9');
   });
 
   it('renders Investment badge when linkedInvestmentTransactionId', () => {

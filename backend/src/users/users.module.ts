@@ -9,6 +9,14 @@ import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { PasswordBreachService } from "../auth/password-breach.service";
 
+/**
+ * `PasswordBreachService` is re-provided here (rather than imported from
+ * AuthModule) on purpose: the dependency chain
+ * `NotificationsModule -> UsersModule -> AuthModule -> NotificationsModule`
+ * cannot be broken by a single `forwardRef`. Since `PasswordBreachService`
+ * is stateless (HIBP HTTP client, no in-memory cache), the duplicate
+ * instance has no correctness or memory cost.
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([

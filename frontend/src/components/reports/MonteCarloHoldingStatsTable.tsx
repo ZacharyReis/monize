@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountHoldingStats } from '@/lib/monte-carlo';
+import { useTranslations } from 'next-intl';
 
 export function HoldingStatsTable({
   data,
@@ -11,17 +12,19 @@ export function HoldingStatsTable({
   loading: boolean;
   formatCurrency: (v: number) => string;
 }) {
+  const t = useTranslations('reports');
+
   if (loading) {
     return (
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Loading holding stats…
+        {t('monteCarloHoldingStats.loading')}
       </p>
     );
   }
   if (!data || data.length === 0) {
     return (
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Select one or more accounts to see per-holding historical returns.
+        {t('monteCarloHoldingStats.selectAccounts')}
       </p>
     );
   }
@@ -44,26 +47,26 @@ export function HoldingStatsTable({
           </div>
           {acct.holdings.length === 0 ? (
             <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              No active holdings.
+              {t('monteCarloHoldingStats.noHoldings')}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
                 <thead className="bg-gray-50 dark:bg-gray-900/30 text-gray-500 dark:text-gray-400">
                   <tr>
-                    <th className="px-3 py-1.5 text-left font-medium">Symbol</th>
+                    <th className="px-3 py-1.5 text-left font-medium">{t('monteCarloHoldingStats.colSymbol')}</th>
                     {/* Name is decorative; hide on small screens so the
                         numeric columns fit on a phone without horizontal
                         scroll. */}
                     <th className="px-3 py-1.5 text-left font-medium hidden sm:table-cell">
-                      Name
+                      {t('monteCarloHoldingStats.colName')}
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium">Value</th>
+                    <th className="px-3 py-1.5 text-right font-medium">{t('monteCarloHoldingStats.colValue')}</th>
                     <th className="px-3 py-1.5 text-right font-medium whitespace-nowrap">
-                      Mean
+                      {t('monteCarloHoldingStats.colMean')}
                     </th>
                     <th className="px-3 py-1.5 text-right font-medium">
-                      Volatility
+                      {t('monteCarloHoldingStats.colVolatility')}
                     </th>
                   </tr>
                 </thead>

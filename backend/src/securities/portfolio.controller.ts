@@ -6,6 +6,7 @@ import {
   Query,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import {
   ApiTags,
   ApiOperation,
@@ -71,7 +72,12 @@ export class PortfolioController {
     const ids = csv.split(",").filter(Boolean);
     for (const id of ids) {
       if (!PortfolioController.UUID_REGEX.test(id)) {
-        throw new BadRequestException(`Invalid ${label} UUID: ${id}`);
+        throw new BadRequestException(
+          tr("errors.securities.invalidUuid", `Invalid ${label} UUID: ${id}`, {
+            label,
+            id,
+          }),
+        );
       }
     }
     return ids;
@@ -125,6 +131,36 @@ export class PortfolioController {
   ) {
     const ids = this.parseUuidList(accountIds, "account");
     return this.portfolioService.getAssetAllocation(
+      req.user.id,
+      await this.scopeIds(req, ids),
+    );
+  }
+
+  @Get("allocation/by-tag")
+  @AllowDelegate()
+  @DelegateRequiresSection("investments")
+  @ApiOperation({
+    summary: "Get portfolio exposure grouped by user-defined tags",
+    description:
+      "Overlapping exposure: a multi-tagged holding counts in full under each tag, so percentages can sum to more than 100%. Cash and untagged holdings are explicit slices.",
+  })
+  @ApiQuery({
+    name: "accountIds",
+    required: false,
+    description:
+      "Comma-separated account IDs to filter by (will include linked pairs)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Tag allocation retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  async getAllocationByTag(
+    @Request() req,
+    @Query("accountIds") accountIds?: string,
+  ) {
+    const ids = this.parseUuidList(accountIds, "account");
+    return this.portfolioService.getAllocationByTag(
       req.user.id,
       await this.scopeIds(req, ids),
     );
@@ -218,6 +254,42 @@ export class PortfolioController {
     const aIds = this.parseUuidList(accountIds, "account");
     const sIds = this.parseUuidList(securityIds, "security");
     return this.sectorWeightingService.getSectorWeightings(
+      req.user.id,
+      await this.scopeIds(req, aIds),
+      sIds,
+    );
+  }
+
+  @Get("country-weightings")
+  @AllowDelegate()
+  @DelegateRequiresSection("investments")
+  @ApiOperation({
+    summary:
+      "Get the country (geographic look-through) breakdown for the portfolio",
+  })
+  @ApiQuery({
+    name: "accountIds",
+    required: false,
+    description: "Comma-separated account IDs to filter by",
+  })
+  @ApiQuery({
+    name: "securityIds",
+    required: false,
+    description: "Comma-separated security IDs to filter by",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Country weightings retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  async getCountryWeightings(
+    @Request() req,
+    @Query("accountIds") accountIds?: string,
+    @Query("securityIds") securityIds?: string,
+  ) {
+    const aIds = this.parseUuidList(accountIds, "account");
+    const sIds = this.parseUuidList(securityIds, "security");
+    return this.sectorWeightingService.getCountryWeightings(
       req.user.id,
       await this.scopeIds(req, aIds),
       sIds,

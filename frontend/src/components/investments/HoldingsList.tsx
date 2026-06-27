@@ -1,7 +1,10 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { HoldingWithMarketValue } from '@/types/investment';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 
 interface HoldingsListProps {
   holdings: HoldingWithMarketValue[];
@@ -9,38 +12,37 @@ interface HoldingsListProps {
 }
 
 export function HoldingsList({ holdings, isLoading }: HoldingsListProps) {
-  const { formatCurrency: formatCurrencyBase, numberFormat } = useNumberFormat();
+  const t = useTranslations('investments');
+  const { formatCurrency: formatCurrencyBase, formatCurrencyPrecise, formatSignedPercent, formatQuantity } = useNumberFormat();
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '-';
     return formatCurrencyBase(value);
   };
 
-  const formatPercent = (value: number | null) => {
+  // Per-share prices can be sub-penny (e.g. LSE pennies); expand precision so
+  // they don't collapse to the currency's 2dp zero.
+  const formatPrice = (value: number | null) => {
     if (value === null) return '-';
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
+    return formatCurrencyPrecise(value);
   };
 
-  const formatQuantity = (value: number) => {
-    const locale = numberFormat === 'browser' ? undefined : numberFormat;
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
-    }).format(value);
+  const formatPercent = (value: number | null) => {
+    if (value === null) return '-';
+    return formatSignedPercent(value);
   };
 
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Holdings
+          {t('holdingsList.title')}
         </h3>
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="animate-pulse flex justify-between">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
+            <div key={i} className="flex justify-between">
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-4 w-1/4" />
             </div>
           ))}
         </div>
@@ -52,10 +54,10 @@ export function HoldingsList({ holdings, isLoading }: HoldingsListProps) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Holdings
+          {t('holdingsList.title')}
         </h3>
         <p className="text-gray-500 dark:text-gray-400">
-          No holdings in this portfolio.
+          {t('holdingsList.noHoldings')}
         </p>
       </div>
     );
@@ -65,7 +67,7 @@ export function HoldingsList({ holdings, isLoading }: HoldingsListProps) {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
       <div className="p-6 pb-0">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Holdings
+          {t('holdingsList.title')}
         </h3>
       </div>
       <div className="overflow-x-auto">
@@ -73,22 +75,22 @@ export function HoldingsList({ holdings, isLoading }: HoldingsListProps) {
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Symbol
+                {t('holdingsList.symbolColumn')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Shares
+                {t('holdingsList.sharesColumn')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Avg Cost
+                {t('holdingsList.avgCostColumn')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Price
+                {t('holdingsList.priceColumn')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Market Value
+                {t('holdingsList.marketValueColumn')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Gain/Loss
+                {t('holdingsList.gainLossColumn')}
               </th>
             </tr>
           </thead>
@@ -107,31 +109,19 @@ export function HoldingsList({ holdings, isLoading }: HoldingsListProps) {
                   {formatQuantity(holding.quantity)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-gray-900 dark:text-gray-100">
-                  {formatCurrency(holding.averageCost)}
+                  {formatPrice(holding.averageCost)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-gray-900 dark:text-gray-100">
-                  {formatCurrency(holding.currentPrice)}
+                  {formatPrice(holding.currentPrice)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-gray-900 dark:text-gray-100">
                   {formatCurrency(holding.marketValue)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div
-                    className={`font-medium ${
-                      (holding.gainLoss ?? 0) >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}
-                  >
+                  <div className={`font-medium ${gainLossColor(holding.gainLoss ?? 0)}`}>
                     {formatCurrency(holding.gainLoss)}
                   </div>
-                  <div
-                    className={`text-sm ${
-                      (holding.gainLossPercent ?? 0) >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}
-                  >
+                  <div className={`text-sm ${gainLossColor(holding.gainLossPercent ?? 0)}`}>
                     {formatPercent(holding.gainLossPercent)}
                   </div>
                 </td>

@@ -5,6 +5,39 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Two publish paths share this file:
+  #
+  #   * Preview (open PR + push to main): builds a lightweight image so work is
+  #     pullable before a formal release (issue #727). A push to main moves a
+  #     single `:beta` tag (multi-arch); an open PR publishes `:pr-<number>`
+  #     (amd64 only -- no emulated arm64 -- to keep PR builds fast). No version
+  #     bump, no GitHub release, no cosign/SBOM. PR builds run only for same-repo
+  #     PRs (fork PRs get a read-only token and cannot push to GHCR).
+  #
+  #   * Release (workflow_dispatch): the formal release. Trigger from the
+  #     Actions tab (or `gh workflow run "CI Pipeline" --ref main`) when you
+  #     actually want a release: it bumps the version, builds/signs/scans/pushes
+  #     the versioned + `:latest` images, and cuts a GitHub release. The inputs
+  #     below choose the version bump and let you supply your own release notes
+  #     (see docs/release-notes/README.md).
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Version bump (ignored when an explicit "version" is given)'
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: 'Explicit version, e.g. 1.11.0 (overrides "release_type"; blank = bump)'
+        type: string
+        default: ''
+      release_notes:
+        description: 'Release notes (Markdown). Blank = use docs/release-notes/<version>.md, else GitHub auto-notes'
+        type: string
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,8 +57,10 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: npm ci
@@ -39,15 +74,17 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: npm ci
       - run: npm run test:unit -- --coverage
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: backend-unit-coverage
           path: backend/coverage/
@@ -57,7 +94,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # Pinned by digest to satisfy zizmor's unpinned-images audit. Refresh
+        # alongside production postgres bumps so CI matches what we ship.
+        image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
         env:
           POSTGRES_DB: monize_test
           POSTGRES_USER: monize_test
@@ -81,8 +120,10 @@ jobs:
       JWT_SECRET: test-jwt-secret-for-ci-minimum-32-characters-long
       NODE_ENV: test
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: npm ci
@@ -96,13 +137,18 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check
+      # Fail if the generated pseudo-locale (xx) has drifted from the English
+      # source. Run `npm run i18n:pseudo` to regenerate after editing en/*.json.
+      - run: npm run i18n:check
 
   frontend-unit-tests:
     name: Frontend Unit Tests
@@ -111,15 +157,17 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: npm ci
       - run: npm run test:cov
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: frontend-coverage
           path: frontend/coverage/
@@ -128,39 +176,204 @@ jobs:
     name: NPM Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
       - run: cd backend && npm ci && npm audit --audit-level=high
       - run: cd frontend && npm ci && npm audit --audit-level=high
 
+  license-check:
+    name: License Compliance (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+      - run: npm ci
+      # Allowed: permissive (MIT, BSD, ISC, Apache-2.0, 0BSD, Unlicense,
+      # Unicode-DFS-2016/Unicode-3.0 -- the Unicode Data Files license,
+      # BSD-equivalent, accepted by ASF and FSF; e.g. make-plural via
+      # nestjs-i18n);
+      # the project's own license (AGPL-3.0 family); LGPL variants (compatible
+      # with AGPL since npm dependency = dynamic-linking equivalent which LGPL
+      # permits; e.g. @img/sharp-libvips-*); MPL-2.0 (weak copyleft, AGPL
+      # compatible; e.g. lightningcss, dompurify); Zlib (e.g. pako).
+      #
+      # MIT* matches packages whose license is inferred from a LICENSE file
+      # but not declared via SPDX (currently pause, rgbcolor) -- still MIT in
+      # practice. Compound SPDX expressions are matched literally because
+      # license-checker doesn't parse them; new ones will need to be added
+      # as they appear.
+      #
+      # Disallowed: GPL-2.0/3.0 (incompatible network-use semantics),
+      # proprietary, UNKNOWN, anything not listed.
+      - name: Check licenses
+        run: |
+          npx --yes license-checker-rseidelsohn \
+            --production \
+            --excludePrivatePackages \
+            --onlyAllow 'MIT;MIT-0;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BSD;ISC;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Unlicense;Unicode-DFS-2016;Unicode-3.0;Python-2.0;BlueOak-1.0.0;AGPL-3.0;AGPL-3.0-only;AGPL-3.0-or-later;LGPL-3.0;LGPL-3.0-or-later;LGPL-3.0-only;LGPL-2.1;LGPL-2.1-or-later;LGPL-2.1-only;MPL-2.0;Zlib;WTFPL;MIT*;(MIT AND BSD-3-Clause);(MIT AND Zlib);(MIT AND ISC);(MPL-2.0 OR Apache-2.0)'
+
+  schema-drift:
+    name: Schema vs Migrations Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Verify schema.sql matches migrations state
+        run: scripts/verify-schema.sh
+
+  frontend-bundle-size:
+    name: Frontend Bundle Size
+    runs-on: ubuntu-latest
+    # Skip on the build-and-push commit so we don't double-build on main.
+    if: github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: frontend
+    permissions:
+      contents: read
+      pull-requests: write # so the bundle-size report can be posted as a PR comment (today it only writes to the job summary)
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+        env:
+          # Same env the e2e build uses so the bundle reflects production output.
+          NODE_ENV: production
+      - name: Report bundle sizes
+        run: |
+          {
+            echo "## Frontend bundle sizes"
+            echo
+            echo '| Path | Size |'
+            echo '|------|------|'
+            # Top 20 largest files under .next/static
+            find .next/static -type f -printf '%s\t%P\n' \
+              | sort -rn | head -20 \
+              | awk '{ printf "| %s | %.1f KB |\n", $2, $1/1024 }'
+            echo
+            echo '### Totals'
+            echo
+            TOTAL_STATIC=$(du -sb .next/static | cut -f1)
+            TOTAL_STANDALONE=$(du -sb .next/standalone 2>/dev/null | cut -f1 || echo 0)
+            printf -- '- .next/static: **%.1f MB**\n' "$(echo "$TOTAL_STATIC/1048576" | bc -l)"
+            printf -- '- .next/standalone: **%.1f MB**\n' "$(echo "$TOTAL_STANDALONE/1048576" | bc -l)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  env-doc-check:
+    name: Env Var Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+      - name: Verify env vars are documented
+        run: node scripts/check-env-docs.mjs
+
+  zizmor-scan:
+    name: Workflow Security Scan (zizmor)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # for github/codeql-action/upload-sarif to publish zizmor findings to the Security tab
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          # This job only runs `uv tool install zizmor` -- there are no Python
+          # dependency manifests to key a cache on, so leaving caching enabled
+          # only produces setup-uv's "cache will never get invalidated" warning.
+          enable-cache: false
+      - name: Install zizmor
+        run: uv tool install zizmor
+      - name: Run zizmor
+        run: zizmor --format sarif .github/workflows/ > zizmor.sarif || true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@fb0994ef1c058010acf1efccff928b0a83b1ed54 # v4.32.6
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
+  dockerfile-lint:
+    name: Dockerfile Lint (hadolint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Lint backend Dockerfile
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: backend/Dockerfile
+          config: .hadolint.yaml
+      - name: Lint frontend Dockerfile
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: frontend/Dockerfile
+          config: .hadolint.yaml
+
   bearer-scan:
     name: Bearer Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
       - name: Bearer
-        uses: bearer/bearer-action@v2
+        uses: bearer/bearer-action@828eeb928ce2f4a7ca5ed57fb8b59508cb8c79bc # v2
         with:
           # We explicitly don't provide HTTPS out-of-the-box since most users self-host in environments where HTTPS is terminated at a reverse proxy, and we provide guidance on how to securely configure this in our docs. 
           # We also have some known exception messages that contain payee names which would otherwise be flagged as potential secrets, but we have determined that the risk of these being exploited is low and the value of having the full exception message in our logs outweighs the risk.
           skip-rule: "javascript_lang_logger_leak,javascript_express_https_protocol_missing,javascript_lang_exception" 
-          # Exclude some false positives and low-risk findings that we are aware of and have accepted for now. We can re-evaluate these over time to see if any should be remediated.
-          # b65bd7b1a0585cd1d0a326cdb09ce40d_0 - Hard-coded secret used for demo site
-          # da119900eefffd8b84e7693e0388568a_0 - Hard-coded secret used for E2E tests
-          # 95857358158e4664c01c05441df9f2a9_0 - Hard-coded secret used for demo site
-          # 842822dd22cd4403ab5800ac89480c0a_0 - Insufficient randomness for inconsequential task
-          # aa2e6330aede1004652f740df19e1d86_0 - Insufficient randomness for inconsequential task
-          # b04cb91b90deb5e16504baa7ab95f678_0 - Unsanitized dynamic input in file path [CWE-22]
-          # b04cb91b90deb5e16504baa7ab95f678_1 - Unsanitized dynamic input in file path [CWE-22]
-          # b04cb91b90deb5e16504baa7ab95f678_2 - Unsanitized dynamic input in file path [CWE-22]
-          exclude-fingerprint: "b65bd7b1a0585cd1d0a326cdb09ce40d_0,da119900eefffd8b84e7693e0388568a_0,95857358158e4664c01c05441df9f2a9_0,842822dd22cd4403ab5800ac89480c0a_0,aa2e6330aede1004652f740df19e1d86_0,b04cb91b90deb5e16504baa7ab95f678_0,b04cb91b90deb5e16504baa7ab95f678_1,b04cb91b90deb5e16504baa7ab95f678_2"
+          # Exclude some false positives and low-risk findings that we are aware of and have accepted for now.
+          # Each entry has a "review-by" date; the bearer-exceptions-review workflow
+          # opens an issue when any entry is past due, so exceptions don't become permanent debt.
+          # b65bd7b1a0585cd1d0a326cdb09ce40d_0 - Hard-coded secret used for demo site - review-by: 2026-09-04
+          # da119900eefffd8b84e7693e0388568a_0 - Hard-coded secret used for E2E tests - review-by: 2026-09-04
+          # 95857358158e4664c01c05441df9f2a9_0 - Hard-coded secret used for demo site - review-by: 2026-09-04
+          # 842822dd22cd4403ab5800ac89480c0a_0 - Insufficient randomness for inconsequential task - review-by: 2026-09-04
+          # b04cb91b90deb5e16504baa7ab95f678_0 - Unsanitized dynamic input in file path [CWE-22] - review-by: 2026-09-04
+          # b04cb91b90deb5e16504baa7ab95f678_1 - Unsanitized dynamic input in file path [CWE-22] - review-by: 2026-09-04
+          # 30770548d4592a14c9099ac0103a2564_0 - Observable timing discrepancy [CWE-208] comparing payee-name tokens in longestCommonTokenPrefix (no secret involved) - review-by: 2026-09-11
+          exclude-fingerprint: "b65bd7b1a0585cd1d0a326cdb09ce40d_0,da119900eefffd8b84e7693e0388568a_0,95857358158e4664c01c05441df9f2a9_0,842822dd22cd4403ab5800ac89480c0a_0,b04cb91b90deb5e16504baa7ab95f678_0,b04cb91b90deb5e16504baa7ab95f678_1,30770548d4592a14c9099ac0103a2564_0"
 
-  build-and-push:
-    name: Build & Push Containers
+  # Resolve the release version and shared build metadata ONCE, so the parallel
+  # backend/frontend build jobs below stamp identical version/date/sha values.
+  # No commit happens here: the release job owns the version-bump commit so the
+  # bump is only published after both images build and pass their CVE scan.
+  prepare-release:
+    name: Prepare Release
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Manual-only: this is the release step (version bump, tag, signed images,
+    # SBOM/provenance attestations, Trivy scan). Triggered from the Actions tab
+    # rather than on every push, so merges to main don't auto-publish.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs:
       [
         backend-lint,
@@ -169,172 +382,726 @@ jobs:
         frontend-lint,
         frontend-unit-tests,
         npm-audit,
+        bearer-scan,
+        dockerfile-lint,
+        license-check,
+        schema-drift,
+        zizmor-scan,
+        env-doc-check,
+        e2e-tests,
       ]
     permissions:
-      contents: write
-      packages: write
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_date: ${{ steps.meta.outputs.build_date }}
+      git_sha: ${{ steps.meta.outputs.git_sha }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
+          # Disable the package-manager cache: zizmor's cache-poisoning audit
+          # flags caches restored in a job that feeds a release. This job only
+          # runs `npm version`, so it never needs the cache anyway.
+          package-manager-cache: false
 
-      - name: Bump patch version
+      # Decide the new version from the workflow inputs. An explicit `version`
+      # wins; otherwise bump major/minor/patch off backend/package.json. Inputs
+      # are read via env (never interpolated into the script) to avoid template
+      # injection.
+      - name: Resolve version
         id: version
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          EXPLICIT_VERSION: ${{ inputs.version }}
         run: |
           CURRENT=$(node -p "require('./backend/package.json').version")
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+          if [ -n "$EXPLICIT_VERSION" ]; then
+            if ! printf '%s' "$EXPLICIT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::Invalid version '$EXPLICIT_VERSION' (expected MAJOR.MINOR.PATCH, e.g. 1.11.0)"
+              exit 1
+            fi
+            NEW_VERSION="$EXPLICIT_VERSION"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            case "${RELEASE_TYPE:-patch}" in
+              major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+              minor) NEW_VERSION="$MAJOR.$((MINOR + 1)).0" ;;
+              *)     NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+            esac
+          fi
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Bumping version: $CURRENT -> $NEW_VERSION"
-          cd backend  && npm version "$NEW_VERSION" --no-git-tag-version && cd ..
-          cd frontend && npm version "$NEW_VERSION" --no-git-tag-version && cd ..
+          echo "Resolved version: $CURRENT -> $NEW_VERSION (type=${RELEASE_TYPE:-patch}, explicit=${EXPLICIT_VERSION:-none})"
+
+      - name: Set build metadata
+        id: meta
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          echo "git_sha=$GIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+  # Build, push, sign, attest and scan the two images IN PARALLEL (one matrix
+  # leg per image) instead of sequentially. Each leg publishes its own image so
+  # they share nothing at runtime; the buildx gha cache is scoped per image to
+  # keep the parallel legs from clobbering each other's layers.
+  build-and-push:
+    name: Build & Push (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    permissions:
+      packages: write # to push the signed multi-arch images to GHCR
+      id-token: write # for cosign keyless signing via GitHub's OIDC token
+      attestations: write # for SBOM and provenance attestations on the published images
+      security-events: write # for Trivy to upload SARIF results to the Security tab
+    strategy:
+      # Don't cancel the frontend build if the backend fails (or vice versa) -
+      # we want both results.
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            image: ghcr.io/kenlasko/monize-backend
+            context: .
+            file: backend/Dockerfile
+            workdir: backend
+            title: Monize Backend
+            description: Backend for Monize, a self-hosted personal finance app
+          - name: frontend
+            image: ghcr.io/kenlasko/monize-frontend
+            context: frontend
+            file: frontend/Dockerfile
+            workdir: frontend
+            title: Monize Frontend
+            description: Frontend for Monize, a self-hosted personal finance app
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          # Disable the package-manager cache in this publish job. zizmor's
+          # cache-poisoning audit flags caches that are restored in a job which
+          # publishes runtime artifacts (the signed GHCR images below): a
+          # poisoned cache could taint a release. This job only runs `npm
+          # version`, so it never needs the cache anyway.
+          package-manager-cache: false
+
+      # Stamp the resolved version into this image's package.json so the built
+      # artifact reports the right version. The bump is intentionally NOT
+      # committed here - the release job below owns the version-bump commit.
+      - name: Stamp version
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          WORKDIR: ${{ matrix.workdir }}
+        run: cd "$WORKDIR" && npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
-      - name: Set build metadata
-        id: meta
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: production
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ needs.prepare-release.outputs.version }}
+          build-args: |
+            GIT_SHA=${{ needs.prepare-release.outputs.git_sha }}
+            BUILD_DATE=${{ needs.prepare-release.outputs.build_date }}
+            VERSION=${{ needs.prepare-release.outputs.version }}
+          annotations: |
+            index:org.opencontainers.image.title=${{ matrix.title }}
+            index:org.opencontainers.image.description=${{ matrix.description }}
+            index:org.opencontainers.image.source=https://github.com/kenlasko/monize
+            index:org.opencontainers.image.url=https://github.com/kenlasko/monize
+            index:org.opencontainers.image.authors=ken.lasko@gmail.com
+            index:org.opencontainers.image.vendor=Ken Lasko
+            index:org.opencontainers.image.revision=${{ needs.prepare-release.outputs.git_sha }}
+            index:org.opencontainers.image.created=${{ needs.prepare-release.outputs.build_date }}
+            index:org.opencontainers.image.version=${{ needs.prepare-release.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      # Keyless signing via GitHub OIDC. No long-lived keys to manage; the
+      # signature is bound to this workflow's identity and verifiable with
+      # `cosign verify --certificate-identity-regexp ...`.
+      - name: Sign image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ matrix.image }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |
-          echo "git_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          cosign sign --yes \
+            "${IMAGE}@${DIGEST}" \
+            "${IMAGE}:${VERSION}" \
+            "${IMAGE}:latest"
 
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
+      # Generate and attest an SPDX SBOM for the image. The provenance and SBOM
+      # produced by docker/build-push-action above are embedded in the OCI
+      # manifest; this attestation makes them discoverable via
+      # `gh attestation verify` for downstream consumers.
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          context: .
-          file: backend/Dockerfile
-          target: production
-          push: true
-          platforms: linux/amd64,linux/arm64
-          provenance: true
-          tags: |
-            ghcr.io/kenlasko/monize-backend:latest
-            ghcr.io/kenlasko/monize-backend:${{ steps.version.outputs.version }}
-          build-args: |
-            GIT_SHA=${{ steps.meta.outputs.git_sha }}
-            BUILD_DATE=${{ steps.meta.outputs.build_date }}
-            VERSION=${{ steps.version.outputs.version }}
-          annotations: |
-            index:org.opencontainers.image.title=Monize Backend
-            index:org.opencontainers.image.description=Backend for Monize, a self-hosted personal finance app
-            index:org.opencontainers.image.source=https://github.com/kenlasko/monize
-            index:org.opencontainers.image.url=https://github.com/kenlasko/monize
-            index:org.opencontainers.image.authors=ken.lasko@gmail.com
-            index:org.opencontainers.image.vendor=Ken Lasko
-            index:org.opencontainers.image.revision=${{ steps.meta.outputs.git_sha }}
-            index:org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
-            index:org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          image: ${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: ${{ matrix.name }}-sbom.spdx.json
 
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
+      - name: Attest SBOM
+        # Pinned to v3.0.0: the last release before attest-sbom was deprecated
+        # in favor of actions/attest (v4.0.0+), and the first to run on Node 24.
+        # Inputs are unchanged from v2.
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
         with:
-          context: frontend
-          file: frontend/Dockerfile
-          target: production
-          push: true
-          platforms: linux/amd64,linux/arm64
-          provenance: true
-          tags: |
-            ghcr.io/kenlasko/monize-frontend:latest
-            ghcr.io/kenlasko/monize-frontend:${{ steps.version.outputs.version }}
-          build-args: |
-            GIT_SHA=${{ steps.meta.outputs.git_sha }}
-            BUILD_DATE=${{ steps.meta.outputs.build_date }}
-            VERSION=${{ steps.version.outputs.version }}
-          annotations: |
-            index:org.opencontainers.image.title=Monize Frontend
-            index:org.opencontainers.image.description=Frontend for Monize, a self-hosted personal finance app
-            index:org.opencontainers.image.source=https://github.com/kenlasko/monize
-            index:org.opencontainers.image.url=https://github.com/kenlasko/monize
-            index:org.opencontainers.image.authors=ken.lasko@gmail.com
-            index:org.opencontainers.image.vendor=Ken Lasko
-            index:org.opencontainers.image.revision=${{ steps.meta.outputs.git_sha }}
-            index:org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
-            index:org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          subject-name: ${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: ${{ matrix.name }}-sbom.spdx.json
+          push-to-registry: true
 
+      # Scan the pushed image for OS + library CVEs. SARIF goes to the Security
+      # tab so findings are tracked over time. We fail on CRITICAL only - HIGH
+      # issues surface in the Security tab but do not block releases, matching
+      # the npm-audit policy.
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@fb0994ef1c058010acf1efccff928b0a83b1ed54 # v4.32.6
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}
+
+      - name: Fail on critical CVEs
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  # Both images are built, signed, attested and scanned at this point. Now -
+  # and only now - commit/push the version bump and cut the GitHub release, so
+  # a failed or vulnerable build never leaves a dangling version commit.
+  release:
+    name: Commit Version & Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, build-and-push]
+    permissions:
+      contents: write # to push the version-bump commit and create the GitHub release
+    steps:
+      # persist-credentials is intentionally left at its default (true) here:
+      # the "Commit version bump" step runs `git push` to publish the version
+      # bump and needs the token wired into the checkout.
+      #
+      # RELEASE_TOKEN is a fine-grained PAT owned by a repo admin (Contents:
+      # write, scoped to this repo). The default GITHUB_TOKEN acts as
+      # github-actions[bot], which is NOT an admin and so cannot bypass branch
+      # protection; pushing with an admin PAT lets the [skip ci] version-bump
+      # commit through the required "Verify PR checklist" check on main, given
+      # that "Do not allow bypassing the above settings" is unchecked on the
+      # main rule (admins may bypass). No PR/check is forged.
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          persist-credentials: true
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # Re-apply the resolved version to both package.json files (kept in
+      # lockstep) and commit it. Deterministic: the version was decided in
+      # prepare-release.
+      - name: Bump version
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          cd backend  && npm version "$VERSION" --no-git-tag-version --allow-same-version && cd ..
+          cd frontend && npm version "$VERSION" --no-git-tag-version --allow-same-version && cd ..
+
+      # Pushes the version bump directly to protected main. The push is
+      # authenticated with RELEASE_TOKEN (admin PAT, wired in via the checkout
+      # above), so it bypasses the required status check rather than forging one.
       - name: Commit version bump
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
           git pull --rebase
           git push
+
+      # Resolve the release notes body. Precedence: the `release_notes` input,
+      # then a committed docs/release-notes/<version>.md, then GitHub's
+      # auto-generated notes. The input is read via env to avoid injection.
+      - name: Resolve release notes
+        id: notes
+        env:
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          RELEASE_NOTES_INPUT: ${{ inputs.release_notes }}
+        run: |
+          NOTES_FILE="docs/release-notes/${VERSION}.md"
+          if [ -n "$RELEASE_NOTES_INPUT" ]; then
+            printf '%s\n' "$RELEASE_NOTES_INPUT" > "$RUNNER_TEMP/release-notes.md"
+            echo "path=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
+            echo "Release notes: workflow input"
+          elif [ -f "$NOTES_FILE" ]; then
+            # Strip the leading "# v<version>" heading (and any blank lines that
+            # follow it) so the release body does not duplicate the "v<version>"
+            # release title. Only the matching version heading is removed; a real
+            # first-line heading is left untouched.
+            awk -v ver="$VERSION" '
+              NR == 1 && $0 == "# v" ver { skip = 1; next }
+              skip && $0 ~ /^[[:space:]]*$/ { next }
+              { skip = 0; print }
+            ' "$NOTES_FILE" > "$RUNNER_TEMP/release-notes.md"
+            echo "path=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
+            echo "Release notes: $NOTES_FILE"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "Release notes: GitHub auto-generated (no input or notes file found)"
+          fi
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare-release.outputs.version }}
+          NOTES_PATH: ${{ steps.notes.outputs.path }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
-            --generate-notes
+          if [ -n "$NOTES_PATH" ]; then
+            gh release create "v${VERSION}" \
+              --title "v${VERSION}" \
+              --notes-file "$NOTES_PATH"
+          else
+            gh release create "v${VERSION}" \
+              --title "v${VERSION}" \
+              --generate-notes
+          fi
 
-  # E2E tests temporarily disabled - re-enable once tests are stabilized
-  # e2e-tests:
-  #   name: E2E Tests
-  #   runs-on: ubuntu-latest
-  #   needs: [backend-unit-tests, frontend-unit-tests]
-  #   env:
-  #     POSTGRES_DB: monize
-  #     POSTGRES_USER: monize_user
-  #     POSTGRES_PASSWORD: monize_password
-  #     JWT_SECRET: test-jwt-secret-for-ci-minimum-32-characters-long
-  #     NODE_ENV: development
-  #     PUBLIC_APP_URL: http://localhost:3001
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: actions/setup-node@v6
-  #       with:
-  #         node-version: 24
-  #     - name: Create .env for Docker Compose
-  #       run: |
-  #         cat > .env << 'EOF'
-  #         POSTGRES_DB=monize
-  #         POSTGRES_USER=monize_user
-  #         POSTGRES_PASSWORD=monize_password
-  #         JWT_SECRET=test-jwt-secret-for-ci-minimum-32-characters-long
-  #         NODE_ENV=development
-  #         PUBLIC_APP_URL=http://localhost:3001
-  #         EOF
-  #     - name: Start services
-  #       run: |
-  #         docker compose up -d --build
-  #         timeout 120 bash -c 'until curl -sf http://localhost:3001; do sleep 5; done'
-  #     - name: Install Playwright
-  #       working-directory: e2e
-  #       run: |
-  #         npm install
-  #         npx playwright install --with-deps chromium
-  #     - name: Run E2E tests
-  #       working-directory: e2e
-  #       env:
-  #         BASE_URL: http://localhost:3001
-  #         CI: 'true'
-  #       run: npx playwright test --project=chromium
-  #     - name: Upload test report
-  #       if: always()
-  #       uses: actions/upload-artifact@v7
-  #       with:
-  #         name: e2e-report
-  #         path: e2e/playwright-report/
-  #     - name: Stop services
-  #       if: always()
-  #       run: docker compose down -v
+  # ---------------------------------------------------------------------------
+  # Preview publish (open PR + push to main)
+  #
+  # Publishes a lightweight image so work is pullable before a formal release
+  # (issue #727), in two flavours:
+  #   * push to main  -> moves a single multi-arch `:beta` tag (latest main).
+  #   * open PR        -> publishes `:pr-<number>` (amd64 only) so a PR can be
+  #                       pulled and tested before it merges.
+  # It reuses the same full test/security gate as the release path (those jobs
+  # already run on push and PR), but stays deliberately light on the publish
+  # side: no version-bump commit, no GitHub release, no cosign/SBOM/provenance,
+  # and it never touches `:latest`.
+  # ---------------------------------------------------------------------------
+
+  # Resolve the tag, platforms and stamped version ONCE so the parallel
+  # backend/frontend builds stamp identical values. The version build-arg is the
+  # *next* patch release (off backend/package.json, which holds the last
+  # published version) suffixed with `-beta` or `-pr.<number>`. No commit here.
+  prepare-preview:
+    name: Prepare Preview
+    runs-on: ubuntu-latest
+    # Runs on a push to main (a merge) or on a same-repo PR targeting main.
+    # Fork PRs are excluded: their GITHUB_TOKEN is read-only and cannot push to
+    # GHCR. The manual release dispatch is handled by prepare-release instead.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.base.ref == 'main' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    needs:
+      [
+        backend-lint,
+        backend-unit-tests,
+        backend-integration-tests,
+        frontend-lint,
+        frontend-unit-tests,
+        npm-audit,
+        bearer-scan,
+        dockerfile-lint,
+        license-check,
+        schema-drift,
+        zizmor-scan,
+        env-doc-check,
+        e2e-tests,
+      ]
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      platforms: ${{ steps.resolve.outputs.platforms }}
+      annotation_level: ${{ steps.resolve.outputs.annotation_level }}
+      build_date: ${{ steps.meta.outputs.build_date }}
+      git_sha: ${{ steps.meta.outputs.git_sha }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # Decide the tag, platforms and stamped version from the trigger. A push
+      # to main publishes a multi-arch `:beta`; a PR publishes amd64-only
+      # `:pr-<number>`. The PR number is read via env (never interpolated into
+      # the script) to avoid template injection.
+      - name: Resolve preview build
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          CURRENT=$(node -p "require('./backend/package.json').version")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+          if [ "$EVENT" = "pull_request" ]; then
+            TAG="pr-${PR_NUMBER}"
+            VERSION="${NEXT}-pr.${PR_NUMBER}"
+            PLATFORMS="linux/amd64"
+            # Single-platform export has no image index, so index-level
+            # annotations are rejected ("index annotations not supported for
+            # single platform export"). Annotate the manifest instead.
+            ANNOTATION_LEVEL="manifest"
+          else
+            TAG="beta"
+            VERSION="${NEXT}-beta"
+            PLATFORMS="linux/amd64,linux/arm64"
+            # Multi-arch export builds an image index; annotate that.
+            ANNOTATION_LEVEL="index"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "platforms=$PLATFORMS" >> "$GITHUB_OUTPUT"
+          echo "annotation_level=$ANNOTATION_LEVEL" >> "$GITHUB_OUTPUT"
+          echo "Resolved: event=$EVENT tag=$TAG version=$VERSION platforms=$PLATFORMS level=$ANNOTATION_LEVEL"
+
+      - name: Set build metadata
+        id: meta
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          echo "git_sha=$GIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+  # Build + push the two preview images IN PARALLEL (one matrix leg per image).
+  # Unlike the release build-and-push, this deliberately skips cosign signing,
+  # SBOM/provenance attestation and the Trivy gate: a preview is a convenience
+  # image, not a signed release. It pushes only the single `:beta` / `:pr-<n>`
+  # tag resolved above and never touches `:latest`.
+  build-preview:
+    name: Build & Push Preview (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs: prepare-preview
+    permissions:
+      contents: read
+      packages: write # to push the preview images to GHCR
+    strategy:
+      # Build both images even if one fails, so we get whatever succeeded.
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            image: ghcr.io/kenlasko/monize-backend
+            context: .
+            file: backend/Dockerfile
+            workdir: backend
+            title: Monize Backend
+            description: Backend for Monize, a self-hosted personal finance app
+          - name: frontend
+            image: ghcr.io/kenlasko/monize-frontend
+            context: frontend
+            file: frontend/Dockerfile
+            workdir: frontend
+            title: Monize Frontend
+            description: Frontend for Monize, a self-hosted personal finance app
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      # Stamp the resolved version into this image's package.json so the built
+      # artifact reports e.g. 1.11.2-beta or 1.11.2-pr.123. Not committed --
+      # preview never bumps the repo version.
+      - name: Stamp version
+        env:
+          VERSION: ${{ needs.prepare-preview.outputs.version }}
+          WORKDIR: ${{ matrix.workdir }}
+        run: cd "$WORKDIR" && npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Log in to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Build and push image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: production
+          push: true
+          # amd64-only for PRs, amd64+arm64 for the :beta main build (see
+          # prepare-preview). arm64 is emulated, so dropping it keeps PR builds
+          # fast.
+          platforms: ${{ needs.prepare-preview.outputs.platforms }}
+          # Plain image: no provenance/SBOM attestation manifest (unlike the
+          # signed release), keeping the preview build fast and the registry
+          # listing clean.
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ matrix.image }}:${{ needs.prepare-preview.outputs.tag }}
+          build-args: |
+            GIT_SHA=${{ needs.prepare-preview.outputs.git_sha }}
+            BUILD_DATE=${{ needs.prepare-preview.outputs.build_date }}
+            VERSION=${{ needs.prepare-preview.outputs.version }}
+          # Annotation level matches the export: `index` for the multi-arch
+          # :beta build, `manifest` for the single-arch :pr-<n> build (an index
+          # only exists when multiple platforms are exported).
+          annotations: |
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.title=${{ matrix.title }}
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.description=${{ matrix.description }}
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.source=https://github.com/kenlasko/monize
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.url=https://github.com/kenlasko/monize
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.authors=ken.lasko@gmail.com
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.vendor=Ken Lasko
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.revision=${{ needs.prepare-preview.outputs.git_sha }}
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.created=${{ needs.prepare-preview.outputs.build_date }}
+            ${{ needs.prepare-preview.outputs.annotation_level }}:org.opencontainers.image.version=${{ needs.prepare-preview.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Summary
+        if: success()
+        env:
+          NAME: ${{ matrix.name }}
+          IMAGE: ${{ matrix.image }}
+          TAG: ${{ needs.prepare-preview.outputs.tag }}
+        run: |
+          {
+            echo "### ${NAME} preview image pushed"
+            echo ""
+            echo '```'
+            echo "${IMAGE}:${TAG}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Pre-download and cache the Playwright browsers ONCE, before the sharded
+  # test jobs run. The shards then restore from this cache (guaranteed hit) and
+  # never touch cdn.playwright.dev themselves. This avoids the failure we hit
+  # when four shards raced on a cold cache: the ones that missed downloaded
+  # browsers concurrently and some downloads stalled indefinitely (the Playwright
+  # downloader has no timeout), wedging the whole job. The download timeout below
+  # also caps any future CDN stall so this job fails fast and can be re-run
+  # instead of hanging.
+  e2e-browsers:
+    name: E2E Browser Cache
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, frontend-unit-tests]
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-firefox-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: Download Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        timeout-minutes: 15
+        run: npx playwright install chromium firefox
+
+  # Runs the Playwright suite against a full stack (postgres + backend +
+  # frontend) brought up via docker-compose.e2e.yml. Runs chromium + firefox.
+  # Gates releases: build-and-push lists this job in its needs, so a red E2E
+  # run blocks the container build/push. Retries (2 in CI) absorb flakiness.
+  e2e-tests:
+    name: E2E Tests (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    # Depends on e2e-browsers so the Playwright cache is fully populated before
+    # any shard starts; the backend/frontend unit-test gate is inherited
+    # transitively through e2e-browsers.
+    needs: [e2e-browsers]
+    # Shard across 4 runners. Each shard brings up its OWN isolated stack
+    # (postgres + backend + frontend) below, so there is no shared database
+    # state between shards. Within a shard Playwright still runs serially
+    # (workers: 1 in playwright.config.ts), preserving the existing ordering
+    # guarantees (e.g. zz-danger-zone last). fail-fast: false lets every shard
+    # finish so we see all failures, not just the first shard to go red.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    permissions:
+      contents: read
+      pull-requests: write # so the failure-diagnostics step can post container logs as a PR comment via the issues/comments API
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+
+      - name: Build application images
+        run: docker compose -f docker-compose.e2e.yml build
+
+      - name: Start application stack
+        run: docker compose -f docker-compose.e2e.yml up -d --wait --wait-timeout 600
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Restore Playwright browsers
+        id: pw-cache
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-firefox-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+      # Browsers come from the cache populated by e2e-browsers, so normally only
+      # the apt system deps are installed here (fast, no CDN download). The else
+      # branch is a safety net for the rare case the cache was evicted between
+      # jobs; the timeout caps a stalled download instead of hanging the shard.
+      - name: Install Playwright system dependencies
+        working-directory: e2e
+        timeout-minutes: 10
+        env:
+          PW_CACHE_HIT: ${{ steps.pw-cache.outputs.cache-hit }}
+        run: |
+          if [ "$PW_CACHE_HIT" = "true" ]; then
+            npx playwright install-deps chromium firefox
+          else
+            npx playwright install --with-deps chromium firefox
+          fi
+
+      - name: Run E2E tests
+        working-directory: e2e
+        timeout-minutes: 30
+        env:
+          BASE_URL: http://localhost:3001
+          CI: 'true'
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -o pipefail
+          npx playwright test --shard="${SHARD}/4" --max-failures=5 2>&1 | tee /tmp/pw-output.txt
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: e2e-report-shard-${{ matrix.shard }}
+          path: e2e/playwright-report/
+          retention-days: 7
+
+      # The auth-gated raw logs aren't reachable programmatically, so mirror
+      # container status + logs into both the job summary AND a PR comment.
+      - name: Collect diagnostics on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHARD: ${{ matrix.shard }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "## E2E diagnostics (shard ${SHARD}/4)"
+            echo
+            if [ -f /tmp/pw-output.txt ]; then
+              echo '### Playwright output (tail)'
+              echo '```'
+              tail -c 12000 /tmp/pw-output.txt
+              echo '```'
+            fi
+            echo '### docker compose ps'
+            echo '```'
+            docker compose -f docker-compose.e2e.yml ps -a 2>&1 || true
+            echo '```'
+            for svc in postgres backend frontend; do
+              echo "<details><summary>$svc (last 150 lines)</summary>"
+              echo
+              echo '```'
+              docker compose -f docker-compose.e2e.yml logs "$svc" --no-color --tail=150 2>&1 | tail -c 16000 || true
+              echo '```'
+              echo
+              echo '</details>'
+            done
+          } > /tmp/e2e-diag.md
+          cat /tmp/e2e-diag.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR_NUMBER" ]; then
+            jq -Rs '{body: .}' /tmp/e2e-diag.md > /tmp/e2e-diag.json
+            http=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${REPO}/issues/$PR_NUMBER/comments" \
+              -d @/tmp/e2e-diag.json)
+            echo "PR comment POST -> HTTP $http"
+            [ "$http" = "201" ] || cat /tmp/resp.json
+          fi
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v

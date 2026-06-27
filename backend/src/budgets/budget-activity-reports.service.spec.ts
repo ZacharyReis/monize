@@ -545,7 +545,7 @@ describe("BudgetActivityReportsService", () => {
       expect(result[2].date).toBe("2026-02-20");
     });
 
-    it("should round amounts to two decimal places", async () => {
+    it("should round amounts to storage precision (4 decimal places)", async () => {
       periodsRepository.findOne.mockResolvedValueOnce({
         id: "p-1",
         budgetId: "budget-1",
@@ -568,7 +568,7 @@ describe("BudgetActivityReportsService", () => {
 
       const result = await service.getDailySpending("user-1", "budget-1");
 
-      expect(result[0].amount).toBe(33.34);
+      expect(result[0].amount).toBe(33.335);
     });
 
     it("should handle budget with no categories array", async () => {

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface BudgetZeroBasedBarProps {
   totalIncome: number;
   totalBudgeted: number;
@@ -11,6 +13,7 @@ export function BudgetZeroBasedBar({
   totalBudgeted,
   formatCurrency,
 }: BudgetZeroBasedBarProps) {
+  const t = useTranslations('budgets');
   const unassigned = totalIncome - totalBudgeted;
   const assignedPercent =
     totalIncome > 0
@@ -25,13 +28,13 @@ export function BudgetZeroBasedBar({
   let statusLabel: string;
   if (isFullyAssigned) {
     statusColor = 'text-green-600 dark:text-green-400';
-    statusLabel = 'Fully assigned';
+    statusLabel = t('zeroBasedBar.fullyAssigned');
   } else if (isOverAssigned) {
     statusColor = 'text-red-600 dark:text-red-400';
-    statusLabel = 'Over-assigned';
+    statusLabel = t('zeroBasedBar.overAssigned');
   } else {
     statusColor = 'text-yellow-600 dark:text-yellow-400';
-    statusLabel = 'Under-assigned';
+    statusLabel = t('zeroBasedBar.underAssigned');
   }
 
   let barColor: string;
@@ -47,7 +50,7 @@ export function BudgetZeroBasedBar({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Zero-Based Assignment
+          {t('zeroBasedBar.title')}
         </h3>
         <span className={`text-sm font-medium ${statusColor}`}>
           {statusLabel}
@@ -61,12 +64,12 @@ export function BudgetZeroBasedBar({
       </div>
       <div className="flex items-center justify-between mt-2 text-sm">
         <span className="text-gray-600 dark:text-gray-300">
-          Assigned: {formatCurrency(totalBudgeted)} / {formatCurrency(totalIncome)}
+          {t('zeroBasedBar.assigned', { assigned: formatCurrency(totalBudgeted), income: formatCurrency(totalIncome) })}
         </span>
         <span className={statusColor}>
           {unassigned >= 0
-            ? `${formatCurrency(unassigned)} unassigned`
-            : `${formatCurrency(Math.abs(unassigned))} over`}
+            ? t('zeroBasedBar.unassigned', { amount: formatCurrency(unassigned) })
+            : t('zeroBasedBar.over', { amount: formatCurrency(Math.abs(unassigned)) })}
         </span>
       </div>
     </div>

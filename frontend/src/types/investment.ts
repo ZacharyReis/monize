@@ -1,3 +1,5 @@
+import { Tag } from './tag';
+
 export type InvestmentAction =
   | 'BUY'
   | 'SELL'
@@ -20,11 +22,16 @@ export interface Security {
   securityType: string | null;
   exchange: string | null;
   currencyCode: string;
+  description?: string | null;
+  tags?: Tag[];
   isActive: boolean;
+  isFavourite: boolean;
   skipPriceUpdates: boolean;
   sector: string | null;
   industry: string | null;
   sectorWeightings: { sector: string; weight: number }[] | null;
+  /** Manual ETF/fund country breakdown; weight is a decimal 0-1 (like sectorWeightings). */
+  countryWeightings: { name: string; weight: number }[] | null;
   quoteProvider: QuoteProviderName | null;
   msnInstrumentId: string | null;
   /** Source of the most recent price row for this security (e.g. "yahoo_finance", "msn_finance", "manual"), or null if no prices exist. */
@@ -43,6 +50,22 @@ export interface SectorWeightingItem {
 
 export interface SectorWeightingResult {
   items: SectorWeightingItem[];
+  totalPortfolioValue: number;
+  totalDirectValue: number;
+  totalEtfValue: number;
+  unclassifiedValue: number;
+}
+
+export interface CountryWeightingItem {
+  country: string;
+  directValue: number;
+  etfValue: number;
+  totalValue: number;
+  percentage: number;
+}
+
+export interface CountryWeightingResult {
+  items: CountryWeightingItem[];
   totalPortfolioValue: number;
   totalDirectValue: number;
   totalEtfValue: number;
@@ -115,7 +138,7 @@ export interface PortfolioSummary {
 export interface AllocationItem {
   name: string;
   symbol: string | null;
-  type: 'cash' | 'security';
+  type: 'cash' | 'security' | 'tag' | 'untagged';
   value: number;
   percentage: number;
   color?: string;
@@ -140,6 +163,8 @@ export interface InvestmentTransaction {
   totalAmount: number;
   exchangeRate: number;
   description: string | null;
+  // Set on security-transfer legs; points at the paired TRANSFER_IN/OUT leg.
+  linkedTransactionId: string | null;
   security: Security | null;
   fundingAccount: {
     id: string;
@@ -147,6 +172,39 @@ export interface InvestmentTransaction {
   } | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SecurityHistoryAccount {
+  accountId: string;
+  accountName: string;
+  isClosed: boolean;
+  currentQuantity: number;
+}
+
+export interface SecurityHistoryTransaction {
+  id: string;
+  transactionDate: string;
+  accountId: string;
+  accountName: string;
+  action: InvestmentAction;
+  quantity: number | null;
+  price: number | null;
+  commission: number;
+  totalAmount: number;
+  description: string | null;
+  runningQuantityAccount: number;
+  runningQuantityAll: number;
+}
+
+export interface SecurityTransactionHistory {
+  securityId: string;
+  symbol: string;
+  name: string;
+  currencyCode: string;
+  isActive: boolean;
+  accounts: SecurityHistoryAccount[];
+  transactions: SecurityHistoryTransaction[];
+  currentQuantityAll: number;
 }
 
 export interface CreateInvestmentTransactionData {
@@ -202,8 +260,25 @@ export interface CreateSecurityData {
   securityType?: string;
   exchange?: string;
   currencyCode: string;
+  description?: string;
+  tagIds?: string[];
   quoteProvider?: QuoteProviderName | null;
   msnInstrumentId?: string;
+  isFavourite?: boolean;
+  /** Manual ETF/fund country breakdown; weight is a decimal 0-1 (like sectorWeightings). */
+  countryWeightings?: { name: string; weight: number }[];
+}
+
+/** A favourite security decorated with its latest price and daily change. */
+export interface FavouriteSecurityQuote {
+  securityId: string;
+  symbol: string;
+  name: string;
+  currencyCode: string;
+  currentPrice: number | null;
+  previousPrice: number | null;
+  dailyChange: number;
+  dailyChangePercent: number;
 }
 
 export interface InvestmentTransactionPaginationInfo {

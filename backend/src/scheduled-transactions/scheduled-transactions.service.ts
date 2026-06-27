@@ -7,7 +7,13 @@ import {
   Logger,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThanOrEqual, DataSource, In } from "typeorm";
+import {
+  Repository,
+  LessThanOrEqual,
+  DataSource,
+  EntityManager,
+  In,
+} from "typeorm";
 import { Cron } from "@nestjs/schedule";
 import {
   ScheduledTransaction,
@@ -38,6 +44,49 @@ import {
   ensureYMD,
 } from "../common/recurrence";
 import { ActionHistoryService } from "../action-history/action-history.service";
+import { getUsersByEffectiveTimezone } from "../common/users-by-timezone.util";
+import { validateSplitAmountSum } from "../common/split-amount.util";
+import { roundMoney, sumMoney } from "../common/round.util";
+import { tr } from "../i18n/translate";
+
+export type LlmScheduledKind = "bill" | "deposit" | "transfer" | "investment";
+
+export interface LlmScheduledItem {
+  id: string;
+  name: string;
+  accountId: string;
+  accountName: string;
+  payeeName: string | null;
+  categoryName: string | null;
+  amount: number;
+  currency: string;
+  frequency: FrequencyType;
+  nextDueDate: string;
+  daysUntilDue: number;
+  isActive: boolean;
+  autoPost: boolean;
+  kind: LlmScheduledKind;
+  description: string | null;
+}
+
+export interface LlmUpcomingScheduledResult {
+  daysWindow: number;
+  itemCount: number;
+  overdueCount: number;
+  totalUpcomingBills: number;
+  totalUpcomingDeposits: number;
+  items: LlmScheduledItem[];
+}
+
+export interface LlmScheduledFilter {
+  kind?: LlmScheduledKind | "all";
+  accountIds?: string[];
+  isActive?: boolean;
+}
+
+export interface LlmUpcomingFilter extends LlmScheduledFilter {
+  days?: number;
+}
 
 const INVESTMENT_RELATIONS = [
   "account",
@@ -110,45 +159,8 @@ export class ScheduledTransactionsService {
     this.logger.log("Starting auto-post processing for scheduled transactions");
 
     try {
-      // Bucket users by their effective IANA timezone so "today" is computed
-      // per-user rather than against container UTC. Without this, an EST user
-      // sees transactions auto-post at 21:00 the previous local day (when
-      // 02:00 UTC ticks over to the new UTC date).
-      //
-      // Resolution order per user:
-      //   1. user_preferences.timezone, when it is a real IANA name (the user
-      //      explicitly picked one in Settings).
-      //   2. user_preferences.last_client_timezone -- the most recent
-      //      X-Client-Timezone header observed by RequestContextInterceptor.
-      //      Covers the common case where timezone is still the default
-      //      "browser" sentinel.
-      //   3. UTC, only as a last resort.
-      const userRows: {
-        user_id: string;
-        timezone: string | null;
-        last_client_timezone: string | null;
-      }[] = await this.dataSource.query(
-        `SELECT u.id as user_id, p.timezone, p.last_client_timezone
-           FROM users u
-           LEFT JOIN user_preferences p ON p.user_id = u.id`,
-      );
-
-      if (userRows.length === 0) return;
-
-      const userIdsByTz = new Map<string, string[]>();
-      for (const { user_id, timezone, last_client_timezone } of userRows) {
-        const explicit = timezone?.trim();
-        const cached = last_client_timezone?.trim();
-        const tz =
-          explicit && explicit !== "browser"
-            ? explicit
-            : cached && cached !== "browser"
-              ? cached
-              : "UTC";
-        const list = userIdsByTz.get(tz) ?? [];
-        list.push(user_id);
-        userIdsByTz.set(tz, list);
-      }
+      const userIdsByTz = await getUsersByEffectiveTimezone(this.dataSource);
+      if (userIdsByTz.size === 0) return;
 
       let totalSuccess = 0;
       let totalError = 0;
@@ -257,7 +269,10 @@ export class ScheduledTransactionsService {
   ): Promise<ScheduledTransaction> {
     if (createDto.isInvestment && createDto.isTransfer) {
       throw new BadRequestException(
-        "A scheduled transaction cannot be both a transfer and an investment",
+        tr(
+          "errors.scheduled.notTransferAndInvestment",
+          "A scheduled transaction cannot be both a transfer and an investment",
+        ),
       );
     }
 
@@ -270,7 +285,10 @@ export class ScheduledTransactionsService {
       await this.accountsService.findOne(userId, createDto.transferAccountId);
       if (createDto.transferAccountId === createDto.accountId) {
         throw new BadRequestException(
-          "Source and destination accounts must be different",
+          tr(
+            "errors.scheduled.sameSourceAndDestination",
+            "Source and destination accounts must be different",
+          ),
         );
       }
     }
@@ -278,7 +296,10 @@ export class ScheduledTransactionsService {
     if (createDto.isInvestment) {
       if (account.accountSubType !== AccountSubType.INVESTMENT_BROKERAGE) {
         throw new BadRequestException(
-          "Scheduled investment transactions require a brokerage account",
+          tr(
+            "errors.scheduled.requiresBrokerageAccount",
+            "Scheduled investment transactions require a brokerage account",
+          ),
         );
       }
       this.validateInvestmentFields(createDto);
@@ -308,10 +329,11 @@ export class ScheduledTransactionsService {
       userId,
       startDate: transactionData.startDate || transactionData.nextDueDate,
       totalOccurrences: transactionData.occurrencesRemaining,
-      categoryId:
-        hasSplits || isTransfer || isInvestment
-          ? null
-          : transactionData.categoryId,
+      // A transfer may carry an optional spending category (see #743): it is
+      // stored on the schedule and applied to both legs when posted, surfacing
+      // the transfer in the monthly category breakdown. Only splits (category
+      // lives on each split) and investments null it out here.
+      categoryId: hasSplits || isInvestment ? null : transactionData.categoryId,
       isSplit: hasSplits && !isTransfer,
       isTransfer: isTransfer || false,
       transferAccountId: isTransfer ? transferAccountId : null,
@@ -362,6 +384,8 @@ export class ScheduledTransactionsService {
       action: "create",
       afterData: { ...result },
       description: `Created scheduled transaction "${result.name}"`,
+      descriptionKey: "createdScheduledTransaction",
+      descriptionParams: { name: result.name },
     });
 
     return result;
@@ -377,11 +401,20 @@ export class ScheduledTransactionsService {
     const action = dto.investmentAction;
     if (!action) {
       throw new BadRequestException(
-        "Investment action is required for scheduled investment transactions",
+        tr(
+          "errors.scheduled.investmentActionRequired",
+          "Investment action is required for scheduled investment transactions",
+        ),
       );
     }
     if (SECURITY_REQUIRED_ACTIONS.has(action) && !dto.investmentSecurityId) {
-      throw new BadRequestException(`Action ${action} requires a security`);
+      throw new BadRequestException(
+        tr(
+          "errors.scheduled.actionRequiresSecurity",
+          `Action ${action} requires a security`,
+          { action },
+        ),
+      );
     }
     if (QUANTITY_PRICE_ACTIONS.has(action)) {
       if (
@@ -390,7 +423,11 @@ export class ScheduledTransactionsService {
         Number(dto.investmentQuantity) <= 0
       ) {
         throw new BadRequestException(
-          `Action ${action} requires a positive quantity`,
+          tr(
+            "errors.scheduled.actionRequiresPositiveQuantity",
+            `Action ${action} requires a positive quantity`,
+            { action },
+          ),
         );
       }
       if (
@@ -399,7 +436,11 @@ export class ScheduledTransactionsService {
         Number(dto.investmentPrice) <= 0
       ) {
         throw new BadRequestException(
-          `Action ${action} requires a positive price`,
+          tr(
+            "errors.scheduled.actionRequiresPositivePrice",
+            `Action ${action} requires a positive price`,
+            { action },
+          ),
         );
       }
     } else if (QUANTITY_ONLY_ACTIONS.has(action)) {
@@ -409,7 +450,11 @@ export class ScheduledTransactionsService {
         Number(dto.investmentQuantity) <= 0
       ) {
         throw new BadRequestException(
-          `Action ${action} requires a positive quantity`,
+          tr(
+            "errors.scheduled.actionRequiresPositiveQuantity",
+            `Action ${action} requires a positive quantity`,
+            { action },
+          ),
         );
       }
     } else if (AMOUNT_ONLY_ACTIONS.has(action)) {
@@ -418,7 +463,11 @@ export class ScheduledTransactionsService {
         dto.investmentTotalAmount === null
       ) {
         throw new BadRequestException(
-          `Action ${action} requires a total amount`,
+          tr(
+            "errors.scheduled.actionRequiresTotalAmount",
+            `Action ${action} requires a total amount`,
+            { action },
+          ),
         );
       }
     }
@@ -428,35 +477,37 @@ export class ScheduledTransactionsService {
     splits: CreateScheduledTransactionSplitDto[],
     transactionAmount: number,
   ): void {
-    const isPassthrough =
-      splits.length === 1 &&
-      (splits[0].transferAccountId || splits[0].investment);
-
-    if (splits.length < 2 && !isPassthrough) {
-      throw new BadRequestException(
-        "Split transactions must have at least 2 splits",
-      );
-    }
-
-    const splitsSum = splits.reduce(
-      (sum, split) => sum + Number(split.amount),
-      0,
-    );
-    const roundedSum = Math.round(splitsSum * 10000) / 10000;
-    const roundedAmount = Math.round(Number(transactionAmount) * 10000) / 10000;
-
-    if (roundedSum !== roundedAmount) {
-      throw new BadRequestException(
-        `Split amounts (${roundedSum}) must equal transaction amount (${roundedAmount})`,
-      );
-    }
+    validateSplitAmountSum(splits, transactionAmount, {
+      allowSinglePassthrough: true,
+      isPassthrough: (s) => {
+        const split = s as CreateScheduledTransactionSplitDto;
+        return Boolean(split.transferAccountId || split.investment);
+      },
+    });
   }
 
   private async createSplits(
     scheduledTransactionId: string,
     splits: CreateScheduledTransactionSplitDto[],
+    manager: EntityManager = this.splitsRepository.manager,
   ): Promise<ScheduledTransactionSplit[]> {
     const savedSplits: ScheduledTransactionSplit[] = [];
+
+    // Batch-fetch every tag referenced across all splits so the per-split
+    // tag assignment doesn't trigger one `findBy(Tag, ...)` query per row
+    // (the prior N+1 pattern).
+    const allTagIds = Array.from(
+      new Set(splits.flatMap((s) => s.tagIds ?? [])),
+    );
+    const tagsById =
+      allTagIds.length > 0
+        ? new Map(
+            (await manager.findBy(Tag, { id: In(allTagIds) })).map((t) => [
+              t.id,
+              t,
+            ]),
+          )
+        : new Map<string, Tag>();
 
     for (const split of splits) {
       const inferredKind: SplitKind = split.splitKind
@@ -467,7 +518,7 @@ export class ScheduledTransactionsService {
             ? SplitKind.TRANSFER
             : SplitKind.CATEGORY;
 
-      const entity = this.splitsRepository.create({
+      const entity = manager.create(ScheduledTransactionSplit, {
         scheduledTransactionId,
         kind: inferredKind,
         categoryId:
@@ -504,14 +555,13 @@ export class ScheduledTransactionsService {
             : null,
       });
 
-      const saved = await this.splitsRepository.save(entity);
+      const saved = await manager.save(entity);
 
       if (split.tagIds && split.tagIds.length > 0) {
-        const tags = await this.tagRepository.findBy({
-          id: In(split.tagIds),
-        });
-        saved.tags = tags;
-        await this.splitsRepository.save(saved);
+        saved.tags = split.tagIds
+          .map((id) => tagsById.get(id))
+          .filter((t): t is Tag => t != null);
+        await manager.save(saved);
       }
 
       savedSplits.push(saved);
@@ -624,7 +674,11 @@ export class ScheduledTransactionsService {
 
     if (!scheduled) {
       throw new NotFoundException(
-        `Scheduled transaction with ID ${id} not found`,
+        tr(
+          "errors.scheduled.notFound",
+          `Scheduled transaction with ID ${id} not found`,
+          { id },
+        ),
       );
     }
 
@@ -712,6 +766,43 @@ export class ScheduledTransactionsService {
       .getMany();
   }
 
+  /**
+   * Curated upcoming bills/deposits payload for AI Assistant and MCP. Both
+   * surfaces must return the same shape; the executor and MCP tool are thin
+   * adapters around this method.
+   *
+   * Items are classified by `kind` (bill / deposit / transfer / investment)
+   * so the LLM can answer "what bills are due" or "what deposits are coming
+   * in" without re-deriving sign or transfer/investment flags.
+   */
+  async getLlmUpcomingBillsAndDeposits(
+    userId: string,
+    filter: LlmUpcomingFilter = {},
+  ): Promise<LlmUpcomingScheduledResult> {
+    const days = filter.days ?? 30;
+    const rows = await this.findUpcoming(userId, days);
+    const today = todayYMD();
+    const items = rows
+      .map((r) => toLlmScheduledItem(r, today))
+      .filter((item) => matchesScheduledFilter(item, filter));
+
+    const billAmounts = items
+      .filter((i) => i.kind === "bill")
+      .map((i) => Math.abs(i.amount));
+    const depositAmounts = items
+      .filter((i) => i.kind === "deposit")
+      .map((i) => i.amount);
+
+    return {
+      daysWindow: days,
+      itemCount: items.length,
+      overdueCount: items.filter((i) => i.daysUntilDue < 0).length,
+      totalUpcomingBills: sumMoney(billAmounts),
+      totalUpcomingDeposits: sumMoney(depositAmounts),
+      items,
+    };
+  }
+
   async update(
     userId: string,
     id: string,
@@ -730,7 +821,10 @@ export class ScheduledTransactionsService {
         : scheduled.isTransfer;
     if (effectiveIsInvestment && effectiveIsTransfer) {
       throw new BadRequestException(
-        "A scheduled transaction cannot be both a transfer and an investment",
+        tr(
+          "errors.scheduled.notTransferAndInvestment",
+          "A scheduled transaction cannot be both a transfer and an investment",
+        ),
       );
     }
 
@@ -743,7 +837,10 @@ export class ScheduledTransactionsService {
       const accountId = updateDto.accountId || scheduled.accountId;
       if (updateDto.transferAccountId === accountId) {
         throw new BadRequestException(
-          "Source and destination accounts must be different",
+          tr(
+            "errors.scheduled.sameSourceAndDestination",
+            "Source and destination accounts must be different",
+          ),
         );
       }
     }
@@ -753,7 +850,10 @@ export class ScheduledTransactionsService {
       const account = await this.accountsService.findOne(userId, accountId);
       if (account.accountSubType !== AccountSubType.INVESTMENT_BROKERAGE) {
         throw new BadRequestException(
-          "Scheduled investment transactions require a brokerage account",
+          tr(
+            "errors.scheduled.requiresBrokerageAccount",
+            "Scheduled investment transactions require a brokerage account",
+          ),
         );
       }
       const merged = {
@@ -785,27 +885,16 @@ export class ScheduledTransactionsService {
       ...updateData
     } = updateDto;
 
-    if (splits !== undefined) {
-      if (Array.isArray(splits) && splits.length > 0) {
-        const amount = updateData.amount ?? scheduled.amount;
-        this.validateSplits(splits, amount);
-
-        await this.splitsRepository.delete({ scheduledTransactionId: id });
-        await this.createSplits(id, splits);
-
-        await this.scheduledTransactionsRepository.update(id, {
-          isSplit: true,
-          categoryId: null,
-        });
-      } else if (Array.isArray(splits) && splits.length === 0) {
-        await this.splitsRepository.delete({ scheduledTransactionId: id });
-        await this.scheduledTransactionsRepository.update(id, {
-          isSplit: false,
-        });
-      }
+    // Validate splits before opening the transaction so user errors fail fast
+    // without holding a connection.
+    if (splits !== undefined && Array.isArray(splits) && splits.length > 0) {
+      const amount = updateData.amount ?? scheduled.amount;
+      this.validateSplits(splits, amount);
     }
 
     const fieldsToUpdate: Record<string, any> = {};
+    // Set when switching to transfer/investment mode, which clears any splits.
+    let clearSplitsForModeSwitch = false;
 
     if (updateData.accountId !== undefined)
       fieldsToUpdate.accountId = updateData.accountId;
@@ -846,7 +935,8 @@ export class ScheduledTransactionsService {
       fieldsToUpdate.isTransfer = isTransfer;
       if (isTransfer) {
         fieldsToUpdate.isSplit = false;
-        fieldsToUpdate.categoryId = null;
+        // Keep categoryId: a transfer may carry an optional category (#743). It
+        // is controlled by updateData.categoryId above, not cleared here.
         fieldsToUpdate.isInvestment = false;
         fieldsToUpdate.investmentAction = null;
         fieldsToUpdate.investmentSecurityId = null;
@@ -856,7 +946,7 @@ export class ScheduledTransactionsService {
         fieldsToUpdate.investmentCommission = null;
         fieldsToUpdate.investmentTotalAmount = null;
         fieldsToUpdate.investmentExchangeRate = null;
-        await this.splitsRepository.delete({ scheduledTransactionId: id });
+        clearSplitsForModeSwitch = true;
       }
     }
     if (transferAccountId !== undefined) {
@@ -870,7 +960,7 @@ export class ScheduledTransactionsService {
         fieldsToUpdate.isTransfer = false;
         fieldsToUpdate.categoryId = null;
         fieldsToUpdate.transferAccountId = null;
-        await this.splitsRepository.delete({ scheduledTransactionId: id });
+        clearSplitsForModeSwitch = true;
       } else {
         fieldsToUpdate.investmentAction = null;
         fieldsToUpdate.investmentSecurityId = null;
@@ -907,8 +997,53 @@ export class ScheduledTransactionsService {
           updateData.investmentExchangeRate ?? null;
     }
 
-    if (Object.keys(fieldsToUpdate).length > 0) {
-      await this.scheduledTransactionsRepository.update(id, fieldsToUpdate);
+    // Apply the split rewrite, any mode-switch split clearing, and the main
+    // row update atomically so a partial failure cannot leave the row and its
+    // splits in an inconsistent state.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      if (splits !== undefined) {
+        if (Array.isArray(splits) && splits.length > 0) {
+          await queryRunner.manager.delete(ScheduledTransactionSplit, {
+            scheduledTransactionId: id,
+          });
+          await this.createSplits(id, splits, queryRunner.manager);
+          await queryRunner.manager.update(ScheduledTransaction, id, {
+            isSplit: true,
+            categoryId: null,
+          });
+        } else if (Array.isArray(splits) && splits.length === 0) {
+          await queryRunner.manager.delete(ScheduledTransactionSplit, {
+            scheduledTransactionId: id,
+          });
+          await queryRunner.manager.update(ScheduledTransaction, id, {
+            isSplit: false,
+          });
+        }
+      }
+
+      if (clearSplitsForModeSwitch) {
+        await queryRunner.manager.delete(ScheduledTransactionSplit, {
+          scheduledTransactionId: id,
+        });
+      }
+
+      if (Object.keys(fieldsToUpdate).length > 0) {
+        await queryRunner.manager.update(
+          ScheduledTransaction,
+          id,
+          fieldsToUpdate,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
 
     const result = await this.findOne(userId, id);
@@ -920,6 +1055,8 @@ export class ScheduledTransactionsService {
       beforeData,
       afterData: { ...result },
       description: `Updated scheduled transaction "${result.name}"`,
+      descriptionKey: "updatedScheduledTransaction",
+      descriptionParams: { name: result.name },
     });
 
     return result;
@@ -936,6 +1073,8 @@ export class ScheduledTransactionsService {
       action: "delete",
       beforeData,
       description: `Deleted scheduled transaction "${beforeData.name}"`,
+      descriptionKey: "deletedScheduledTransaction",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -1119,6 +1258,16 @@ export class ScheduledTransactionsService {
         storedOverride,
       );
     } else if (scheduled.isTransfer && scheduled.transferAccountId) {
+      // Carry the schedule's category onto the posted transfer (both legs), so
+      // a categorized scheduled transfer behaves like a one-off one (#743).
+      // Same precedence as the non-transfer branch: inline override > stored
+      // occurrence override > the schedule's own category.
+      const transferCategoryId = hasInlineCategoryId
+        ? postDto.categoryId
+        : storedOverride?.categoryId !== null &&
+            storedOverride?.categoryId !== undefined
+          ? storedOverride.categoryId
+          : scheduled.categoryId || undefined;
       await this.transactionsService.createTransfer(userId, {
         fromAccountId: scheduled.accountId,
         toAccountId: scheduled.transferAccountId,
@@ -1129,6 +1278,7 @@ export class ScheduledTransactionsService {
         referenceNumber: postDto?.referenceNumber || undefined,
         payeeId: scheduled.payeeId || undefined,
         payeeName: scheduled.payeeName || undefined,
+        categoryId: transferCategoryId || undefined,
         tagIds:
           scheduled.tagIds && scheduled.tagIds.length > 0
             ? scheduled.tagIds
@@ -1230,7 +1380,10 @@ export class ScheduledTransactionsService {
     const action = scheduled.investmentAction as InvestmentAction | null;
     if (!action) {
       throw new BadRequestException(
-        "Scheduled investment transaction is missing an action",
+        tr(
+          "errors.scheduled.missingInvestmentAction",
+          "Scheduled investment transaction is missing an action",
+        ),
       );
     }
 
@@ -1426,4 +1579,60 @@ export class ScheduledTransactionsService {
       loanAccountId,
     );
   }
+}
+
+function classifyScheduledKind(row: ScheduledTransaction): LlmScheduledKind {
+  if (row.isTransfer) return "transfer";
+  if (row.isInvestment) return "investment";
+  return Number(row.amount) < 0 ? "bill" : "deposit";
+}
+
+function daysBetweenYMD(fromYMD: string, toYMD: string): number {
+  const from = new Date(`${fromYMD}T00:00:00.000Z`).getTime();
+  const to = new Date(`${toYMD}T00:00:00.000Z`).getTime();
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+
+function toLlmScheduledItem(
+  row: ScheduledTransaction,
+  todayYMDStr: string,
+): LlmScheduledItem {
+  const nextDueDate = ensureYMD(row.nextDueDate);
+  return {
+    id: row.id,
+    name: row.name,
+    accountId: row.accountId,
+    accountName: row.account?.name ?? "",
+    payeeName: row.payee?.name ?? row.payeeName ?? null,
+    categoryName: row.category?.name ?? null,
+    amount: roundMoney(Number(row.amount)),
+    currency: row.currencyCode,
+    frequency: row.frequency,
+    nextDueDate,
+    daysUntilDue: daysBetweenYMD(todayYMDStr, nextDueDate),
+    isActive: row.isActive,
+    autoPost: row.autoPost,
+    kind: classifyScheduledKind(row),
+    description: row.description ?? null,
+  };
+}
+
+function matchesScheduledFilter(
+  item: LlmScheduledItem,
+  filter: LlmScheduledFilter,
+): boolean {
+  if (filter.kind && filter.kind !== "all" && item.kind !== filter.kind) {
+    return false;
+  }
+  if (filter.isActive !== undefined && item.isActive !== filter.isActive) {
+    return false;
+  }
+  if (
+    filter.accountIds &&
+    filter.accountIds.length > 0 &&
+    !filter.accountIds.includes(item.accountId)
+  ) {
+    return false;
+  }
+  return true;
 }

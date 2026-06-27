@@ -11,6 +11,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { rateLimit } from "./common/throttle.util";
 import { CsrfGuard } from "./common/guards/csrf.guard";
 import { DemoModeGuard } from "./common/guards/demo-mode.guard";
 import { MustChangePasswordGuard } from "./auth/guards/must-change-password.guard";
@@ -29,8 +30,10 @@ import { CategoriesModule } from "./categories/categories.module";
 import { CurrenciesModule } from "./currencies/currencies.module";
 import { SecuritiesModule } from "./securities/securities.module";
 import { PayeesModule } from "./payees/payees.module";
+import { InstitutionsModule } from "./institutions/institutions.module";
 import { ScheduledTransactionsModule } from "./scheduled-transactions/scheduled-transactions.module";
 import { ReportsModule } from "./reports/reports.module";
+import { InvestmentReportsModule } from "./investment-reports/investment-reports.module";
 import { DatabaseModule } from "./database/database.module";
 import { ImportModule } from "./import/import.module";
 import { NetWorthModule } from "./net-worth/net-worth.module";
@@ -39,6 +42,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { HealthModule } from "./health/health.module";
 import { AdminModule } from "./admin/admin.module";
 import { AiModule } from "./ai/ai.module";
+import { AiRelayModule } from "./ai/relay/ai-relay.module";
 import { McpModule } from "./mcp/mcp.module";
 import { OAuthModule } from "./oauth/oauth.module";
 import { BudgetsModule } from "./budgets/budgets.module";
@@ -49,6 +53,7 @@ import { UpdatesModule } from "./updates/updates.module";
 import { MonteCarloModule } from "./monte-carlo/monte-carlo.module";
 import { DelegationModule } from "./delegation/delegation.module";
 import { EmergencyAccessModule } from "./emergency-access/emergency-access.module";
+import { I18nModule } from "./i18n/i18n.module";
 
 @Module({
   imports: [
@@ -88,7 +93,7 @@ import { EmergencyAccessModule } from "./emergency-access/emergency-access.modul
       {
         name: "default",
         ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute for general API
+        limit: rateLimit(100), // 100 requests per minute for general API
       },
     ]),
 
@@ -97,6 +102,9 @@ import { EmergencyAccessModule } from "./emergency-access/emergency-access.modul
 
     // Demo mode (global — available to all modules)
     DemoModeModule,
+
+    // i18n (global — exception messages, validation, email content)
+    I18nModule,
 
     // UserPreference + User repos for RequestContextInterceptor (resolves the
     // authenticated user's timezone and updates last_activity_at on every
@@ -111,10 +119,12 @@ import { EmergencyAccessModule } from "./emergency-access/emergency-access.modul
     TransactionsModule,
     CategoriesModule,
     PayeesModule,
+    InstitutionsModule,
     CurrenciesModule,
     SecuritiesModule,
     ScheduledTransactionsModule,
     ReportsModule,
+    InvestmentReportsModule,
     DatabaseModule,
     ImportModule,
     NetWorthModule,
@@ -122,6 +132,7 @@ import { EmergencyAccessModule } from "./emergency-access/emergency-access.modul
     NotificationsModule,
     AdminModule,
     AiModule,
+    AiRelayModule,
     McpModule,
     OAuthModule,
     BudgetsModule,

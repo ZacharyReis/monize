@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useHighlightParam } from '@/hooks/useHighlightTarget';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
 const CategoryForm = dynamic(() => import('@/components/categories/CategoryForm').then(m => m.CategoryForm), { ssr: false });
@@ -32,6 +34,10 @@ export default function CategoriesPage() {
 }
 
 function CategoriesContent() {
+  const t = useTranslations('categories');
+  // Deep link to a specific category (e.g. a "View categories" link). The tree
+  // renders all rows, so no page jump is needed -- the row flashes in place.
+  const highlightId = useHighlightParam();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
@@ -48,12 +54,12 @@ function CategoriesContent() {
       const data = await categoriesApi.getAll();
       setCategories(data);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load categories'));
+      toast.error(getErrorMessage(error, t('toasts.loadFailed')));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadCategories();
@@ -66,10 +72,10 @@ function CategoriesContent() {
       const data = await categoriesApi.getAll();
       setCategories(data);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load categories'));
+      toast.error(getErrorMessage(error, t('toasts.loadFailed')));
       logger.error(error);
     }
-  }, []);
+  }, [t]);
 
   const handleFormSubmit = async (data: any) => {
     try {
@@ -83,17 +89,17 @@ function CategoriesContent() {
 
       if (editingItem) {
         await categoriesApi.update(editingItem.id, cleanedData);
-        toast.success('Category updated successfully');
+        toast.success(t('toasts.updated'));
         close();
         refreshCategories();
       } else {
         await categoriesApi.create(cleanedData);
-        toast.success('Category created successfully');
+        toast.success(t('toasts.created'));
         close();
         refreshCategories();
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, `Failed to ${editingItem ? 'update' : 'create'} category`));
+      toast.error(getErrorMessage(error, editingItem ? t('toasts.updateFailed') : t('toasts.createFailed')));
       throw error;
     }
   };
@@ -102,10 +108,10 @@ function CategoriesContent() {
     setIsImporting(true);
     try {
       const result = await categoriesApi.importDefaults();
-      toast.success(`Successfully imported ${result.categoriesCreated} categories`);
+      toast.success(t('toasts.importSuccess', { count: result.categoriesCreated }));
       loadCategories();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to import default categories'));
+      toast.error(getErrorMessage(error, t('toasts.importFailed')));
     } finally {
       setIsImporting(false);
     }
@@ -156,32 +162,32 @@ function CategoriesContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Categories"
-          subtitle="Organize your transactions with custom categories"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Categories-and-Payees"
-          actions={<Button onClick={openCreate}>+ New Category</Button>}
+          actions={<Button onClick={openCreate}>{t('page.newButton')}</Button>}
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <SummaryCard
-            label="Total Categories"
+            label={t('page.summaryTotal')}
             value={categories.length}
             icon={SummaryIcons.tag}
           />
           <SummaryCard
-            label="Income Categories"
+            label={t('page.summaryIncome')}
             value={incomeCount}
             icon={SummaryIcons.plusCircle}
             valueColor="green"
           />
           <SummaryCard
-            label="Expense Categories"
+            label={t('page.summaryExpense')}
             value={expenseCount}
             icon={SummaryIcons.minus}
             valueColor="red"
           />
           <SummaryCard
-            label="Top-Level"
+            label={t('page.summaryTopLevel')}
             value={topLevelCount}
             icon={SummaryIcons.list}
             valueColor="blue"
@@ -192,7 +198,7 @@ function CategoriesContent() {
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
-            placeholder="Search categories..."
+            placeholder={t('page.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full sm:max-w-md rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400"
@@ -214,9 +220,9 @@ function CategoriesContent() {
                   status !== 'all' ? '-ml-px' : ''
                 }`}
               >
-                {status === 'all' ? `All (${categories.length})` :
-                 status === 'expense' ? `Expenses (${expenseCount})` :
-                 `Income (${incomeCount})`}
+                {status === 'all' ? t('page.filterAll', { count: categories.length }) :
+                 status === 'expense' ? t('page.filterExpenses', { count: expenseCount }) :
+                 t('page.filterIncome', { count: incomeCount })}
               </button>
             ))}
           </div>
@@ -225,7 +231,7 @@ function CategoriesContent() {
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="lg" className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Category' : 'New Category'}
+            {isEditing ? t('page.modalTitleEdit') : t('page.modalTitleNew')}
           </h2>
           <CategoryForm
             category={editingItem}
@@ -241,7 +247,7 @@ function CategoriesContent() {
         {/* Categories List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading categories..." />
+            <LoadingSpinner text={t('page.loadingText')} />
           ) : categories.length === 0 ? (
             <div className="p-12 text-center">
               <svg
@@ -258,11 +264,10 @@ function CategoriesContent() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-                No categories yet
+                {t('empty.heading')}
               </h3>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-                Categories help you organize your transactions. Get started by importing our default
-                set of categories, or create your own from scratch.
+                {t('empty.description')}
               </p>
               <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
                 <Button
@@ -270,18 +275,18 @@ function CategoriesContent() {
                   isLoading={isImporting}
                   disabled={isImporting}
                 >
-                  Import Default Categories
+                  {t('empty.importButton')}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={openCreate}
                   disabled={isImporting}
                 >
-                  Create Your Own
+                  {t('empty.createButton')}
                 </Button>
               </div>
               <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">
-                The default set includes common income and expense categories with subcategories
+                {t('empty.hint')}
               </p>
             </div>
           ) : (
@@ -295,6 +300,7 @@ function CategoriesContent() {
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
+              highlightId={highlightId}
             />
           )}
         </div>
@@ -302,7 +308,7 @@ function CategoriesContent() {
         {/* Total count */}
         {filteredCategories.length > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {filteredCategories.length} categor{filteredCategories.length !== 1 ? 'ies' : 'y'}
+            {filteredCategories.length !== 1 ? t('page.countPlural', { count: filteredCategories.length }) : t('page.countSingle')}
           </div>
         )}
       </main>

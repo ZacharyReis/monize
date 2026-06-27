@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { CsvTransferRule } from '@/lib/import';
 import { Account } from '@/types/account';
@@ -11,6 +12,7 @@ interface CsvTransferRulesProps {
 }
 
 export function CsvTransferRules({ rules, onChange, accounts }: CsvTransferRulesProps) {
+  const t = useTranslations('import');
   const filtered = accounts.filter(
     (a) => !a.isClosed && a.accountSubType !== 'INVESTMENT_BROKERAGE',
   );
@@ -36,19 +38,18 @@ export function CsvTransferRules({ rules, onChange, accounts }: CsvTransferRules
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Transfer Detection Rules
+          {t('transferRules.title')}
         </h4>
         <Button variant="outline" size="sm" onClick={addRule}>
-          Add Rule
+          {t('transferRules.addRule')}
         </Button>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Define patterns to identify transactions that are transfers between accounts.
-        Matching is case-insensitive and uses &quot;contains&quot; logic.
+        {t('transferRules.description')}
       </p>
       {rules.length === 0 && (
         <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-          No transfer rules defined. Transfers will not be detected automatically.
+          {t('transferRules.noRules')}
         </p>
       )}
       {rules.map((rule, index) => (
@@ -59,35 +60,35 @@ export function CsvTransferRules({ rules, onChange, accounts }: CsvTransferRules
               onChange={(e) => updateRule(index, 'type', e.target.value)}
               className="flex-1 md:flex-initial md:w-[130px] px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value="payee">Payee</option>
-              <option value="category">Category</option>
+              <option value="payee">{t('transferRules.typePayee')}</option>
+              <option value="category">{t('transferRules.typeCategory')}</option>
             </select>
             <button
               onClick={() => removeRule(index)}
               className="md:hidden text-red-500 hover:text-red-700 text-sm px-1"
-              title="Remove rule"
+              title={t('transferRules.removeTitle')}
             >
-              Remove
+              {t('transferRules.remove')}
             </button>
           </div>
           <div className="flex items-center gap-2 md:flex-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400">contains</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{t('transferRules.contains')}</span>
             <input
               type="text"
               value={rule.pattern}
               onChange={(e) => updateRule(index, 'pattern', e.target.value)}
-              placeholder="Pattern..."
+              placeholder={t('transferRules.patternPlaceholder')}
               className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             />
           </div>
           <div className="flex items-center gap-2 md:flex-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">as transfer from/to</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('transferRules.asTransferFromTo')}</span>
             <select
               value={rule.accountName}
               onChange={(e) => updateRule(index, 'accountName', e.target.value)}
               className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value="">Select account...</option>
+              <option value="">{t('transferRules.selectAccount')}</option>
               {favouriteAccounts.map((account) => (
                 <option key={account.id} value={account.name}>
                   {account.name}
@@ -105,7 +106,7 @@ export function CsvTransferRules({ rules, onChange, accounts }: CsvTransferRules
             <button
               onClick={() => removeRule(index)}
               className="hidden md:inline-flex text-red-500 hover:text-red-700 text-sm px-1"
-              title="Remove rule"
+              title={t('transferRules.removeTitle')}
             >
               X
             </button>

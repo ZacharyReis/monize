@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { differenceInDays, isPast, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { ScheduledTransaction } from '@/types/scheduled-transaction';
 import { Account } from '@/types/account';
@@ -20,6 +21,7 @@ interface UpcomingBillsProps {
 }
 
 export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxItems }: UpcomingBillsProps) {
+  const t = useTranslations('dashboard');
   const router = useRouter();
   const { formatDate } = useDateFormat();
   const { formatCurrency: formatCurrencyBase } = useNumberFormat();
@@ -96,11 +98,11 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
 
   const getDueDateLabel = (dateStr: string) => {
     const date = parseLocalDate(dateStr);
-    if (isPast(date) && !isToday(date)) return 'Overdue';
-    if (isToday(date)) return 'Today';
-    if (isTomorrow(date)) return 'Tomorrow';
+    if (isPast(date) && !isToday(date)) return t('upcomingBills.overdue');
+    if (isToday(date)) return t('upcomingBills.today');
+    if (isTomorrow(date)) return t('upcomingBills.tomorrow');
     const days = differenceInDays(date, today);
-    if (days <= 14) return `${days} days`;
+    if (days <= 14) return t('upcomingBills.daysUntil', { count: days });
     return formatDate(dateStr);
   };
 
@@ -124,11 +126,11 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
   const getTypeBadge = (type: 'bill' | 'deposit' | 'transfer') => {
     switch (type) {
       case 'bill':
-        return <span className="px-1.5 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs rounded font-medium">Bill</span>;
+        return <span className="px-1.5 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs rounded font-medium">{t('upcomingBills.typeBadge.bill')}</span>;
       case 'deposit':
-        return <span className="px-1.5 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 text-xs rounded font-medium">Deposit</span>;
+        return <span className="px-1.5 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 text-xs rounded font-medium">{t('upcomingBills.typeBadge.deposit')}</span>;
       case 'transfer':
-        return <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-xs rounded font-medium">Transfer</span>;
+        return <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-xs rounded font-medium">{t('upcomingBills.typeBadge.transfer')}</span>;
     }
   };
 
@@ -158,7 +160,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
     router.push(`/bills?postBillId=${encodeURIComponent(id)}`);
   };
 
-  const sectionTitle = 'Upcoming Bills & Deposits';
+  const sectionTitle = t('upcomingBills.title');
 
   if (isLoading) {
     return (
@@ -188,7 +190,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
           {sectionTitle}
         </button>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No overdue or upcoming bills, deposits, or transfers within their reminder windows.
+          {t('upcomingBills.empty')}
         </p>
       </div>
     );
@@ -214,7 +216,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
         >
           {sectionTitle}
         </button>
-        <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">Per reminder settings</span>
+        <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('upcomingBills.perReminderSettings')}</span>
       </div>
       <div className="space-y-2 sm:space-y-3">
         {visibleItems.map((item) => {
@@ -232,7 +234,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
                   goToPost(item.id);
                 }
               }}
-              title="Post this transaction"
+              title={t('upcomingBills.postTransaction')}
               className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isOverdue(item.nextDueDate)
                   ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10'
@@ -254,8 +256,8 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
                     </span>
                     <span className="hidden sm:inline">{getTypeBadge(type)}</span>
                     {!item.autoPost && (
-                      <span className="hidden sm:inline px-1.5 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 text-xs rounded" title="Requires manual posting">
-                        Manual
+                      <span className="hidden sm:inline px-1.5 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 text-xs rounded" title={t('upcomingBills.manualTitle')}>
+                        {t('upcomingBills.manual')}
                       </span>
                     )}
                   </div>
@@ -270,7 +272,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
                 {negativeBalanceItems.has(item.id) && (
                   <span
                     className="flex-shrink-0 text-amber-500 dark:text-amber-400"
-                    title="This transaction will cause the account balance to go below zero"
+                    title={t('upcomingBills.negativeBalanceWarning')}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
@@ -290,13 +292,13 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
           onClick={() => router.push('/bills')}
           className="mt-2 w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-300"
         >
-          +{hiddenCount} more
+          {t('upcomingBills.moreItems', { count: hiddenCount })}
         </button>
       )}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-1">
         {totalDue > 0 && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Total due</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">{t('upcomingBills.totalDue')}</span>
             <span className="font-semibold text-red-600 dark:text-red-400">
               -{formatCurrencyBase(totalDue)}
             </span>
@@ -304,7 +306,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
         )}
         {totalIncoming > 0 && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Total incoming</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">{t('upcomingBills.totalIncoming')}</span>
             <span className="font-semibold text-green-600 dark:text-green-400">
               +{formatCurrencyBase(totalIncoming)}
             </span>
@@ -315,7 +317,7 @@ export function UpcomingBills({ scheduledTransactions, accounts, isLoading, maxI
         onClick={() => router.push('/bills')}
         className="mt-3 w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
       >
-        View all bills & deposits
+        {t('upcomingBills.viewAll')}
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -14,32 +15,75 @@ import {
   Line,
 } from 'recharts';
 import { budgetsApi } from '@/lib/budgets';
-import type { Budget, BudgetTrendPoint, CategoryTrendSeries } from '@/types/budget';
+import type { CategoryTrendSeries } from '@/types/budget';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useTranslations } from 'next-intl';
+import { useReportData } from '@/hooks/useReportData';
 import { BudgetCategoryTrend } from '@/components/budgets/BudgetCategoryTrend';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportError } from '@/components/reports/ReportError';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('BudgetVsActualReport');
+import { chartColors } from '@/lib/chart-colors';
 
 type BudgetTrendSortField = 'month' | 'budgeted' | 'actual' | 'variance' | 'percentUsed';
 
 export function BudgetVsActualReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  const [selectedBudgetIdState, setSelectedBudgetId] = useState<string>('');
   const [months, setMonths] = useState(6);
-  const [trendData, setTrendData] = useState<BudgetTrendPoint[]>([]);
-  const [categoryData, setCategoryData] = useState<CategoryTrendSeries[]>([]);
   const [viewMode, setViewMode] = useState<'overview' | 'categories'>('overview');
-  const [isLoading, setIsLoading] = useState(true);
   const chartRef = useRef<HTMLDivElement>(null);
   const { sortField, sortDirection, handleSort } = useSortableTable<BudgetTrendSortField>(
     'reports.budget-vs-actual.trend.sort',
     { field: 'month', direction: 'asc' },
   );
+
+  const {
+    data: budgetsData,
+    isLoading: budgetsLoading,
+    error: budgetsError,
+    reload: reloadBudgets,
+  } = useReportData(() => budgetsApi.getAll(), []);
+
+  const budgets = useMemo(() => budgetsData ?? [], [budgetsData]);
+
+  // Auto-select the active budget (or first) until the user picks one. Derived
+  // during render rather than via setState-in-effect.
+  const autoSelectedBudgetId = useMemo(() => {
+    const active = budgets.find((b) => b.isActive);
+    return active?.id ?? budgets[0]?.id ?? '';
+  }, [budgets]);
+  const selectedBudgetId = selectedBudgetIdState || autoSelectedBudgetId;
+
+  const {
+    data: reportResponse,
+    isLoading: reportLoading,
+    error: reportError,
+    reload: reloadReport,
+  } = useReportData(
+    () =>
+      selectedBudgetId
+        ? Promise.all([
+            budgetsApi.getTrend(selectedBudgetId, months),
+            budgetsApi.getCategoryTrend(selectedBudgetId, months),
+          ]).then(([trend, catTrend]) => ({ trend, catTrend }))
+        : Promise.resolve(null),
+    [selectedBudgetId, months],
+  );
+
+  const trendData = useMemo(() => reportResponse?.trend ?? [], [reportResponse]);
+  const categoryData = useMemo<CategoryTrendSeries[]>(
+    () => reportResponse?.catTrend ?? [],
+    [reportResponse],
+  );
+  const isLoading = budgetsLoading || reportLoading;
+  const error = budgetsError || reportError;
+  const reload = () => {
+    reloadBudgets();
+    reloadReport();
+  };
 
   const sortedTrendData = useMemo(() => {
     const sorted = [...trendData];
@@ -67,51 +111,9 @@ export function BudgetVsActualReport() {
     return sorted;
   }, [trendData, sortField, sortDirection]);
 
-  useEffect(() => {
-    const loadBudgets = async () => {
-      try {
-        const data = await budgetsApi.getAll();
-        setBudgets(data);
-        const active = data.find((b) => b.isActive);
-        if (active) {
-          setSelectedBudgetId(active.id);
-        } else if (data.length > 0) {
-          setSelectedBudgetId(data[0].id);
-        }
-      } catch (error) {
-        logger.error('Failed to load budgets:', error);
-      }
-    };
-    loadBudgets();
-  }, []);
-
-  const loadReportData = useCallback(async () => {
-    if (!selectedBudgetId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const [trend, catTrend] = await Promise.all([
-        budgetsApi.getTrend(selectedBudgetId, months),
-        budgetsApi.getCategoryTrend(selectedBudgetId, months),
-      ]);
-      setTrendData(trend);
-      setCategoryData(catTrend);
-    } catch (error) {
-      logger.error('Failed to load report data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBudgetId, months]);
-
-  useEffect(() => {
-    loadReportData();
-  }, [loadReportData]);
-
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Month', 'Budgeted', 'Actual', 'Variance', '% Used'];
+    const headers = [t('budgetVsActual.colMonth'), t('budgetVsActual.colBudgeted'), t('budgetVsActual.colActual'), t('budgetVsActual.colVariance'), t('budgetVsActual.colPercentUsed')];
     const rows = trendData.map(point => [
       point.month,
       formatCurrency(point.budgeted),
@@ -120,19 +122,23 @@ export function BudgetVsActualReport() {
       `${point.percentUsed}%`,
     ]);
     await exportToPdf({
-      title: 'Budget vs Actual',
+      title: t('budgetVsActual.pdfTitle'),
       chartContainer: chartRef.current,
       tableData: { headers, rows },
       filename: 'budget-vs-actual',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -142,7 +148,7 @@ export function BudgetVsActualReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No budgets found. Create a budget to see this report.
+          {t('budgetVsActual.noBudgets')}
         </p>
       </div>
     );
@@ -170,10 +176,10 @@ export function BudgetVsActualReport() {
               onChange={(e) => setMonths(Number(e.target.value))}
               className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              <option value={3}>3 Months</option>
-              <option value={6}>6 Months</option>
-              <option value={12}>12 Months</option>
-              <option value={24}>24 Months</option>
+              <option value={3}>{t('budgetVsActual.months3')}</option>
+              <option value={6}>{t('budgetVsActual.months6')}</option>
+              <option value={12}>{t('budgetVsActual.months12')}</option>
+              <option value={24}>{t('budgetVsActual.months24')}</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -186,7 +192,7 @@ export function BudgetVsActualReport() {
                     : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
-                Overview
+                {t('budgetVsActual.viewOverview')}
               </button>
               <button
                 onClick={() => setViewMode('categories')}
@@ -196,7 +202,7 @@ export function BudgetVsActualReport() {
                     : 'text-gray-500 dark:text-gray-400'
                 }`}
               >
-                By Category
+                {t('budgetVsActual.viewByCategory')}
               </button>
             </div>
             <ExportDropdown onExportPdf={handleExportPdf} />
@@ -209,7 +215,7 @@ export function BudgetVsActualReport() {
         <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
           {trendData.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-              No trend data available for this budget yet.
+              {t('budgetVsActual.noData')}
             </p>
           ) : (
             <>
@@ -235,15 +241,15 @@ export function BudgetVsActualReport() {
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="budgeted" name="Budgeted" fill="#3b82f6" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="budgeted" name={t('budgetVsActual.seriesBudgeted')} fill={chartColors.primary} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="actual" name={t('budgetVsActual.seriesActual')} fill={chartColors.income} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               {/* Variance line */}
               <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Variance Over Time</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t('budgetVsActual.viewVarianceOverTime')}</h3>
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <LineChart data={trendData}>
@@ -258,7 +264,7 @@ export function BudgetVsActualReport() {
                             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
                               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
                               <p className={`text-sm font-medium ${variance > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                Variance: {variance > 0 ? '+' : ''}{formatCurrency(variance)}
+                                {t('budgetVsActual.tooltipVariance')} {variance > 0 ? '+' : ''}{formatCurrency(variance)}
                               </p>
                             </div>
                           );
@@ -267,10 +273,10 @@ export function BudgetVsActualReport() {
                       <Line
                         type="monotone"
                         dataKey="variance"
-                        stroke="#f59e0b"
+                        stroke={chartColors.warning}
                         strokeWidth={2}
                         dot={{ r: 4 }}
-                        name="Variance"
+                        name={t('budgetVsActual.seriesVariance')}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -289,7 +295,7 @@ export function BudgetVsActualReport() {
                         onSort={handleSort}
                         className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Month
+                        {t('budgetVsActual.colMonth')}
                       </SortableHeader>
                       <SortableHeader<BudgetTrendSortField>
                         field="budgeted"
@@ -299,7 +305,7 @@ export function BudgetVsActualReport() {
                         align="right"
                         className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Budgeted
+                        {t('budgetVsActual.colBudgeted')}
                       </SortableHeader>
                       <SortableHeader<BudgetTrendSortField>
                         field="actual"
@@ -309,7 +315,7 @@ export function BudgetVsActualReport() {
                         align="right"
                         className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Actual
+                        {t('budgetVsActual.colActual')}
                       </SortableHeader>
                       <SortableHeader<BudgetTrendSortField>
                         field="variance"
@@ -319,7 +325,7 @@ export function BudgetVsActualReport() {
                         align="right"
                         className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        Variance
+                        {t('budgetVsActual.colVariance')}
                       </SortableHeader>
                       <SortableHeader<BudgetTrendSortField>
                         field="percentUsed"
@@ -329,7 +335,7 @@ export function BudgetVsActualReport() {
                         align="right"
                         className="py-2 font-medium text-gray-500 dark:text-gray-400"
                       >
-                        % Used
+                        {t('budgetVsActual.colPercentUsed')}
                       </SortableHeader>
                     </tr>
                   </thead>

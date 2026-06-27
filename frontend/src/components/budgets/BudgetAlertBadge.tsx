@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { budgetsApi } from '@/lib/budgets';
 import type { BudgetAlert } from '@/types/budget';
 import { BudgetAlertList } from './BudgetAlertList';
 
 export function BudgetAlertBadge() {
+  const t = useTranslations('budgets');
   const [alerts, setAlerts] = useState<BudgetAlert[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -110,8 +112,8 @@ export function BudgetAlertBadge() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-        title="Alerts"
-        aria-label="Alerts"
+        title={t('alerts.buttonTitle')}
+        aria-label={t('alerts.buttonAriaLabel')}
         data-testid="alert-badge-button"
       >
         <svg

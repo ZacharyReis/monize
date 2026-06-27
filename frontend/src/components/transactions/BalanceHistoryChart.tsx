@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,11 +15,17 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { format } from 'date-fns';
+import { chartColors } from '@/lib/chart-colors';
 import { parseLocalDate } from '@/lib/utils';
+import { computeBalanceGradient, computeBalanceSummary } from '@/lib/balance-history';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { ChartDownloadButton } from '@/components/ui/ChartDownloadButton';
+import {
+  ChartFlagShadowFilter,
+  computeMinMaxFlagIndices,
+  renderMinMaxFlagDots,
+} from '@/components/investments/portfolio-chart-utils';
 
-const CHART_TITLE = 'Balance History';
 
 interface BalanceHistoryChartProps {
   data: Array<{ date: string; balance: number }>;
@@ -50,9 +59,7 @@ function BalanceTooltip({
         </p>
         <p
           className={`text-lg font-semibold ${
-            data.balance >= 0
-              ? 'text-green-600 dark:text-green-400'
-              : 'text-red-600 dark:text-red-400'
+            gainLossColor(data.balance)
           }`}
         >
           {formatCurrency(data.balance)}
@@ -69,9 +76,19 @@ export function BalanceHistoryChart({
   currencyCode,
   accountName,
 }: BalanceHistoryChartProps) {
-  const { formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
+  const t = useTranslations('transactions');
+  const tc = useTranslations('common');
+  const chartTitle = t('charts.balanceHistory.title');
+  const { formatCurrency: formatCurrencyFull, formatCurrencyAxis, formatCurrencyFlag } =
+    useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
-  const downloadFilename = accountName ? `${CHART_TITLE} - ${accountName}` : CHART_TITLE;
+  // High/low value bubbles a user has temporarily dismissed, keyed by the value
+  // they marked so a later data change with a new extreme shows its bubble
+  // again. Intentionally component-local (not persisted), so it resets on
+  // navigation.
+  const [dismissedHigh, setDismissedHigh] = useState<number | null>(null);
+  const [dismissedLow, setDismissedLow] = useState<number | null>(null);
+  const downloadFilename = accountName ? `${chartTitle} - ${accountName}` : chartTitle;
 
   const formatCurrency = useCallback(
     (value: number) => formatCurrencyFull(value, currencyCode),
@@ -81,6 +98,11 @@ export function BalanceHistoryChart({
   const formatAxis = useCallback(
     (value: number) => formatCurrencyAxis(value, currencyCode),
     [formatCurrencyAxis, currencyCode],
+  );
+
+  const formatFlag = useCallback(
+    (value: number) => formatCurrencyFlag(value, currencyCode),
+    [formatCurrencyFlag, currencyCode],
   );
 
   const { chartData, monthTicks } = useMemo(() => {
@@ -104,56 +126,29 @@ export function BalanceHistoryChart({
     return { chartData: points, monthTicks: ticks };
   }, [data]);
 
-  const summary = useMemo(() => {
-    if (chartData.length === 0) return null;
-    const startBalance = chartData[0].balance;
-    const endBalance = chartData[chartData.length - 1].balance;
+  const summary = useMemo(() => computeBalanceSummary(chartData), [chartData]);
 
-    // Find balance as of today (last data point on or before today)
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    let currentBalance = endBalance;
-    let todayAnchorIdx = -1;
-    for (let i = chartData.length - 1; i >= 0; i--) {
-      if (chartData[i].date <= todayStr) {
-        currentBalance = chartData[i].balance;
-        todayAnchorIdx = i;
-        break;
-      }
-    }
-    if (todayAnchorIdx === -1) {
-      // All data points are in the future
-      currentBalance = startBalance;
-    }
+  const areaGradient = useMemo(
+    () => computeBalanceGradient(chartData.map((point) => point.balance)),
+    [chartData],
+  );
 
-    // The backend returns one data point per day in the filtered range, so
-    // chart points strictly after today do NOT necessarily mean future
-    // transactions exist — the balance simply carries forward on days with
-    // no activity. Only consider the range as having future data when at
-    // least one post-today point differs from the current balance.
-    let hasFutureData = false;
-    for (let i = todayAnchorIdx + 1; i < chartData.length; i++) {
-      if (chartData[i].balance !== currentBalance) {
-        hasFutureData = true;
-        break;
-      }
-    }
-
-    let minBalance = startBalance;
-    for (const point of chartData) {
-      if (point.balance < minBalance) minBalance = point.balance;
-    }
-    return { startBalance, currentBalance, endBalance, hasFutureData, minBalance, goesNegative: minBalance < 0 };
-  }, [chartData]);
+  // Highest/lowest points get green/red value bubbles, positioned to the
+  // inside of whichever chart half they fall on so they never overlap the
+  // plot edges.
+  const flags = useMemo(
+    () => computeMinMaxFlagIndices(chartData.map((point) => point.balance)),
+    [chartData],
+  );
 
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 mb-6 min-h-[420px]">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {CHART_TITLE}
+          {chartTitle}
         </h3>
         <div className="h-72 flex items-center justify-center">
-          <div className="animate-pulse w-full h-full bg-gray-200 dark:bg-gray-700 rounded" />
+          <Skeleton className="w-full h-full" />
         </div>
       </div>
     );
@@ -163,42 +158,57 @@ export function BalanceHistoryChart({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 mb-6 min-h-[420px]">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {CHART_TITLE}
+          {chartTitle}
         </h3>
         <div className="h-72 flex items-center justify-center text-gray-500 dark:text-gray-400">
-          <p>No balance data available</p>
+          <p>{t('charts.balanceHistory.noData')}</p>
         </div>
       </div>
     );
   }
 
+  const highValue = flags.show ? chartData[flags.maxIndex].balance : null;
+  const lowValue = flags.show ? chartData[flags.minIndex].balance : null;
+  const highLabel = highValue !== null ? formatFlag(highValue) : '';
+  const lowLabel = lowValue !== null ? formatFlag(lowValue) : '';
+  const highDismissed = highValue !== null && highValue === dismissedHigh;
+  const lowDismissed = lowValue !== null && lowValue === dismissedLow;
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 mb-6 min-h-[420px]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {CHART_TITLE}
+          {chartTitle}
         </h3>
         <ChartDownloadButton chartRef={chartRef} filename={downloadFilename} />
       </div>
 
-      <div ref={chartRef} className="h-72" style={{ minHeight: 288 }}>
+      {/* overflow-hidden: while the account-widget column animates the card's
+          width, the recharts SVG keeps its last measured size until it
+          re-measures, so clip it to the card instead of painting outside. */}
+      <div ref={chartRef} className="h-72 overflow-hidden" style={{ minHeight: 288 }}>
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-          <LineChart data={chartData} margin={{ left: 0, right: 8, top: 5, bottom: 0 }}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#e5e7eb"
-              className="dark:stroke-gray-700"
-            />
+          {/* top margin leaves headroom for the high-value bubble callout */}
+          <AreaChart data={chartData} margin={{ left: 0, right: 8, top: 20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                <stop offset={0} stopColor={chartColors.primary} stopOpacity={areaGradient.topOpacity} />
+                <stop offset={areaGradient.zeroOffset} stopColor={chartColors.primary} stopOpacity={0} />
+                <stop offset={1} stopColor={chartColors.primary} stopOpacity={areaGradient.bottomOpacity} />
+              </linearGradient>
+            </defs>
+            <ChartFlagShadowFilter />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
             <XAxis
               dataKey="date"
               ticks={monthTicks}
-              tick={{ fill: '#6b7280', fontSize: 12 }}
+              tick={{ fill: chartColors.axis, fontSize: 12 }}
               tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
+              axisLine={{ stroke: chartColors.grid }}
               tickFormatter={(value: string) => format(parseLocalDate(value), 'MMM')}
             />
             <YAxis
-              tick={{ fill: '#6b7280', fontSize: 11 }}
+              tick={{ fill: chartColors.axis, fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={formatAxis}
@@ -208,27 +218,46 @@ export function BalanceHistoryChart({
             <Tooltip content={<BalanceTooltip formatCurrency={formatCurrency} />} />
             <ReferenceLine
               y={0}
-              stroke="#ef4444"
+              stroke={chartColors.expense}
               strokeDasharray="5 5"
               strokeOpacity={0.5}
             />
             {summary && summary.minBalance !== summary.startBalance && (
               <ReferenceLine
                 y={summary.minBalance}
-                stroke={summary.minBalance < 0 ? '#ef4444' : '#f59e0b'}
+                stroke={summary.minBalance < 0 ? chartColors.expense : chartColors.warning}
                 strokeDasharray="3 3"
                 strokeOpacity={0.4}
               />
             )}
-            <Line
+            <Area
               type="monotone"
               dataKey="balance"
-              stroke="#3b82f6"
+              stroke={chartColors.primary}
               strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6, fill: '#3b82f6' }}
+              fillOpacity={1}
+              fill="url(#colorBalance)"
+              dot={(props: { cx?: number; cy?: number; index?: number }) =>
+                renderMinMaxFlagDots({
+                  cx: props.cx,
+                  cy: props.cy,
+                  index: props.index,
+                  flags,
+                  pointCount: chartData.length,
+                  highColor: chartColors.income,
+                  lowColor: chartColors.expense,
+                  highLabel,
+                  lowLabel,
+                  highDismissed,
+                  lowDismissed,
+                  onDismissHigh: () => setDismissedHigh(highValue),
+                  onDismissLow: () => setDismissedLow(lowValue),
+                  dismissLabel: tc('chartFlag.dismiss'),
+                })
+              }
+              activeDot={{ r: 6, fill: chartColors.primary }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 
@@ -236,7 +265,7 @@ export function BalanceHistoryChart({
       {summary && (
         <div className={`mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid ${summary.hasFutureData ? 'grid-cols-2' : 'grid-cols-3'} gap-4 text-center`}>
           <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Starting</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('charts.balanceHistory.starting')}</div>
             <div
               className={`font-semibold ${
                 summary.startBalance >= 0
@@ -248,12 +277,10 @@ export function BalanceHistoryChart({
             </div>
           </div>
           <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Current</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('charts.balanceHistory.current')}</div>
             <div
               className={`font-semibold ${
-                summary.currentBalance >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
+                gainLossColor(summary.currentBalance)
               }`}
             >
               {formatCurrency(summary.currentBalance)}
@@ -261,7 +288,7 @@ export function BalanceHistoryChart({
           </div>
           {summary.hasFutureData && (
             <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Ending</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('charts.balanceHistory.ending')}</div>
               <div
                 className={`font-semibold ${
                   summary.endBalance >= 0
@@ -275,7 +302,7 @@ export function BalanceHistoryChart({
           )}
           <div>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {summary.goesNegative ? 'Lowest' : 'Min Balance'}
+              {summary.goesNegative ? t('charts.balanceHistory.lowest') : t('charts.balanceHistory.minBalance')}
             </div>
             <div
               className={`font-semibold ${

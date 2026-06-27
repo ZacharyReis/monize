@@ -2,18 +2,22 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
   Inject,
   forwardRef,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner, In } from "typeorm";
 import {
   InvestmentTransaction,
   InvestmentAction,
 } from "./entities/investment-transaction.entity";
+import { Security } from "./entities/security.entity";
 import { CreateInvestmentTransactionDto } from "./dto/create-investment-transaction.dto";
 import { UpdateInvestmentTransactionDto } from "./dto/update-investment-transaction.dto";
+import { TransferSecurityDto } from "./dto/transfer-security.dto";
 import { AccountsService } from "../accounts/accounts.service";
 import { TransactionsService } from "../transactions/transactions.service";
 import { HoldingsService } from "./holdings.service";
@@ -27,7 +31,18 @@ import { SecurityPriceService } from "./security-price.service";
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
 import { CurrenciesService } from "../currencies/currencies.service";
-import { roundToDecimals } from "../common/round.util";
+import { roundToDecimals, roundMoney, sumMoney } from "../common/round.util";
+import { stripHtml } from "../common/sanitization.util";
+import {
+  BulkCreateResult,
+  BulkCreateSkip,
+  bulkSkipReason,
+} from "../common/bulk-create.types";
+import {
+  buildPaginationMeta,
+  clampPagination,
+  PaginatedResult,
+} from "../common/dto/pagination-query.dto";
 import {
   Transaction,
   TransactionStatus,
@@ -40,6 +55,11 @@ import {
   computeInvestmentCashImpact,
   isInvestmentActionAllowedInSplit,
 } from "./cash-impact.util";
+import {
+  AiActionPreviewRow,
+  BatchUpdateInvestmentTransactionRow,
+  BatchDeleteInvestmentTransactionRow,
+} from "../ai/actions/ai-action.types";
 
 export type LlmInvestmentTxGroupBy = "account" | "date" | "security" | "action";
 
@@ -109,6 +129,170 @@ export interface LlmInvestmentTransactionsResult {
   groups: LlmInvestmentTxGroup[] | null;
   transactions: LlmInvestmentTxRow[];
   truncatedTransactionList: boolean;
+}
+
+/** One account a security has been transacted in (including closed ones). */
+export interface SecurityHistoryAccount {
+  accountId: string;
+  accountName: string;
+  isClosed: boolean;
+  /** Exact (un-snapped) current share balance in this account. */
+  currentQuantity: number;
+}
+
+/** A single transaction in a security's history, with running share balances. */
+export interface SecurityHistoryTransaction {
+  id: string;
+  transactionDate: string;
+  accountId: string;
+  accountName: string;
+  action: InvestmentAction;
+  quantity: number | null;
+  price: number | null;
+  commission: number;
+  totalAmount: number;
+  description: string | null;
+  /** Running share balance within this transaction's own account. */
+  runningQuantityAccount: number;
+  /** Running share balance across all accounts the security is held in. */
+  runningQuantityAll: number;
+}
+
+export interface SecurityTransactionHistory {
+  securityId: string;
+  symbol: string;
+  name: string;
+  currencyCode: string;
+  isActive: boolean;
+  accounts: SecurityHistoryAccount[];
+  transactions: SecurityHistoryTransaction[];
+  /** Exact (un-snapped) total current shares across all accounts. */
+  currentQuantityAll: number;
+}
+
+/**
+ * Resolved, validated preview of a proposed investment transaction -- the
+ * dry-run shape shared by the AI Assistant confirmation flow and the MCP
+ * `create_investment_transaction` tool. Mirrors exactly what `create()` would
+ * persist: quantities/prices/commission are rounded to their column scale, the
+ * total and exchange rate use the same math as the real write, and the cash
+ * fields describe the linked cash movement so a confirmation card can show it.
+ */
+export interface CreateInvestmentTransactionPreview {
+  accountId: string;
+  accountName: string;
+  accountCurrency: string;
+  action: InvestmentAction;
+  transactionDate: string;
+  securityId: string | null;
+  symbol: string | null;
+  securityName: string | null;
+  securityCurrency: string | null;
+  quantity: number | null;
+  price: number | null;
+  commission: number;
+  /** Magnitude of the transaction in the security's currency (stored totalAmount). */
+  totalAmount: number;
+  /** Rate converting the security's currency into the cash account's currency. */
+  exchangeRate: number;
+  fundingAccountId: string | null;
+  /**
+   * Account whose cash balance moves (an explicit funding account, or the
+   * brokerage's linked cash sleeve). Null when the action moves no cash.
+   */
+  cashAccountName: string | null;
+  cashCurrency: string | null;
+  /** Signed cash impact in the cash account's currency (negative = cash out). */
+  cashAmount: number | null;
+  description: string | null;
+}
+
+/**
+ * Resolved preview of an edit to an existing investment transaction. Carries
+ * the full resulting state (computed exactly like a create) plus the id being
+ * edited, so the confirmation card matches the create flow and the signed
+ * descriptor can apply an idempotent overwrite.
+ */
+export interface UpdateInvestmentTransactionPreview extends CreateInvestmentTransactionPreview {
+  transactionId: string;
+}
+
+/**
+ * One create row for the unified `manage_investment_transactions` tool, carrying
+ * NAMES (resolved internally) so neither tool surface has to look up account or
+ * security IDs first.
+ */
+export interface InvestmentCreateRowInput {
+  accountName: string;
+  action: InvestmentAction;
+  date: string;
+  securityQuery?: string;
+  quantity?: number;
+  price?: number;
+  commission?: number;
+  fundingAccountName?: string;
+  /** Optional FX rate (security currency -> cash currency) to pin the cash posting. */
+  exchangeRate?: number;
+  description?: string;
+}
+
+/** One edit row for `manage_investment_transactions` (id + optional fields). */
+export interface InvestmentUpdateRowInput {
+  transactionId: string;
+  action?: InvestmentAction;
+  date?: string;
+  securityQuery?: string;
+  quantity?: number;
+  price?: number;
+  commission?: number;
+  /** Optional FX rate (security currency -> cash currency) to pin the cash posting. */
+  exchangeRate?: number;
+  description?: string;
+}
+
+/**
+ * Bulk preview of investment creates: the resolved previews that will be
+ * created (`okPreviews`, mapped into the signed descriptor in order) plus the
+ * full display table (`previewRows`, every row valid or flagged) and the
+ * best-effort `skipped` reasons.
+ */
+export interface PrepareInvestmentCreateBulkResult {
+  okPreviews: CreateInvestmentTransactionPreview[];
+  okIndex: number[];
+  previewRows: AiActionPreviewRow[];
+  skipped: BulkCreateSkip[];
+}
+
+/** Bulk preview of investment edits mapped to batch rows + a display table. */
+export interface PrepareInvestmentUpdateBulkResult {
+  okRows: BatchUpdateInvestmentTransactionRow[];
+  okIndex: number[];
+  previewRows: AiActionPreviewRow[];
+  skipped: BulkCreateSkip[];
+}
+
+/** Bulk preview of investment deletions mapped to batch rows + a display table. */
+export interface PrepareInvestmentDeleteBulkResult {
+  okRows: BatchDeleteInvestmentTransactionRow[];
+  okIndex: number[];
+  previewRows: AiActionPreviewRow[];
+  skipped: BulkCreateSkip[];
+}
+
+/** Display-only preview of a proposed investment-transaction deletion. */
+export interface DeleteInvestmentTransactionPreview {
+  transactionId: string;
+  accountName: string;
+  action: InvestmentAction;
+  transactionDate: string;
+  symbol: string | null;
+  securityName: string | null;
+  securityCurrency: string | null;
+  quantity: number | null;
+  price: number | null;
+  commission: number;
+  totalAmount: number;
+  description: string | null;
 }
 
 @Injectable()
@@ -201,9 +385,16 @@ export class InvestmentTransactionsService {
    * (expressed in the security's currency) into the cash account's currency.
    *
    * Precedence:
-   *  1. Explicit DTO override (the user entered a rate in the form).
-   *  2. Latest market rate between source and target currencies.
-   *  3. Fallback of 1 when no rate is available.
+   *  1. Explicit override (the user entered a rate in the form, or an MCP/AI
+   *     caller supplied one from the broker's settlement data).
+   *  2. The market rate as of the transaction's date (stored, or fetched from
+   *     Yahoo for that date), not the latest snapshot -- a back-dated buy must
+   *     convert at the historical rate.
+   *  3. The latest stored rate, as a secondary source.
+   *
+   * For a genuine cross-currency pair with no determinable rate this throws
+   * rather than silently returning 1.0: posting at 1.0 corrupts the cash
+   * balance and cost basis by the size of the FX rate (see issue #744).
    */
   private async resolveCashExchangeRate(
     userId: string,
@@ -211,6 +402,7 @@ export class InvestmentTransactionsService {
     fundingAccountId: string | null | undefined,
     securityId: string | null | undefined,
     dtoRate: number | undefined,
+    transactionDate?: string | Date,
   ): Promise<number> {
     if (dtoRate !== undefined && dtoRate !== null) {
       return Number(dtoRate);
@@ -236,19 +428,34 @@ export class InvestmentTransactionsService {
       return 1;
     }
 
-    const rate = await this.exchangeRateService.getLatestRate(
-      sourceCurrency,
-      cashAccount.currencyCode,
-    );
-
-    if (rate === null) {
-      this.logger.warn(
-        `No exchange rate found for ${sourceCurrency}->${cashAccount.currencyCode}, falling back to 1`,
+    // Prefer the rate as of the transaction date (fetching from Yahoo for that
+    // date when not already stored); fall back to the latest stored snapshot.
+    let rate: number | null = null;
+    if (transactionDate) {
+      rate = await this.exchangeRateService.getRateForDate(
+        sourceCurrency,
+        cashAccount.currencyCode,
+        transactionDate,
       );
-      return 1;
+    }
+    if (rate === null) {
+      rate = await this.exchangeRateService.getLatestRate(
+        sourceCurrency,
+        cashAccount.currencyCode,
+      );
     }
 
-    return rate;
+    if (rate === null || !(Number(rate) > 0)) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.exchangeRateUnavailable",
+          `Could not determine an exchange rate for ${sourceCurrency} -> ${cashAccount.currencyCode} on the transaction date. Supply an explicit exchangeRate so the cash posting is correct.`,
+          { from: sourceCurrency, to: cashAccount.currencyCode },
+        ),
+      );
+    }
+
+    return Number(rate);
   }
 
   private formatCashTransactionPayeeName(
@@ -410,7 +617,12 @@ export class InvestmentTransactionsService {
     );
 
     if (account.accountType !== "INVESTMENT") {
-      throw new BadRequestException("Account must be of type INVESTMENT");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.accountMustBeInvestment",
+          "Account must be of type INVESTMENT",
+        ),
+      );
     }
 
     if (
@@ -425,7 +637,11 @@ export class InvestmentTransactionsService {
       !createDto.securityId
     ) {
       throw new BadRequestException(
-        `Security ID is required for ${createDto.action} transactions`,
+        tr(
+          "errors.securities.securityIdRequired",
+          `Security ID is required for ${createDto.action} transactions`,
+          { action: createDto.action },
+        ),
       );
     }
 
@@ -434,7 +650,10 @@ export class InvestmentTransactionsService {
       (!createDto.quantity || Number(createDto.quantity) <= 0)
     ) {
       throw new BadRequestException(
-        "Split ratio (quantity) must be greater than zero",
+        tr(
+          "errors.securities.splitRatioRequired",
+          "Split ratio (quantity) must be greater than zero",
+        ),
       );
     }
 
@@ -452,6 +671,7 @@ export class InvestmentTransactionsService {
       createDto.fundingAccountId ?? null,
       createDto.securityId ?? null,
       createDto.exchangeRate,
+      createDto.transactionDate,
     );
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -548,12 +768,854 @@ export class InvestmentTransactionsService {
       action: "create",
       afterData,
       description: `Created ${createDto.action} transaction${createDto.securityId ? "" : ""}`,
+      descriptionKey: "createdInvestmentTransaction",
+      descriptionParams: { action: createDto.action },
     });
 
     return result;
   }
 
-  private calculateTotalAmount(dto: CreateInvestmentTransactionDto): number {
+  /**
+   * Create many investment transactions in one go for the "paste a table" bulk
+   * approval flow. Best-effort: each row is created through the single-row
+   * `create()` (its own QueryRunner, holdings/cash effects, action history) so a
+   * row that fails -- a bad oversell, an unknown security -- is collected into
+   * `skipped` rather than aborting the rest. Rows are processed in input order
+   * so dependent rows (e.g. a BUY before a later SELL) compound correctly. The
+   * expensive post-commit side effects `create()` triggers (net-worth recalc is
+   * debounced; the SPLIT holdings rebuild is idempotent) collapse naturally
+   * across the batch.
+   */
+  async createBulk(
+    userId: string,
+    dtos: CreateInvestmentTransactionDto[],
+  ): Promise<BulkCreateResult<InvestmentTransaction>> {
+    const created: InvestmentTransaction[] = [];
+    const skipped: BulkCreateSkip[] = [];
+    for (let index = 0; index < dtos.length; index++) {
+      try {
+        created.push(await this.create(userId, dtos[index]));
+      } catch (error) {
+        skipped.push({ index, reason: bulkSkipReason(error) });
+        this.logger.warn(
+          `Bulk investment row ${index} skipped: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }
+    return { created, skipped };
+  }
+
+  /**
+   * Validate and resolve a proposed investment transaction WITHOUT persisting
+   * it. Used by the MCP `create_investment_transaction` dry-run/confirm path and
+   * the AI Assistant confirmation flow so both surfaces validate, match the
+   * security by symbol or name, and compute the cash impact identically.
+   *
+   * The security reference (`securityQuery`) is matched by ticker symbol or
+   * name via `SecuritiesService.resolveBySymbolOrName`; an ambiguous or unknown
+   * reference throws a 4xx the caller can surface. Action-specific requirements
+   * mirror `create()` so the preview fails the same way the real write would.
+   */
+  async previewCreateInvestmentTransaction(
+    userId: string,
+    input: {
+      accountId: string;
+      action: InvestmentAction;
+      transactionDate: string;
+      securityQuery?: string;
+      quantity?: number;
+      price?: number;
+      commission?: number;
+      fundingAccountId?: string;
+      exchangeRate?: number;
+      description?: string;
+    },
+  ): Promise<CreateInvestmentTransactionPreview> {
+    const account = await this.accountsService.findOne(userId, input.accountId);
+    if (account.accountType !== "INVESTMENT") {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.accountMustBeInvestment",
+          "Account must be of type INVESTMENT",
+        ),
+      );
+    }
+
+    // Match the security by symbol or name when a reference was supplied.
+    let security: Security | null = null;
+    if (input.securityQuery && input.securityQuery.trim()) {
+      const resolved = await this.securitiesService.resolveBySymbolOrName(
+        userId,
+        input.securityQuery,
+      );
+      if (!resolved.match) {
+        if (resolved.candidates.length > 0) {
+          const list = resolved.candidates
+            .map((c) => `${c.symbol} (${c.name})`)
+            .join(", ");
+          throw new BadRequestException(
+            tr(
+              "errors.securities.ambiguousSecurity",
+              `"${input.securityQuery}" matches multiple securities: ${list}. Use the exact ticker symbol.`,
+              { query: input.securityQuery, list },
+            ),
+          );
+        }
+        throw new BadRequestException(
+          tr(
+            "errors.securities.securityNotFoundByQuery",
+            `No security matches "${input.securityQuery}". Add the security first or check the ticker symbol.`,
+            { query: input.securityQuery },
+          ),
+        );
+      }
+      security = resolved.match;
+    }
+
+    // Mirror create()'s action-specific requirements so a preview rejected here
+    // is exactly what the real write would reject.
+    const securityRequiredActions: InvestmentAction[] = [
+      InvestmentAction.BUY,
+      InvestmentAction.SELL,
+      InvestmentAction.SPLIT,
+      InvestmentAction.REINVEST,
+      InvestmentAction.ADD_SHARES,
+      InvestmentAction.REMOVE_SHARES,
+    ];
+    if (securityRequiredActions.includes(input.action) && !security) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.securityIdRequired",
+          `Security ID is required for ${input.action} transactions`,
+          { action: input.action },
+        ),
+      );
+    }
+    if (
+      input.action === InvestmentAction.SPLIT &&
+      (!input.quantity || Number(input.quantity) <= 0)
+    ) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.splitRatioRequired",
+          "Split ratio (quantity) must be greater than zero",
+        ),
+      );
+    }
+
+    let fundingAccount: Account | null = null;
+    if (input.fundingAccountId) {
+      fundingAccount = await this.accountsService.findOne(
+        userId,
+        input.fundingAccountId,
+      );
+    }
+
+    // Round to each column's scale up front so the preview, the signed
+    // descriptor, and the persisted row all carry identical values (and the
+    // confirm-time DTO validation, which caps decimal places, never trips on a
+    // value the user already approved).
+    const quantity =
+      input.quantity !== undefined && input.quantity !== null
+        ? roundToDecimals(Number(input.quantity), 8)
+        : null;
+    const price =
+      input.price !== undefined && input.price !== null
+        ? roundToDecimals(Number(input.price), 6)
+        : null;
+    const commission = roundToDecimals(Number(input.commission ?? 0), 4);
+
+    const totalAmount = this.calculateTotalAmount({
+      action: input.action,
+      quantity,
+      price,
+      commission,
+    });
+
+    const exchangeRate = await this.resolveCashExchangeRate(
+      userId,
+      input.accountId,
+      input.fundingAccountId ?? null,
+      security?.id ?? null,
+      input.exchangeRate,
+      input.transactionDate,
+    );
+
+    // Signed cash impact in the security's currency, converted to the cash
+    // account's currency for display. Zero for the share-only actions, which
+    // create no linked cash transaction.
+    const cashImpactSecurity = computeInvestmentCashImpact(
+      input.action,
+      Number(quantity ?? 0),
+      Number(price ?? 0),
+      commission,
+    );
+
+    let cashAccountName: string | null = null;
+    let cashCurrency: string | null = null;
+    let cashAmount: number | null = null;
+    if (cashImpactSecurity !== 0) {
+      const cashAccount =
+        fundingAccount ?? (await this.findCashAccount(userId, input.accountId));
+      const cashCurrencyEntity = await this.currenciesService.findOne(
+        cashAccount.currencyCode,
+      );
+      cashAccountName = cashAccount.name;
+      cashCurrency = cashAccount.currencyCode;
+      cashAmount = roundToDecimals(
+        cashImpactSecurity * exchangeRate,
+        cashCurrencyEntity.decimalPlaces,
+      );
+    }
+
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      accountCurrency: account.currencyCode,
+      action: input.action,
+      transactionDate: input.transactionDate,
+      securityId: security?.id ?? null,
+      symbol: security?.symbol ?? null,
+      securityName: security?.name ?? null,
+      securityCurrency: security?.currencyCode ?? null,
+      quantity,
+      price,
+      commission,
+      totalAmount,
+      exchangeRate,
+      fundingAccountId: fundingAccount?.id ?? null,
+      cashAccountName,
+      cashCurrency,
+      cashAmount,
+      description: stripHtml(input.description) || null,
+    };
+  }
+
+  /**
+   * Validate and resolve a proposed edit to an existing investment transaction
+   * WITHOUT persisting it. Only the provided fields change; every other field
+   * (account, action, date, security, quantity, price, commission, funding
+   * account, description) is kept from the stored transaction. The resulting
+   * state is run back through the same validation/total/cash computation as a
+   * create so the preview equals what `update()` will persist.
+   */
+  async previewUpdateInvestmentTransaction(
+    userId: string,
+    transactionId: string,
+    input: {
+      action?: InvestmentAction;
+      transactionDate?: string;
+      securityQuery?: string;
+      quantity?: number;
+      price?: number;
+      commission?: number;
+      exchangeRate?: number;
+      description?: string;
+    },
+  ): Promise<UpdateInvestmentTransactionPreview> {
+    const existing = await this.findOne(userId, transactionId);
+
+    const hasChange =
+      input.action !== undefined ||
+      input.transactionDate !== undefined ||
+      input.securityQuery !== undefined ||
+      input.quantity !== undefined ||
+      input.price !== undefined ||
+      input.commission !== undefined ||
+      input.exchangeRate !== undefined ||
+      input.description !== undefined;
+    if (!hasChange) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.noUpdateFields",
+          "Provide at least one field to change.",
+        ),
+      );
+    }
+
+    const preview = await this.previewCreateInvestmentTransaction(userId, {
+      accountId: existing.accountId,
+      action: input.action ?? existing.action,
+      transactionDate: input.transactionDate ?? existing.transactionDate,
+      securityQuery: input.securityQuery ?? existing.security?.symbol,
+      quantity:
+        input.quantity ??
+        (existing.quantity !== null && existing.quantity !== undefined
+          ? Number(existing.quantity)
+          : undefined),
+      price:
+        input.price ??
+        (existing.price !== null && existing.price !== undefined
+          ? Number(existing.price)
+          : undefined),
+      commission: input.commission ?? Number(existing.commission ?? 0),
+      fundingAccountId: existing.fundingAccountId ?? undefined,
+      // Only an explicit override pins the rate; otherwise the preview
+      // re-resolves it fresh (for the new currency pair if the security or
+      // account changed), matching update()'s re-resolution precedence.
+      exchangeRate: input.exchangeRate,
+      description: input.description ?? existing.description ?? undefined,
+    });
+
+    return { ...preview, transactionId };
+  }
+
+  /**
+   * Validate ownership of an investment transaction the assistant proposes to
+   * delete and return a display-only preview of what will be removed. The
+   * actual deletion (including any linked transfer leg and cash impact) is
+   * handled by `remove()`.
+   */
+  async previewDeleteInvestmentTransaction(
+    userId: string,
+    transactionId: string,
+  ): Promise<DeleteInvestmentTransactionPreview> {
+    const existing = await this.findOne(userId, transactionId);
+    return {
+      transactionId,
+      accountName: existing.account?.name ?? "",
+      action: existing.action,
+      transactionDate: existing.transactionDate,
+      symbol: existing.security?.symbol ?? null,
+      securityName: existing.security?.name ?? null,
+      securityCurrency: existing.security?.currencyCode ?? null,
+      quantity:
+        existing.quantity !== null && existing.quantity !== undefined
+          ? Number(existing.quantity)
+          : null,
+      price:
+        existing.price !== null && existing.price !== undefined
+          ? Number(existing.price)
+          : null,
+      commission: Number(existing.commission ?? 0),
+      totalAmount: Number(existing.totalAmount ?? 0),
+      description: existing.description ?? null,
+    };
+  }
+
+  /**
+   * Map a resolved investment-transaction preview to the display row shown on a
+   * bulk confirmation card. Inlined here (rather than reusing the builder's
+   * `investmentPreviewRow`) to avoid a module cycle between this domain service
+   * and `ai-action-builder.service`.
+   */
+  private toInvestmentPreviewRow(
+    preview: CreateInvestmentTransactionPreview,
+  ): AiActionPreviewRow {
+    return {
+      status: "ok",
+      accountName: preview.accountName,
+      investmentAction: preview.action,
+      transactionDate: preview.transactionDate,
+      symbol: preview.symbol,
+      securityName: preview.securityName,
+      securityCurrency: preview.securityCurrency,
+      quantity: preview.quantity,
+      price: preview.price,
+      commission: preview.commission,
+      totalAmount: preview.totalAmount,
+      cashAccountName: preview.cashAccountName,
+      cashCurrency: preview.cashCurrency,
+      cashAmount: preview.cashAmount,
+      description: preview.description,
+    };
+  }
+
+  /** Pull a user-facing 4xx reason from a preview failure, else a fallback. */
+  private investmentBulkSkipReason(err: unknown): string {
+    if (
+      err instanceof BadRequestException ||
+      err instanceof NotFoundException
+    ) {
+      return err.message;
+    }
+    this.logger.warn(
+      `investment bulk row preview failed: ${
+        err instanceof Error ? err.message : err
+      }`,
+    );
+    return bulkSkipReason(err);
+  }
+
+  /**
+   * Resolve + preview a single investment create row (NAMES resolved
+   * internally), throwing on failure -- the single-card path. Shared by both
+   * tool surfaces so they stay thin adapters.
+   */
+  async prepareCreateInvestmentSingle(
+    userId: string,
+    row: InvestmentCreateRowInput,
+  ): Promise<CreateInvestmentTransactionPreview> {
+    const resolved = await this.accountsService.resolveBrokerageByName(
+      userId,
+      row.accountName,
+    );
+    const account = resolved.match;
+    if (!account) {
+      if (resolved.candidates.length > 0) {
+        const list = resolved.candidates.map((c) => c.name).join(", ");
+        throw new BadRequestException(
+          tr(
+            "errors.accounts.ambiguousBrokerage",
+            `"${row.accountName}" matches multiple brokerage accounts: ${list}. Use the exact account name.`,
+            { query: row.accountName, list },
+          ),
+        );
+      }
+      throw new NotFoundException(
+        tr(
+          "errors.accounts.unknownInvestmentAccount",
+          `Unknown account: ${row.accountName}. Use an exact name from the user's account list.`,
+          { name: row.accountName },
+        ),
+      );
+    }
+    let fundingAccountId: string | undefined;
+    if (row.fundingAccountName) {
+      const funding = await this.accountsService.resolveByName(
+        userId,
+        row.fundingAccountName,
+      );
+      if (!funding) {
+        throw new NotFoundException(
+          `Unknown funding account: ${row.fundingAccountName}. Use an exact name from the user's account list.`,
+        );
+      }
+      fundingAccountId = funding.id;
+    }
+    return this.previewCreateInvestmentTransaction(userId, {
+      accountId: account.id,
+      action: row.action,
+      transactionDate: row.date,
+      securityQuery: row.securityQuery,
+      quantity: row.quantity,
+      price: row.price,
+      commission: row.commission,
+      fundingAccountId,
+      exchangeRate: row.exchangeRate,
+      description: row.description,
+    });
+  }
+
+  /**
+   * Resolve + preview each investment create row best-effort: rows that fail to
+   * resolve (unknown account/security) or validate are collected into `skipped`
+   * and flagged in `previewRows` rather than aborting the batch. Mirrors the
+   * cash `TransactionToolPrepService.prepareCreate`.
+   */
+  async prepareCreateInvestmentBulk(
+    userId: string,
+    rows: InvestmentCreateRowInput[],
+  ): Promise<PrepareInvestmentCreateBulkResult> {
+    const okPreviews: CreateInvestmentTransactionPreview[] = [];
+    const okIndex: number[] = [];
+    const previewRows: AiActionPreviewRow[] = [];
+    const skipped: BulkCreateSkip[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const base: AiActionPreviewRow = {
+        status: "error",
+        accountName: row.accountName,
+        investmentAction: row.action,
+        transactionDate: row.date,
+        symbol: row.securityQuery ?? null,
+        quantity: row.quantity ?? null,
+        price: row.price ?? null,
+        commission: row.commission ?? 0,
+        description: row.description ?? null,
+      };
+
+      const resolved = await this.accountsService.resolveBrokerageByName(
+        userId,
+        row.accountName,
+      );
+      const account = resolved.match;
+      if (!account) {
+        const reason =
+          resolved.candidates.length > 0
+            ? `Ambiguous account: "${row.accountName}" matches ${resolved.candidates
+                .map((c) => c.name)
+                .join(", ")}`
+            : `Unknown account: ${row.accountName}`;
+        skipped.push({ index: i, reason });
+        previewRows.push({ ...base, error: reason });
+        continue;
+      }
+
+      let fundingAccountId: string | undefined;
+      if (row.fundingAccountName) {
+        const funding = await this.accountsService.resolveByName(
+          userId,
+          row.fundingAccountName,
+        );
+        if (!funding) {
+          const reason = `Unknown funding account: ${row.fundingAccountName}`;
+          skipped.push({ index: i, reason });
+          previewRows.push({ ...base, error: reason });
+          continue;
+        }
+        fundingAccountId = funding.id;
+      }
+
+      try {
+        const preview = await this.previewCreateInvestmentTransaction(userId, {
+          accountId: account.id,
+          action: row.action,
+          transactionDate: row.date,
+          securityQuery: row.securityQuery,
+          quantity: row.quantity,
+          price: row.price,
+          commission: row.commission,
+          fundingAccountId,
+          exchangeRate: row.exchangeRate,
+          description: row.description,
+        });
+        okPreviews.push(preview);
+        okIndex.push(i);
+        previewRows.push(this.toInvestmentPreviewRow(preview));
+      } catch (err) {
+        const reason = this.investmentBulkSkipReason(err);
+        skipped.push({ index: i, reason });
+        previewRows.push({ ...base, error: reason });
+      }
+    }
+
+    return { okPreviews, okIndex, previewRows, skipped };
+  }
+
+  /**
+   * Resolve + preview each investment edit best-effort, mapping the resulting
+   * resolved state to a `BatchUpdateInvestmentTransactionRow` and a display row.
+   * Mirrors the cash `TransactionToolPrepService.prepareUpdateBulk`.
+   */
+  async prepareUpdateInvestmentBulk(
+    userId: string,
+    rows: InvestmentUpdateRowInput[],
+  ): Promise<PrepareInvestmentUpdateBulkResult> {
+    const okRows: BatchUpdateInvestmentTransactionRow[] = [];
+    const okIndex: number[] = [];
+    const previewRows: AiActionPreviewRow[] = [];
+    const skipped: BulkCreateSkip[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        const preview = await this.previewUpdateInvestmentTransaction(
+          userId,
+          row.transactionId,
+          {
+            action: row.action,
+            transactionDate: row.date,
+            securityQuery: row.securityQuery,
+            quantity: row.quantity,
+            price: row.price,
+            commission: row.commission,
+            exchangeRate: row.exchangeRate,
+            description: row.description,
+          },
+        );
+        okRows.push({
+          transactionId: preview.transactionId,
+          accountId: preview.accountId,
+          action: preview.action,
+          transactionDate: preview.transactionDate,
+          securityId: preview.securityId,
+          fundingAccountId: preview.fundingAccountId,
+          quantity: preview.quantity,
+          price: preview.price,
+          commission: preview.commission,
+          exchangeRate: preview.exchangeRate,
+          description: preview.description,
+        });
+        okIndex.push(i);
+        previewRows.push(this.toInvestmentPreviewRow(preview));
+      } catch (err) {
+        const reason = this.investmentBulkSkipReason(err);
+        skipped.push({ index: i, reason });
+        previewRows.push({
+          status: "error",
+          transactionDate: row.date ?? undefined,
+          symbol: row.securityQuery ?? null,
+          error: reason,
+        });
+      }
+    }
+
+    return { okRows, okIndex, previewRows, skipped };
+  }
+
+  /**
+   * Preview each investment deletion best-effort, mapping to a batch delete row
+   * and a display row. Mirrors `TransactionToolPrepService.prepareDeleteBulk`.
+   */
+  async prepareDeleteInvestmentBulk(
+    userId: string,
+    transactionIds: string[],
+  ): Promise<PrepareInvestmentDeleteBulkResult> {
+    const okRows: BatchDeleteInvestmentTransactionRow[] = [];
+    const okIndex: number[] = [];
+    const previewRows: AiActionPreviewRow[] = [];
+    const skipped: BulkCreateSkip[] = [];
+
+    for (let i = 0; i < transactionIds.length; i++) {
+      const transactionId = transactionIds[i];
+      try {
+        const preview = await this.previewDeleteInvestmentTransaction(
+          userId,
+          transactionId,
+        );
+        okRows.push({ transactionId });
+        okIndex.push(i);
+        previewRows.push({
+          status: "ok",
+          accountName: preview.accountName,
+          investmentAction: preview.action,
+          transactionDate: preview.transactionDate,
+          symbol: preview.symbol,
+          securityName: preview.securityName,
+          securityCurrency: preview.securityCurrency,
+          quantity: preview.quantity,
+          price: preview.price,
+          commission: preview.commission,
+          totalAmount: preview.totalAmount,
+          description: preview.description,
+        });
+      } catch (err) {
+        const reason = this.investmentBulkSkipReason(err);
+        skipped.push({ index: i, reason });
+        previewRows.push({ status: "error", error: reason });
+      }
+    }
+
+    return { okRows, okIndex, previewRows, skipped };
+  }
+
+  /**
+   * Reject investment accounts that don't track holdings. Securities can only
+   * live in brokerage / standalone investment accounts (null subtype); the cash
+   * sleeve (INVESTMENT_CASH) is excluded from every holdings rebuild and
+   * negative-balance guard, so transferring shares into it would leave them
+   * absent from the ledger while still drawing down the source.
+   */
+  private assertCanHoldSecurities(account: Account, label: string): void {
+    if (
+      account.accountSubType &&
+      account.accountSubType !== AccountSubType.INVESTMENT_BROKERAGE
+    ) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.cannotHoldSecurities",
+          `${label} cannot hold securities`,
+          { label },
+        ),
+      );
+    }
+  }
+
+  /**
+   * Move a security between two investment accounts while preserving cost
+   * basis. Creates both legs atomically: a TRANSFER_OUT in the source account
+   * (drawn down at the source's running average cost) and a TRANSFER_IN in the
+   * destination account at the source's carried average cost. No cash
+   * transaction is created -- shares move only, no money changes hands -- so
+   * both legs use exchangeRate 1 and have a null linked cash transaction.
+   */
+  async transferSecurity(
+    userId: string,
+    dto: TransferSecurityDto,
+  ): Promise<{
+    transferOut: InvestmentTransaction;
+    transferIn: InvestmentTransaction;
+  }> {
+    if (dto.fromAccountId === dto.toAccountId) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.sourceDestMustDiffer",
+          "Source and destination accounts must be different",
+        ),
+      );
+    }
+
+    const [fromAccount, toAccount] = await Promise.all([
+      this.accountsService.findOne(userId, dto.fromAccountId),
+      this.accountsService.findOne(userId, dto.toAccountId),
+    ]);
+
+    if (
+      fromAccount.accountType !== "INVESTMENT" ||
+      toAccount.accountType !== "INVESTMENT"
+    ) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.bothAccountsMustBeInvestment",
+          "Both accounts must be of type INVESTMENT",
+        ),
+      );
+    }
+
+    // Securities only live in brokerage / standalone investment accounts. The
+    // cash sleeve of an investment account is excluded from every holdings
+    // rebuild, so shares transferred into it would silently vanish.
+    this.assertCanHoldSecurities(fromAccount, "Source account");
+    this.assertCanHoldSecurities(toAccount, "Destination account");
+
+    if (toAccount.isClosed) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.destinationAccountClosed",
+          "Destination account is closed",
+        ),
+      );
+    }
+
+    await this.securitiesService.findOne(userId, dto.securityId);
+
+    // Carry the source's actual blended average cost so basis is conserved.
+    // The client sends a prefilled costPerShare for display, but the server is
+    // authoritative here: a stale or zero client value (e.g. a UI race before
+    // holdings load, or a direct API call) must not be able to poison the
+    // destination's cost basis. When the source holds the security, its current
+    // average cost is exactly what the TRANSFER_OUT draws down, so using it for
+    // both legs conserves basis. With no existing holding the over-draw guard
+    // below rejects the transfer anyway, so the client value is a harmless
+    // fallback.
+    const sourceHolding = await this.holdingsService.findByAccountAndSecurity(
+      dto.fromAccountId,
+      dto.securityId,
+    );
+    const carriedCost =
+      sourceHolding && Number(sourceHolding.quantity) > 0
+        ? roundToDecimals(Number(sourceHolding.averageCost) || 0, 6)
+        : dto.costPerShare;
+
+    // Transfer legs carry no cash, so totalAmount is 0 -- matching how
+    // calculateTotalAmount() treats TRANSFER_IN/TRANSFER_OUT on the edit path.
+    // Cost basis flows through quantity * price (per-share cost) instead.
+    const totalAmount = 0;
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let outId: string;
+    let inId: string;
+
+    try {
+      const transferOut = queryRunner.manager.create(InvestmentTransaction, {
+        userId,
+        accountId: dto.fromAccountId,
+        securityId: dto.securityId,
+        fundingAccountId: null,
+        action: InvestmentAction.TRANSFER_OUT,
+        transactionDate: dto.transactionDate,
+        quantity: dto.quantity,
+        price: carriedCost,
+        commission: 0,
+        totalAmount,
+        exchangeRate: 1,
+        description: dto.description,
+      });
+      const savedOut = await queryRunner.manager.save(transferOut);
+      outId = savedOut.id;
+      await this.processTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        savedOut,
+        false,
+        false,
+      );
+
+      const transferIn = queryRunner.manager.create(InvestmentTransaction, {
+        userId,
+        accountId: dto.toAccountId,
+        securityId: dto.securityId,
+        fundingAccountId: null,
+        action: InvestmentAction.TRANSFER_IN,
+        transactionDate: dto.transactionDate,
+        quantity: dto.quantity,
+        price: carriedCost,
+        commission: 0,
+        totalAmount,
+        exchangeRate: 1,
+        description: dto.description,
+      });
+      const savedIn = await queryRunner.manager.save(transferIn);
+      inId = savedIn.id;
+      await this.processTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        savedIn,
+        false,
+        false,
+      );
+
+      // Link the two legs to each other so a later edit or delete of one
+      // cascades to its pair.
+      await queryRunner.manager.update(InvestmentTransaction, outId, {
+        linkedTransactionId: inId,
+      });
+      await queryRunner.manager.update(InvestmentTransaction, inId, {
+        linkedTransactionId: outId,
+      });
+
+      // Guard against transferring more than the source holds. Validates the
+      // full replayed history so it catches both the immediate over-draw and
+      // any back-dated transfer that would make a past balance go negative.
+      await this.holdingsService.validateNoNegativeHoldingsHistory(
+        userId,
+        queryRunner,
+        [dto.fromAccountId, dto.toAccountId],
+        [dto.securityId],
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    this.triggerRecalcWithCashAccount(dto.fromAccountId, userId);
+    this.triggerRecalcWithCashAccount(dto.toAccountId, userId);
+
+    this.securityPriceService
+      .upsertTransactionPrice(dto.securityId, dto.transactionDate)
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to update transaction-derived price: ${err.message}`,
+        ),
+      );
+
+    const [transferOut, transferIn] = await Promise.all([
+      this.findOne(userId, outId),
+      this.findOne(userId, inId),
+    ]);
+
+    this.actionHistoryService.record(userId, {
+      entityType: "investment_transaction",
+      entityId: transferOut.id,
+      action: "create",
+      // Flat leg + linkedTransferLeg shape mirrors the delete beforeData so the
+      // redo path (which feeds afterData into undoInvestmentDelete) restores
+      // both legs and their mutual link.
+      afterData: { ...transferOut, linkedTransferLeg: { ...transferIn } },
+      description: "Transferred security between accounts",
+      descriptionKey: "transferredSecurity",
+    });
+
+    return { transferOut, transferIn };
+  }
+
+  private calculateTotalAmount(dto: {
+    action: InvestmentAction;
+    quantity?: number | null;
+    price?: number | null;
+    commission?: number | null;
+  }): number {
     const { action, quantity, price, commission } = dto;
 
     let result: number;
@@ -580,8 +1642,8 @@ export class InvestmentTransactionsService {
         return 0;
     }
 
-    // M13: Round to 4 decimal places to avoid floating-point drift
-    return roundToDecimals(result, 4);
+    // M13: Round to money storage precision (4dp) to avoid floating-point drift
+    return roundMoney(result);
   }
 
   private async processTransactionEffectsInTransaction(
@@ -689,6 +1751,10 @@ export class InvestmentTransactionsService {
         break;
 
       case InvestmentAction.REINVEST:
+        // A reinvestment buys shares at a market price; without a price the
+        // shares would be blended in at cost 0 and poison the average cost, so
+        // keep the price guard here. Only TRANSFER_IN/OUT (whose carried cost
+        // can legitimately be 0) drop it.
         if (!isFuture && securityId && quantity && price) {
           await this.holdingsService.updateHolding(
             userId,
@@ -719,7 +1785,7 @@ export class InvestmentTransactionsService {
         break;
 
       case InvestmentAction.TRANSFER_IN:
-        if (!isFuture && securityId && quantity && price) {
+        if (!isFuture && securityId && quantity) {
           await this.holdingsService.updateHolding(
             userId,
             accountId,
@@ -733,7 +1799,7 @@ export class InvestmentTransactionsService {
         break;
 
       case InvestmentAction.TRANSFER_OUT:
-        if (!isFuture && securityId && quantity && price) {
+        if (!isFuture && securityId && quantity) {
           await this.holdingsService.updateHolding(
             userId,
             accountId,
@@ -807,7 +1873,11 @@ export class InvestmentTransactionsService {
   ): Promise<InvestmentTransaction> {
     if (!isInvestmentActionAllowedInSplit(dto.action)) {
       throw new BadRequestException(
-        `Investment action ${dto.action} is not allowed inside a split transaction`,
+        tr(
+          "errors.securities.actionNotAllowedInSplit",
+          `Investment action ${dto.action} is not allowed inside a split transaction`,
+          { action: dto.action },
+        ),
       );
     }
 
@@ -819,7 +1889,10 @@ export class InvestmentTransactionsService {
       brokerageAccount.accountSubType !== AccountSubType.INVESTMENT_BROKERAGE
     ) {
       throw new BadRequestException(
-        "Embedded investment splits require an INVESTMENT_BROKERAGE account",
+        tr(
+          "errors.securities.embeddedSplitRequiresBrokerage",
+          "Embedded investment splits require an INVESTMENT_BROKERAGE account",
+        ),
       );
     }
 
@@ -832,7 +1905,11 @@ export class InvestmentTransactionsService {
     ];
     if (securityRequiredActions.includes(dto.action) && !dto.securityId) {
       throw new BadRequestException(
-        `Security ID is required for ${dto.action} transactions`,
+        tr(
+          "errors.securities.securityIdRequired",
+          `Security ID is required for ${dto.action} transactions`,
+          { action: dto.action },
+        ),
       );
     }
 
@@ -855,6 +1932,7 @@ export class InvestmentTransactionsService {
       cashAccountId,
       dto.securityId ?? null,
       dto.exchangeRate ?? undefined,
+      parentTransactionDate,
     );
 
     const investmentTransaction = queryRunner.manager.create(
@@ -927,9 +2005,8 @@ export class InvestmentTransactionsService {
       Number(saved.price ?? 0),
       Number(saved.commission ?? 0),
     );
-    const newSplitAmount = roundToDecimals(
+    const newSplitAmount = roundMoney(
       cashImpactInSecurity * Number(saved.exchangeRate),
-      4,
     );
 
     const split = await queryRunner.manager.findOne(TransactionSplit, {
@@ -937,7 +2014,11 @@ export class InvestmentTransactionsService {
     });
     if (!split) {
       throw new NotFoundException(
-        `Transaction split ${splitId} not found for embedded investment update`,
+        tr(
+          "errors.securities.transactionSplitNotFound",
+          `Transaction split ${splitId} not found for embedded investment update`,
+          { splitId },
+        ),
       );
     }
 
@@ -950,20 +2031,24 @@ export class InvestmentTransactionsService {
     });
     if (!parentTransaction) {
       throw new NotFoundException(
-        `Parent transaction ${split.transactionId} not found for embedded investment update`,
+        tr(
+          "errors.securities.parentTransactionNotFound",
+          `Parent transaction ${split.transactionId} not found for embedded investment update`,
+          { transactionId: split.transactionId },
+        ),
       );
     }
 
     const siblingSplits = await queryRunner.manager.find(TransactionSplit, {
       where: { transactionId: split.transactionId },
     });
-    const newParentTotalCents = siblingSplits.reduce((sum, s) => {
-      const amt = s.id === splitId ? newSplitAmount : Number(s.amount);
-      return sum + Math.round(amt * 10000);
-    }, 0);
-    const newParentAmount = newParentTotalCents / 10000;
+    const newParentAmount = sumMoney(
+      siblingSplits.map((s) =>
+        s.id === splitId ? newSplitAmount : Number(s.amount),
+      ),
+    );
     const oldParentAmount = Number(parentTransaction.amount);
-    const delta = roundToDecimals(newParentAmount - oldParentAmount, 4);
+    const delta = roundMoney(newParentAmount - oldParentAmount);
 
     await queryRunner.manager.update(Transaction, parentTransaction.id, {
       amount: newParentAmount,
@@ -994,18 +2079,12 @@ export class InvestmentTransactionsService {
     limit?: number,
     symbol?: string,
     action?: string,
-  ): Promise<{
-    data: InvestmentTransaction[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasMore: boolean;
-    };
-  }> {
-    const pageNum = page && page > 0 ? page : 1;
-    const pageSize = limit && limit > 0 ? Math.min(limit, 200) : 50;
+  ): Promise<PaginatedResult<InvestmentTransaction>> {
+    const {
+      page: pageNum,
+      limit: pageSize,
+      skip,
+    } = clampPagination(page, limit);
 
     const query = this.investmentTransactionsRepository
       .createQueryBuilder("it")
@@ -1048,21 +2127,125 @@ export class InvestmentTransactionsService {
     const data = await query
       .orderBy("it.transactionDate", "DESC")
       .addOrderBy("it.createdAt", "DESC")
-      .skip((pageNum - 1) * pageSize)
+      .skip(skip)
       .take(pageSize)
       .getMany();
 
-    const totalPages = Math.ceil(total / pageSize);
-
     return {
       data,
-      pagination: {
-        page: pageNum,
-        limit: pageSize,
-        total,
-        totalPages,
-        hasMore: pageNum < totalPages,
-      },
+      pagination: buildPaginationMeta(pageNum, pageSize, total),
+    };
+  }
+
+  /**
+   * Apply a transaction's effect on a running share balance. Mirrors the
+   * authoritative per-action math in HoldingsService.getHoldingAt so the
+   * running totals reconcile with stored holdings.
+   */
+  private applyQuantityToBalance(
+    balance: number,
+    action: InvestmentAction,
+    quantity: number,
+  ): number {
+    switch (action) {
+      case InvestmentAction.BUY:
+      case InvestmentAction.REINVEST:
+      case InvestmentAction.TRANSFER_IN:
+      case InvestmentAction.ADD_SHARES:
+        return balance + quantity;
+      case InvestmentAction.SELL:
+      case InvestmentAction.TRANSFER_OUT:
+      case InvestmentAction.REMOVE_SHARES:
+        return balance - quantity;
+      case InvestmentAction.SPLIT:
+        return quantity > 0 ? balance * quantity : balance;
+      default:
+        // DIVIDEND / INTEREST / CAPITAL_GAIN do not move shares.
+        return balance;
+    }
+  }
+
+  /**
+   * Full transaction history for a single security with a running share
+   * balance after each transaction -- both within the transaction's own
+   * account and across all accounts the security is held in. Also returns the
+   * list of accounts the security was ever transacted in (including closed
+   * accounts) with their exact current share balance.
+   *
+   * Quantities are intentionally NOT snapped to zero, so tiny residual
+   * positions remain visible -- this view exists to track them down.
+   */
+  async getSecurityTransactionHistory(
+    userId: string,
+    securityId: string,
+  ): Promise<SecurityTransactionHistory> {
+    // Validates ownership and existence (works for inactive securities too).
+    const security = await this.securitiesService.findOne(userId, securityId);
+
+    const transactions = await this.investmentTransactionsRepository.find({
+      where: { userId, securityId },
+      relations: ["account"],
+      order: { transactionDate: "ASC", createdAt: "ASC" },
+    });
+
+    const balances = new Map<string, number>();
+    const accountMeta = new Map<string, { name: string; isClosed: boolean }>();
+    let runningAll = 0;
+
+    const rows: SecurityHistoryTransaction[] = transactions.map((tx) => {
+      const accountId = tx.accountId;
+      if (!accountMeta.has(accountId)) {
+        accountMeta.set(accountId, {
+          name: tx.account?.name ?? "Unknown account",
+          isClosed: tx.account?.isClosed ?? false,
+        });
+      }
+
+      const prevBalance = balances.get(accountId) ?? 0;
+      const newBalance = this.applyQuantityToBalance(
+        prevBalance,
+        tx.action,
+        Number(tx.quantity) || 0,
+      );
+      balances.set(accountId, newBalance);
+      // Delta keeps the cross-account total correct even for SPLIT, which
+      // multiplies a single account's balance rather than adding to it.
+      runningAll += newBalance - prevBalance;
+
+      return {
+        id: tx.id,
+        transactionDate: tx.transactionDate,
+        accountId,
+        accountName: accountMeta.get(accountId)!.name,
+        action: tx.action,
+        quantity: tx.quantity === null ? null : Number(tx.quantity),
+        price: tx.price === null ? null : Number(tx.price),
+        commission: Number(tx.commission) || 0,
+        totalAmount: Number(tx.totalAmount) || 0,
+        description: tx.description,
+        runningQuantityAccount: newBalance,
+        runningQuantityAll: runningAll,
+      };
+    });
+
+    const accounts: SecurityHistoryAccount[] = Array.from(accountMeta.entries())
+      .map(([accountId, meta]) => ({
+        accountId,
+        accountName: meta.name,
+        isClosed: meta.isClosed,
+        currentQuantity: balances.get(accountId) ?? 0,
+      }))
+      .sort((a, b) => a.accountName.localeCompare(b.accountName));
+
+    return {
+      securityId,
+      symbol: security.symbol,
+      name: security.name,
+      currencyCode: security.currencyCode,
+      isActive: security.isActive,
+      accounts,
+      transactions: rows,
+      currentQuantityAll: runningAll,
     };
   }
 
@@ -1211,7 +2394,6 @@ export class InvestmentTransactionsService {
     const groupBy: LlmCapitalGainsGroupBy = options.groupBy ?? "month";
 
     // Aggregate in integer 1e-4 units so sums stay free of float drift.
-    const round4 = (n: number): number => Math.round(n * 10000) / 10000;
     interface Bucket {
       month: string | null;
       accountName: string | null;
@@ -1301,11 +2483,11 @@ export class InvestmentTransactionsService {
         symbol: b.symbol,
         securityName: b.securityName,
         currency: b.currency ?? null,
-        startValue: round4(b.startValueScaled / 10000),
-        endValue: round4(b.endValueScaled / 10000),
-        realizedGain: round4(b.realizedScaled / 10000),
-        unrealizedGain: round4(b.unrealizedScaled / 10000),
-        totalCapitalGain: round4(b.totalScaled / 10000),
+        startValue: roundMoney(b.startValueScaled / 10000),
+        endValue: roundMoney(b.endValueScaled / 10000),
+        realizedGain: roundMoney(b.realizedScaled / 10000),
+        unrealizedGain: roundMoney(b.unrealizedScaled / 10000),
+        totalCapitalGain: roundMoney(b.totalScaled / 10000),
       }),
     );
     allEntries.sort((a, b) => {
@@ -1318,9 +2500,9 @@ export class InvestmentTransactionsService {
       startDate: options.startDate,
       endDate: options.endDate,
       totals: {
-        realizedGain: round4(totalsRealizedScaled / 10000),
-        unrealizedGain: round4(totalsUnrealizedScaled / 10000),
-        totalCapitalGain: round4(totalsCapitalScaled / 10000),
+        realizedGain: roundMoney(totalsRealizedScaled / 10000),
+        unrealizedGain: roundMoney(totalsUnrealizedScaled / 10000),
+        totalCapitalGain: roundMoney(totalsCapitalScaled / 10000),
       },
       groupedBy: groupBy,
       entries: allEntries.slice(0, MAX_ENTRIES),
@@ -1341,11 +2523,240 @@ export class InvestmentTransactionsService {
 
     if (!transaction) {
       throw new NotFoundException(
-        `Investment transaction with ID ${id} not found`,
+        tr(
+          "errors.securities.investmentTransactionNotFound",
+          `Investment transaction with ID ${id} not found`,
+          { id },
+        ),
       );
     }
 
     return transaction;
+  }
+
+  /**
+   * Edit one leg of a linked security transfer and keep its pair consistent.
+   * The edited leg may change its own account; the security, quantity,
+   * per-share cost, date and description are shared and propagated to both
+   * legs so the cost basis stays balanced across the move. The transfer's
+   * direction (which leg is IN vs OUT) cannot be changed here.
+   */
+  private async updateLinkedTransfer(
+    userId: string,
+    editedLeg: InvestmentTransaction,
+    linkedLeg: InvestmentTransaction,
+    updateDto: UpdateInvestmentTransactionDto,
+  ): Promise<InvestmentTransaction> {
+    if (
+      updateDto.action !== undefined &&
+      updateDto.action !== editedLeg.action
+    ) {
+      throw new BadRequestException(
+        tr(
+          "errors.securities.cannotChangeTransferDirection",
+          "Cannot change the direction of a transfer; delete it and create a new transfer instead",
+        ),
+      );
+    }
+
+    const beforeData = { ...editedLeg };
+    const beforeLinked = { ...linkedLeg };
+    const editedLegId = editedLeg.id;
+
+    // Track every (account, security) the edit could touch -- old and new on
+    // both legs -- so the negative-holdings guard is scoped correctly.
+    const affectedAccountIds = new Set<string>([
+      editedLeg.accountId,
+      linkedLeg.accountId,
+    ]);
+    const affectedSecurityIds = new Set<string>();
+    if (editedLeg.securityId) affectedSecurityIds.add(editedLeg.securityId);
+
+    if (updateDto.securityId !== undefined && updateDto.securityId) {
+      await this.securitiesService.findOne(userId, updateDto.securityId);
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Reverse both legs at their original values before reapplying.
+      await this.reverseTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        editedLeg,
+      );
+      await this.reverseTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        linkedLeg,
+      );
+
+      // Resolve legs by role, not by which leg id was passed in: `accountId`
+      // is always the source (TRANSFER_OUT) account and `destinationAccountId`
+      // the destination (TRANSFER_IN) account. Mapping by role keeps the
+      // direction correct even when the IN leg is edited directly.
+      const outLeg =
+        editedLeg.action === InvestmentAction.TRANSFER_OUT
+          ? editedLeg
+          : linkedLeg;
+      const inLeg =
+        editedLeg.action === InvestmentAction.TRANSFER_IN
+          ? editedLeg
+          : linkedLeg;
+
+      // The source leg may move to a different account.
+      if (updateDto.accountId !== undefined) {
+        const account = await this.accountsService.findOne(
+          userId,
+          updateDto.accountId,
+        );
+        if (account.accountType !== "INVESTMENT") {
+          throw new BadRequestException(
+            tr(
+              "errors.securities.accountMustBeInvestment",
+              "Account must be of type INVESTMENT",
+            ),
+          );
+        }
+        this.assertCanHoldSecurities(account, "Account");
+        outLeg.accountId = updateDto.accountId;
+        outLeg.account = { id: updateDto.accountId } as any;
+      }
+
+      // The destination leg can be rerouted to a different account.
+      if (updateDto.destinationAccountId !== undefined) {
+        const destAccount = await this.accountsService.findOne(
+          userId,
+          updateDto.destinationAccountId,
+        );
+        if (destAccount.accountType !== "INVESTMENT") {
+          throw new BadRequestException(
+            tr(
+              "errors.securities.destinationAccountMustBeInvestment",
+              "Destination account must be of type INVESTMENT",
+            ),
+          );
+        }
+        if (destAccount.isClosed) {
+          throw new BadRequestException(
+            tr(
+              "errors.securities.destinationAccountClosed",
+              "Destination account is closed",
+            ),
+          );
+        }
+        this.assertCanHoldSecurities(destAccount, "Destination account");
+        inLeg.accountId = updateDto.destinationAccountId;
+        inLeg.account = { id: updateDto.destinationAccountId } as any;
+      }
+
+      if (outLeg.accountId === inLeg.accountId) {
+        throw new BadRequestException(
+          tr(
+            "errors.securities.sourceDestMustDiffer",
+            "Source and destination accounts must be different",
+          ),
+        );
+      }
+
+      // Shared fields applied to both legs.
+      const applyShared = (leg: InvestmentTransaction) => {
+        if (updateDto.securityId !== undefined) {
+          leg.securityId = updateDto.securityId || null;
+          leg.security = updateDto.securityId
+            ? ({ id: updateDto.securityId } as any)
+            : (null as any);
+        }
+        if (updateDto.quantity !== undefined) leg.quantity = updateDto.quantity;
+        if (updateDto.price !== undefined) leg.price = updateDto.price;
+        if (updateDto.commission !== undefined)
+          leg.commission = updateDto.commission;
+        if (updateDto.transactionDate !== undefined)
+          leg.transactionDate = updateDto.transactionDate;
+        if (updateDto.description !== undefined)
+          leg.description = updateDto.description;
+        // Transfers carry no cash.
+        leg.totalAmount = 0;
+        leg.exchangeRate = 1;
+      };
+      applyShared(editedLeg);
+      applyShared(linkedLeg);
+
+      affectedAccountIds.add(editedLeg.accountId);
+      affectedAccountIds.add(linkedLeg.accountId);
+      if (editedLeg.securityId) affectedSecurityIds.add(editedLeg.securityId);
+
+      const savedEdited = await queryRunner.manager.save(editedLeg);
+      const savedLinked = await queryRunner.manager.save(linkedLeg);
+
+      await this.processTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        savedEdited,
+        true,
+        false,
+      );
+      await this.processTransactionEffectsInTransaction(
+        queryRunner,
+        userId,
+        savedLinked,
+        true,
+        false,
+      );
+
+      await this.holdingsService.validateNoNegativeHoldingsHistory(
+        userId,
+        queryRunner,
+        Array.from(affectedAccountIds),
+        affectedSecurityIds.size > 0
+          ? Array.from(affectedSecurityIds)
+          : undefined,
+      );
+
+      // The incremental reverse/re-apply above can misattribute average cost
+      // when a leg crosses a zero balance (a TRANSFER_OUT reversal re-establishes
+      // the source's cost basis from the leg's price instead of the source's
+      // true blended cost). Rebuild the affected accounts from the authoritative
+      // transaction history inside this transaction so both accounts' share
+      // counts and average cost are exact -- and so a rebuild failure rolls the
+      // whole edit back rather than silently committing wrong holdings.
+      await this.holdingsService.rebuildAccountsFromTransactions(
+        userId,
+        Array.from(affectedAccountIds),
+        queryRunner,
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    for (const accId of affectedAccountIds) {
+      this.triggerRecalcWithCashAccount(accId, userId);
+    }
+
+    const result = await this.findOne(userId, editedLegId);
+    const linkedResult = await this.findOne(userId, linkedLeg.id);
+
+    this.actionHistoryService.record(userId, {
+      entityType: "investment_transaction",
+      entityId: editedLegId,
+      // beforeData and afterData both carry the paired leg under
+      // linkedTransferLeg so undo (beforeData) and redo (afterData) can restore
+      // both legs symmetrically.
+      action: "update",
+      beforeData: { ...beforeData, linkedTransferLeg: beforeLinked },
+      afterData: { ...result, linkedTransferLeg: { ...linkedResult } },
+      description: "Updated security transfer",
+      descriptionKey: "updatedSecurityTransfer",
+    });
+
+    return result;
   }
 
   async update(
@@ -1354,6 +2765,36 @@ export class InvestmentTransactionsService {
     updateDto: UpdateInvestmentTransactionDto,
   ): Promise<InvestmentTransaction> {
     const transaction = await this.findOne(userId, id);
+
+    // A security transfer is two linked legs. Editing one keeps the pair in
+    // sync (shared security/quantity/cost/date) so cost basis stays balanced.
+    if (
+      transaction.linkedTransactionId &&
+      (transaction.action === InvestmentAction.TRANSFER_IN ||
+        transaction.action === InvestmentAction.TRANSFER_OUT)
+    ) {
+      const linkedLeg = await this.investmentTransactionsRepository.findOne({
+        where: { id: transaction.linkedTransactionId, userId },
+      });
+      if (!linkedLeg) {
+        // The pair is missing (stale link / partial data). Editing this leg
+        // alone would leave the two legs unbalanced, so refuse rather than
+        // silently corrupting the transfer.
+        throw new ConflictException(
+          tr(
+            "errors.securities.transferPairMissing",
+            "This transfer's paired transaction is missing; delete and recreate the transfer instead of editing it",
+          ),
+        );
+      }
+      return this.updateLinkedTransfer(
+        userId,
+        transaction,
+        linkedLeg,
+        updateDto,
+      );
+    }
+
     const beforeData = { ...transaction };
     const accountId = transaction.accountId;
     const oldSecurityId = transaction.securityId;
@@ -1373,7 +2814,10 @@ export class InvestmentTransactionsService {
         updateDto.accountId !== transaction.accountId
       ) {
         throw new BadRequestException(
-          "Cannot change the account of an investment split; remove the split and add it on the new account instead",
+          tr(
+            "errors.securities.cannotChangeSplitAccount",
+            "Cannot change the account of an investment split; remove the split and add it on the new account instead",
+          ),
         );
       }
       if (
@@ -1381,7 +2825,10 @@ export class InvestmentTransactionsService {
         (updateDto.fundingAccountId || null) !== transaction.fundingAccountId
       ) {
         throw new BadRequestException(
-          "Investment splits do not use a separate funding account",
+          tr(
+            "errors.securities.splitNoFundingAccount",
+            "Investment splits do not use a separate funding account",
+          ),
         );
       }
       if (
@@ -1389,13 +2836,20 @@ export class InvestmentTransactionsService {
         updateDto.transactionDate !== transaction.transactionDate
       ) {
         throw new BadRequestException(
-          "Cannot change the date of an investment split; edit the parent split transaction date instead",
+          tr(
+            "errors.securities.cannotChangeSplitDate",
+            "Cannot change the date of an investment split; edit the parent split transaction date instead",
+          ),
         );
       }
       const effectiveAction = updateDto.action ?? transaction.action;
       if (!isInvestmentActionAllowedInSplit(effectiveAction)) {
         throw new BadRequestException(
-          `Investment action ${effectiveAction} is not allowed inside a split transaction`,
+          tr(
+            "errors.securities.actionNotAllowedInSplit",
+            `Investment action ${effectiveAction} is not allowed inside a split transaction`,
+            { action: effectiveAction },
+          ),
         );
       }
     }
@@ -1442,7 +2896,11 @@ export class InvestmentTransactionsService {
           !effectiveSecurityId
         ) {
           throw new BadRequestException(
-            `Security ID is required for ${updateDto.action} transactions`,
+            tr(
+              "errors.securities.securityIdRequired",
+              `Security ID is required for ${updateDto.action} transactions`,
+              { action: updateDto.action },
+            ),
           );
         }
         transaction.action = updateDto.action;
@@ -1481,7 +2939,7 @@ export class InvestmentTransactionsService {
           quantity: transaction.quantity,
           price: transaction.price,
           commission: transaction.commission,
-        } as any);
+        });
       }
 
       if (
@@ -1491,7 +2949,10 @@ export class InvestmentTransactionsService {
           Number(transaction.quantity) <= 0)
       ) {
         throw new BadRequestException(
-          "Split ratio (quantity) must be greater than zero",
+          tr(
+            "errors.securities.splitRatioRequired",
+            "Split ratio (quantity) must be greater than zero",
+          ),
         );
       }
 
@@ -1521,6 +2982,7 @@ export class InvestmentTransactionsService {
             transaction.fundingAccountId,
             transaction.securityId,
             undefined,
+            transaction.transactionDate,
           );
         }
       }
@@ -1642,6 +3104,8 @@ export class InvestmentTransactionsService {
       beforeData,
       afterData: { ...result },
       description: `Updated ${result.action} transaction`,
+      descriptionKey: "updatedInvestmentTransaction",
+      descriptionParams: { action: result.action },
     });
 
     return result;
@@ -1820,24 +3284,60 @@ export class InvestmentTransactionsService {
       }
     }
 
+    // A security transfer is two linked legs (TRANSFER_OUT <-> TRANSFER_IN).
+    // Deleting either one removes the whole transfer so holdings can't be
+    // left half-moved.
+    const linkedLeg = transaction.linkedTransactionId
+      ? await this.investmentTransactionsRepository.findOne({
+          where: { id: transaction.linkedTransactionId, userId },
+        })
+      : null;
+    if (linkedLeg) {
+      beforeData.linkedTransferLeg = { ...linkedLeg };
+    }
+
+    const legsToRemove = linkedLeg ? [transaction, linkedLeg] : [transaction];
+    const affectedAccountIds = Array.from(
+      new Set(legsToRemove.map((leg) => leg.accountId)),
+    );
+    const affectedSecurityIds = Array.from(
+      new Set(
+        legsToRemove
+          .map((leg) => leg.securityId)
+          .filter((sid): sid is string => Boolean(sid)),
+      ),
+    );
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      await this.reverseTransactionEffectsInTransaction(
-        queryRunner,
-        userId,
-        transaction,
-      );
+      // Break the mutual link before deleting so neither row's FK points at a
+      // row that is about to disappear.
+      for (const leg of legsToRemove) {
+        if (leg.linkedTransactionId) {
+          await queryRunner.manager.update(InvestmentTransaction, leg.id, {
+            linkedTransactionId: null,
+          });
+          leg.linkedTransactionId = null;
+        }
+      }
 
-      await queryRunner.manager.remove(transaction);
+      for (const leg of legsToRemove) {
+        await this.reverseTransactionEffectsInTransaction(
+          queryRunner,
+          userId,
+          leg,
+        );
+        await queryRunner.manager.remove(leg);
+      }
 
       await this.holdingsService.validateNoNegativeHoldingsHistory(
         userId,
         queryRunner,
-        [accountId],
-        transaction.securityId ? [transaction.securityId] : undefined,
+        affectedAccountIds,
+        affectedSecurityIds.length > 0 ? affectedSecurityIds : undefined,
       );
 
       await queryRunner.commitTransaction();
@@ -1858,11 +3358,16 @@ export class InvestmentTransactionsService {
         );
     }
 
-    this.triggerRecalcWithCashAccount(
-      accountId,
-      userId,
-      transaction.fundingAccountId,
-    );
+    for (const accId of affectedAccountIds) {
+      this.triggerRecalcWithCashAccount(accId, userId);
+    }
+    if (transaction.fundingAccountId) {
+      this.triggerRecalcWithCashAccount(
+        accountId,
+        userId,
+        transaction.fundingAccountId,
+      );
+    }
 
     if (
       transaction.securityId &&
@@ -1886,13 +3391,15 @@ export class InvestmentTransactionsService {
       action: "delete",
       beforeData,
       description: `Deleted ${beforeData.action} transaction`,
+      descriptionKey: "deletedInvestmentTransaction",
+      descriptionParams: { action: beforeData.action },
     });
   }
 
   /**
    * Compact investment-transaction query for LLM / AI consumers. Called by
    * both the AI Assistant's tool executor and the MCP server's
-   * `query_investment_transactions` tool so the two surfaces return the same
+   * `list_investment_transactions` tool so the two surfaces return the same
    * shape. Monetary values are rounded to 4 decimals, quantities to 8.
    *
    * Filters: account, security symbol, action, and date range.
@@ -1959,6 +3466,8 @@ export class InvestmentTransactionsService {
 
     const rows = await query.getMany();
 
+    // round4 here is reserved for per-share prices (4dp price precision);
+    // monetary amounts use the shared roundMoney, quantities use round8 (1e-8).
     const round4 = (n: number): number => Math.round(n * 10000) / 10000;
     const round8 = (n: number): number => Math.round(n * 1e8) / 1e8;
 
@@ -1993,8 +3502,8 @@ export class InvestmentTransactionsService {
           r.price !== null && r.price !== undefined
             ? round4(Number(r.price))
             : null,
-        commission: round4(Number(r.commission || 0)),
-        totalAmount: round4(Number(r.totalAmount)),
+        commission: roundMoney(Number(r.commission || 0)),
+        totalAmount: roundMoney(Number(r.totalAmount)),
         currency: r.account?.currencyCode ?? null,
         description: r.description ?? null,
       }));
@@ -2031,8 +3540,8 @@ export class InvestmentTransactionsService {
           key,
           transactionCount: b.count,
           totalQuantity: round8(b.quantityScaled / 1e8),
-          totalAmount: round4(b.amountScaled / 10000),
-          totalCommission: round4(b.commissionScaled / 10000),
+          totalAmount: roundMoney(b.amountScaled / 10000),
+          totalCommission: roundMoney(b.commissionScaled / 10000),
         }))
         .sort((a, b) =>
           options.groupBy === "date"
@@ -2043,8 +3552,8 @@ export class InvestmentTransactionsService {
 
     return {
       transactionCount: rows.length,
-      totalAmount: round4(totalAmountScaled / 10000),
-      totalCommission: round4(totalCommissionScaled / 10000),
+      totalAmount: roundMoney(totalAmountScaled / 10000),
+      totalCommission: roundMoney(totalCommissionScaled / 10000),
       totalQuantity: round8(totalQuantityScaled / 1e8),
       actionCounts,
       groupedBy: options.groupBy ?? null,
@@ -2095,18 +3604,23 @@ export class InvestmentTransactionsService {
         .length,
       totalSells: transactions.filter((t) => t.action === InvestmentAction.SELL)
         .length,
-      totalDividends: transactions
-        .filter((t) => t.action === InvestmentAction.DIVIDEND)
-        .reduce((sum, t) => sum + Number(t.totalAmount), 0),
-      totalInterest: transactions
-        .filter((t) => t.action === InvestmentAction.INTEREST)
-        .reduce((sum, t) => sum + Number(t.totalAmount), 0),
-      totalCapitalGains: transactions
-        .filter((t) => t.action === InvestmentAction.CAPITAL_GAIN)
-        .reduce((sum, t) => sum + Number(t.totalAmount), 0),
-      totalCommissions: transactions.reduce(
-        (sum, t) => sum + Number(t.commission || 0),
-        0,
+      totalDividends: sumMoney(
+        transactions
+          .filter((t) => t.action === InvestmentAction.DIVIDEND)
+          .map((t) => Number(t.totalAmount)),
+      ),
+      totalInterest: sumMoney(
+        transactions
+          .filter((t) => t.action === InvestmentAction.INTEREST)
+          .map((t) => Number(t.totalAmount)),
+      ),
+      totalCapitalGains: sumMoney(
+        transactions
+          .filter((t) => t.action === InvestmentAction.CAPITAL_GAIN)
+          .map((t) => Number(t.totalAmount)),
+      ),
+      totalCommissions: sumMoney(
+        transactions.map((t) => Number(t.commission || 0)),
       ),
     };
 

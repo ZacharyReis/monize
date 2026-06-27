@@ -14,10 +14,17 @@ vi.mock('@/lib/account-utils', () => ({
   isInvestmentBrokerageAccount: () => false,
 }));
 
-vi.mock('@/lib/categoryUtils', () => ({
-  buildCategoryColorMap: () => new Map(),
-  buildCategoryLabelMap: () => new Map(),
-}));
+vi.mock('@/lib/categoryUtils', async (importOriginal) => {
+  // Keep the real, pure category-option helpers (buildCategoryFilterOptions,
+  // resolveSelectedCategories) so the hook's category logic is exercised;
+  // only the color/label maps are stubbed to trivial values.
+  const actual = await importOriginal<typeof import('@/lib/categoryUtils')>();
+  return {
+    ...actual,
+    buildCategoryColorMap: () => new Map(),
+    buildCategoryLabelMap: () => new Map(),
+  };
+});
 
 import { useTransactionFilters } from './useTransactionFilters';
 
@@ -133,6 +140,21 @@ describe('useTransactionFilters - URL/localStorage initialization', () => {
     const { result } = renderHook(() => useTransactionFilters(defaultOptions));
     expect(result.current.filterAmountFrom).toBe('10');
     expect(result.current.filterAmountTo).toBe('50');
+  });
+
+  it('initializes the deep-link target from a valid targetTransactionId param', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    mockSearchParams = new URLSearchParams(`targetTransactionId=${id}`);
+    const { result } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.highlightTransactionId).toBe(id);
+    expect(result.current.targetTransactionIdRef.current).toBe(id);
+  });
+
+  it('ignores a malformed targetTransactionId param', () => {
+    mockSearchParams = new URLSearchParams('targetTransactionId=not-a-uuid');
+    const { result } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.highlightTransactionId).toBeNull();
+    expect(result.current.targetTransactionIdRef.current).toBeNull();
   });
 
   it('reads tagIds from URL params', () => {

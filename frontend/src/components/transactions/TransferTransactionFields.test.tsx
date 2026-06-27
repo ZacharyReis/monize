@@ -62,7 +62,7 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     description: null,
     currencyCode: 'CAD',
     accountNumber: null,
-    institution: null,
+    institution: null, institutionId: null,
     openingBalance: 0,
     currentBalance: 1000,
     creditLimit: null,
@@ -132,6 +132,10 @@ describe('TransferTransactionFields', () => {
     setTransferPayeeName: vi.fn(),
     crossCurrencyInfo: null as any,
     payees: [] as Payee[],
+    categoryOptions: [] as Array<{ value: string; label: string }>,
+    selectedCategoryId: '',
+    handleCategoryChange: vi.fn(),
+    handleCategoryCreate: vi.fn(),
   };
 
   beforeEach(() => {
@@ -166,6 +170,20 @@ describe('TransferTransactionFields', () => {
     render(<TransferTransactionFields {...defaultProps} />);
 
     expect(screen.getByText('Reference Number')).toBeInTheDocument();
+  });
+
+  it('renders the optional Category field with its explanatory note', () => {
+    render(
+      <TransferTransactionFields
+        {...defaultProps}
+        categoryOptions={[{ value: 'cat-1', label: 'Investments' }]}
+      />,
+    );
+
+    expect(screen.getByText('Category (Optional)')).toBeInTheDocument();
+    expect(
+      screen.getByText(/won't count as income or expense/i),
+    ).toBeInTheDocument();
   });
 
   it('does not show cross-currency section when crossCurrencyInfo is null', () => {

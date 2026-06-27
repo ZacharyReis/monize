@@ -4,6 +4,7 @@ import {
   ConflictException,
   Logger,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner } from "typeorm";
 import { Cron } from "@nestjs/schedule";
@@ -27,7 +28,16 @@ export interface RecordActionParams {
   beforeData?: Record<string, any> | null;
   afterData?: Record<string, any> | null;
   relatedEntities?: Record<string, any>[] | null;
+  /** English source string, kept as a fallback for clients/rows without a key. */
   description: string;
+  /**
+   * Stable, locale-independent key (e.g. "createdPayee") the client maps to a
+   * translated template under `layout.actionHistory.descriptions`, plus the
+   * values to interpolate into it. Supplying these lets the history render in
+   * the viewer's current language instead of the frozen `description` above.
+   */
+  descriptionKey?: string | null;
+  descriptionParams?: Record<string, any> | null;
 }
 
 export interface UndoRedoResult {
@@ -254,6 +264,8 @@ export class ActionHistoryService {
         afterData: params.afterData ?? null,
         relatedEntities: params.relatedEntities ?? null,
         description: params.description,
+        descriptionKey: params.descriptionKey ?? null,
+        descriptionParams: params.descriptionParams ?? null,
       });
 
       const saved = await this.actionHistoryRepository.save(action);
@@ -289,7 +301,9 @@ export class ActionHistoryService {
     });
 
     if (!action) {
-      throw new NotFoundException("Nothing to undo");
+      throw new NotFoundException(
+        tr("errors.actionHistory.nothingToUndo", "Nothing to undo"),
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -319,7 +333,9 @@ export class ActionHistoryService {
     });
 
     if (!action) {
-      throw new NotFoundException("Nothing to redo");
+      throw new NotFoundException(
+        tr("errors.actionHistory.nothingToRedo", "Nothing to redo"),
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -405,7 +421,11 @@ export class ActionHistoryService {
         break;
       default:
         throw new ConflictException(
-          `Undo not supported for entity type: ${action.entityType}`,
+          tr(
+            "errors.actionHistory.undoNotSupportedForEntityType",
+            `Undo not supported for entity type: ${action.entityType}`,
+            { entityType: action.entityType },
+          ),
         );
     }
   }
@@ -459,7 +479,11 @@ export class ActionHistoryService {
         break;
       default:
         throw new ConflictException(
-          `Unsupported transaction action: ${action.action}`,
+          tr(
+            "errors.actionHistory.unsupportedTransactionAction",
+            `Unsupported transaction action: ${action.action}`,
+            { action: action.action },
+          ),
         );
     }
   }
@@ -507,7 +531,12 @@ export class ActionHistoryService {
       where: { id: action.entityId, userId: action.userId },
     });
     if (!transaction) {
-      throw new ConflictException("Cannot undo: transaction no longer exists");
+      throw new ConflictException(
+        tr(
+          "errors.actionHistory.undoTransactionGone",
+          "Cannot undo: transaction no longer exists",
+        ),
+      );
     }
 
     const before = action.beforeData;
@@ -603,7 +632,12 @@ export class ActionHistoryService {
       where: { id: before.accountId, userId: action.userId },
     });
     if (!account) {
-      throw new ConflictException("Cannot undo: the account no longer exists");
+      throw new ConflictException(
+        tr(
+          "errors.actionHistory.undoAccountGone",
+          "Cannot undo: the account no longer exists",
+        ),
+      );
     }
 
     // Re-insert the transaction
@@ -682,7 +716,11 @@ export class ActionHistoryService {
         break;
       default:
         throw new ConflictException(
-          `Unsupported transfer action: ${action.action}`,
+          tr(
+            "errors.actionHistory.unsupportedTransferAction",
+            `Unsupported transfer action: ${action.action}`,
+            { action: action.action },
+          ),
         );
     }
   }
@@ -789,10 +827,73 @@ export class ActionHistoryService {
       case "delete":
         await this.undoInvestmentDelete(action, queryRunner);
         break;
+      case "update":
+        await this.undoInvestmentUpdate(action, queryRunner);
+        break;
       default:
         throw new ConflictException(
-          `Unsupported investment action: ${action.action}`,
+          tr(
+            "errors.actionHistory.unsupportedInvestmentAction",
+            `Unsupported investment action: ${action.action}`,
+            { action: action.action },
+          ),
         );
+    }
+  }
+
+  private async undoInvestmentUpdate(
+    action: ActionHistory,
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    const before = action.beforeData;
+    const linkedBefore = before?.linkedTransferLeg as
+      | Record<string, any>
+      | undefined;
+
+    // Only linked security-transfer edits capture both legs' pre-edit state,
+    // which is what we need to reverse. Regular investment edits remain
+    // non-undoable (they would also need the cash side restored).
+    if (!before || !linkedBefore) {
+      throw new ConflictException(
+        tr(
+          "errors.actionHistory.unsupportedInvestmentAction",
+          `Unsupported investment action: ${action.action}`,
+          { action: action.action },
+        ),
+      );
+    }
+
+    const accountIds = new Set<string>();
+    for (const legBefore of [before, linkedBefore]) {
+      // Capture the leg's current (post-edit) account before we overwrite it so
+      // holdings are rebuilt for both the old and the new account.
+      const current = await queryRunner.manager.findOne(InvestmentTransaction, {
+        where: { id: legBefore.id, userId: action.userId },
+      });
+      if (current) accountIds.add(current.accountId);
+
+      await queryRunner.manager.update(
+        InvestmentTransaction,
+        { id: legBefore.id, userId: action.userId },
+        {
+          accountId: legBefore.accountId,
+          securityId: legBefore.securityId ?? null,
+          action: legBefore.action,
+          transactionDate: legBefore.transactionDate,
+          quantity: legBefore.quantity ?? 0,
+          price: legBefore.price ?? null,
+          commission: legBefore.commission ?? 0,
+          totalAmount: legBefore.totalAmount ?? 0,
+          description: legBefore.description ?? null,
+          linkedTransactionId: legBefore.linkedTransactionId ?? null,
+        },
+      );
+      accountIds.add(legBefore.accountId);
+    }
+
+    // Rebuild holdings for every account either leg moved out of or into.
+    for (const accountId of accountIds) {
+      await this.rebuildHoldings(action.userId, accountId, queryRunner);
     }
   }
 
@@ -807,26 +908,55 @@ export class ActionHistoryService {
     });
     if (!invTx) return;
 
-    // Delete linked cash transaction
-    if (invTx.transactionId) {
-      const cashTx = await queryRunner.manager.findOne(Transaction, {
-        where: { id: invTx.transactionId },
-      });
-      if (cashTx) {
-        await queryRunner.query(
-          `DELETE FROM transaction_tags WHERE transaction_id = $1`,
-          [cashTx.id],
-        );
-        await queryRunner.manager.remove(cashTx);
-        await this.recalculateBalance(cashTx.accountId, queryRunner);
+    // A security transfer is two linked legs (TRANSFER_OUT <-> TRANSFER_IN);
+    // undoing the create must remove both so holdings can't be left half-moved.
+    const linkedTx = invTx.linkedTransactionId
+      ? await queryRunner.manager.findOne(InvestmentTransaction, {
+          where: { id: invTx.linkedTransactionId, userId: action.userId },
+        })
+      : null;
+
+    const legs = linkedTx ? [invTx, linkedTx] : [invTx];
+    const accountIds = new Set<string>();
+
+    for (const leg of legs) {
+      accountIds.add(leg.accountId);
+
+      // Delete linked cash transaction
+      if (leg.transactionId) {
+        const cashTx = await queryRunner.manager.findOne(Transaction, {
+          where: { id: leg.transactionId },
+        });
+        if (cashTx) {
+          await queryRunner.query(
+            `DELETE FROM transaction_tags WHERE transaction_id = $1`,
+            [cashTx.id],
+          );
+          await queryRunner.manager.remove(cashTx);
+          await this.recalculateBalance(cashTx.accountId, queryRunner);
+        }
       }
     }
 
-    const accountId = invTx.accountId;
-    await queryRunner.manager.remove(invTx);
+    // Break the mutual link before deleting so neither row's self-FK points at
+    // a row that is about to disappear.
+    for (const leg of legs) {
+      if (leg.linkedTransactionId) {
+        await queryRunner.manager.update(InvestmentTransaction, leg.id, {
+          linkedTransactionId: null,
+        });
+        leg.linkedTransactionId = null;
+      }
+    }
 
-    // Rebuild holdings for this account
-    await this.rebuildHoldings(action.userId, accountId, queryRunner);
+    for (const leg of legs) {
+      await queryRunner.manager.remove(leg);
+    }
+
+    // Rebuild holdings for every affected account.
+    for (const accountId of accountIds) {
+      await this.rebuildHoldings(action.userId, accountId, queryRunner);
+    }
   }
 
   private async undoInvestmentDelete(
@@ -835,7 +965,16 @@ export class ActionHistoryService {
   ): Promise<void> {
     if (!action.beforeData) return;
 
-    const before = action.beforeData;
+    // The transfer-create afterData (fed here on redo) is the nested
+    // {transferOut, transferIn} shape; normalize it to the flat
+    // leg + linkedTransferLeg shape used by the delete beforeData.
+    const raw = action.beforeData;
+    const before = raw.transferOut
+      ? { ...raw.transferOut, linkedTransferLeg: raw.transferIn }
+      : raw;
+    const linkedLeg = before.linkedTransferLeg as
+      | Record<string, any>
+      | undefined;
 
     // Re-insert linked cash transaction first (investment_transactions.transaction_id references it)
     if (before.linkedCashTransaction) {
@@ -867,30 +1006,75 @@ export class ActionHistoryService {
     const restoredTransactionId = before.linkedCashTransaction
       ? (before.transactionId ?? null)
       : null;
-    await queryRunner.query(
-      `INSERT INTO investment_transactions (id, user_id, account_id, transaction_id, security_id,
-        funding_account_id, action, transaction_date, quantity, price, commission, total_amount, description, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [
-        before.id,
-        action.userId,
-        before.accountId,
-        restoredTransactionId,
-        before.securityId ?? null,
-        before.fundingAccountId ?? null,
-        before.action,
-        before.transactionDate,
-        before.quantity ?? 0,
-        before.price ?? 0,
-        before.commission ?? 0,
-        before.totalAmount ?? 0,
-        before.description ?? null,
-        before.createdAt ?? new Date(),
-      ],
+    await this.reinsertInvestmentTransaction(
+      queryRunner,
+      action.userId,
+      before,
+      restoredTransactionId,
     );
 
-    // Rebuild holdings
-    await this.rebuildHoldings(action.userId, before.accountId, queryRunner);
+    // Restore the paired transfer leg and the mutual link between the two legs.
+    // The self-FK is set after both rows exist to avoid an ordering violation.
+    if (linkedLeg) {
+      await this.reinsertInvestmentTransaction(
+        queryRunner,
+        action.userId,
+        linkedLeg,
+        null,
+      );
+      await queryRunner.manager.update(InvestmentTransaction, before.id, {
+        linkedTransactionId: linkedLeg.id,
+      });
+      await queryRunner.manager.update(InvestmentTransaction, linkedLeg.id, {
+        linkedTransactionId: before.id,
+      });
+    }
+
+    // Rebuild holdings for every affected account.
+    const accountIds = new Set<string>([before.accountId]);
+    if (linkedLeg) accountIds.add(linkedLeg.accountId);
+    for (const accountId of accountIds) {
+      await this.rebuildHoldings(action.userId, accountId, queryRunner);
+    }
+  }
+
+  private async reinsertInvestmentTransaction(
+    queryRunner: QueryRunner,
+    userId: string,
+    data: Record<string, any>,
+    transactionId: string | null,
+  ): Promise<void> {
+    // linked_transaction_id is intentionally not set here; for a transfer it is
+    // restored by the caller once both legs exist, and for a single leg the
+    // original delete already nulled the survivor's pointer.
+    // ON CONFLICT DO NOTHING keeps the reinsert idempotent: a client retry or a
+    // partial-residue id collision must not abort the whole undo/redo with a
+    // duplicate-key error. price preserves NULL (a leg with no price differs
+    // from a 0-cost leg in cost-basis replays) and exchange_rate is restored so
+    // undeleting a foreign-currency transaction doesn't reset its rate to 1.
+    await queryRunner.query(
+      `INSERT INTO investment_transactions (id, user_id, account_id, transaction_id, security_id,
+        funding_account_id, action, transaction_date, quantity, price, commission, total_amount, exchange_rate, description, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        data.id,
+        userId,
+        data.accountId,
+        transactionId,
+        data.securityId ?? null,
+        data.fundingAccountId ?? null,
+        data.action,
+        data.transactionDate,
+        data.quantity ?? 0,
+        data.price ?? null,
+        data.commission ?? 0,
+        data.totalAmount ?? 0,
+        data.exchangeRate ?? 1,
+        data.description ?? null,
+        data.createdAt ?? new Date(),
+      ],
+    );
   }
 
   // --- Bulk transaction undo ---
@@ -908,7 +1092,11 @@ export class ActionHistoryService {
         break;
       default:
         throw new ConflictException(
-          `Unsupported bulk action: ${action.action}`,
+          tr(
+            "errors.actionHistory.unsupportedBulkAction",
+            `Unsupported bulk action: ${action.action}`,
+            { action: action.action },
+          ),
         );
     }
   }
@@ -1065,7 +1253,13 @@ export class ActionHistoryService {
         }
         break;
       default:
-        throw new ConflictException(`Unsupported action: ${action.action}`);
+        throw new ConflictException(
+          tr(
+            "errors.actionHistory.unsupportedSimpleAction",
+            `Unsupported action: ${action.action}`,
+            { action: action.action },
+          ),
+        );
     }
   }
 
@@ -1199,7 +1393,11 @@ export class ActionHistoryService {
     const allowedCols = ALLOWED_COLUMNS[tableName];
     if (!allowedCols) {
       throw new ConflictException(
-        `Unsupported table for re-insert: ${tableName}`,
+        tr(
+          "errors.actionHistory.unsupportedTableForReinsert",
+          `Unsupported table for re-insert: ${tableName}`,
+          { tableName },
+        ),
       );
     }
 

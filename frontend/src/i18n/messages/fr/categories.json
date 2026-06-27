@@ -1,0 +1,85 @@
+{
+  "page": {
+    "title": "Catégories",
+    "subtitle": "Organisez vos transactions avec des catégories personnalisées",
+    "newButton": "+ Nouvelle catégorie",
+    "searchPlaceholder": "Rechercher des catégories...",
+    "filterAll": "Toutes ({count})",
+    "filterExpenses": "Dépenses ({count})",
+    "filterIncome": "Revenus ({count})",
+    "modalTitleNew": "Nouvelle catégorie",
+    "modalTitleEdit": "Modifier la catégorie",
+    "countSingle": "1 catégorie",
+    "countPlural": "{count} catégories",
+    "loadingText": "Chargement des catégories...",
+    "summaryTotal": "Total des catégories",
+    "summaryIncome": "Catégories de revenus",
+    "summaryExpense": "Catégories de dépenses",
+    "summaryTopLevel": "Niveau supérieur"
+  },
+  "empty": {
+    "heading": "Aucune catégorie",
+    "description": "Les catégories vous aident à organiser vos transactions. Commencez par importer notre ensemble de catégories par défaut ou créez les vôtres.",
+    "importButton": "Importer les catégories par défaut",
+    "createButton": "Créer les miennes",
+    "hint": "L'ensemble par défaut comprend des catégories courantes de revenus et de dépenses avec des sous-catégories"
+  },
+  "toasts": {
+    "created": "Catégorie créée avec succès",
+    "updated": "Catégorie mise à jour avec succès",
+    "deleted": "Catégorie supprimée avec succès",
+    "cannotDeleteSystem": "Les catégories système ne peuvent pas être supprimées",
+    "importSuccess": "{count} catégories importées avec succès",
+    "loadFailed": "Échec du chargement des catégories",
+    "deleteFailed": "Échec de la suppression de la catégorie",
+    "createFailed": "Échec de la création de la catégorie",
+    "updateFailed": "Échec de la mise à jour de la catégorie",
+    "importFailed": "Échec de l'importation des catégories par défaut"
+  },
+  "form": {
+    "nameLabel": "Nom de la catégorie",
+    "parentLabel": "Catégorie parente",
+    "noParent": "Aucun parent (niveau supérieur)",
+    "typeLabel": "Type",
+    "typeExpense": "Dépense",
+    "typeIncome": "Revenu",
+    "typeInherited": "Type hérité du parent",
+    "colourLabel": "Couleur",
+    "colourInherit": "Hériter du parent",
+    "colourNone": "Aucune couleur",
+    "colourInheritedFrom": "Couleur héritée du parent ({name})",
+    "descriptionLabel": "Description (optionnel)",
+    "submitCreate": "Créer la catégorie",
+    "submitUpdate": "Mettre à jour la catégorie"
+  },
+  "list": {
+    "emptyHeading": "Aucune catégorie",
+    "emptyDescription": "Commencez par créer une nouvelle catégorie.",
+    "colName": "Nom",
+    "colType": "Type",
+    "colCount": "Nombre",
+    "colDescription": "Description",
+    "colActions": "Actions",
+    "badgeIncome": "Revenu",
+    "badgeExpense": "Dépense",
+    "systemBadge": "(Système)",
+    "inheritedColorTitle": "Hérité du parent",
+    "viewTransactionsTitle": "Voir les transactions de cette catégorie",
+    "densityToggleTitle": "Modifier la densité des lignes",
+    "densityNormal": "Normal",
+    "densityCompact": "Compact",
+    "densityDense": "Dense"
+  },
+  "deleteDialog": {
+    "title": "Supprimer « {name} » ?",
+    "checkingUsage": "Vérification de l'utilisation...",
+    "usedBy": "Cette catégorie est utilisée par {count, plural, one {# élément} other {# éléments}} (transactions et/ou factures et dépôts récurrents).",
+    "reassignLabel": "Réaffecter à :",
+    "leaveUncategorized": "Laisser sans catégorie",
+    "safeToDelete": "Cette catégorie n'est pas utilisée. Elle peut être supprimée sans risque.",
+    "cannotUndo": "Cette action est irréversible."
+  },
+  "validation": {
+    "nameRequired": "Le nom de la catégorie est obligatoire"
+  }
+}

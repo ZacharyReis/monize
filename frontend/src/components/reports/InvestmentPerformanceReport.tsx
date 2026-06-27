@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   Tooltip,
   ResponsiveContainer,
@@ -15,65 +16,67 @@ import { Account } from '@/types/account';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { CHART_COLOURS } from '@/lib/chart-colours';
+import { gainLossColor } from '@/lib/format';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 import { aggregateHoldingsBySecurity, AggregatedHolding } from '@/lib/aggregate-holdings';
-
-const logger = createLogger('InvestmentPerformanceReport');
+import { useTranslations } from 'next-intl';
+import { useMainAccountName } from '@/hooks/useMainAccountName';
 
 type HoldingsSortField = 'symbol' | 'quantity' | 'averageCost' | 'currentPrice' | 'marketValue' | 'gainLoss' | 'gainLossPercent';
 
 export function InvestmentPerformanceReport() {
-  const { formatCurrency: formatCurrencyFull } = useNumberFormat();
+  const t = useTranslations('reports');
+  const mainAccountName = useMainAccountName();
+  const { formatCurrency: formatCurrencyFull, formatSignedPercent } = useNumberFormat();
   const { defaultCurrency } = useExchangeRates();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [expandedSecurityId, setExpandedSecurityId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [viewType, setViewType] = useState<'performance' | 'allocation'>('performance');
+  const isSingleAccount = selectedAccountIds.length === 1;
   const { sortField, sortDirection, handleSort } = useSortableTable<HoldingsSortField>(
     'reports.investment-performance.holdings.sort',
     { field: 'marketValue', direction: 'desc' },
   );
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const [portfolioData, accountsData] = await Promise.all([
-          investmentsApi.getPortfolioSummary(selectedAccountId ? [selectedAccountId] : undefined),
-          investmentsApi.getInvestmentAccounts(),
-        ]);
-        setPortfolio(portfolioData);
-        setAccounts(accountsData);
-      } catch (error) {
-        logger.error('Failed to load investment data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [selectedAccountId]);
+  const { data: response, isLoading, error, reload } = useReportData(
+    async () => {
+      const [portfolioData, accountsData] = await Promise.all([
+        investmentsApi.getPortfolioSummary(selectedAccountIds.length > 0 ? selectedAccountIds : undefined),
+        investmentsApi.getInvestmentAccounts(),
+      ]);
+      return { portfolio: portfolioData, accounts: accountsData };
+    },
+    [selectedAccountIds, reloadKey],
+  );
 
-  const formatPercent = (value: number) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
+  const portfolio = useMemo<PortfolioSummary | null>(
+    () => response?.portfolio ?? null,
+    [response],
+  );
+  const accounts = useMemo<Account[]>(() => response?.accounts ?? [], [response]);
+
+  const formatPercent = (value: number) => formatSignedPercent(value);
 
   // When a single account is selected, show summary values in that account's native currency
   // (per-account totals are in native currency; top-level totals are converted to default)
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = isSingleAccount
+    ? accounts.find((a) => a.id === selectedAccountIds[0])
+    : undefined;
   const summaryCurrency = selectedAccount?.currencyCode || defaultCurrency;
   const isForeignSummary = summaryCurrency !== defaultCurrency;
 
   // Derive native-currency summary from holdingsByAccount when a single account is selected
   const summaryValues = useMemo(() => {
     if (!portfolio) return null;
-    if (selectedAccountId && portfolio.holdingsByAccount.length > 0) {
+    if (isSingleAccount && portfolio.holdingsByAccount.length > 0) {
       // Use per-account totals (native currency) instead of converted top-level totals
       let totalMarketValue = 0;
       let totalCashBalance = 0;
@@ -95,7 +98,7 @@ export function InvestmentPerformanceReport() {
       totalGainLoss: portfolio.totalGainLoss,
       totalGainLossPercent: portfolio.totalGainLossPercent,
     };
-  }, [portfolio, selectedAccountId]);
+  }, [portfolio, isSingleAccount]);
 
   const fmtSummary = (value: number) => {
     if (isForeignSummary) {
@@ -105,7 +108,7 @@ export function InvestmentPerformanceReport() {
   };
 
   const fmtHolding = (value: number | null, currencyCode: string) => {
-    if (value === null) return 'N/A';
+    if (value === null) return t('investmentPerformance.na');
     if (currencyCode && currencyCode !== defaultCurrency) {
       return `${formatCurrencyFull(value, currencyCode)} ${currencyCode}`;
     }
@@ -114,9 +117,9 @@ export function InvestmentPerformanceReport() {
 
   const accountNameById = useMemo(() => {
     const map = new Map<string, string>();
-    accounts.forEach((a) => map.set(a.id, a.name.replace(/ - (Brokerage|Cash)$/, '')));
+    accounts.forEach((a) => map.set(a.id, mainAccountName(a.name)));
     return map;
-  }, [accounts]);
+  }, [accounts, mainAccountName]);
 
   const aggregatedHoldings = useMemo((): AggregatedHolding[] => {
     if (!portfolio) return [];
@@ -176,10 +179,10 @@ export function InvestmentPerformanceReport() {
           <p className="font-medium text-gray-900 dark:text-gray-100">{data.name}</p>
           <p className="text-sm text-gray-600 dark:text-gray-400">{data.symbol}</p>
           <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
-            Value: {fmtHolding(data.marketValue, data.currencyCode)}
+            {t('investmentPerformance.tooltipValue')} {fmtHolding(data.marketValue, data.currencyCode)}
           </p>
-          <p className={`text-sm ${(data.gainLoss || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            Gain/Loss: {fmtHolding(data.gainLoss, data.currencyCode)} ({formatPercent(data.gainLossPercent || 0)})
+          <p className={`text-sm ${gainLossColor(data.gainLoss || 0)}`}>
+            {t('investmentPerformance.tooltipGainLoss')} {fmtHolding(data.gainLoss, data.currencyCode)} ({formatPercent(data.gainLossPercent || 0)})
           </p>
         </div>
       );
@@ -191,13 +194,13 @@ export function InvestmentPerformanceReport() {
     const { exportToPdf } = await import('@/lib/pdf-export');
 
     const cards = summaryValues ? [
-      { label: 'Total Value', value: fmtSummary(summaryValues.totalPortfolioValue), color: '#111827' },
-      { label: 'Cost Basis', value: fmtSummary(summaryValues.totalCostBasis), color: '#111827' },
-      { label: 'Total Gain/Loss', value: `${summaryValues.totalGainLoss >= 0 ? '+' : ''}${fmtSummary(summaryValues.totalGainLoss)}`, color: summaryValues.totalGainLoss >= 0 ? '#16a34a' : '#dc2626' },
-      { label: 'Return', value: formatPercent(summaryValues.totalGainLossPercent), color: summaryValues.totalGainLossPercent >= 0 ? '#16a34a' : '#dc2626' },
+      { label: t('investmentPerformance.totalValue'), value: fmtSummary(summaryValues.totalPortfolioValue), color: '#111827' },
+      { label: t('investmentPerformance.costBasis'), value: fmtSummary(summaryValues.totalCostBasis), color: '#111827' },
+      { label: t('investmentPerformance.totalGainLoss'), value: `${summaryValues.totalGainLoss >= 0 ? '+' : ''}${fmtSummary(summaryValues.totalGainLoss)}`, color: summaryValues.totalGainLoss >= 0 ? '#16a34a' : '#dc2626' },
+      { label: t('investmentPerformance.return'), value: formatPercent(summaryValues.totalGainLossPercent), color: summaryValues.totalGainLossPercent >= 0 ? '#16a34a' : '#dc2626' },
     ] : undefined;
 
-    const headers = ['Security', 'Shares', 'Avg Cost', 'Price', 'Market Value', 'Gain/Loss', 'Return'];
+    const headers = [t('investmentPerformance.colSecurity'), t('investmentPerformance.colShares'), t('investmentPerformance.colAvgCost'), t('investmentPerformance.colCurrentPrice'), t('investmentPerformance.colMarketValue'), t('investmentPerformance.colGainLoss'), t('investmentPerformance.colReturn')];
     const rows = aggregatedHoldings.map((h) => [
       `${h.symbol} - ${h.name}`,
       h.quantity.toFixed(4),
@@ -214,7 +217,7 @@ export function InvestmentPerformanceReport() {
     }));
 
     await exportToPdf({
-      title: 'Investment Performance',
+      title: t('investmentPerformance.pdfTitle'),
       summaryCards: cards,
       chartContainer: chartRef.current,
       chartLegend: legendItems.length > 0 ? legendItems : undefined,
@@ -238,12 +241,16 @@ export function InvestmentPerformanceReport() {
     return null;
   };
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && response === null) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -253,7 +260,7 @@ export function InvestmentPerformanceReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-          No investment holdings found. Add securities to your investment accounts to see performance data.
+          {t('investmentPerformance.noHoldings')}
         </p>
       </div>
     );
@@ -264,26 +271,26 @@ export function InvestmentPerformanceReport() {
       {/* Portfolio Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Value</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentPerformance.totalValue')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {fmtSummary(summaryValues.totalPortfolioValue)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Cost Basis</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentPerformance.costBasis')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {fmtSummary(summaryValues.totalCostBasis)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Gain/Loss</div>
-          <div className={`text-xl font-bold ${summaryValues.totalGainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentPerformance.totalGainLoss')}</div>
+          <div className={`text-xl font-bold ${gainLossColor(summaryValues.totalGainLoss)}`}>
             {summaryValues.totalGainLoss >= 0 ? '+' : ''}{fmtSummary(summaryValues.totalGainLoss)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Return</div>
-          <div className={`text-xl font-bold ${summaryValues.totalGainLossPercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentPerformance.return')}</div>
+          <div className={`text-xl font-bold ${gainLossColor(summaryValues.totalGainLossPercent)}`}>
             {formatPercent(summaryValues.totalGainLossPercent)}
           </div>
         </div>
@@ -293,23 +300,13 @@ export function InvestmentPerformanceReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex flex-wrap gap-2">
-            <select
-              value={selectedAccountId}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
-            >
-              <option value="">All Accounts</option>
-              {accounts
-                .filter((a) => a.accountSubType !== 'INVESTMENT_BROKERAGE')
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name.replace(/ - (Brokerage|Cash)$/, '')}
-                  </option>
-                ))}
-            </select>
+            <ReportAccountMultiSelect
+              accounts={accounts}
+              value={selectedAccountIds}
+              onChange={setSelectedAccountIds}
+            />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button
               onClick={() => setViewType('performance')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -318,7 +315,7 @@ export function InvestmentPerformanceReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Holdings
+              {t('investmentPerformance.viewHoldings')}
             </button>
             <button
               onClick={() => setViewType('allocation')}
@@ -328,8 +325,9 @@ export function InvestmentPerformanceReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Allocation
+              {t('investmentPerformance.viewAllocation')}
             </button>
+            <RefreshPricesButton onRefreshComplete={() => setReloadKey((k) => k + 1)} />
             <ExportDropdown onExportPdf={handleExportPdf} />
           </div>
         </div>
@@ -341,7 +339,7 @@ export function InvestmentPerformanceReport() {
           {/* Holdings Performance Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Holdings by Market Value
+              {t('investmentPerformance.holdingsByMarketValue')}
             </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -371,7 +369,7 @@ export function InvestmentPerformanceReport() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Holdings Detail
+                {t('investmentPerformance.holdingsDetail')}
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -385,7 +383,7 @@ export function InvestmentPerformanceReport() {
                       onSort={handleSort}
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Security
+                      {t('investmentPerformance.colSecurity')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="quantity"
@@ -395,7 +393,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Shares
+                      {t('investmentPerformance.colShares')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="averageCost"
@@ -405,7 +403,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Avg Cost
+                      {t('investmentPerformance.colAvgCost')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="currentPrice"
@@ -415,7 +413,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Current Price
+                      {t('investmentPerformance.colCurrentPrice')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="marketValue"
@@ -425,7 +423,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Market Value
+                      {t('investmentPerformance.colMarketValue')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="gainLoss"
@@ -435,7 +433,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Gain/Loss
+                      {t('investmentPerformance.colGainLoss')}
                     </SortableHeader>
                     <SortableHeader<HoldingsSortField>
                       field="gainLossPercent"
@@ -445,7 +443,7 @@ export function InvestmentPerformanceReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Return
+                      {t('investmentPerformance.colReturn')}
                     </SortableHeader>
                   </tr>
                 </thead>
@@ -469,7 +467,7 @@ export function InvestmentPerformanceReport() {
                                   {holding.name}
                                   {isExpandable && (
                                     <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                                      ({holding.accountBreakdowns.length} accounts)
+                                      {t('investmentPerformance.accountCount', { count: holding.accountBreakdowns.length })}
                                     </span>
                                   )}
                                 </div>
@@ -502,13 +500,13 @@ export function InvestmentPerformanceReport() {
                             {fmtHolding(holding.gainLoss, holding.currencyCode)}
                           </td>
                           <td className={`px-4 py-3 text-right text-sm font-medium ${(holding.gainLossPercent || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {holding.gainLossPercent !== null ? formatPercent(holding.gainLossPercent) : 'N/A'}
+                            {holding.gainLossPercent !== null ? formatPercent(holding.gainLossPercent) : t('investmentPerformance.na')}
                           </td>
                         </tr>
                         {isExpanded && holding.accountBreakdowns.map((sub) => (
                           <tr key={sub.id} className="bg-gray-50/70 dark:bg-gray-900/20">
                             <td className="px-4 py-2 pl-10 text-sm text-gray-600 dark:text-gray-400">
-                              {accountNameById.get(sub.accountId) || 'Unknown account'}
+                              {accountNameById.get(sub.accountId) || t('investmentPerformance.unknownAccount')}
                             </td>
                             <td className="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">
                               {sub.quantity.toFixed(4)}
@@ -526,7 +524,7 @@ export function InvestmentPerformanceReport() {
                               {fmtHolding(sub.gainLoss, sub.currencyCode)}
                             </td>
                             <td className={`px-4 py-2 text-right text-sm ${(sub.gainLossPercent || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {sub.gainLossPercent !== null ? formatPercent(sub.gainLossPercent) : 'N/A'}
+                              {sub.gainLossPercent !== null ? formatPercent(sub.gainLossPercent) : t('investmentPerformance.na')}
                             </td>
                           </tr>
                         ))}
@@ -542,7 +540,7 @@ export function InvestmentPerformanceReport() {
         /* Asset Allocation View */
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Asset Allocation
+            {t('investmentPerformance.assetAllocation')}
           </h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="h-80">

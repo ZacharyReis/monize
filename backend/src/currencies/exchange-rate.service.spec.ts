@@ -79,6 +79,7 @@ describe("ExchangeRateService", () => {
     yahooFinanceService = {
       fetchQuote: jest.fn(),
       fetchHistorical: jest.fn(),
+      fetchHistoricalWindow: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -773,6 +774,67 @@ describe("ExchangeRateService", () => {
     });
   });
 
+  describe("getRateForDate", () => {
+    it("returns 1 for the same currency without any lookup", async () => {
+      const result = await service.getRateForDate("USD", "USD", "2026-06-08");
+
+      expect(result).toBe(1);
+      expect(exchangeRateRepository.findOne).not.toHaveBeenCalled();
+      expect(yahooFinanceService.fetchHistoricalWindow).not.toHaveBeenCalled();
+    });
+
+    it("returns the closest stored rate on or before the target date", async () => {
+      exchangeRateRepository.findOne.mockResolvedValue(mockExchangeRate);
+
+      const result = await service.getRateForDate("USD", "CAD", "2026-06-08");
+
+      expect(result).toBe(1.365);
+      // Looked up the latest stored rate not after the target date.
+      const call = exchangeRateRepository.findOne.mock.calls[0][0];
+      expect(call.where.fromCurrency).toBe("USD");
+      expect(call.where.toCurrency).toBe("CAD");
+      expect(call.order).toEqual({ rateDate: "DESC" });
+      // No Yahoo fetch needed when a stored rate exists.
+      expect(yahooFinanceService.fetchHistoricalWindow).not.toHaveBeenCalled();
+    });
+
+    it("fetches a bounded Yahoo window around the date when none is stored", async () => {
+      exchangeRateRepository.findOne.mockResolvedValue(null);
+      exchangeRateRepository.save.mockImplementation((data) => data);
+      // Daily series straddling the target 2026-06-08 (a weekend in this set):
+      // the closest day on or before is 2026-06-05.
+      yahooFinanceService.fetchHistoricalWindow.mockResolvedValue([
+        { date: new Date("2026-06-05"), close: 4.25, open: null, high: null, low: null, volume: null },
+        { date: new Date("2026-06-09"), close: 4.3, open: null, high: null, low: null, volume: null },
+      ]);
+
+      const result = await service.getRateForDate("EUR", "PLN", "2026-06-08");
+
+      expect(result).toBe(4.25);
+      // A bounded window is fetched (not the full "max" history).
+      expect(yahooFinanceService.fetchHistorical).not.toHaveBeenCalled();
+      expect(yahooFinanceService.fetchHistoricalWindow).toHaveBeenCalledTimes(1);
+      const [sym, fromDate, toDate] =
+        yahooFinanceService.fetchHistoricalWindow.mock.calls[0];
+      expect(sym).toBe("EURPLN=X");
+      // Window brackets the target date (~2 weeks before, ~2 days after).
+      const target = new Date("2026-06-08T00:00:00.000Z").getTime();
+      expect((fromDate as Date).getTime()).toBeLessThan(target);
+      expect((toDate as Date).getTime()).toBeGreaterThanOrEqual(target);
+      // The chosen point is persisted for reuse (forward + inverse via saveRate).
+      expect(exchangeRateRepository.save).toHaveBeenCalled();
+    });
+
+    it("returns null when neither a stored rate nor a Yahoo window is available", async () => {
+      exchangeRateRepository.findOne.mockResolvedValue(null);
+      yahooFinanceService.fetchHistoricalWindow.mockResolvedValue(null);
+
+      const result = await service.getRateForDate("EUR", "PLN", "2026-06-08");
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("getLatestRates", () => {
     it("returns latest rates using distinctOn query", async () => {
       const rates = [mockExchangeRate];
@@ -846,6 +908,86 @@ describe("ExchangeRateService", () => {
 
       expect(result).toBe(1.365);
       expect(typeof result).toBe("number");
+    });
+  });
+
+  describe("getLiveRate", () => {
+    it("returns 1 when from and to are the same currency", async () => {
+      const result = await service.getLiveRate("USD", "USD");
+
+      expect(result).toBe(1);
+      expect(yahooFinanceService.fetchQuote).not.toHaveBeenCalled();
+      expect(exchangeRateRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it("returns the live direct quote when available", async () => {
+      yahooFinanceService.fetchQuote.mockResolvedValue({
+        regularMarketPrice: 1.372,
+      });
+
+      const result = await service.getLiveRate("USD", "CAD");
+
+      expect(result).toBe(1.372);
+      expect(yahooFinanceService.fetchQuote).toHaveBeenCalledWith("USDCAD=X");
+      // Does not touch the stored daily snapshot when a live quote exists
+      expect(exchangeRateRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it("inverts the reverse live quote when the direct pair is unavailable", async () => {
+      yahooFinanceService.fetchQuote
+        .mockResolvedValueOnce({ regularMarketPrice: null }) // direct USDCAD=X
+        .mockResolvedValueOnce({ regularMarketPrice: 0.5 }); // reverse CADUSD=X
+
+      const result = await service.getLiveRate("USD", "CAD");
+
+      expect(result).toBe(2);
+      expect(yahooFinanceService.fetchQuote).toHaveBeenNthCalledWith(
+        1,
+        "USDCAD=X",
+      );
+      expect(yahooFinanceService.fetchQuote).toHaveBeenNthCalledWith(
+        2,
+        "CADUSD=X",
+      );
+      expect(exchangeRateRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the stored daily rate when no live quote is available", async () => {
+      yahooFinanceService.fetchQuote.mockResolvedValue({
+        regularMarketPrice: null,
+      });
+      exchangeRateRepository.findOne.mockResolvedValue(mockExchangeRate);
+
+      const result = await service.getLiveRate("USD", "CAD");
+
+      expect(result).toBe(1.365);
+      expect(exchangeRateRepository.findOne).toHaveBeenCalledWith({
+        where: { fromCurrency: "USD", toCurrency: "CAD" },
+        order: { rateDate: "DESC" },
+      });
+    });
+
+    it("falls back to the stored daily rate when the live fetch throws", async () => {
+      yahooFinanceService.fetchQuote.mockRejectedValue(
+        new Error("rate limited"),
+      );
+      exchangeRateRepository.findOne.mockResolvedValue(mockExchangeRate);
+
+      const result = await service.getLiveRate("USD", "CAD");
+
+      expect(result).toBe(1.365);
+      expect(exchangeRateRepository.findOne).toHaveBeenCalled();
+    });
+
+    it("returns null when neither a live quote nor a stored rate exists", async () => {
+      yahooFinanceService.fetchQuote.mockResolvedValue({
+        regularMarketPrice: null,
+      });
+      exchangeRateRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.getLiveRate("USD", "XYZ");
+
+      expect(result).toBeNull();
     });
   });
 

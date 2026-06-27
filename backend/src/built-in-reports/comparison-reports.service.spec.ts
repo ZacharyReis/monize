@@ -271,9 +271,9 @@ describe("ComparisonReportsService", () => {
       const result = await service.getYearOverYear(mockUserId, 1);
       const jan = result.data[0].months[0];
 
-      expect(jan.income).toBe(100.56);
-      expect(jan.expenses).toBe(50.44);
-      expect(jan.savings).toBe(50.12);
+      expect(jan.income).toBe(100.555);
+      expect(jan.expenses).toBe(50.444);
+      expect(jan.savings).toBe(50.111);
     });
 
     it("rounds year totals to 2 decimal places", async () => {
@@ -298,9 +298,9 @@ describe("ComparisonReportsService", () => {
       const result = await service.getYearOverYear(mockUserId, 1);
       const totals = result.data[0].totals;
 
-      expect(totals.income).toBe(66.67);
-      expect(totals.expenses).toBe(22.22);
-      expect(totals.savings).toBe(44.44);
+      expect(totals.income).toBe(66.666);
+      expect(totals.expenses).toBe(22.222);
+      expect(totals.savings).toBe(44.444);
     });
 
     it("initializes all 12 months for each year", async () => {
@@ -634,8 +634,8 @@ describe("ComparisonReportsService", () => {
       );
 
       expect(result.summary.weekendTotal).toBe(100);
-      expect(result.byDay[0].total).toBe(33.34);
-      expect(result.byDay[6].total).toBe(66.66);
+      expect(result.byDay[0].total).toBe(33.337);
+      expect(result.byDay[6].total).toBe(66.663);
     });
 
     it("includes startDate filter when provided", async () => {

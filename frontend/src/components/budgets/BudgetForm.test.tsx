@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/render';
+import { render, screen, fireEvent, waitFor, act } from '@/test/render';
 import { BudgetForm } from './BudgetForm';
 import type { Budget } from '@/types/budget';
 
@@ -174,5 +174,81 @@ describe('BudgetForm', () => {
         expect.objectContaining({ description: undefined }),
       );
     });
+  });
+
+  it('submits the trimmed name, type, strategy and base income', async () => {
+    const handleSave = vi.fn().mockResolvedValue(undefined);
+    render(<BudgetForm budget={mockBudget} onSave={handleSave} onCancel={vi.fn()} />);
+
+    const nameInput = screen.getByLabelText('Budget Name');
+    fireEvent.change(nameInput, { target: { value: '  Trimmed Budget  ' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Changes'));
+    });
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Trimmed Budget',
+          budgetType: 'MONTHLY',
+          strategy: 'FIXED',
+          baseIncome: 6000,
+        }),
+      );
+    });
+  });
+
+  it('submits a trimmed description when one is provided', async () => {
+    const handleSave = vi.fn().mockResolvedValue(undefined);
+    render(<BudgetForm budget={mockBudget} onSave={handleSave} onCancel={vi.fn()} />);
+
+    const descInput = screen.getByLabelText('Description (optional)');
+    fireEvent.change(descInput, { target: { value: '  spending plan  ' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Changes'));
+    });
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({ description: 'spending plan' }),
+      );
+    });
+  });
+
+  it('submits the selected budget type and strategy after changing them', async () => {
+    const handleSave = vi.fn().mockResolvedValue(undefined);
+    render(<BudgetForm budget={mockBudget} onSave={handleSave} onCancel={vi.fn()} />);
+
+    fireEvent.change(screen.getByDisplayValue('Monthly'), {
+      target: { value: 'ANNUAL' },
+    });
+    fireEvent.change(screen.getByDisplayValue('Fixed'), {
+      target: { value: 'ZERO_BASED' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Changes'));
+    });
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({ budgetType: 'ANNUAL', strategy: 'ZERO_BASED' }),
+      );
+    });
+  });
+
+  it('renders all strategy options', () => {
+    render(<BudgetForm budget={mockBudget} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Rollover')).toBeInTheDocument();
+    expect(screen.getByText('Zero-Based')).toBeInTheDocument();
+    expect(screen.getByText('50/30/20')).toBeInTheDocument();
+  });
+
+  it('renders all budget type options', () => {
+    render(<BudgetForm budget={mockBudget} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Annual')).toBeInTheDocument();
+    expect(screen.getByText('Pay Period')).toBeInTheDocument();
   });
 });

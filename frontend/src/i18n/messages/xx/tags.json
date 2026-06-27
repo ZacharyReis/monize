@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "[XX-Tags-XX]",
+    "subtitle": "[XX-Label your transactions with custom tags-XX]",
+    "newButton": "[XX-+ New Tag-XX]",
+    "summary": {
+      "totalTags": "[XX-Total Tags-XX]",
+      "tagsWithColour": "[XX-Tags with Colour-XX]",
+      "tagsWithIcon": "[XX-Tags with Icon-XX]"
+    },
+    "search": {
+      "placeholder": "[XX-Search tags...-XX]"
+    },
+    "loading": "[XX-Loading tags...-XX]",
+    "emptyState": {
+      "title": "[XX-No tags yet-XX]",
+      "body": "[XX-Tags help you label and filter your transactions. Create your first tag to get started.-XX]",
+      "createButton": "[XX-Create Your First Tag-XX]"
+    },
+    "modal": {
+      "newTitle": "[XX-New Tag-XX]",
+      "editTitle": "[XX-Edit Tag-XX]"
+    },
+    "totalCount": "[XX-{count, plural, one {# tag} other {# tags}}-XX]",
+    "delete": {
+      "title": "[XX-Delete Tag-XX]",
+      "withTransactionsMessage": "[XX-Are you sure you want to delete \"{name}\"? This tag is used on {count, plural, one {# transaction} other {# transactions}}. The tag will be removed from those transactions.-XX]",
+      "simpleMessage": "[XX-Are you sure you want to delete \"{name}\"? This action cannot be undone.-XX]"
+    },
+    "toasts": {
+      "created": "[XX-Tag created successfully-XX]",
+      "updated": "[XX-Tag updated successfully-XX]",
+      "deleted": "[XX-Tag deleted successfully-XX]",
+      "loadFailed": "[XX-Failed to load tags-XX]",
+      "createFailed": "[XX-Failed to create tag-XX]",
+      "updateFailed": "[XX-Failed to update tag-XX]",
+      "deleteFailed": "[XX-Failed to delete tag-XX]"
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "[XX-No tags found-XX]",
+      "body": "[XX-No tags match your current search.-XX]"
+    },
+    "density": {
+      "title": "[XX-Toggle row density-XX]",
+      "normal": "[XX-Normal-XX]",
+      "compact": "[XX-Compact-XX]",
+      "dense": "[XX-Dense-XX]"
+    },
+    "header": {
+      "name": "[XX-Name-XX]",
+      "icon": "[XX-Icon-XX]",
+      "transactions": "[XX-Transactions-XX]",
+      "actions": "[XX-Actions-XX]"
+    }
+  },
+  "form": {
+    "nameLabel": "[XX-Tag Name-XX]",
+    "colourLabel": "[XX-Colour-XX]",
+    "iconLabel": "[XX-Icon-XX]",
+    "noColour": "[XX-No colour-XX]",
+    "submitCreate": "[XX-Create Tag-XX]",
+    "submitUpdate": "[XX-Update Tag-XX]",
+    "colours": {
+      "red": "[XX-Red-XX]",
+      "orange": "[XX-Orange-XX]",
+      "yellow": "[XX-Yellow-XX]",
+      "green": "[XX-Green-XX]",
+      "teal": "[XX-Teal-XX]",
+      "blue": "[XX-Blue-XX]",
+      "purple": "[XX-Purple-XX]",
+      "pink": "[XX-Pink-XX]",
+      "grey": "[XX-Grey-XX]"
+    }
+  },
+  "validation": {
+    "nameRequired": "[XX-Tag name is required-XX]"
+  }
+}

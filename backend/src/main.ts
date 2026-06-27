@@ -8,6 +8,7 @@ import * as pg from "pg";
 import { AppModule } from "./app.module";
 import { OAuthProviderService } from "./oauth/oauth-provider.service";
 import { oauthDebugLogger } from "./oauth/oauth-debug-logger.middleware";
+import { isOidcProviderPath } from "./oauth/oidc-provider-paths";
 
 // Configure pg to return DATE types as strings instead of Date objects
 // This prevents timezone-related date shifting issues
@@ -88,6 +89,14 @@ async function bootstrap() {
       }
       return parser(req, res, next);
     };
+  // The AI assistant accepts attachments (images/PDFs) base64-encoded in the
+  // JSON body, so its query endpoints need a larger limit than the 10mb
+  // default. Mounted BEFORE the global parser so Express's first-match-wins
+  // parsing handles these paths at 30mb; everything else stays at 10mb.
+  app.use(
+    ["/api/v1/ai/query", "/api/v1/ai/query/stream"],
+    express.json({ limit: "30mb" }),
+  );
   app.use(skipForProvider(express.json({ limit: "10mb" })));
   app.use(
     skipForProvider(express.urlencoded({ limit: "10mb", extended: true })),
@@ -108,6 +117,7 @@ async function bootstrap() {
     "/.well-known/oauth-authorization-server",
     oauthDebugLogger("as-meta"),
   );
+  app.use("/.well-known/openid-configuration", oauthDebugLogger("oidc-meta"));
   app.use("/oauth", oauthDebugLogger("provider"));
   app.use("/api/v1/oauth-consent", oauthDebugLogger("consent"));
 
@@ -162,7 +172,8 @@ async function bootstrap() {
       path.startsWith("/api/v1/oauth-consent/") ||
       path === "/.well-known/oauth-protected-resource" ||
       path === "/.well-known/oauth-authorization-server" ||
-      path.startsWith("/.well-known/oauth-authorization-server/");
+      path.startsWith("/.well-known/oauth-authorization-server/") ||
+      path === "/.well-known/openid-configuration";
 
     if (isOpenSurface) {
       callback(null, {
@@ -231,22 +242,41 @@ async function bootstrap() {
     ],
   });
 
-  // Mount node-oidc-provider as Express middleware at /oauth. This serves the
-  // authorization, token, registration, JWKS, revocation, and discovery
-  // endpoints. Helmet's restrictive CSP doesn't apply here because the
-  // provider sets its own headers and renders no HTML of its own (we render
-  // the consent page in the interaction controller).
+  // Mount node-oidc-provider. Its issuer is the bare origin, so the discovery
+  // documents are published at the root well-known URLs
+  // (`/.well-known/openid-configuration` and
+  // `/.well-known/oauth-authorization-server`), while its endpoints are pinned
+  // under `/oauth/*` via the provider's `routes` map. Because discovery lives
+  // at the root and endpoints under `/oauth`, the provider can't be mounted on
+  // a single path prefix; it is mounted at the application root behind a
+  // routing gate (`isOidcProviderPath`) that delegates only the provider's own
+  // paths and lets every other request fall through to the Nest router.
+  // Helmet's restrictive CSP doesn't matter here because the provider sets its
+  // own headers and renders no HTML (the consent page is rendered by the
+  // interaction controller).
   //
   // ensureInitialized() is awaited because Nest's onModuleInit hook may not
   // have run yet at this point (it fires inside app.listen() / app.init()).
   const oauthProviderService = app.get(OAuthProviderService);
   const oauthProvider = await oauthProviderService.ensureInitialized();
+  const oidcHandler = oauthProvider.callback();
   // The debug-logger and permissive-CORS middlewares for /oauth/* etc. are
   // mounted earlier (before the global cookie/helmet/CORS chain) so that
-  // requests from MCP clients with an off-allowlist Origin still appear in
-  // the log. The provider middleware itself stays here because the OAuth
-  // provider mounts its own interaction handlers.
-  app.use("/oauth", oauthProvider.callback());
+  // requests from MCP clients with an off-allowlist Origin still appear in the
+  // log and bypass the strict app-wide CORS layer.
+  app.use(
+    (
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      if (isOidcProviderPath(req.path)) {
+        oidcHandler(req, res);
+        return;
+      }
+      next();
+    },
+  );
 
   // Swagger documentation (disabled in production)
   if (process.env.NODE_ENV !== "production") {

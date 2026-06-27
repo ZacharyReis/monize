@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Tagi",
+    "subtitle": "Oznaczaj transakcje własnymi tagami",
+    "newButton": "+ Nowy tag",
+    "summary": {
+      "totalTags": "Wszystkie tagi",
+      "tagsWithColour": "Tagi z kolorem",
+      "tagsWithIcon": "Tagi z ikoną"
+    },
+    "search": {
+      "placeholder": "Szukaj tagów..."
+    },
+    "loading": "Wczytywanie tagów...",
+    "emptyState": {
+      "title": "Brak tagów",
+      "body": "Tagi pomagają oznaczać i filtrować transakcje. Utwórz pierwszy tag, aby zacząć.",
+      "createButton": "Utwórz pierwszy tag"
+    },
+    "modal": {
+      "newTitle": "Nowy tag",
+      "editTitle": "Edytuj tag"
+    },
+    "totalCount": "{count, plural, one {# tag} few {# tagi} many {# tagów} other {# tagu}}",
+    "delete": {
+      "title": "Usuń tag",
+      "withTransactionsMessage": "Czy na pewno chcesz usunąć \"{name}\"? Ten tag jest używany w {count, plural, one {# transakcji} few {# transakcjach} many {# transakcjach} other {# transakcjach}}. Tag zostanie z nich usunięty.",
+      "simpleMessage": "Czy na pewno chcesz usunąć tag \"{name}\"? Tej operacji nie można cofnąć."
+    },
+    "toasts": {
+      "created": "Tag został utworzony",
+      "updated": "Tag został zaktualizowany",
+      "deleted": "Tag został usunięty",
+      "loadFailed": "Nie udało się wczytać tagów",
+      "createFailed": "Nie udało się utworzyć tagu",
+      "updateFailed": "Nie udało się zaktualizować tagu",
+      "deleteFailed": "Nie udało się usunąć tagu"
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "Nie znaleziono tagów",
+      "body": "Żaden tag nie pasuje do bieżącego wyszukiwania."
+    },
+    "density": {
+      "title": "Przełącz gęstość wierszy",
+      "normal": "Normalna",
+      "compact": "Kompaktowa",
+      "dense": "Gęsta"
+    },
+    "header": {
+      "name": "Nazwa",
+      "icon": "Ikona",
+      "transactions": "Transakcje",
+      "actions": "Akcje"
+    }
+  },
+  "form": {
+    "nameLabel": "Nazwa tagu",
+    "colourLabel": "Kolor",
+    "iconLabel": "Ikona",
+    "noColour": "Brak koloru",
+    "submitCreate": "Utwórz tag",
+    "submitUpdate": "Zapisz tag",
+    "colours": {
+      "red": "Czerwony",
+      "orange": "Pomarańczowy",
+      "yellow": "Żółty",
+      "green": "Zielony",
+      "teal": "Morski",
+      "blue": "Niebieski",
+      "purple": "Fioletowy",
+      "pink": "Różowy",
+      "grey": "Szary"
+    }
+  },
+  "validation": {
+    "nameRequired": "Nazwa tagu jest wymagana"
+  }
+}

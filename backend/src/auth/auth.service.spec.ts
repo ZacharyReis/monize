@@ -18,6 +18,7 @@ import { TokenService } from "./token.service";
 import { TwoFactorService } from "./two-factor.service";
 import { AuthEmailService } from "./auth-email.service";
 import { DelegationService } from "../delegation/delegation.service";
+import { I18nService, I18nContext } from "nestjs-i18n";
 import { User } from "../users/entities/user.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { TrustedDevice } from "../users/entities/trusted-device.entity";
@@ -57,7 +58,7 @@ describe("AuthService", () => {
   };
   let dataSource: Record<string, jest.Mock>;
   let passwordBreachService: { isBreached: jest.Mock };
-  let emailService: { sendMail: jest.Mock };
+  let emailService: { sendMail: jest.Mock; getStatus: jest.Mock };
 
   const mockUser = {
     id: "user-1",
@@ -68,6 +69,7 @@ describe("AuthService", () => {
     authProvider: "local",
     role: "user",
     isActive: true,
+    emailVerified: true,
     twoFactorSecret: null,
     resetToken: null,
     resetTokenExpiry: null,
@@ -127,6 +129,7 @@ describe("AuthService", () => {
 
     emailService = {
       sendMail: jest.fn().mockResolvedValue(undefined),
+      getStatus: jest.fn().mockReturnValue({ configured: false }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -170,6 +173,13 @@ describe("AuthService", () => {
           useValue: {
             isDelegateUser: jest.fn().mockResolvedValue(false),
             isFullAccount: jest.fn().mockResolvedValue(false),
+          },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: (key: string, opts?: { defaultValue?: string }) =>
+              opts?.defaultValue ?? key,
           },
         },
       ],
@@ -249,6 +259,38 @@ describe("AuthService", () => {
 
       const createdUser = txManager.save.mock.calls[0][0];
       expect(createdUser.role).toBe("admin");
+    });
+
+    it("creates default preferences for the new user", async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      const txManager = setupRegisterTransactionMock(1);
+
+      await service.register({
+        email: "new@example.com",
+        password: "StrongPass123!",
+      });
+
+      // First save is the user, second is the preferences row.
+      const savedPrefs = txManager.save.mock.calls[1][0];
+      expect(savedPrefs.userId).toBe("new-user");
+      expect(savedPrefs.language).toBe("en");
+    });
+
+    it("seeds the new user's language from the request locale", async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      const txManager = setupRegisterTransactionMock(1);
+      const spy = jest
+        .spyOn(I18nContext, "current")
+        .mockReturnValue({ lang: "pl" } as never);
+
+      await service.register({
+        email: "polish@example.com",
+        password: "StrongPass123!",
+      });
+
+      const savedPrefs = txManager.save.mock.calls[1][0];
+      expect(savedPrefs.language).toBe("pl");
+      spy.mockRestore();
     });
 
     it("throws for duplicate email", async () => {
@@ -417,6 +459,85 @@ describe("AuthService", () => {
           password: "BreachedPass123!",
         }),
       ).rejects.toThrow("found in a data breach");
+    });
+
+    it("requires email verification (no tokens) when SMTP is configured and not the first user", async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      emailService.getStatus.mockReturnValue({ configured: true });
+      const txManager = setupRegisterTransactionMock(1); // not first user
+
+      const result = await service.register({
+        email: "verify@example.com",
+        password: "StrongPass123!",
+      });
+
+      expect(result.verificationRequired).toBe(true);
+      expect(result.verificationToken).toBeDefined();
+      // No session is issued until the email is verified.
+      expect(result.accessToken).toBeUndefined();
+      expect(result.refreshToken).toBeUndefined();
+
+      // The persisted row starts unverified with a hashed (not raw) token.
+      const created = txManager.create.mock.calls[0][1];
+      expect(created.emailVerified).toBe(false);
+      expect(created.emailVerificationToken).toBeDefined();
+      expect(created.emailVerificationToken).not.toBe(result.verificationToken);
+      expect(created.emailVerificationTokenExpiry).toBeInstanceOf(Date);
+    });
+
+    it("auto-verifies the first user even when SMTP is configured", async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      emailService.getStatus.mockReturnValue({ configured: true });
+      const txManager = setupRegisterTransactionMock(0); // first user
+
+      const result = await service.register({
+        email: "admin@example.com",
+        password: "StrongPass123!",
+      });
+
+      expect(result.verificationRequired).toBeUndefined();
+      expect(result.accessToken).toBeDefined();
+      const created = txManager.create.mock.calls[0][1];
+      expect(created.role).toBe("admin");
+      expect(created.emailVerified).toBe(true);
+      expect(created.emailVerificationToken).toBeNull();
+    });
+
+    it("creates a verified account (immediate login) when SMTP is not configured", async () => {
+      usersRepository.findOne.mockResolvedValue(null);
+      emailService.getStatus.mockReturnValue({ configured: false });
+      const txManager = setupRegisterTransactionMock(1);
+
+      const result = await service.register({
+        email: "nosmtp@example.com",
+        password: "StrongPass123!",
+      });
+
+      expect(result.accessToken).toBeDefined();
+      expect(result.verificationRequired).toBeUndefined();
+      expect(txManager.create.mock.calls[0][1].emailVerified).toBe(true);
+    });
+
+    it("marks a claimed delegate as email-verified", async () => {
+      const invitedDelegate = {
+        id: "deleg-verify",
+        email: "shared-verify@example.com",
+        authProvider: "local",
+        passwordHash: null,
+        emailVerified: false,
+        resetToken: "tok",
+        resetTokenExpiry: new Date(),
+      };
+      usersRepository.findOne.mockResolvedValue(invitedDelegate);
+      delegationService.isDelegateUser.mockResolvedValue(true);
+      usersRepository.save.mockImplementation(async (u: any) => u);
+
+      await service.register({
+        email: "shared-verify@example.com",
+        password: "StrongPass123!",
+      });
+
+      expect(invitedDelegate.emailVerified).toBe(true);
     });
   });
 
@@ -656,6 +777,27 @@ describe("AuthService", () => {
       expect(lockDuration).toBeGreaterThan(55 * 60 * 1000);
       expect(lockDuration).toBeLessThan(65 * 60 * 1000);
     });
+
+    it("blocks login (no tokens) when the email is not verified", async () => {
+      const hashedPassword = await bcrypt.hash("ValidPass123!", 10);
+      mockLoginQueryBuilder();
+      usersRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        passwordHash: hashedPassword,
+        emailVerified: false,
+      });
+
+      const result = await service.login({
+        email: "test@example.com",
+        password: "ValidPass123!",
+      });
+
+      expect(result.emailNotVerified).toBe(true);
+      expect(result).not.toHaveProperty("accessToken");
+      expect((service as any).logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("email not verified"),
+      );
+    });
   });
 
   describe("verify2FA", () => {
@@ -684,6 +826,89 @@ describe("AuthService", () => {
       expect((service as any).logger.warn).toHaveBeenCalledWith(
         expect.stringContaining("2FA verification failed: invalid token type"),
       );
+    });
+  });
+
+  describe("findOrCreateOidcUser OIDC_REQUIRE_VERIFIED_EMAIL", () => {
+    const oidcProfile = {
+      sub: "oidc-sub-123",
+      email: "User@Example.com",
+      email_verified: false,
+      name: "Test User",
+    };
+
+    it("by default does not trust an unverified email (falls through to registration, which is gated)", async () => {
+      // No oidcSubject match; email not verified and verification is required,
+      // so the email-merge path is skipped and it reaches the disabled
+      // registration guard.
+      usersRepository.findOne.mockResolvedValueOnce(null);
+      await expect(
+        service.findOrCreateOidcUser(oidcProfile, false),
+      ).rejects.toThrow("New account registration is disabled.");
+    });
+
+    it("with OIDC_REQUIRE_VERIFIED_EMAIL=false merges directly into a matching password account (no confirmation email)", async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === "JWT_SECRET")
+          return "test-jwt-secret-minimum-32-chars-long";
+        if (key === "OIDC_REQUIRE_VERIFIED_EMAIL") return "false";
+        return undefined;
+      });
+      const existing: any = {
+        id: "u1",
+        email: "user@example.com",
+        passwordHash: "hash",
+        authProvider: "local",
+      };
+      usersRepository.findOne
+        .mockResolvedValueOnce(null) // by oidcSubject
+        .mockResolvedValueOnce(existing); // by email
+      usersRepository.save.mockImplementation(async (u: any) => u);
+      const sendSpy = jest
+        .spyOn(service as any, "sendOidcLinkEmail")
+        .mockResolvedValue(undefined);
+
+      const result = await service.findOrCreateOidcUser(oidcProfile, false);
+
+      expect(result.linkPending).toBeFalsy();
+      expect(result.user).toBe(existing);
+      expect(existing.oidcSubject).toBe("oidc-sub-123");
+      expect(existing.authProvider).toBe("oidc");
+      expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    it("with OIDC_REQUIRE_VERIFIED_EMAIL=false also merges directly on the duplicate-email (23505) catch path", async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === "JWT_SECRET")
+          return "test-jwt-secret-minimum-32-chars-long";
+        if (key === "OIDC_REQUIRE_VERIFIED_EMAIL") return "false";
+        return undefined;
+      });
+      const existing: any = {
+        id: "u1",
+        email: "user@example.com",
+        passwordHash: "hash",
+        authProvider: "local",
+      };
+      usersRepository.findOne
+        .mockResolvedValueOnce(null) // by oidcSubject
+        .mockResolvedValueOnce(null) // primary by-email lookup misses -> create
+        .mockResolvedValueOnce(existing); // catch path re-lookup by email
+      // Force the create INSERT to fail with a unique-violation so we exercise
+      // the duplicate-email catch path (not the primary merge path).
+      dataSource.transaction.mockRejectedValue({ code: "23505" });
+      usersRepository.save.mockImplementation(async (u: any) => u);
+      const sendSpy = jest
+        .spyOn(service as any, "sendOidcLinkEmail")
+        .mockResolvedValue(undefined);
+
+      const result = await service.findOrCreateOidcUser(oidcProfile, true);
+
+      expect(result.linkPending).toBeFalsy();
+      expect(result.user).toBe(existing);
+      expect(existing.oidcSubject).toBe("oidc-sub-123");
+      expect(existing.authProvider).toBe("oidc");
+      expect(sendSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -1278,6 +1503,36 @@ describe("AuthService", () => {
       expect(result.user.authProvider).toBe("oidc");
       expect(result.user.firstName).toBe("OIDC");
       expect(result.user.lastName).toBe("User");
+    });
+
+    it("seeds preferences with the request locale for a new OIDC user", async () => {
+      usersRepository.findOne
+        .mockResolvedValueOnce(null) // no existing by oidcSubject
+        .mockResolvedValueOnce(null); // no existing by email
+      const txManager = setupOidcTransactionMock(1);
+      txManager.create.mockImplementation((_entity, data) => ({
+        ...data,
+        id: "oidc-user-1",
+      }));
+      usersRepository.save.mockImplementation((u) => u);
+      const spy = jest
+        .spyOn(I18nContext, "current")
+        .mockReturnValue({ lang: "fr" } as never);
+
+      await service.findOrCreateOidcUser({
+        sub: "oidc-sub-fr",
+        email: "fr@example.com",
+        email_verified: true,
+      });
+
+      const savedPrefs = txManager.save.mock.calls.find(
+        (call: unknown[]) =>
+          (call[0] as { language?: string })?.language !== undefined,
+      )?.[0];
+      expect(savedPrefs).toBeDefined();
+      expect(savedPrefs.userId).toBe("oidc-user-1");
+      expect(savedPrefs.language).toBe("fr");
+      spy.mockRestore();
     });
 
     it("creates new user with unverified email (email stored but not linked)", async () => {

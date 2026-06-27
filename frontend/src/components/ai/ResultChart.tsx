@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import {
   BarChart,
@@ -17,12 +18,8 @@ import {
   Area,
 } from 'recharts';
 import { captureSvgAsImage } from '@/lib/pdf-export-charts';
+import { chartColors, chartSeriesColor } from '@/lib/chart-colors';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
-
-const COLORS = [
-  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
-];
 
 interface ChartData {
   label: string;
@@ -70,6 +67,7 @@ function sanitizeFilename(name: string): string {
 }
 
 export function ResultChart({ type, title, data }: ResultChartProps) {
+  const t = useTranslations('ai');
   const chartRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -81,7 +79,7 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
     try {
       const captured = await captureSvgAsImage(chartRef.current);
       if (!captured) {
-        toast.error('Unable to capture chart image');
+        toast.error(t('chart.captureError'));
         return;
       }
       const link = document.createElement('a');
@@ -91,7 +89,7 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
       link.click();
       document.body.removeChild(link);
     } catch {
-      toast.error('Failed to download chart');
+      toast.error(t('chart.downloadError'));
     } finally {
       setIsDownloading(false);
     }
@@ -108,8 +106,8 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
           onClick={handleDownload}
           disabled={isDownloading}
           className="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          title="Download chart as PNG"
-          aria-label="Download chart as PNG"
+          title={t('chart.downloadTitle')}
+          aria-label={t('chart.downloadAriaLabel')}
         >
           <svg
             className="h-4 w-4"
@@ -144,7 +142,7 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
                 {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
+                    fill={chartSeriesColor(index)}
                   />
                 ))}
               </Pie>
@@ -159,8 +157,9 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#3b82f6"
-                fill="#bfdbfe"
+                stroke={chartColors.primary}
+                fill={chartColors.primary}
+                fillOpacity={0.25}
               />
             </AreaChart>
           ) : (
@@ -173,7 +172,7 @@ export function ResultChart({ type, title, data }: ResultChartProps) {
                 {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
+                    fill={chartSeriesColor(index)}
                   />
                 ))}
               </Bar>

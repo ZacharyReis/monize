@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { ColorTheme, isColorTheme } from '@/lib/color-themes';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -8,14 +9,18 @@ interface ThemeContextType {
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
   setTheme: (theme: Theme) => void;
+  colorTheme: ColorTheme;
+  setColorTheme: (colorTheme: ColorTheme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_KEY = 'monize-theme';
+const COLOR_THEME_KEY = 'monize-color-theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system');
+  const [colorTheme, setColorThemeState] = useState<ColorTheme>('default');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -33,6 +38,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(THEME_KEY) as Theme | null;
     if (stored && ['light', 'dark', 'system'].includes(stored)) {
       setThemeState(stored);
+    }
+    const storedColorTheme = localStorage.getItem(COLOR_THEME_KEY);
+    if (isColorTheme(storedColorTheme)) {
+      setColorThemeState(storedColorTheme);
     }
     setMounted(true);
   }, []);
@@ -74,9 +83,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [resolvedTheme, mounted]);
 
+  // Apply data-theme attribute to html element ('default' = no attribute)
+  useEffect(() => {
+    if (!mounted) return;
+
+    const root = document.documentElement;
+    if (colorTheme === 'default') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', colorTheme);
+    }
+  }, [colorTheme, mounted]);
+
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(THEME_KEY, newTheme);
+  };
+
+  const setColorTheme = (newColorTheme: ColorTheme) => {
+    setColorThemeState(newColorTheme);
+    localStorage.setItem(COLOR_THEME_KEY, newColorTheme);
   };
 
   // Prevent flash of incorrect theme
@@ -85,7 +111,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, colorTheme, setColorTheme }}>
       {children}
     </ThemeContext.Provider>
   );

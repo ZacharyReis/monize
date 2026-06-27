@@ -1,0 +1,324 @@
+{
+  "priceRefresh": {
+    "noneToUpdate": "Aucun titre à mettre à jour",
+    "updated": "{count, plural, one {# cours de titre mis à jour} other {# cours de titres mis à jour}}",
+    "partialFailure": "Cours mis à jour : {updated} réussi(s), {failed} échoué(s){symbols}",
+    "failed": "Échec de l'actualisation des cours"
+  },
+  "page": {
+    "title": "Titres",
+    "subtitle": "Gérez vos actions, ETF, fonds communs de placement et autres titres",
+    "newSecurity": "+ Nouveau titre",
+    "searchPlaceholder": "Rechercher par symbole ou nom...",
+    "statusAll": "Tous ({count})",
+    "statusActive": "Actifs ({count})",
+    "statusInactive": "Inactifs ({count})",
+    "modalTitleEdit": "Modifier le titre",
+    "modalTitleNew": "Nouveau titre",
+    "loading": "Chargement des titres...",
+    "count": "{count, plural, one {# titre} other {# titres}}",
+    "toasts": {
+      "loadFailed": "Échec du chargement des titres",
+      "updated": "Titre mis à jour avec succès",
+      "created": "Titre créé avec succès",
+      "deactivated": "Titre désactivé",
+      "activated": "Titre activé",
+      "statusFailed": "Échec de la mise à jour du statut du titre",
+      "deleted": "Titre « {symbol} » supprimé",
+      "deleteFailed": "Échec de la suppression du titre",
+      "favouriteFailed": "Échec de la mise à jour des favoris",
+      "updateFailed": "Échec de la mise à jour du titre",
+      "createFailed": "Échec de la création du titre"
+    },
+    "deleteConfirm": {
+      "title": "Supprimer le titre",
+      "message": "Voulez-vous vraiment supprimer « {symbol} » ? Tout l'historique des cours sera également supprimé. Cette action est irréversible.",
+      "confirmLabel": "Supprimer",
+      "cancelLabel": "Annuler"
+    }
+  },
+  "summary": {
+    "totalSecurities": "Total des titres",
+    "types": "Types",
+    "exchanges": "Marchés",
+    "currencies": "Devises"
+  },
+  "list": {
+    "columns": {
+      "symbol": "Symbole",
+      "name": "Nom",
+      "type": "Type",
+      "shares": "Actions",
+      "exchange": "Marché",
+      "currency": "Devise",
+      "provider": "Fournisseur",
+      "source": "Source",
+      "status": "Statut",
+      "actions": "Actions",
+      "favourite": "Favori"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense",
+      "toggle": "Changer la densité des lignes"
+    },
+    "statusBadge": {
+      "active": "Actif",
+      "activeShort": "Act",
+      "inactive": "Inactif",
+      "inactiveShort": "Ina"
+    },
+    "providerTitle": {
+      "override": "Fournisseur personnalisé par titre",
+      "inherited": "Hérité de votre préférence de fournisseur de cours par défaut"
+    },
+    "columnTitles": {
+      "shares": "Actions détenues au total sur tous les comptes",
+      "source": "Source du cours le plus récent"
+    },
+    "actions": {
+      "history": "Historique",
+      "prices": "Cours",
+      "edit": "Modifier",
+      "deactivate": "Désactiver",
+      "activate": "Activer",
+      "delete": "Supprimer"
+    },
+    "favouriteButton": {
+      "add": "Ajouter aux favoris",
+      "remove": "Retirer des favoris"
+    },
+    "empty": {
+      "title": "Aucun titre",
+      "subtitle": "Commencez par ajouter votre premier titre."
+    },
+    "contextMenu": {
+      "transactionHistory": "Historique des transactions",
+      "viewPrices": "Voir les cours",
+      "editSecurity": "Modifier le titre",
+      "deactivate": "Désactiver",
+      "activate": "Activer",
+      "delete": "Supprimer"
+    }
+  },
+  "typeLabels": {
+    "STOCK": "Action",
+    "ETF": "ETF",
+    "MUTUAL_FUND": "Fonds commun",
+    "BOND": "Obligation",
+    "OPTION": "Option",
+    "CRYPTO": "Crypto",
+    "OTHER": "Autre",
+    "STOCK_short": "Act",
+    "ETF_short": "ETF",
+    "MUTUAL_FUND_short": "FC",
+    "BOND_short": "Obl",
+    "OPTION_short": "Opt",
+    "CRYPTO_short": "Cry",
+    "OTHER_short": "Aut"
+  },
+  "form": {
+    "symbolLabel": "Symbole",
+    "nameLabel": "Nom",
+    "typeLabel": "Type",
+    "exchangeLabel": "Marché",
+    "currencyLabel": "Devise",
+    "quoteProviderLabel": "Fournisseur de cours",
+    "msnIdLabel": "Identifiant instrument MSN (avancé)",
+    "lookupProviderAriaLabel": "Rechercher le fournisseur",
+    "lookupButton": "Rechercher",
+    "revertButton": "Rétablir",
+    "clearButton": "Effacer",
+    "revertTitle": "Rétablir les valeurs d'origine",
+    "clearTitle": "Effacer tous les champs",
+    "favouriteLabel": "Favori",
+    "addToFavourites": "Ajouter aux favoris",
+    "removeFromFavourites": "Retirer des favoris",
+    "submitCreate": "Créer le titre",
+    "submitUpdate": "Mettre à jour le titre",
+    "toasts": {
+      "lookupTooShort": "Saisissez un symbole ou un nom (au moins 2 caractères) pour rechercher",
+      "notFound": "Aucun titre trouvé pour « {query} »",
+      "found": "Trouvé : {details}",
+      "lookupFailed": "Recherche échouée — veuillez réessayer",
+      "tagCreated": "Étiquette « {name} » créée"
+    },
+    "msnNotConfigured": "MSN est sélectionné comme fournisseur de cours par défaut, mais MSN_API_KEY n'est pas configuré sur le serveur. Les cours MSN échoueront jusqu'à ce qu'un administrateur définisse la variable d'environnement et redémarre le backend.",
+    "providers": {
+      "auto": "Auto",
+      "yahoo": "Yahoo",
+      "msn": "MSN"
+    },
+    "types": {
+      "select": "Sélectionner un type...",
+      "stock": "Action",
+      "etf": "ETF",
+      "mutualFund": "Fonds commun de placement",
+      "bond": "Obligation",
+      "option": "Option",
+      "crypto": "Cryptomonnaie",
+      "other": "Autre"
+    },
+    "quoteProviderUseDefault": "Utiliser le défaut ({provider})",
+    "symbolPlaceholder": "ex. : AAPL, XEQT, BTC",
+    "namePlaceholder": "ex. : Apple Inc., iShares Core Equity ETF",
+    "exchangeSearchPlaceholder": "Rechercher des marchés...",
+    "exchangePlaceholder": "Résolu automatiquement depuis le symbole ; à corriger uniquement si incorrect",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Notes sur ce titre.",
+    "tagsLabel": "Étiquettes",
+    "tagsPlaceholder": "Sélectionner des étiquettes...",
+    "createNewTag": "Créer une nouvelle étiquette...",
+    "newTagTitle": "Nouvelle étiquette",
+    "allocation": {
+      "help": "Les fournisseurs de cotations ne fournissent pas l'exposition par pays des ETF et fonds. Ajoutez-la manuellement en pourcentages. Tout ce qui est inférieur à 100 % est affiché comme « Autres ». Vous pouvez coller une répartition dans l'assistant IA pour la renseigner.",
+      "sectionTitle": "Répartition géographique",
+      "countryPlaceholder": "Sélectionnez ou saisissez un pays",
+      "addRow": "Ajouter un pays",
+      "removeRow": "Supprimer la ligne",
+      "other": "Autres",
+      "total": "Total : {total} %",
+      "overError": "La répartition dépasse 100 %.",
+      "nameAriaLabel": "Pays",
+      "weightAriaLabel": "Pourcentage"
+    }
+  },
+  "priceForm": {
+    "dateLabel": "Date",
+    "closePriceLabel": "Cours de clôture",
+    "openPriceLabel": "Cours d'ouverture",
+    "highPriceLabel": "Cours le plus haut",
+    "lowPriceLabel": "Cours le plus bas",
+    "volumeLabel": "Volume",
+    "optionalPlaceholder": "Facultatif",
+    "submitCreate": "Ajouter le cours",
+    "submitUpdate": "Mettre à jour le cours"
+  },
+  "priceHistory": {
+    "title": "{symbol} — Historique des cours",
+    "forceUpdateButton": "Forcer la mise à jour des cours",
+    "forceUpdateTitle": "Récupérer à nouveau les cours historiques pour toute la période de détention de ce titre",
+    "addPriceButton": "+ Ajouter un cours",
+    "addPriceSection": "Ajouter un cours",
+    "editPriceSection": "Modifier le cours",
+    "loading": "Chargement des cours...",
+    "empty": "Aucun historique des cours disponible",
+    "columns": {
+      "date": "Date",
+      "close": "Clôture",
+      "open": "Ouverture",
+      "high": "Haut",
+      "low": "Bas",
+      "volume": "Volume",
+      "source": "Source",
+      "actions": "Actions"
+    },
+    "toasts": {
+      "added": "Cours ajouté",
+      "updated": "Cours mis à jour",
+      "deleted": "Cours supprimé",
+      "loadFailed": "Échec du chargement de l'historique des cours",
+      "addFailed": "Échec de l'ajout du cours",
+      "updateFailed": "Échec de la mise à jour du cours",
+      "deleteFailed": "Échec de la suppression du cours",
+      "updatedCount": "{count, plural, one {# cours mis à jour pour {symbol}} other {# cours mis à jour pour {symbol}}}",
+      "noPricesFound": "Aucun cours trouvé pour {symbol}",
+      "updatePricesFailed": "Échec de la mise à jour des cours pour {symbol}",
+      "updateFetchFailed": "Échec de la mise à jour des cours"
+    },
+    "closeButton": "Fermer",
+    "deleteConfirm": {
+      "title": "Supprimer le cours",
+      "confirmLabel": "Supprimer"
+    }
+  },
+  "transactionHistory": {
+    "inactiveBadge": "Inactif",
+    "currentShares": "Actions actuelles",
+    "accountLabel": "Compte",
+    "allAccounts": "Tous les comptes ({shares})",
+    "accountClosed": "{name} (clôturé)",
+    "addTransaction": "+ Ajouter une transaction",
+    "loading": "Chargement des transactions...",
+    "emptyAll": "Aucune transaction pour ce titre.",
+    "emptyAccount": "Aucune transaction pour ce titre sur le compte sélectionné.",
+    "editTransactionTitle": "Modifier la transaction",
+    "columns": {
+      "date": "Date",
+      "account": "Compte",
+      "action": "Action",
+      "quantity": "Quantité",
+      "runningTotal": "Total cumulé",
+      "price": "Cours",
+      "amount": "Montant",
+      "actionsLabel": "Actions"
+    },
+    "actionLabels": {
+      "BUY": "Achat",
+      "SELL": "Vente",
+      "DIVIDEND": "Dividende",
+      "INTEREST": "Intérêts",
+      "CAPITAL_GAIN": "Plus-value",
+      "SPLIT": "Division",
+      "TRANSFER_IN": "Transfert entrant",
+      "TRANSFER_OUT": "Transfert sortant",
+      "REINVEST": "Réinvestissement",
+      "ADD_SHARES": "Ajouter des actions",
+      "REMOVE_SHARES": "Retirer des actions"
+    },
+    "toasts": {
+      "loadHistoryFailed": "Échec du chargement de l'historique",
+      "loadTransactionFailed": "Échec du chargement de la transaction"
+    }
+  },
+  "shareAdjustment": {
+    "heading": "Ajuster les actions",
+    "accountLabel": "Compte",
+    "accountPlaceholder": "Sélectionner un compte...",
+    "actionLabel": "Action",
+    "quantityLabel": "Quantité (actions)",
+    "dateLabel": "Date",
+    "descriptionLabel": "Description (facultatif)",
+    "descriptionPlaceholder": "ex. : Régulariser des actions résiduelles",
+    "saving": "Enregistrement...",
+    "submitButton": "Enregistrer l'ajustement",
+    "accountClosed": "{name} (clôturé)",
+    "adjustmentActions": {
+      "REMOVE_SHARES": "Retirer des actions",
+      "ADD_SHARES": "Ajouter des actions"
+    },
+    "toasts": {
+      "selectAccount": "Sélectionner un compte",
+      "quantityRequired": "La quantité doit être supérieure à zéro",
+      "recorded": "Ajustement enregistré",
+      "failed": "Échec de l'enregistrement de l'ajustement"
+    }
+  },
+  "lookupPicker": {
+    "title": "Plusieurs correspondances pour « {query} »",
+    "subtitle": "Sélectionnez le titre que vous souhaitez utiliser.",
+    "columns": {
+      "symbol": "Symbole",
+      "name": "Nom",
+      "exchange": "Marché",
+      "currency": "Devise",
+      "type": "Type",
+      "source": "Source"
+    },
+    "selectButton": "Sélectionner"
+  },
+  "validation": {
+    "symbolRequired": "Le symbole est requis",
+    "symbolMax": "Le symbole doit comporter 20 caractères ou moins",
+    "nameRequired": "Le nom est requis",
+    "nameMax": "Le nom doit comporter 255 caractères ou moins",
+    "currencyRequired": "La devise est requise",
+    "descriptionMax": "La description ne doit pas dépasser 5000 caractères"
+  },
+  "priceValidation": {
+    "dateRequired": "La date est requise",
+    "priceRequired": "Le cours est requis",
+    "priceNonNegative": "Le cours doit être un nombre non négatif"
+  }
+}

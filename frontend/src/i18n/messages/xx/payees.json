@@ -1,0 +1,292 @@
+{
+  "page": {
+    "title": "[XX-Payees-XX]",
+    "subtitle": "[XX-Manage your payees and their default categories-XX]",
+    "deactivateUnused": "[XX-Deactivate Unused-XX]",
+    "autoAssignCategories": "[XX-Auto-Assign Categories-XX]",
+    "autoMergePayees": "[XX-Auto-Merge Payees-XX]",
+    "newPayee": "[XX-+ New Payee-XX]",
+    "searchPlaceholder": "[XX-Search payees...-XX]",
+    "statusAll": "[XX-All ({count})-XX]",
+    "statusActive": "[XX-Active ({count})-XX]",
+    "statusInactive": "[XX-Inactive ({count})-XX]",
+    "categoryFilterAll": "[XX-All Payees ({count})-XX]",
+    "categoryFilterNoCategory": "[XX-No Default Category ({count})-XX]",
+    "categoryFilterUncategorized": "[XX-Uncategorized Txns ({count})-XX]",
+    "modalTitleEdit": "[XX-Edit Payee-XX]",
+    "modalTitleNew": "[XX-New Payee-XX]",
+    "loading": "[XX-Loading payees...-XX]",
+    "count": "[XX-{count, plural, one {# payee} other {# payees}}-XX]",
+    "toasts": {
+      "loadFailed": "[XX-Failed to load data-XX]",
+      "updated": "[XX-Payee updated successfully-XX]",
+      "created": "[XX-Payee created successfully-XX]",
+      "reactivated": "[XX-Payee \"{name}\" reactivated-XX]",
+      "reactivateFailed": "[XX-Failed to reactivate payee-XX]",
+      "updateFailed": "[XX-Failed to update payee-XX]",
+      "createFailed": "[XX-Failed to create payee-XX]",
+      "categorized": "[XX-{count, plural, one {Categorized # transaction} other {Categorized # transactions}}-XX]"
+    },
+    "summary": {
+      "totalPayees": "[XX-Total Payees-XX]",
+      "active": "[XX-Active-XX]",
+      "inactive": "[XX-Inactive-XX]",
+      "withoutCategory": "[XX-Without Category-XX]"
+    },
+    "applyDefaultCategories": "[XX-Apply Default Categories-XX]"
+  },
+  "list": {
+    "columns": {
+      "name": "[XX-Name-XX]",
+      "defaultCategory": "[XX-Default Category-XX]",
+      "count": "[XX-Count-XX]",
+      "aliases": "[XX-Aliases-XX]",
+      "lastUsed": "[XX-Last Used-XX]",
+      "created": "[XX-Created-XX]",
+      "status": "[XX-Status-XX]",
+      "notes": "[XX-Notes-XX]",
+      "actions": "[XX-Actions-XX]"
+    },
+    "density": {
+      "normal": "[XX-Normal-XX]",
+      "compact": "[XX-Compact-XX]",
+      "dense": "[XX-Dense-XX]",
+      "toggle": "[XX-Toggle row density-XX]"
+    },
+    "noCategory": "[XX-None-XX]",
+    "statusBadge": {
+      "active": "[XX-Active-XX]",
+      "inactive": "[XX-Inactive-XX]"
+    },
+    "actions": {
+      "reactivate": "[XX-Reactivate-XX]",
+      "reactivateShort": "[XX-Re-XX]",
+      "merge": "[XX-Merge-XX]",
+      "mergeShort": "[XX-M-XX]",
+      "edit": "[XX-Edit-XX]",
+      "editShort": "[XX-E-XX]",
+      "delete": "[XX-Delete-XX]",
+      "deleteShort": "[XX-X-XX]"
+    },
+    "viewTransactionsTitle": "[XX-View transactions with this payee-XX]",
+    "uncategorizedBadge": "[XX-{count, plural, one {# uncategorized} other {# uncategorized}}-XX]",
+    "uncategorizedTitle": "[XX-{count, plural, one {# transaction for this payee has no category} other {# transactions for this payee have no category}}-XX]",
+    "empty": {
+      "title": "[XX-No payees-XX]",
+      "subtitle": "[XX-Get started by creating a new payee.-XX]"
+    },
+    "deleteConfirm": {
+      "title": "[XX-Delete \"{name}\"?-XX]",
+      "message": "[XX-This action cannot be undone.-XX]",
+      "confirmLabel": "[XX-Delete-XX]",
+      "cancelLabel": "[XX-Cancel-XX]"
+    },
+    "toasts": {
+      "deleted": "[XX-Payee deleted successfully-XX]",
+      "deleteFailed": "[XX-Failed to delete payee-XX]"
+    }
+  },
+  "form": {
+    "nameLabel": "[XX-Payee Name-XX]",
+    "categoryLabel": "[XX-Default Category-XX]",
+    "notesLabel": "[XX-Notes (optional)-XX]",
+    "submitCreate": "[XX-Create Payee-XX]",
+    "submitUpdate": "[XX-Update Payee-XX]",
+    "applyCategoryLabel": "[XX-Apply this category to existing transactions-XX]",
+    "applyCategoryNone": "[XX-Don't change existing transactions-XX]",
+    "applyCategoryUncategorized": "[XX-Only transactions without a category ({count})-XX]",
+    "applyCategoryAll": "[XX-All transactions ({count})-XX]",
+    "applyCategoryHelp": "[XX-Transfers and split transactions are never changed.-XX]"
+  },
+  "merge": {
+    "title": "[XX-Merge Payee-XX]",
+    "mergeFromLabel": "[XX-Merge from (will be deleted):-XX]",
+    "transactionCount": "[XX-{count, plural, one {# transaction will be migrated} other {# transactions will be migrated}}-XX]",
+    "mergeIntoLabel": "[XX-Merge into (target payee)-XX]",
+    "addAsAliasLabel": "[XX-Add \"{name}\" as an alias on the target payee-XX]",
+    "willLabel": "[XX-This will:-XX]",
+    "willMoveTransactions": "[XX-Move all transactions from \"{source}\" to \"{target}\"-XX]",
+    "willAddAlias": "[XX-Add \"{source}\" as an alias so future imports auto-match-XX]",
+    "willDelete": "[XX-Delete the \"{source}\" payee-XX]",
+    "merging": "[XX-Merging...-XX]",
+    "mergeButton": "[XX-Merge Payee-XX]",
+    "toasts": {
+      "merged": "[XX-Merged into \"{target}\": {details}-XX]",
+      "transactionsMigrated": "[XX-{count, plural, one {# transaction migrated} other {# transactions migrated}}-XX]",
+      "aliasAdded": "[XX-alias added-XX]",
+      "sourceDeleted": "[XX-\"{name}\" deleted-XX]",
+      "failed": "[XX-Failed to merge payees-XX]"
+    }
+  },
+  "categoryAutoAssign": {
+    "title": "[XX-Auto-Assign Default Categories-XX]",
+    "howItWorksTitle": "[XX-How it works-XX]",
+    "howItWorksBody": "[XX-This feature analyzes your transaction history to suggest default categories for payees. It looks at which category is most commonly used for each payee and suggests assigning it as their default category for future transactions. You can always override the default category if needed.-XX]",
+    "minTransactionsLabel": "[XX-Minimum Transactions: {count}-XX]",
+    "minTransactionsHelp": "[XX-Only consider payees with at least this many transactions-XX]",
+    "matchPercentageLabel": "[XX-Category Match Percentage: {percent}%-XX]",
+    "matchPercentageHelp": "[XX-The category must be used in at least this percentage of transactions-XX]",
+    "onlyWithoutCategoryLabel": "[XX-Only payees without a default category-XX]",
+    "backfillLabel": "[XX-Also categorize {count, plural, one {# existing uncategorized transaction} other {# existing uncategorized transactions}}-XX]",
+    "backfillHelp": "[XX-Applies the chosen category to transactions that currently have none. Existing categories, transfers, and split transactions are left unchanged.-XX]",
+    "viewUncategorizedTitle": "[XX-View {count, plural, one {# uncategorized transaction} other {# uncategorized transactions}} for {name}-XX]",
+    "previewButton": "[XX-Preview Suggestions-XX]",
+    "loading": "[XX-Loading...-XX]",
+    "suggestionsHeader": "[XX-Suggestions ({count} found)-XX]",
+    "selectAll": "[XX-Select all-XX]",
+    "selectNone": "[XX-Select none-XX]",
+    "selectPayeeLabel": "[XX-Select {name}-XX]",
+    "empty": {
+      "line1": "[XX-No payees match the current criteria.-XX]",
+      "line2": "[XX-Try adjusting the settings above.-XX]"
+    },
+    "columns": {
+      "payee": "[XX-Payee-XX]",
+      "suggestedCategory": "[XX-Suggested Category-XX]",
+      "match": "[XX-Match-XX]"
+    },
+    "selectedCount": "[XX-{count, plural, one {# payee selected} other {# payees selected}}-XX]",
+    "applyButton": "[XX-Apply to {count, plural, one {# Payee} other {# Payees}}-XX]",
+    "applying": "[XX-Applying...-XX]",
+    "toasts": {
+      "selectAtLeastOne": "[XX-Please select at least one payee to update-XX]",
+      "updated": "[XX-{count, plural, one {Updated # payee} other {Updated # payees}}-XX]",
+      "backfilled": "[XX-{count, plural, one {Categorized # transaction} other {Categorized # transactions}}-XX]",
+      "loadFailed": "[XX-Failed to load suggestions-XX]",
+      "applyFailed": "[XX-Failed to apply category assignments-XX]"
+    }
+  },
+  "autoMerge": {
+    "title": "[XX-Auto-Merge Payees-XX]",
+    "howItWorksTitle": "[XX-How it works-XX]",
+    "howItWorksBody": "[XX-This feature scans your payees and groups variants where one name extends another - for example \"Lidl\", \"LIDL sp. z o.o.\" and \"LIDL WARSZAWA 0421\" all build on \"Lidl\". Each group is merged into a single canonical payee, and a wildcard alias (such as \"*LIDL*\") is created so future imports are matched automatically. Payees that merely share a common word (like \"Royal Electric\" and \"Royal City Nursery\") are kept separate. Review and adjust each group before applying.-XX]",
+    "backupRecommendation": "[XX-Recommended: create a <link>backup</link> before making changes.-XX]",
+    "minGroupSizeLabel": "[XX-Minimum Group Size: {count}-XX]",
+    "minGroupSizeHelp": "[XX-Only suggest groups with at least this many payees-XX]",
+    "similarityLabel": "[XX-Similarity Threshold: {percent}%-XX]",
+    "similarityHelp": "[XX-Spelling tolerance: lower it to also group near-matches like LIDL / LIDI; 100% requires an exact keyword match.-XX]",
+    "minTokenLengthLabel": "[XX-Minimum Keyword Length: {count}-XX]",
+    "minTokenLengthHelp": "[XX-Ignore keywords shorter than this when grouping-XX]",
+    "includeInactiveLabel": "[XX-Include inactive payees-XX]",
+    "previewButton": "[XX-Preview Groups-XX]",
+    "loading": "[XX-Loading...-XX]",
+    "groupsHeader": "[XX-Groups ({count} found)-XX]",
+    "empty": {
+      "line1": "[XX-No merge groups match the current criteria.-XX]",
+      "line2": "[XX-Try lowering the similarity threshold or group size.-XX]"
+    },
+    "includeGroupLabel": "[XX-Include this group-XX]",
+    "canonicalNameLabel": "[XX-Keep as payee-XX]",
+    "aliasLabel": "[XX-Alias for future imports-XX]",
+    "defaultCategoryLabel": "[XX-Default category (optional)-XX]",
+    "backfillLabel": "[XX-Also categorize {count, plural, one {# existing uncategorized transaction} other {# existing uncategorized transactions}}-XX]",
+    "aliasPlaceholder": "[XX-e.g., *LIDL*-XX]",
+    "keepLabel": "[XX-Keep this payee-XX]",
+    "includeMemberLabel": "[XX-Include in merge-XX]",
+    "keepBadge": "[XX-Keep-XX]",
+    "keepColumn": "[XX-Keep-XX]",
+    "mergeColumn": "[XX-Merge-XX]",
+    "membersHelp": "[XX-Select the payee to keep. The others are merged into it.-XX]",
+    "memberTransactions": "[XX-{count, plural, one {# transaction} other {# transactions}}-XX]",
+    "selectedCount": "[XX-{count, plural, one {# group selected} other {# groups selected}}-XX]",
+    "payeesMergedCount": "[XX-{count, plural, one {# payee to merge} other {# payees to merge}}-XX]",
+    "applyButton": "[XX-Merge {count, plural, one {# Group} other {# Groups}}-XX]",
+    "applying": "[XX-Merging...-XX]",
+    "toasts": {
+      "selectAtLeastOne": "[XX-Please select at least one group to merge-XX]",
+      "applied": "[XX-Merged {groups, plural, one {# group} other {# groups}} ({payees} payees combined)-XX]",
+      "backfilled": "[XX-{count, plural, one {Categorized # transaction} other {Categorized # transactions}}-XX]",
+      "aliasesSkipped": "[XX-{count, plural, one {# alias was skipped due to a conflict} other {# aliases were skipped due to conflicts}}-XX]",
+      "loadFailed": "[XX-Failed to load merge groups-XX]",
+      "applyFailed": "[XX-Failed to merge payees-XX]"
+    },
+    "categoryMatchLabel": "[XX-Only merge payees in the same category-XX]",
+    "categoryMatchHelp": "[XX-Keep payees apart when their categories differ, reducing false matches.-XX]",
+    "granularityLabel": "[XX-Category match level-XX]",
+    "selectAll": "[XX-Select all-XX]",
+    "deselectAll": "[XX-Deselect all-XX]",
+    "granularity": {
+      "category": "[XX-Category-XX]",
+      "subcategory": "[XX-Subcategory-XX]"
+    },
+    "ignoreCommonWordsLabel": "[XX-Ignore common words-XX]",
+    "ignoreCommonWordsHelp": "[XX-Don't anchor groups on generic words (Restaurant, Cafe, country names) or words that many different payees start with.-XX]",
+    "commonWordSensitivityLabel": "[XX-Common-word sensitivity: {count}+ variants-XX]",
+    "commonWordSensitivityHelp": "[XX-A leading word is treated as common once at least this many different payees branch off it. Lower = filter more aggressively.-XX]",
+    "viewUncategorizedTitle": "[XX-View {count, plural, one {# uncategorized transaction} other {# uncategorized transactions}} for {name}-XX]"
+  },
+  "deactivateUnused": {
+    "title": "[XX-Deactivate Unused Payees-XX]",
+    "howItWorksTitle": "[XX-How it works-XX]",
+    "howItWorksBody": "[XX-This feature finds payees that are rarely used and deactivates them. Deactivated payees will not appear in payee dropdowns when creating transactions, but their historical transactions are preserved. You can reactivate a payee at any time from the payees list.-XX]",
+    "maxTransactionsLabel": "[XX-{count, plural, one {# or fewer transaction} other {# or fewer transactions}}-XX]",
+    "maxTransactionsHelp": "[XX-Only include payees with this many transactions or fewer-XX]",
+    "monthsUnusedLabel": "[XX-Last used more than {label} ago-XX]",
+    "monthsUnusedHelp": "[XX-Only include payees not used since this long ago (or never used)-XX]",
+    "previewButton": "[XX-Preview Unused Payees-XX]",
+    "loading": "[XX-Loading...-XX]",
+    "candidatesHeader": "[XX-Candidates ({count} found)-XX]",
+    "selectAll": "[XX-Select all-XX]",
+    "selectNone": "[XX-Select none-XX]",
+    "selectPayeeLabel": "[XX-Select {name}-XX]",
+    "neverUsed": "[XX-Never used-XX]",
+    "empty": {
+      "line1": "[XX-No payees match the current criteria.-XX]",
+      "line2": "[XX-Try adjusting the settings above.-XX]"
+    },
+    "columns": {
+      "payee": "[XX-Payee-XX]",
+      "transactions": "[XX-Transactions-XX]",
+      "lastUsed": "[XX-Last Used-XX]"
+    },
+    "selectedCount": "[XX-{count, plural, one {# payee selected} other {# payees selected}}-XX]",
+    "deactivateButton": "[XX-Deactivate {count, plural, one {# Payee} other {# Payees}}-XX]",
+    "deactivating": "[XX-Deactivating...-XX]",
+    "toasts": {
+      "selectAtLeastOne": "[XX-Please select at least one payee to deactivate-XX]",
+      "deactivated": "[XX-{count, plural, one {Deactivated # payee} other {Deactivated # payees}}-XX]",
+      "loadFailed": "[XX-Failed to load preview-XX]",
+      "deactivateFailed": "[XX-Failed to deactivate payees-XX]"
+    }
+  },
+  "reactivate": {
+    "title": "[XX-Reactivate Payee?-XX]",
+    "message": "[XX-The payee \"{name}\" was previously deactivated. Would you like to reactivate it so it appears in payee dropdowns again?-XX]",
+    "keepInactiveButton": "[XX-No, Keep Inactive-XX]",
+    "reactivateButton": "[XX-Reactivate-XX]",
+    "reactivating": "[XX-Reactivating...-XX]"
+  },
+  "aliases": {
+    "heading": "[XX-Aliases-XX]",
+    "description": "[XX-Aliases map imported payee names to this payee. Use * as wildcard (e.g., \"STARBUCKS*\"). Case-insensitive.-XX]",
+    "loading": "[XX-Loading...-XX]",
+    "noAliases": "[XX-No aliases configured-XX]",
+    "removeTitle": "[XX-Remove alias-XX]",
+    "removeButton": "[XX-Remove-XX]",
+    "addButton": "[XX-Add-XX]",
+    "adding": "[XX-Adding...-XX]",
+    "placeholder": "[XX-e.g., STARBUCKS #*-XX]",
+    "toasts": {
+      "alreadyAdded": "[XX-Alias \"{alias}\" already added-XX]",
+      "added": "[XX-Alias \"{alias}\" added-XX]",
+      "removed": "[XX-Alias \"{alias}\" removed-XX]",
+      "loadFailed": "[XX-Failed to load aliases-XX]",
+      "addFailed": "[XX-Failed to add alias-XX]",
+      "removeFailed": "[XX-Failed to remove alias-XX]"
+    }
+  },
+  "selectCategoryPlaceholder": "[XX-Select category...-XX]",
+  "validation": {
+    "nameRequired": "[XX-Payee name is required-XX]"
+  },
+  "defaultCategoryBackfill": {
+    "allConfirmTitle": "[XX-Apply default categories?-XX]",
+    "allConfirmMessage": "[XX-This will categorize {transactions, plural, one {# uncategorized transaction} other {# uncategorized transactions}} across {payees, plural, one {# payee} other {# payees}} using each payee's default category. Manually categorized transactions, transfers, and split transactions are left unchanged.-XX]",
+    "confirmButton": "[XX-Apply-XX]",
+    "toasts": {
+      "nothingToDo": "[XX-No uncategorized transactions to categorize-XX]",
+      "applied": "[XX-{count, plural, one {Categorized # transaction} other {Categorized # transactions}}-XX]",
+      "failed": "[XX-Failed to categorize transactions-XX]"
+    }
+  }
+}

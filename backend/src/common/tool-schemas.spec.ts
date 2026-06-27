@@ -4,6 +4,7 @@ import {
   getDefaultComparePeriods,
   getDefaultDateRange,
   getDefaultPreviousMonth,
+  resolveComparePeriods,
 } from "./tool-schemas";
 
 describe("tool-schemas defaults", () => {
@@ -103,6 +104,39 @@ describe("tool-schemas defaults", () => {
     it("exposes sensible default values", () => {
       expect(DEFAULT_LOOKBACK_DAYS).toBe(30);
       expect(DEFAULT_TOP_N).toBe(10);
+    });
+  });
+
+  describe("resolveComparePeriods()", () => {
+    it("returns caller-supplied periods when all four dates are present", () => {
+      const periods = resolveComparePeriods({
+        period1Start: "2025-01-01",
+        period1End: "2025-01-31",
+        period2Start: "2025-02-01",
+        period2End: "2025-02-28",
+      });
+      expect(periods).toEqual({
+        period1Start: "2025-01-01",
+        period1End: "2025-01-31",
+        period2Start: "2025-02-01",
+        period2End: "2025-02-28",
+      });
+    });
+
+    it("falls back to defaults when any date is missing", () => {
+      const defaults = getDefaultComparePeriods();
+      const periods = resolveComparePeriods({
+        period1Start: "2025-01-01",
+        period1End: "2025-01-31",
+        period2Start: "2025-02-01",
+        // period2End missing -- all-or-nothing
+      });
+      expect(periods).toEqual(defaults);
+    });
+
+    it("falls back to defaults on entirely empty input", () => {
+      const defaults = getDefaultComparePeriods();
+      expect(resolveComparePeriods({})).toEqual(defaults);
     });
   });
 });

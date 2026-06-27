@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface BudgetProgressBarProps {
   percentUsed: number;
   pacePercent?: number;
@@ -18,6 +20,7 @@ export function BudgetProgressBar({
   pacePercent,
   showPaceMarker = false,
 }: BudgetProgressBarProps) {
+  const t = useTranslations('budgets');
   const clampedPercent = Math.min(Math.max(percentUsed, 0), 100);
   const barColor = getBarColor(percentUsed);
   const pacePosition = pacePercent !== undefined
@@ -33,13 +36,13 @@ export function BudgetProgressBar({
         aria-valuenow={Math.round(percentUsed)}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${Math.round(percentUsed)}% used`}
+        aria-label={t('progressBar.ariaLabel', { percent: String(Math.round(percentUsed)) })}
       />
       {showPaceMarker && pacePosition !== undefined && (
         <div
           className="absolute top-0 h-full w-px bg-gray-500/60 dark:bg-gray-400/60"
           style={{ left: `${pacePosition}%` }}
-          title={`Expected pace: ${Math.round(pacePosition)}%`}
+          title={t('progressBar.paceMarkerTitle', { percent: String(Math.round(pacePosition)) })}
           data-testid="pace-marker"
         />
       )}

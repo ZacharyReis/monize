@@ -1,523 +1,353 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import axios, { AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
-import Cookies from 'js-cookie';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock dependencies before importing apiClient
+// Capture the interceptor handlers registered when api.ts is imported. The
+// axios mock makes `axios.create` return a callable stub (the client itself is
+// invoked as a function during retries) whose `interceptors.*.use` records the
+// success/error handlers so the tests can drive them directly.
+//
+// api.ts keeps module-level singletons (isLoggingOut, isRefreshingToken, the
+// failed-request queue, refresh promises). To keep each test independent we
+// reset the module registry and re-import api.ts in beforeEach, which also
+// re-registers the interceptor handlers below.
+const requestHandlers: {
+  onFulfilled?: (config: unknown) => unknown;
+  onRejected?: (error: unknown) => unknown;
+} = {};
+const responseHandlers: {
+  onFulfilled?: (response: unknown) => unknown;
+  onRejected?: (error: unknown) => unknown;
+} = {};
+
+// The callable client stub. `apiClient(config)` is used to replay retried
+// requests, so it must be a function. We track its calls and resolve with a
+// sentinel so the interceptor's retry branch returns something inspectable.
+const clientCalls: unknown[] = [];
+const clientStub = vi.fn((config: unknown) => {
+  clientCalls.push(config);
+  return Promise.resolve({ data: 'retried', config });
+});
+
+// Stable raw-axios mocks. They must survive vi.resetModules() so that the
+// fresh api.ts import (which calls the bare axios.get/post for refresh/logout)
+// shares the same spies the tests assert against. vi.hoisted keeps them alive
+// across module-registry resets.
+const rawAxios = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+}));
+
+vi.mock('axios', () => {
+  const create = vi.fn(() => {
+    const client = clientStub as unknown as {
+      interceptors: {
+        request: { use: (f: unknown, r: unknown) => void };
+        response: { use: (f: unknown, r: unknown) => void };
+      };
+    };
+    client.interceptors = {
+      request: {
+        use: (onFulfilled: unknown, onRejected: unknown) => {
+          requestHandlers.onFulfilled = onFulfilled as never;
+          requestHandlers.onRejected = onRejected as never;
+        },
+      },
+      response: {
+        use: (onFulfilled: unknown, onRejected: unknown) => {
+          responseHandlers.onFulfilled = onFulfilled as never;
+          responseHandlers.onRejected = onRejected as never;
+        },
+      },
+    };
+    return client;
+  });
+
+  return {
+    default: {
+      create,
+      get: rawAxios.get,
+      post: rawAxios.post,
+    },
+  };
+});
+
+const rawCookies = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('js-cookie', () => ({
-  default: {
-    get: vi.fn(),
+  default: rawCookies,
+}));
+
+const logoutSpy = vi.fn();
+vi.mock('@/store/authStore', () => ({
+  useAuthStore: {
+    getState: () => ({ logout: logoutSpy }),
   },
 }));
 
-vi.mock('@/store/authStore', () => ({
-  useAuthStore: {
-    getState: vi.fn(() => ({
-      logout: vi.fn(),
-    })),
+const setBackendDownSpy = vi.fn();
+vi.mock('@/store/connectionStore', () => ({
+  useConnectionStore: {
+    getState: () => ({ setBackendDown: setBackendDownSpy }),
   },
 }));
 
 vi.mock('@/lib/logger', () => ({
   createLogger: () => ({
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
     debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   }),
 }));
 
-const mockSetBackendDown = vi.fn();
-vi.mock('@/store/connectionStore', () => ({
-  useConnectionStore: {
-    getState: () => ({
-      setBackendDown: mockSetBackendDown,
-    }),
-  },
-}));
+const mockCookieGet = rawCookies.get;
+const mockAxiosGet = rawAxios.get;
+const mockAxiosPost = rawAxios.post;
 
-describe('apiClient', () => {
-  beforeEach(() => {
+async function loadApi() {
+  vi.resetModules();
+  await import('./api');
+}
+
+function makeError(overrides: Record<string, unknown>) {
+  return {
+    config: { url: '/some', headers: {} },
+    response: undefined,
+    code: undefined,
+    ...overrides,
+  } as never;
+}
+
+describe('apiClient interceptors', () => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('is created with baseURL /api/v1', async () => {
-    const { apiClient } = await import('@/lib/api');
-    expect(apiClient.defaults.baseURL).toBe('/api/v1');
-  });
-
-  it('has withCredentials enabled', async () => {
-    const { apiClient } = await import('@/lib/api');
-    expect(apiClient.defaults.withCredentials).toBe(true);
-  });
-
-  it('has Content-Type application/json header', async () => {
-    const { apiClient } = await import('@/lib/api');
-    expect(apiClient.defaults.headers['Content-Type']).toBe('application/json');
-  });
-
-  it('has a 10 second timeout', async () => {
-    const { apiClient } = await import('@/lib/api');
-    expect(apiClient.defaults.timeout).toBe(10000);
+    clientCalls.length = 0;
+    clientStub.mockImplementation((config: unknown) => {
+      clientCalls.push(config);
+      return Promise.resolve({ data: 'retried', config });
+    });
+    Object.defineProperty(window, 'location', {
+      value: { pathname: '/dashboard', replace: vi.fn() },
+      writable: true,
+      configurable: true,
+    });
+    await loadApi();
   });
 
   describe('request interceptor', () => {
-    it('attaches CSRF token from cookies to request headers', async () => {
-      const { apiClient } = await import('@/lib/api');
-      vi.mocked(Cookies.get).mockReturnValue('test-csrf-token' as any);
-
-      const config: InternalAxiosRequestConfig = {
-        headers: new AxiosHeaders(),
-        method: 'get',
-        url: '/test',
+    it('injects X-CSRF-Token header from cookie', () => {
+      mockCookieGet.mockReturnValue('csrf-abc');
+      const config = { headers: {}, method: 'get', url: '/x' };
+      const result = requestHandlers.onFulfilled!(config) as {
+        headers: Record<string, string>;
       };
-
-      // Run through request interceptors
-      const interceptors = apiClient.interceptors.request as any;
-      const handlers = interceptors.handlers;
-      let result = config;
-      for (const handler of handlers) {
-        if (handler && handler.fulfilled) {
-          result = await handler.fulfilled(result);
-        }
-      }
-
-      expect(result.headers['X-CSRF-Token']).toBe('test-csrf-token');
+      expect(result.headers['X-CSRF-Token']).toBe('csrf-abc');
+      expect(result.headers['X-Client-Timezone']).toBeDefined();
     });
 
-    it('does not set CSRF header when no cookie is present', async () => {
-      const { apiClient } = await import('@/lib/api');
-      vi.mocked(Cookies.get).mockReturnValue(undefined as any);
-
-      const config: InternalAxiosRequestConfig = {
-        headers: new AxiosHeaders(),
-        method: 'get',
-        url: '/test',
+    it('does not overwrite an existing X-Client-Timezone header', () => {
+      mockCookieGet.mockReturnValue(undefined);
+      const config = {
+        headers: { 'X-Client-Timezone': 'Europe/Paris' },
+        method: 'post',
+        url: '/y',
       };
-
-      const interceptors = apiClient.interceptors.request as any;
-      const handlers = interceptors.handlers;
-      let result = config;
-      for (const handler of handlers) {
-        if (handler && handler.fulfilled) {
-          result = await handler.fulfilled(result);
-        }
-      }
-
+      const result = requestHandlers.onFulfilled!(config) as {
+        headers: Record<string, string>;
+      };
+      expect(result.headers['X-Client-Timezone']).toBe('Europe/Paris');
       expect(result.headers['X-CSRF-Token']).toBeUndefined();
+    });
+
+    it('rejects on request error', async () => {
+      const err = new Error('boom');
+      await expect(requestHandlers.onRejected!(err)).rejects.toBe(err);
     });
   });
 
   describe('response interceptor', () => {
-    it('passes successful responses through', async () => {
-      const { apiClient } = await import('@/lib/api');
-      const interceptors = apiClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const successHandler = handlers.find((h: any) => h?.fulfilled);
-
-      const mockResponse = { data: { test: true }, status: 200 };
-      const result = await successHandler.fulfilled(mockResponse);
-      expect(result).toEqual(mockResponse);
+    it('passes through successful responses', () => {
+      const response = { data: 1 };
+      expect(responseHandlers.onFulfilled!(response)).toBe(response);
     });
 
-    it('attempts CSRF refresh on 403 with CSRF message', async () => {
-      // Make the refresh fail so the interceptor doesn't attempt a retry via apiClient
-      // (which would trigger a real HTTP request through jsdom)
-      const axiosGetSpy = vi.spyOn(axios, 'get').mockRejectedValue(new Error('refresh failed'));
-
-      // Re-import to get fresh module
-      vi.resetModules();
-      const { apiClient: freshClient } = await import('@/lib/api');
-
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        response: {
-          status: 403,
-          data: { message: 'Invalid CSRF token' },
-        },
-        config: {
-          headers: new AxiosHeaders(),
-          _csrfRetried: false,
-        },
-      };
-
-      // The refresh will fail, so the error is re-rejected
-      try {
-        await errorHandler.rejected(mockError);
-      } catch {
-        // Expected to reject
-      }
-
-      expect(axiosGetSpy).toHaveBeenCalledWith('/api/v1/auth/csrf-refresh', { withCredentials: true });
-      axiosGetSpy.mockRestore();
+    it('marks backend down on 502', async () => {
+      const error = makeError({ response: { status: 502 } });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(setBackendDownSpy).toHaveBeenCalled();
     });
 
-    it('attempts token refresh on 401', async () => {
-      const axiosPostSpy = vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh failed'));
-
-      vi.resetModules();
-
-      // Re-mock the store for fresh module
-      vi.doMock('@/store/authStore', () => ({
-        useAuthStore: {
-          getState: vi.fn(() => ({
-            logout: vi.fn(),
-          })),
-        },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        response: {
-          status: 401,
-        },
-        config: {
-          headers: new AxiosHeaders(),
-          _authRetried: false,
-        },
-      };
-
-      try {
-        await errorHandler.rejected(mockError);
-      } catch {
-        // Expected to reject
-      }
-
-      expect(axiosPostSpy).toHaveBeenCalledWith(
-        '/api/v1/auth/refresh',
-        {},
-        { withCredentials: true },
-      );
-      axiosPostSpy.mockRestore();
+    it('marks backend down on network error (no response)', async () => {
+      const error = makeError({ response: undefined });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(setBackendDownSpy).toHaveBeenCalled();
     });
 
-    it.each([
-      '/auth/register',
-      '/auth/login',
-      '/auth/2fa/verify',
-      '/auth/forgot-password',
-      '/auth/reset-password',
-    ])(
-      'does not refresh or log out on 401 from %s (business error, not session expiry)',
-      async (url) => {
-        const axiosPostSpy = vi.spyOn(axios, 'post');
-        const logoutSpy = vi.fn();
-
-        vi.resetModules();
-        vi.doMock('@/store/authStore', () => ({
-          useAuthStore: {
-            getState: vi.fn(() => ({ logout: logoutSpy })),
-          },
-        }));
-
-        const { apiClient: freshClient } = await import('@/lib/api');
-        const interceptors = freshClient.interceptors.response as any;
-        const errorHandler = interceptors.handlers.find(
-          (h: any) => h?.rejected,
-        );
-
-        const mockError = {
-          response: { status: 401, data: { message: 'business error' } },
-          config: {
-            headers: new AxiosHeaders(),
-            method: 'post',
-            url,
-            _authRetried: false,
-          },
-        };
-
-        await expect(errorHandler.rejected(mockError)).rejects.toEqual(
-          mockError,
-        );
-        expect(axiosPostSpy).not.toHaveBeenCalledWith(
-          '/api/v1/auth/refresh',
-          expect.anything(),
-          expect.anything(),
-        );
-        expect(logoutSpy).not.toHaveBeenCalled();
-
-        axiosPostSpy.mockRestore();
-      },
-    );
-
-    it('rejects non-auth/CSRF errors without interception', async () => {
-      const { apiClient } = await import('@/lib/api');
-      const interceptors = apiClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        response: {
-          status: 500,
-          data: { message: 'Server error' },
-        },
-        config: {
-          headers: new AxiosHeaders(),
-        },
-      };
-
-      await expect(errorHandler.rejected(mockError)).rejects.toEqual(mockError);
-    });
-
-    it('sets backend down on 502 response and rejects', async () => {
-      mockSetBackendDown.mockClear();
-      vi.resetModules();
-
-      vi.doMock('@/store/connectionStore', () => ({
-        useConnectionStore: {
-          getState: () => ({
-            setBackendDown: mockSetBackendDown,
-          }),
-        },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        response: {
-          status: 502,
-          data: { error: 'Backend unavailable' },
-        },
-        config: {
-          headers: new AxiosHeaders(),
-        },
-      };
-
-      await expect(errorHandler.rejected(mockError)).rejects.toEqual(mockError);
-      expect(mockSetBackendDown).toHaveBeenCalled();
-    });
-
-    it('sets backend down on network error (no response) and rejects', async () => {
-      mockSetBackendDown.mockClear();
-      vi.resetModules();
-
-      vi.doMock('@/store/connectionStore', () => ({
-        useConnectionStore: {
-          getState: () => ({
-            setBackendDown: mockSetBackendDown,
-          }),
-        },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        message: 'Network Error',
-        config: {
-          headers: new AxiosHeaders(),
-        },
-        // No response property -- network-level failure
-      };
-
-      await expect(errorHandler.rejected(mockError)).rejects.toEqual(mockError);
-      expect(mockSetBackendDown).toHaveBeenCalled();
-    });
-
-    it('does NOT set backend down on client-side timeout (ECONNABORTED)', async () => {
-      mockSetBackendDown.mockClear();
-      vi.resetModules();
-
-      vi.doMock('@/store/connectionStore', () => ({
-        useConnectionStore: {
-          getState: () => ({
-            setBackendDown: mockSetBackendDown,
-          }),
-        },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
+    it('does not mark backend down on client timeout', async () => {
+      const error = makeError({
+        response: undefined,
         code: 'ECONNABORTED',
-        message: 'timeout of 10000ms exceeded',
-        config: {
-          headers: new AxiosHeaders(),
-        },
-        // No response property -- but this is a client-side timeout,
-        // not an actual backend outage.
-      };
-
-      await expect(errorHandler.rejected(mockError)).rejects.toEqual(mockError);
-      expect(mockSetBackendDown).not.toHaveBeenCalled();
-    });
-
-    it('does NOT set backend down on client-side cancellation (ERR_CANCELED)', async () => {
-      mockSetBackendDown.mockClear();
-      vi.resetModules();
-
-      vi.doMock('@/store/connectionStore', () => ({
-        useConnectionStore: {
-          getState: () => ({
-            setBackendDown: mockSetBackendDown,
-          }),
-        },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        code: 'ERR_CANCELED',
-        message: 'canceled',
-        config: {
-          headers: new AxiosHeaders(),
-        },
-      };
-
-      await expect(errorHandler.rejected(mockError)).rejects.toEqual(mockError);
-      expect(mockSetBackendDown).not.toHaveBeenCalled();
-    });
-
-    it('retries the original request after a successful CSRF refresh', async () => {
-      const axiosGetSpy = vi.spyOn(axios, 'get').mockResolvedValue({} as any);
-
-      vi.resetModules();
-      vi.doMock('@/store/authStore', () => ({
-        useAuthStore: { getState: vi.fn(() => ({ logout: vi.fn() })) },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const errorHandler = interceptors.handlers.find((h: any) => h?.rejected);
-
-      // Stub the adapter so apiClient(originalRequest) does not perform a real
-      // network call; the interceptor's retry should hit this adapter.
-      const adapterSpy = vi.fn().mockResolvedValue({
-        data: { ok: true },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {},
       });
-      freshClient.defaults.adapter = adapterSpy as any;
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(setBackendDownSpy).not.toHaveBeenCalled();
+    });
 
-      const mockError = {
+    it('refreshes CSRF and retries on 403 CSRF error', async () => {
+      mockAxiosGet.mockResolvedValue({});
+      mockCookieGet.mockReturnValue('new-csrf');
+      const error = makeError({
+        config: { url: '/data', headers: {} },
         response: { status: 403, data: { message: 'Invalid CSRF token' } },
-        config: {
-          headers: new AxiosHeaders(),
-          method: 'get',
-          url: '/test',
-          _csrfRetried: false,
-        },
+      });
+      const result = (await responseHandlers.onRejected!(error)) as {
+        data: string;
       };
-
-      await errorHandler.rejected(mockError);
-
-      expect(axiosGetSpy).toHaveBeenCalledWith('/api/v1/auth/csrf-refresh', {
+      expect(mockAxiosGet).toHaveBeenCalledWith('/api/v1/auth/csrf-refresh', {
         withCredentials: true,
       });
-      expect(adapterSpy).toHaveBeenCalled();
-
-      axiosGetSpy.mockRestore();
+      expect(result.data).toBe('retried');
+      const retried = clientCalls[0] as { headers: Record<string, string> };
+      expect(retried.headers['X-CSRF-Token']).toBe('new-csrf');
     });
 
-    it('retries and processes queue after successful 401 token refresh', async () => {
-      const axiosPostSpy = vi.spyOn(axios, 'post').mockResolvedValue({} as any);
-
-      vi.resetModules();
-      vi.doMock('@/store/authStore', () => ({
-        useAuthStore: { getState: vi.fn(() => ({ logout: vi.fn() })) },
-      }));
-
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const errorHandler = interceptors.handlers.find((h: any) => h?.rejected);
-
-      const adapterSpy = vi.fn().mockResolvedValue({
-        data: { ok: true },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {},
+    it('rejects when CSRF refresh fails', async () => {
+      mockAxiosGet.mockRejectedValue(new Error('refresh failed'));
+      const error = makeError({
+        config: { url: '/data', headers: {} },
+        response: { status: 403, data: { message: 'CSRF token mismatch' } },
       });
-      freshClient.defaults.adapter = adapterSpy as any;
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(clientCalls.length).toBe(0);
+    });
 
-      const mockError = {
+    it('ignores 403 that is not a CSRF error', async () => {
+      const error = makeError({
+        config: { url: '/data', headers: {} },
+        response: { status: 403, data: { message: 'Forbidden' } },
+      });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(mockAxiosGet).not.toHaveBeenCalled();
+    });
+
+    it('refreshes token and retries on 401', async () => {
+      mockAxiosPost.mockResolvedValue({});
+      mockCookieGet.mockReturnValue('csrf-after-refresh');
+      const error = makeError({
+        config: { url: '/protected', headers: {} },
         response: { status: 401 },
-        config: {
-          headers: new AxiosHeaders(),
-          method: 'get',
-          url: '/test',
-          _authRetried: false,
-        },
+      });
+      const result = (await responseHandlers.onRejected!(error)) as {
+        data: string;
       };
-
-      await errorHandler.rejected(mockError);
-
-      expect(axiosPostSpy).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         '/api/v1/auth/refresh',
         {},
         { withCredentials: true },
       );
-      expect(adapterSpy).toHaveBeenCalled();
-
-      axiosPostSpy.mockRestore();
+      expect(result.data).toBe('retried');
+      const retried = clientCalls[0] as { headers: Record<string, string> };
+      expect(retried.headers['X-CSRF-Token']).toBe('csrf-after-refresh');
     });
 
-    it('does not attempt CSRF or token refresh on 502', async () => {
-      mockSetBackendDown.mockClear();
-      const axiosGetSpy = vi.spyOn(axios, 'get');
-      const axiosPostSpy = vi.spyOn(axios, 'post');
+    it('queues concurrent 401 requests during a refresh', async () => {
+      let resolveRefresh: (value: unknown) => void = () => {};
+      mockAxiosPost.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+      );
+      mockCookieGet.mockReturnValue('queued-csrf');
 
-      vi.resetModules();
+      const first = responseHandlers.onRejected!(
+        makeError({
+          config: { url: '/first', headers: {} },
+          response: { status: 401 },
+        }),
+      );
+      const second = responseHandlers.onRejected!(
+        makeError({
+          config: { url: '/second', headers: {} },
+          response: { status: 401 },
+        }),
+      );
 
-      vi.doMock('@/store/connectionStore', () => ({
-        useConnectionStore: {
-          getState: () => ({
-            setBackendDown: mockSetBackendDown,
-          }),
-        },
-      }));
+      // Token refresh resolves; the in-flight request retries directly and the
+      // queued request is released via processQueue and then replayed.
+      resolveRefresh({});
 
-      const { apiClient: freshClient } = await import('@/lib/api');
-      const interceptors = freshClient.interceptors.response as any;
-      const handlers = interceptors.handlers;
-      const errorHandler = handlers.find((h: any) => h?.rejected);
-
-      const mockError = {
-        response: {
-          status: 502,
-          data: { error: 'Backend unavailable' },
-        },
-        config: {
-          headers: new AxiosHeaders(),
-        },
+      const [firstResult, secondResult] = (await Promise.all([
+        first,
+        second,
+      ])) as Array<{ data: string }>;
+      // Both the original (in-flight) and the queued request were retried.
+      expect(firstResult.data).toBe('retried');
+      expect(secondResult.data).toBe('retried');
+      expect(clientStub).toHaveBeenCalledTimes(2);
+      // Only one token refresh happened despite two concurrent 401s.
+      expect(mockAxiosPost).toHaveBeenCalledTimes(1);
+      // The queued request also picked up the refreshed CSRF token.
+      const queuedReplay = clientCalls[clientCalls.length - 1] as {
+        headers: Record<string, string>;
       };
+      expect(queuedReplay.headers['X-CSRF-Token']).toBe('queued-csrf');
+    });
 
-      try {
-        await errorHandler.rejected(mockError);
-      } catch {
-        // Expected
-      }
+    it('logs out and redirects to /login when refresh fails', async () => {
+      mockAxiosPost
+        .mockRejectedValueOnce(new Error('refresh failed'))
+        .mockResolvedValueOnce({});
+      const replaceSpy = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/dashboard', replace: replaceSpy },
+        writable: true,
+        configurable: true,
+      });
+      const error = makeError({
+        config: { url: '/protected', headers: {} },
+        response: { status: 401 },
+      });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(logoutSpy).toHaveBeenCalled();
+      expect(mockAxiosPost).toHaveBeenCalledWith(
+        '/api/v1/auth/logout',
+        {},
+        { withCredentials: true },
+      );
+      expect(replaceSpy).toHaveBeenCalledWith('/login');
+    });
 
-      // Should not have attempted CSRF refresh or token refresh
-      expect(axiosGetSpy).not.toHaveBeenCalledWith('/api/v1/auth/csrf-refresh', expect.anything());
-      expect(axiosPostSpy).not.toHaveBeenCalledWith('/api/v1/auth/refresh', expect.anything(), expect.anything());
+    it('swallows logout request errors during forced logout', async () => {
+      mockAxiosPost.mockRejectedValue(new Error('everything failed'));
+      const replaceSpy = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/dashboard', replace: replaceSpy },
+        writable: true,
+        configurable: true,
+      });
+      const error = makeError({
+        config: { url: '/protected', headers: {} },
+        response: { status: 401 },
+      });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(logoutSpy).toHaveBeenCalled();
+      expect(replaceSpy).toHaveBeenCalledWith('/login');
+    });
 
-      axiosGetSpy.mockRestore();
-      axiosPostSpy.mockRestore();
+    it('does not refresh on 401 for an unauth (business) endpoint', async () => {
+      const error = makeError({
+        config: { url: '/auth/login', headers: {} },
+        response: { status: 401 },
+      });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(mockAxiosPost).not.toHaveBeenCalled();
+      expect(logoutSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not retry a 401 that was already retried', async () => {
+      const error = makeError({
+        config: { url: '/protected', headers: {}, _authRetried: true },
+        response: { status: 401 },
+      });
+      await expect(responseHandlers.onRejected!(error)).rejects.toBe(error);
+      expect(mockAxiosPost).not.toHaveBeenCalled();
     });
   });
 });

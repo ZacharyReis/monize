@@ -1,0 +1,548 @@
+{
+  "alerts": {
+    "title": "Waarschuwingen",
+    "unread": "{count} ongelezen",
+    "markAllRead": "Alles markeren als gelezen",
+    "loading": "Waarschuwingen laden...",
+    "empty": "Geen waarschuwingen",
+    "undo": "Ongedaan maken",
+    "buttonTitle": "Waarschuwingen",
+    "buttonAriaLabel": "Waarschuwingen",
+    "dismissAriaLabel": "Waarschuwing sluiten",
+    "severity": {
+      "critical": "Kritiek",
+      "warning": "Waarschuwing",
+      "success": "Goed nieuws",
+      "info": "Info"
+    }
+  },
+  "summary503020": {
+    "title": "50/30/20-verdeling",
+    "groups": {
+      "NEED": "Behoeften",
+      "WANT": "Wensen",
+      "SAVING": "Sparen"
+    },
+    "target": "Doel: {percent}%",
+    "budgeted": "Gebudgetteerd: {percent}% ({amount})"
+  },
+  "categoryForm": {
+    "editTitle": "Bewerken: {name}",
+    "budgetAmount": "Budgetbedrag",
+    "rolloverType": "Overdrachttype",
+    "rolloverCap": "Overdrachtsmaximum (optioneel)",
+    "rolloverCapPlaceholder": "Geen maximum",
+    "flexGroup": "Flexgroep (optioneel)",
+    "flexGroupPlaceholder": "bijv. Vrij te besteden",
+    "categoryGroup": "Categoriegroep (50/30/20)",
+    "warningAt": "Waarschuwing bij (%)",
+    "criticalAt": "Kritiek bij (%)",
+    "notes": "Notities (optioneel)",
+    "notesPlaceholder": "Notities over dit categoriebudget",
+    "rolloverOptions": {
+      "NONE": "Geen (reset elke periode)",
+      "MONTHLY": "Maandelijkse overdracht",
+      "QUARTERLY": "Kwartaaloverdracht",
+      "ANNUAL": "Jaarlijkse overdracht"
+    },
+    "groupOptions": {
+      "none": "Geen",
+      "NEED": "Behoefte",
+      "WANT": "Wens",
+      "SAVING": "Sparen"
+    },
+    "saving": "Opslaan..."
+  },
+  "categoryList": {
+    "title": "Categoriebudgetten",
+    "empty": "Geen uitgavencategorieën in dit budget.",
+    "sort": "Sorteren:",
+    "sortAriaLabel": "Categorieën sorteren",
+    "sortAscAriaLabel": "Aflopend sorteren",
+    "sortDescAriaLabel": "Oplopend sorteren",
+    "sortDescTitle": "Aflopend sorteren",
+    "sortAscTitle": "Oplopend sorteren",
+    "sortOptions": {
+      "percentUsed": "% Gebruikt",
+      "spent": "Uitgegeven",
+      "remaining": "Resterend",
+      "name": "Naam"
+    }
+  },
+  "categoryRow": {
+    "overPace": "Boven tempo",
+    "underPace": "Onder tempo",
+    "onPace": "Op tempo",
+    "rollover": "Overdracht: {type}",
+    "remaining": "{amount} over",
+    "over": "{amount} te veel"
+  },
+  "categoryTrend": {
+    "title": "Categorietrends",
+    "empty": "Onvoldoende gegevens om categorietrends weer te geven.",
+    "tableHeaders": {
+      "category": "Categorie",
+      "avgBudget": "Gem. budget",
+      "avgActual": "Gem. werkelijk",
+      "avgVariance": "Gem. afwijking"
+    }
+  },
+  "flexGroups": {
+    "title": "Flexgroepen"
+  },
+  "form": {
+    "budgetName": "Budgetnaam",
+    "description": "Beschrijving (optioneel)",
+    "descriptionPlaceholder": "Budgetbeschrijving",
+    "budgetType": "Budgettype",
+    "strategy": "Strategie",
+    "baseIncome": "Basisinkomen (optioneel)",
+    "baseIncomePlaceholder": "Verwacht maandinkomen",
+    "active": "Actief",
+    "saveChanges": "Wijzigingen opslaan",
+    "saving": "Opslaan...",
+    "typeOptions": {
+      "MONTHLY": "Maandelijks",
+      "ANNUAL": "Jaarlijks",
+      "PAY_PERIOD": "Loonperiode"
+    },
+    "strategyOptions": {
+      "FIXED": "Vast",
+      "ROLLOVER": "Overdracht",
+      "ZERO_BASED": "Op nul gebaseerd",
+      "FIFTY_THIRTY_TWENTY": "50/30/20"
+    }
+  },
+  "healthGauge": {
+    "title": "Gezondheidsscore",
+    "labels": {
+      "excellent": "Uitstekend",
+      "good": "Goed",
+      "needsAttention": "Aandacht vereist",
+      "offTrack": "Niet op koers"
+    }
+  },
+  "heatmap": {
+    "title": "Uitgavenheatmap - {monthLabel}",
+    "ariaLabel": "Uitgavenheatmap",
+    "less": "Minder",
+    "more": "Meer"
+  },
+  "periodDetail": {
+    "summaryCards": {
+      "totalBudgeted": "Totaal gebudgetteerd",
+      "totalSpent": "Totaal uitgegeven",
+      "underBudget": "Onder budget",
+      "overBudget": "Boven budget",
+      "saved": "bespaard",
+      "overspent": "te veel uitgegeven",
+      "income": "Inkomsten",
+      "savings": "Sparen: {amount}"
+    },
+    "rolloverSummary": {
+      "title": "Overdrachtsoverzicht",
+      "carriedIn": "Ingebracht:",
+      "carriedOut": "Uitgebracht:"
+    },
+    "overallUsage": "Totaal budgetgebruik",
+    "expenseCategories": "Uitgavencategorieën",
+    "incomeCategories": "Inkomstencategorieën",
+    "categorySublabel": "{count} categorieën",
+    "rolloverBadge": "+{amount} overdracht",
+    "underBudgetLabel": "{amount} onder budget",
+    "overBudgetLabel": "{amount} boven budget",
+    "carriedForward": "{amount} overgedragen"
+  },
+  "periodSelector": {
+    "label": "Periode:",
+    "currentPeriod": "Huidige periode",
+    "current": "{label} (Huidig)",
+    "projected": "{label} (Gepland)"
+  },
+  "progressBar": {
+    "ariaLabel": "{percent}% gebruikt",
+    "paceMarkerTitle": "Verwacht tempo: {percent}%"
+  },
+  "scenarioPlanner": {
+    "title": "Wat-als-scenarioplanner",
+    "empty": "Geen uitgavencategorieën om mee te plannen.",
+    "reset": "Opnieuw instellen",
+    "applyChanges": "Wijzigingen toepassen",
+    "currentBudget": "Huidig budget",
+    "proposedBudget": "Voorgesteld budget",
+    "projectedSavings": "Geraamde besparingen",
+    "savingsChange": "Bespaarwijziging",
+    "original": "Origineel: {amount}"
+  },
+  "summaryCards": {
+    "totalBudget": "Totaal budget",
+    "spent": "Uitgegeven",
+    "remaining": "Resterend",
+    "savings": "Sparen",
+    "periodEnded": "Periode beëindigd",
+    "days": "{count} dagen",
+    "onTrack": "Op koers",
+    "overBudget": "Boven budget"
+  },
+  "trendChart": {
+    "title": "Budget vs. werkelijke trend",
+    "empty": "Onvoldoende gegevens om trends weer te geven.",
+    "budgeted": "Gebudgetteerd",
+    "actual": "Werkelijk"
+  },
+  "upcomingBills": {
+    "title": "Aankomende rekeningen",
+    "empty": "Geen rekeningen verschuldigd deze periode.",
+    "more": "+{count} meer rekeningen",
+    "totalUpcoming": "Totaal aankomend",
+    "trulyAvailable": "Werkelijk beschikbaar",
+    "over": " te veel"
+  },
+  "velocity": {
+    "title": "Uitgavensnelheid",
+    "dailyBurnRate": "Dagelijks verbruiktarief",
+    "safeToSpend": "Veilig te besteden",
+    "projectedMonthEnd": "Verwacht maandeinde",
+    "budgetTotal": "Totaal budget",
+    "billsComing": "Aankomende rekeningen",
+    "trulyAvailable": "Werkelijk beschikbaar",
+    "over": " te veel",
+    "dayProgress": "Dag {elapsed} van {total}",
+    "daysRemaining": "{count} dagen resterend",
+    "paceStatus": {
+      "under": "Onder budgettempo",
+      "on_track": "Op koers",
+      "over": "Boven budgettempo"
+    }
+  },
+  "wizard": {
+    "steps": {
+      "analyze": "Analyseren",
+      "categories": "Categorieën",
+      "configure": "Configureren",
+      "review": "Beoordelen"
+    },
+    "ariaLabel": "Wizardstappen",
+    "back": "Terug"
+  },
+  "wizardAnalysis": {
+    "chooseStrategy": "Kies een budgetstrategie",
+    "analysisPeriod": "Analyseperiode",
+    "analysisPeriodHint": "Hoeveel maanden transactiegeschiedenis moeten we analyseren om budgetbedragen voor te stellen?",
+    "budgetProfile": "Budgetprofiel",
+    "analyzeButton": "Mijn uitgaven analyseren",
+    "analysisPeriods": {
+      "3": "3 maanden",
+      "6": "6 maanden",
+      "12": "12 maanden"
+    },
+    "strategies": {
+      "FIXED": {
+        "label": "Vast",
+        "description": "Stel vaste bedragen per categorie in. Ongebruikt budget wordt elke periode gereset."
+      },
+      "ROLLOVER": {
+        "label": "Overdracht",
+        "description": "Ongebruikt budget wordt overgedragen. Configureer overdrachtregels per categorie."
+      },
+      "ZERO_BASED": {
+        "label": "Op nul gebaseerd",
+        "description": "Elke euro aan inkomsten krijgt een doel. Inkomsten minus uitgaven is nul."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "label": "50/30/20",
+        "description": "50% behoeften, 30% wensen, 20% sparen. Categorieën worden per groep getagd."
+      }
+    },
+    "profiles": {
+      "COMFORTABLE": {
+        "label": "Comfortabel",
+        "description": "Gebaseerd op jouw 75e percentiel uitgaven. Laat ruimte over."
+      },
+      "ON_TRACK": {
+        "label": "Op koers",
+        "description": "Gebaseerd op jouw mediaanuitgaven. Realistische doelen."
+      },
+      "AGGRESSIVE": {
+        "label": "Ambitieus",
+        "description": "Gebaseerd op jouw 25e percentiel. Een streefnorm om meer te sparen."
+      }
+    },
+    "toasts": {
+      "analyzeFailed": "Analyseren van uitgaven mislukt"
+    }
+  },
+  "wizardCategories": {
+    "title": "Categorieën beoordelen",
+    "noAnalysis": "Geen analysegegevens. Ga terug en voer eerst de analyse uit.",
+    "tableHeaders": {
+      "income": "Inkomsten",
+      "expenses": "Uitgaven",
+      "transfers": "Overboekingen / Sparen",
+      "trendMedian": "Trend / Mediaan",
+      "amount": "Bedrag"
+    },
+    "totals": {
+      "totalIncome": "Totale inkomsten",
+      "totalExpenses": "Totale uitgaven",
+      "transfers": "Overboekingen",
+      "remaining": "Resterend"
+    },
+    "allocation503020": "50/30/20-verdeling",
+    "allocationTarget": "(doel {percent}%)",
+    "nextButton": "Volgende: Configureren",
+    "profiles": {
+      "COMFORTABLE": "Comfortabel",
+      "ON_TRACK": "Op koers",
+      "AGGRESSIVE": "Ambitieus"
+    }
+  },
+  "wizardStrategy": {
+    "title": "Jouw budget configureren",
+    "sections": {
+      "budgetDetails": "Budgetdetails",
+      "income": "Inkomsten",
+      "rolloverRules": "Overdrachtregels",
+      "alertThresholds": "Waarschuwingsdrempels",
+      "flexGroups": "Flexgroepen",
+      "excludedAccounts": "Uitgesloten rekeningen"
+    },
+    "budgetNameLabel": "Budgetnaam",
+    "budgetNameRequired": "Budgetnaam is vereist",
+    "budgetTypeLabel": "Budgettype",
+    "startDateLabel": "Startdatum",
+    "startDateRequired": "Startdatum is vereist",
+    "strategyPrefix": "Strategie: {strategy}",
+    "strategyNotSelected": "Niet geselecteerd",
+    "strategyDescriptions": {
+      "FIXED": "Stel bedragen per categorie in. Ongebruikt budget wordt elke periode gereset.",
+      "ROLLOVER": "Ongebruikt budget wordt overgedragen op basis van overdrachtregels per categorie.",
+      "ZERO_BASED": "Elke euro aan inkomsten wordt toegewezen. Inkomsten minus uitgaven moet nul zijn.",
+      "FIFTY_THIRTY_TWENTY": "Categorieën gegroepeerd als behoeften (50%), wensen (30%), sparen (20%)."
+    },
+    "linkBudgetToIncome": "Budget koppelen aan inkomsten",
+    "linkBudgetToIncomeHint": "Categoriebedragen worden percentages van jouw basisinkomen",
+    "baseMonthlyIncome": "Basis maandinkomen",
+    "estimatedFromAnalysis": "Geraamd uit analyse: {amount}/mnd",
+    "defaultRolloverType": "Standaard overdrachttype",
+    "rolloverHint": "Dit stelt de standaard in voor alle categorieën. Je kunt individuele categorieën aanpassen nadat je het budget hebt aangemaakt.",
+    "rolloverOptions": {
+      "NONE": "Geen -- Reset elke periode",
+      "MONTHLY": "Maandelijks -- Elke maand overgedragen",
+      "QUARTERLY": "Kwartaal -- Elk kwartaal overgedragen",
+      "ANNUAL": "Jaarlijks -- Elk jaar overgedragen"
+    },
+    "warningAt": "Waarschuwing bij (%)",
+    "warningHint": "Activeert een waarschuwing wanneer uitgaven dit % van het budget bereiken",
+    "criticalAt": "Kritiek bij (%)",
+    "criticalHint": "Activeert een kritieke melding wanneer uitgaven dit % van het budget bereiken",
+    "flexGroupsHide": "Verbergen",
+    "flexGroupsConfigure": "Configureren",
+    "flexGroupsHint": "Groepeer gerelateerde uitgavencategorieën samen. Uitgaven worden bijgehouden als groepstotaal, wat flexibiliteit biedt binnen elke groep.",
+    "flexGroupsTableHeaders": {
+      "category": "Categorie",
+      "flexGroup": "Flexgroep"
+    },
+    "flexGroupPlaceholder": "bijv. Vrij te besteden",
+    "excludedAccountsHint": "Transacties van uitgesloten rekeningen tellen niet mee voor jouw budgettotalen.",
+    "excludedCount": "{count} {count, plural, one {rekening} other {rekeningen}} uitgesloten",
+    "categoriesAndTransfers": "{categories} categorieën en {transfers} overboekingen geselecteerd",
+    "budgetTypeOptions": {
+      "MONTHLY": "Maandelijks",
+      "ANNUAL": "Jaarlijks",
+      "PAY_PERIOD": "Loonperiode"
+    },
+    "nextButton": "Volgende: Beoordelen"
+  },
+  "wizardReview": {
+    "title": "Jouw budget beoordelen",
+    "fields": {
+      "name": "Naam",
+      "type": "Type",
+      "strategy": "Strategie",
+      "startDate": "Startdatum",
+      "rollover": "Overdracht",
+      "alerts": "Waarschuwingen",
+      "incomeLinked": "Inkomen gekoppeld",
+      "excludedAccounts": "Uitgesloten rekeningen"
+    },
+    "rolloverOff": "Uit",
+    "alertsValue": "Waarschuwing {warn}% / Kritiek {critical}%",
+    "accountCount": "{count} {count, plural, one {rekening} other {rekeningen}}",
+    "strategyNotSelected": "Niet geselecteerd",
+    "summaryCards": {
+      "estIncome": "Gesch. inkomsten",
+      "totalExpenses": "Totale uitgaven",
+      "transfers": "Overboekingen",
+      "remaining": "Resterend"
+    },
+    "tableHeaders": {
+      "category": "Categorie",
+      "amount": "Bedrag",
+      "type": "Type"
+    },
+    "categoryTypes": {
+      "income": "Inkomsten",
+      "expense": "Uitgaven",
+      "transfer": "Overboeking"
+    },
+    "createButton": "Budget aanmaken",
+    "categoryCount": "{count} categorieën",
+    "accountsCount": "{count} rekeningen",
+    "toasts": {
+      "created": "Budget succesvol aangemaakt",
+      "failed": "Aanmaken van budget mislukt"
+    }
+  },
+  "zeroBasedBar": {
+    "title": "Op nul gebaseerde toewijzing",
+    "fullyAssigned": "Volledig toegewezen",
+    "overAssigned": "Te veel toegewezen",
+    "underAssigned": "Onvoldoende toegewezen",
+    "assigned": "Toegewezen: {assigned} / {income}",
+    "unassigned": "{amount} niet toegewezen",
+    "over": "{amount} te veel"
+  },
+  "strategyCard": {
+    "pros": "Voordelen",
+    "cons": "Nadelen",
+    "bestFor": "Beste voor: ",
+    "strategies": {
+      "FIXED": {
+        "title": "Vast budget",
+        "description": "Stel een vaste bestedingslimiet in voor elke categorie per periode. Ongebruikt geld wordt gereset aan het einde van de periode in plaats van overgedragen.",
+        "pros": [
+          "Eenvoudig in te stellen en te begrijpen",
+          "Duidelijke bestedingslimieten per categorie",
+          "Voorspelbaar maand-tot-maand budgetteren",
+          "Goed beginpunt voor beginners"
+        ],
+        "cons": [
+          "Ongebruikt geld wordt niet overgedragen",
+          "Geen flexibiliteit tussen categorieën",
+          "Past zich niet aan aan onregelmatige uitgaven",
+          "Kan rigide aanvoelen als uitgavenpatronen variëren"
+        ],
+        "bestFor": "Mensen die eenvoudig budgetteren willen met duidelijke limieten en voorspelbare uitgavenpatronen."
+      },
+      "ROLLOVER": {
+        "title": "Overdrachtsbudget",
+        "description": "Ongebruikt budget wordt overgedragen naar de volgende periode op basis van overdrachtregels per categorie. Bouw reserves op voor categorieën met onregelmatige of seizoensgebonden uitgaven.",
+        "pros": [
+          "Bouwt spaargeld op voor onregelmatige uitgaven",
+          "Beloont minder uitgeven in categorieën",
+          "Flexibele overdrachtregels per categorie",
+          "Verwerkt seizoensschommelingen vanzelf"
+        ],
+        "cons": [
+          "Aanvankelijk complexer in te stellen",
+          "Opgebouwde saldi vereisen bewaking",
+          "Kan te veel uitgeven maskeren als maxima te hoog zijn",
+          "Vereist periodieke beoordeling van overdrachtregels"
+        ],
+        "bestFor": "Mensen met onregelmatige uitgaven zoals autoonderhoud, jaarlijkse abonnementen of seizoenskosten die geleidelijk willen sparen."
+      },
+      "ZERO_BASED": {
+        "title": "Op nul gebaseerd budget",
+        "description": "Elke euro aan inkomsten krijgt een specifiek doel. Jouw inkomsten minus alle gebudgetteerde bedragen moeten nul zijn, zodat er geen geld onbestemd blijft.",
+        "pros": [
+          "Maximale controle over elke euro",
+          "Dwingt bewuste bestedingsbeslissingen af",
+          "Legt verspillingen snel bloot",
+          "Zeer effectief voor schuldenaflossingsdoelen"
+        ],
+        "cons": [
+          "Vereist kennis van exacte inkomsten van tevoren",
+          "Tijdsintensief om elke periode bij te houden",
+          "Minder flexibel voor variabel inkomen",
+          "Kan beperkend aanvoelen voor sommige gebruikers"
+        ],
+        "bestFor": "Mensen die totale controle over hun financiën willen en bereid zijn te plannen waar elke euro per periode naartoe gaat."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "title": "50/30/20-budget",
+        "description": "Een evenwichtige aanpak die inkomsten verdeelt in drie groepen: 50% voor behoeften (wonen, boodschappen, nutsvoorzieningen), 30% voor wensen (uit eten, entertainment) en 20% voor sparen en schuldaflossing.",
+        "pros": [
+          "Makkelijk te onthouden en te volgen",
+          "Ingebouwde spaarverdeling",
+          "Evenwichtige benadering van bestedingen",
+          "Flexibel binnen elke groep"
+        ],
+        "cons": [
+          "Kan niet geschikt zijn voor gebieden met hoge kosten van levensonderhoud",
+          "Vaste verhoudingen passen mogelijk niet in alle situaties",
+          "Minder gedetailleerde controle op categorieniveau",
+          "Vereist het categoriseren van elke uitgave per groep"
+        ],
+        "bestFor": "Mensen die een evenwichtige vuistregelbendering willen zonder elke categorie afzonderlijk bij te houden."
+      }
+    }
+  },
+  "pages": {
+    "list": {
+      "title": "Budgetten",
+      "subtitle": "Beheer jouw budgetten en volg uitgaven bij",
+      "newBudget": "+ Nieuw budget",
+      "empty": {
+        "title": "Nog geen budgetten",
+        "description": "Maak jouw eerste budget aan door jouw uitgavengeschiedenis te analyseren. De wizard stelt realistische bedragen voor op basis van jouw transacties.",
+        "cta": "Maak jouw eerste budget aan"
+      },
+      "card": {
+        "active": "Actief",
+        "inactive": "Inactief",
+        "categories": "{count} categorieën",
+        "started": "Gestart {date}"
+      }
+    },
+    "create": {
+      "title": "Budget aanmaken",
+      "subtitle": "Analyseer jouw uitgaven en maak een gepersonaliseerd budget"
+    },
+    "detail": {
+      "backToBudgets": "Terug naar budgetten",
+      "notFound": "Budget niet gevonden",
+      "delete": {
+        "title": "Budget verwijderen",
+        "message": "Weet je zeker dat je \"{name}\" wilt verwijderen? Dit verwijdert alle budgetgegevens inclusief perioden en waarschuwingen. Deze actie kan niet ongedaan worden gemaakt.",
+        "confirm": "Verwijderen",
+        "cancel": "Annuleren"
+      },
+      "toasts": {
+        "deleted": "Budget verwijderd",
+        "deleteFailed": "Verwijderen van budget mislukt",
+        "loadFailed": "Laden van budget mislukt",
+        "periodFailed": "Laden van periode mislukt"
+      }
+    },
+    "edit": {
+      "subtitlePrefix": "Bewerken: ",
+      "subtitle": "Budgetinstellingen en categorieverdelingen bijwerken",
+      "backToDashboard": "Terug naar dashboard",
+      "budgetSettings": "Budgetinstellingen",
+      "categoryAllocations": "Categorieverdelingen",
+      "income": "Inkomsten",
+      "expensesWithCount": "Uitgaven ({count})",
+      "resetsEachPeriod": "Reset elke periode",
+      "percentUsed": "{percent}% gebruikt",
+      "rolloverType": "Overdracht: {type}",
+      "editCategoryTitle": "{name} bewerken",
+      "toasts": {
+        "updated": "Budget bijgewerkt",
+        "updateFailed": "Bijwerken van budget mislukt",
+        "categoryUpdated": "Categorie bijgewerkt",
+        "categoryFailed": "Bijwerken van categorie mislukt",
+        "loadFailed": "Laden van budget mislukt"
+      }
+    }
+  },
+  "validation": {
+    "nameRequired": "Budgetnaam is vereist",
+    "nameMax": "Budgetnaam mag maximaal 255 tekens bevatten",
+    "descriptionMax": "Beschrijving mag maximaal 1000 tekens bevatten"
+  },
+  "categoryValidation": {
+    "amountMin": "Bedrag moet 0 of groter zijn",
+    "mustBeNumber": "Moet een getal zijn"
+  }
+}

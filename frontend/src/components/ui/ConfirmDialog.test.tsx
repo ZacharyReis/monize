@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@/test/render';
 import { ConfirmDialog } from './ConfirmDialog';
 import { __resetModalStateForTesting } from './Modal';
 

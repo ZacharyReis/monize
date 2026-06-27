@@ -56,6 +56,7 @@ import { PaymentFrequency } from "./loan-amortization.util";
 import { MortgagePaymentFrequency } from "./mortgage-amortization.util";
 import { formatDateYMD } from "../common/date-utils";
 import { assertStringParam } from "../common/query-param-utils";
+import { tr } from "../i18n/translate";
 
 /**
  * Sanitise a user-supplied date-format string for the account export
@@ -76,7 +77,9 @@ const NAMED_DATE_FORMATS = new Set([
 function sanitizeDateFormat(input: string | undefined): string | undefined {
   if (input === undefined) return undefined;
   if (input.length > 20) {
-    throw new BadRequestException("dateFormat is too long");
+    throw new BadRequestException(
+      tr("errors.accounts.dateFormatTooLong", "dateFormat is too long"),
+    );
   }
   if (NAMED_DATE_FORMATS.has(input)) {
     return input;
@@ -90,7 +93,9 @@ function sanitizeDateFormat(input: string | undefined): string | undefined {
   // reflected-XSS sanitizer.
   const stripped = input.replace(/[^YMDymd/\-.' ]/g, "");
   if (stripped.length === 0 || stripped !== input) {
-    throw new BadRequestException("Invalid dateFormat");
+    throw new BadRequestException(
+      tr("errors.accounts.invalidDateFormat", "Invalid dateFormat"),
+    );
   }
   return stripped;
 }
@@ -209,7 +214,10 @@ export class AccountsController {
     // endpoint exists only for the delegate's independent overlay.
     if (!req.user.isActing) {
       throw new BadRequestException(
-        "Use the account update endpoint to change favourites",
+        tr(
+          "errors.accounts.useFavouriteUpdateEndpoint",
+          "Use the account update endpoint to change favourites",
+        ),
       );
     }
     await this.delegationService.setDelegateFavourite(
@@ -247,9 +255,13 @@ export class AccountsController {
     const aIds = assertStringParam(accountIds, "accountIds");
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (sd && !dateRegex.test(sd))
-      throw new BadRequestException("startDate must be YYYY-MM-DD");
+      throw new BadRequestException(
+        tr("errors.accounts.startDateFormat", "startDate must be YYYY-MM-DD"),
+      );
     if (ed && !dateRegex.test(ed))
-      throw new BadRequestException("endDate must be YYYY-MM-DD");
+      throw new BadRequestException(
+        tr("errors.accounts.endDateFormat", "endDate must be YYYY-MM-DD"),
+      );
     let ids = aIds ? aIds.split(",").filter(Boolean) : undefined;
     if (req.user.isActing) {
       // Restrict to the delegate's READ-granted accounts (never an
@@ -377,7 +389,9 @@ export class AccountsController {
   ) {
     const fmt = assertStringParam(format, "format");
     if (fmt !== "csv" && fmt !== "qif") {
-      throw new BadRequestException("Format must be csv or qif");
+      throw new BadRequestException(
+        tr("errors.accounts.invalidExportFormat", "Format must be csv or qif"),
+      );
     }
 
     // Sanitize dateFormat via an explicit allowlist-or-strip pipeline so it

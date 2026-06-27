@@ -5,10 +5,13 @@ import { GettingStarted } from './GettingStarted';
 const mockUpdatePreferences = vi.fn();
 
 vi.mock('@/store/preferencesStore', () => ({
-  usePreferencesStore: () => ({
-    preferences: { gettingStartedDismissed: false },
-    updatePreferences: mockUpdatePreferences,
-  }),
+  usePreferencesStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = {
+      preferences: { gettingStartedDismissed: false },
+      updatePreferences: mockUpdatePreferences,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock('@/lib/user-settings', () => ({

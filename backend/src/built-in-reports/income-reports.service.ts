@@ -8,6 +8,7 @@ import {
   RawCategoryAggregate,
   RawMonthlyAggregate,
 } from "./report-currency.service";
+import { roundMoney, sumMoney, toMoneyNumber } from "../common/round.util";
 import {
   IncomeBySourceResponse,
   IncomeSourceItem,
@@ -84,7 +85,7 @@ export class IncomeReportsService {
 
     for (const row of rawResults) {
       const total = this.currencyService.convertAmount(
-        parseFloat(row.total) || 0,
+        toMoneyNumber(row.total),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -118,16 +119,16 @@ export class IncomeReportsService {
         categoryId: id,
         categoryName: category.name,
         color: category.color || null,
-        total: Math.round(total * 100) / 100,
+        total: roundMoney(total),
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 15);
 
-    const totalIncome = data.reduce((sum, item) => sum + item.total, 0);
+    const totalIncome = sumMoney(data.map((item) => item.total));
 
     return {
       data,
-      totalIncome: Math.round(totalIncome * 100) / 100,
+      totalIncome: roundMoney(totalIncome),
     };
   }
 
@@ -193,13 +194,13 @@ export class IncomeReportsService {
     const monthlyMap = new Map<string, { income: number; expenses: number }>();
     for (const row of rawResults) {
       const income = this.currencyService.convertAmount(
-        parseFloat(row.income) || 0,
+        toMoneyNumber(row.income),
         row.currency_code,
         defaultCurrency,
         rateMap,
       );
       const expenses = this.currencyService.convertAmount(
-        parseFloat(row.expenses) || 0,
+        toMoneyNumber(row.expenses),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -217,26 +218,23 @@ export class IncomeReportsService {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, { income, expenses }]) => ({
         month,
-        income: Math.round(income * 100) / 100,
-        expenses: Math.round(expenses * 100) / 100,
-        net: Math.round((income - expenses) * 100) / 100,
+        income: roundMoney(income),
+        expenses: roundMoney(expenses),
+        net: roundMoney(income - expenses),
       }));
 
-    const totals = data.reduce(
-      (acc, item) => ({
-        income: acc.income + item.income,
-        expenses: acc.expenses + item.expenses,
-        net: acc.net + item.net,
-      }),
-      { income: 0, expenses: 0, net: 0 },
-    );
+    const totals = {
+      income: sumMoney(data.map((item) => item.income)),
+      expenses: sumMoney(data.map((item) => item.expenses)),
+      net: sumMoney(data.map((item) => item.net)),
+    };
 
     return {
       data,
       totals: {
-        income: Math.round(totals.income * 100) / 100,
-        expenses: Math.round(totals.expenses * 100) / 100,
-        net: Math.round(totals.net * 100) / 100,
+        income: roundMoney(totals.income),
+        expenses: roundMoney(totals.expenses),
+        net: roundMoney(totals.net),
       },
     };
   }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type {
   AiUsageSummary,
   AiProviderConfig,
@@ -19,10 +20,10 @@ interface UsageDashboardProps {
 }
 
 const PERIOD_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: 'All time', value: undefined },
+  { labelKey: 'periods.d7', value: 7 },
+  { labelKey: 'periods.d30', value: 30 },
+  { labelKey: 'periods.d90', value: 90 },
+  { labelKey: 'periods.all', value: undefined },
 ];
 
 function currencyFormatter(currency: string): Intl.NumberFormat {
@@ -84,6 +85,7 @@ function hasAnyCost(bucket: EstimatedCostByCurrency): boolean {
 }
 
 export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboardProps) {
+  const t = useTranslations('settings.usage');
   const [selectedPeriod, setSelectedPeriod] = useState<number | undefined>(30);
   const [showInHomeCurrency, setShowInHomeCurrency] = useState(true);
   const { convert } = useExchangeRates();
@@ -152,11 +154,11 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Usage</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('heading')}</h2>
         <div className="flex gap-1">
           {PERIOD_OPTIONS.map((opt) => (
             <button
-              key={opt.label}
+              key={opt.labelKey}
               onClick={() => handlePeriodChange(opt.value)}
               className={`px-3 py-1 text-xs rounded-md ${
                 selectedPeriod === opt.value
@@ -164,7 +166,7 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
                   : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
               }`}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
@@ -182,7 +184,7 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
                   : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
               }`}
             >
-              In {homeCurrency}
+              {t('inHomeCurrency', { currency: homeCurrency })}
             </button>
             <button
               type="button"
@@ -193,7 +195,7 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
                   : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
               }`}
             >
-              In provider currency
+              {t('inProviderCurrency')}
             </button>
           </div>
         </div>
@@ -202,34 +204,34 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Total Requests</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('totalRequests')}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {usage.totalRequests.toLocaleString()}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Input Tokens</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('inputTokens')}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {usage.totalInputTokens.toLocaleString()}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Output Tokens</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('outputTokens')}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {usage.totalOutputTokens.toLocaleString()}
           </p>
         </div>
         <div
           className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4"
-          title="Estimated using the cost rates you configured on each provider. Excludes any activity where no matching rate is set."
+          title={t('estCostTooltip')}
         >
-          <p className="text-xs text-gray-500 dark:text-gray-400">Est. Cost</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('estCost')}</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {totalHasCost ? renderBucket(usage.totalEstimatedCostByCurrency) : '-'}
           </p>
           {!totalHasCost && (
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-              Set rates on a provider to enable
+              {t('setRatesToEnable')}
             </p>
           )}
         </div>
@@ -238,16 +240,16 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
       {/* By Provider */}
       {usage.byProvider.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">By Provider</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('byProvider.heading')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                  <th className="pb-2 font-medium">Provider</th>
-                  <th className="pb-2 font-medium text-right">Requests</th>
-                  <th className="pb-2 font-medium text-right">Input Tokens</th>
-                  <th className="pb-2 font-medium text-right">Output Tokens</th>
-                  <th className="pb-2 font-medium text-right">Est. Cost</th>
+                  <th className="pb-2 font-medium">{t('byProvider.provider')}</th>
+                  <th className="pb-2 font-medium text-right">{t('byProvider.requests')}</th>
+                  <th className="pb-2 font-medium text-right">{t('byProvider.inputTokens')}</th>
+                  <th className="pb-2 font-medium text-right">{t('byProvider.outputTokens')}</th>
+                  <th className="pb-2 font-medium text-right">{t('byProvider.estCost')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -269,17 +271,17 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
       {/* Recent Logs */}
       {usage.recentLogs.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recent Activity</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('recentActivity.heading')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                  <th className="pb-2 font-medium">Date</th>
-                  <th className="pb-2 font-medium">Provider</th>
-                  <th className="pb-2 font-medium">Feature</th>
-                  <th className="pb-2 font-medium text-right">Tokens</th>
-                  <th className="pb-2 font-medium text-right">Duration</th>
-                  <th className="pb-2 font-medium text-right">Est. Cost</th>
+                  <th className="pb-2 font-medium">{t('recentActivity.date')}</th>
+                  <th className="pb-2 font-medium">{t('recentActivity.provider')}</th>
+                  <th className="pb-2 font-medium">{t('recentActivity.feature')}</th>
+                  <th className="pb-2 font-medium text-right">{t('recentActivity.tokens')}</th>
+                  <th className="pb-2 font-medium text-right">{t('recentActivity.duration')}</th>
+                  <th className="pb-2 font-medium text-right">{t('recentActivity.estCost')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,7 +311,7 @@ export function UsageDashboard({ usage, configs, onPeriodChange }: UsageDashboar
 
       {usage.totalRequests === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No usage data yet. Usage will appear here once you start using AI features.
+          {t('noUsage')}
         </p>
       )}
     </div>

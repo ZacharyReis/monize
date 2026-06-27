@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { accountsApi } from '@/lib/accounts';
 import { investmentsApi } from '@/lib/investments';
@@ -9,11 +11,10 @@ import { Account } from '@/types/account';
 import { PortfolioSummary } from '@/types/investment';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useReportData } from '@/hooks/useReportData';
 import { CHART_COLOURS } from '@/lib/chart-colours';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('AccountBalancesReport');
+import { ReportError } from '@/components/reports/ReportError';
 
 type AccountTypeFilter = 'all' | 'assets' | 'liabilities';
 type ViewMode = 'table' | 'chart';
@@ -21,50 +22,46 @@ type ChartGrouping = 'type' | 'account';
 
 const LIABILITY_TYPES = ['CREDIT_CARD', 'LOAN', 'MORTGAGE', 'LINE_OF_CREDIT'];
 
-const accountTypeLabels: Record<string, string> = {
-  CHEQUING: 'Chequing',
-  SAVINGS: 'Savings',
-  CREDIT_CARD: 'Credit Card',
-  LINE_OF_CREDIT: 'Line of Credit',
-  LOAN: 'Loan',
-  MORTGAGE: 'Mortgage',
-  INVESTMENT: 'Investment',
-  CASH: 'Cash',
-  ASSET: 'Asset',
-  OTHER: 'Other',
-};
-
 
 export function AccountBalancesReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
   const { convertToDefault, defaultCurrency } = useExchangeRates();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const accountTypeLabels = useMemo<Record<string, string>>(() => ({
+    CHEQUING: t('accountBalances.accountTypes.CHEQUING'),
+    SAVINGS: t('accountBalances.accountTypes.SAVINGS'),
+    CREDIT_CARD: t('accountBalances.accountTypes.CREDIT_CARD'),
+    LINE_OF_CREDIT: t('accountBalances.accountTypes.LINE_OF_CREDIT'),
+    LOAN: t('accountBalances.accountTypes.LOAN'),
+    MORTGAGE: t('accountBalances.accountTypes.MORTGAGE'),
+    INVESTMENT: t('accountBalances.accountTypes.INVESTMENT'),
+    CASH: t('accountBalances.accountTypes.CASH'),
+    ASSET: t('accountBalances.accountTypes.ASSET'),
+    OTHER: t('accountBalances.accountTypes.ASSET'),
+  }), [t]);
   const [typeFilter, setTypeFilter] = useState<AccountTypeFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [chartGrouping, setChartGrouping] = useState<ChartGrouping>('type');
   const chartRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const [data, portfolio] = await Promise.all([
-          accountsApi.getAll(),
-          investmentsApi.getPortfolioSummary().catch(() => null),
-        ]);
-        setAccounts(data);
-        setPortfolioSummary(portfolio);
-      } catch (error) {
-        logger.error('Failed to load accounts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const { data: response, isLoading, error, reload } = useReportData(
+    async () => {
+      const [data, portfolio] = await Promise.all([
+        accountsApi.getAll(),
+        investmentsApi.getPortfolioSummary().catch(() => null),
+      ]);
+      return { accounts: data, portfolioSummary: portfolio };
+    },
+    [],
+  );
+
+  const accounts = useMemo<Account[]>(() => response?.accounts ?? [], [response]);
+  const portfolioSummary = useMemo<PortfolioSummary | null>(
+    () => response?.portfolioSummary ?? null,
+    [response],
+  );
 
   // Build a map of brokerage account ID -> market value of holdings only.
   // Cash balance is tracked separately via the linked INVESTMENT_CASH account
@@ -177,7 +174,7 @@ export function AccountBalancesReport() {
       });
       return data.sort((a, b) => b.value - a.value);
     }
-  }, [chartGrouping, groupedAccounts, filteredAccounts, convertToDefault, getEffectiveBalance]);
+  }, [chartGrouping, groupedAccounts, filteredAccounts, convertToDefault, getEffectiveBalance, accountTypeLabels]);
 
   const chartTotal = useMemo(() => {
     return chartData.reduce((sum, d) => sum + d.value, 0);
@@ -213,18 +210,18 @@ export function AccountBalancesReport() {
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Account', 'Type', 'Balance'];
+    const headers = [t('accountBalances.colAccount'), t('accountBalances.colType'), t('accountBalances.colBalance')];
     const rows = filteredAccounts.map(acc => [
       acc.name,
       accountTypeLabels[acc.accountType] || acc.accountType,
       formatCurrency(getEffectiveBalance(acc), acc.currencyCode),
     ]);
     await exportToPdf({
-      title: 'Account Balances',
+      title: t('accountBalances.pdfTitle'),
       summaryCards: [
-        { label: 'Total Assets', value: formatCurrency(totals.assets), color: '#16a34a' },
-        { label: 'Total Liabilities', value: formatCurrency(totals.liabilities), color: '#dc2626' },
-        { label: 'Net Worth', value: formatCurrency(totals.netWorth), color: totals.netWorth >= 0 ? '#2563eb' : '#ea580c' },
+        { label: t('accountBalances.totalAssets'), value: formatCurrency(totals.assets), color: '#16a34a' },
+        { label: t('accountBalances.totalLiabilities'), value: formatCurrency(totals.liabilities), color: '#dc2626' },
+        { label: t('accountBalances.netWorth'), value: formatCurrency(totals.netWorth), color: totals.netWorth >= 0 ? '#2563eb' : '#ea580c' },
       ],
       chartContainer: chartRef.current,
       tableData: { headers, rows },
@@ -232,11 +229,15 @@ export function AccountBalancesReport() {
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -252,19 +253,19 @@ export function AccountBalancesReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Assets</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('accountBalances.totalAssets')}</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
             {formatCurrency(totals.assets)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('accountBalances.totalLiabilities')}</div>
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {formatCurrency(totals.liabilities)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Net Worth</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('accountBalances.netWorth')}</div>
           <div className={`text-2xl font-bold ${
             totals.netWorth >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'
           }`}>
@@ -287,7 +288,7 @@ export function AccountBalancesReport() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {filter}
+                {t(`accountBalances.filter${filter.charAt(0).toUpperCase() + filter.slice(1)}` as Parameters<typeof t>[0])}
               </button>
             ))}
           </div>
@@ -300,7 +301,7 @@ export function AccountBalancesReport() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
-                title="Table view"
+                title={t('accountBalances.tableView')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -313,7 +314,7 @@ export function AccountBalancesReport() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
-                title="Chart view"
+                title={t('accountBalances.chartView')}
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2.03 0v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0 11.01V22c4.74-.47 8.5-4.25 8.97-8.99h-8.97z" />
@@ -340,13 +341,13 @@ export function AccountBalancesReport() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {g === 'type' ? 'By Account Type' : 'By Account'}
+                {g === 'type' ? t('accountBalances.byAccountType') : t('accountBalances.byAccount')}
               </button>
             ))}
           </div>
 
           {chartData.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No data to display.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('accountBalances.noData')}</p>
           ) : (
             <>
               <div className="h-72">
@@ -393,7 +394,7 @@ export function AccountBalancesReport() {
 
               {/* Total */}
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Total</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('accountBalances.total')}</div>
                 <div className="font-semibold text-gray-900 dark:text-gray-100">
                   {formatCurrency(chartTotal)}
                 </div>
@@ -444,13 +445,13 @@ export function AccountBalancesReport() {
                             {acc.name}
                             {acc.isClosed && (
                               <span className="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded">
-                                Closed
+                                {t('accountBalances.closed')}
                               </span>
                             )}
                           </div>
                           {isBrokerage && (
                             <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Market value
+                              {t('accountBalances.marketValue')}
                             </div>
                           )}
                           {!isBrokerage && acc.description && (
@@ -481,7 +482,7 @@ export function AccountBalancesReport() {
 
           {filteredAccounts.length === 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-8 text-center">
-              <p className="text-gray-500 dark:text-gray-400">No accounts found.</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('accountBalances.noAccounts')}</p>
             </div>
           )}
         </>

@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "Établissements financiers",
+    "subtitle": "Banques et courtiers auxquels appartiennent vos comptes",
+    "newInstitution": "Nouvel établissement",
+    "loading": "Chargement des établissements...",
+    "searchPlaceholder": "Rechercher des établissements...",
+    "modalTitleNew": "Nouvel établissement",
+    "modalTitleEdit": "Modifier l'établissement",
+    "summary": {
+      "total": "Total des établissements",
+      "withLogo": "Avec logo",
+      "linkedAccounts": "Comptes liés"
+    },
+    "toasts": {
+      "loadFailed": "Échec du chargement des établissements",
+      "created": "Établissement créé",
+      "updated": "Établissement mis à jour",
+      "createFailed": "Échec de la création de l'établissement",
+      "updateFailed": "Échec de la mise à jour de l'établissement"
+    }
+  },
+  "list": {
+    "empty": "Aucun établissement. Créez-en un pour commencer à regrouper vos comptes.",
+    "columns": {
+      "name": "Nom",
+      "website": "Site web",
+      "country": "Pays",
+      "accounts": "Comptes",
+      "actions": "Actions"
+    },
+    "accountCount": "{count, plural, =0 {Aucun compte} one {# compte} other {# comptes}}",
+    "density": {
+      "title": "Modifier la densité des lignes",
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense"
+    },
+    "statusFilter": {
+      "all": "Tous",
+      "active": "Actif",
+      "closed": "Fermé"
+    },
+    "actions": {
+      "manageAccounts": "Comptes"
+    },
+    "deleteTitle": "Supprimer l'établissement",
+    "deleteMessage": "Supprimer « {name} » ? Les comptes qui lui sont attribués seront désaffectés mais pas supprimés.",
+    "deleting": "Suppression...",
+    "deleted": "« {name} » supprimé",
+    "deleteFailed": "Échec de la suppression de l'établissement"
+  },
+  "form": {
+    "nameLabel": "Nom",
+    "websiteLabel": "Site web",
+    "websitePlaceholder": "ex. bpce.fr",
+    "countryLabel": "Pays (optionnel)",
+    "countryPlaceholder": "Code à 2 lettres, ex. FR",
+    "logoHint": "Le logo de la marque est récupéré automatiquement depuis le site web.",
+    "submitCreate": "Créer l'établissement",
+    "submitUpdate": "Enregistrer les modifications"
+  },
+  "validation": {
+    "nameRequired": "Le nom est obligatoire",
+    "websiteRequired": "Le site web est obligatoire",
+    "websiteInvalid": "Saisissez un site web valide (ex. bpce.fr)",
+    "countryInvalid": "Utilisez un code pays à 2 lettres"
+  },
+  "accountsManager": {
+    "title": "Comptes chez {name}",
+    "addLabel": "Ajouter un compte",
+    "addPlaceholder": "Sélectionner un compte à ajouter...",
+    "noneToAdd": "Tous vos comptes sont déjà attribués à un établissement.",
+    "loading": "Chargement des comptes...",
+    "empty": "Aucun compte n'est encore attribué à cet établissement.",
+    "noneMatch": "Aucun compte ne correspond au filtre sélectionné.",
+    "filter": {
+      "all": "Tous",
+      "active": "Actif",
+      "closed": "Fermé"
+    },
+    "remove": "Retirer",
+    "viewTransactions": "Voir les transactions de ce compte",
+    "added": "Compte ajouté",
+    "removed": "Compte retiré",
+    "addFailed": "Échec de l'ajout du compte",
+    "removeFailed": "Échec du retrait du compte",
+    "loadFailed": "Échec du chargement des comptes",
+    "done": "Terminé"
+  }
+}

@@ -186,7 +186,10 @@ export class OidcService implements OnModuleInit {
       if (payload.sub !== expectedSubject) return false;
 
       return true;
-    } catch {
+    } catch (err) {
+      this.logger.debug(
+        `ID token claim verification failed: ${err instanceof Error ? err.message : err}`,
+      );
       return false;
     }
   }

@@ -27,8 +27,10 @@ Credentials are in the root `.env` file (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGR
 ## Creating a New Migration
 
 1. **Create the migration file** in `database/migrations/` with the next sequential number prefix:
-   - Current latest: `018_user_currency_preferences.sql`
-   - Next file: `019_<descriptive_name>.sql`
+   - Current latest: `079_securities_is_favourite.sql`
+   - Next file: `080_<descriptive_name>.sql`
+   - **The numeric prefix must be unique** — `ls database/migrations | awk -F_ '{print $1}' | sort | uniq -d` should print nothing.
+     Migrations are applied in filename order; duplicate prefixes (we have a few historical pairs at `022`, `068`, `075`) leave the apply order ambiguous and rely on alphabetical tie-breaking, which is brittle.
    - Use `IF NOT EXISTS` / `IF EXISTS` to make migrations idempotent
 
 2. **Update `schema.sql`** to reflect the same change (so fresh installs match migrated databases)
@@ -42,7 +44,7 @@ Credentials are in the root `.env` file (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGR
 6. **Restart the backend** — migrations will be applied automatically on startup
 
 ## Migration File Conventions
-- Numbered prefix for ordering: `NNN_description.sql` (e.g., `018_user_currency_preferences.sql`)
+- Numbered prefix for ordering: `NNN_description.sql` (e.g., `079_securities_is_favourite.sql`)
 - Use `ADD COLUMN IF NOT EXISTS` for column additions
 - Use `CREATE TABLE IF NOT EXISTS` for new tables
 - Use `CREATE INDEX IF NOT EXISTS` for new indexes

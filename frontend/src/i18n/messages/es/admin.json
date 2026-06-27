@@ -1,0 +1,108 @@
+{
+  "createUserModal": {
+    "title": "Agregar usuario",
+    "description": "Crea una cuenta nueva. Puedes enviar una invitación por correo, establecer una contraseña tú mismo o generar una temporal para compartir.",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "usuario@ejemplo.com",
+    "firstNameLabel": "Nombre (opcional)",
+    "firstNamePlaceholder": "Nombre",
+    "lastNameLabel": "Apellido (opcional)",
+    "lastNamePlaceholder": "Apellido",
+    "roleLabel": "Rol",
+    "roleUser": "Usuario",
+    "roleAdmin": "Administrador",
+    "credentialsLegend": "Credenciales",
+    "inviteLabel": "Enviar invitación por correo para establecer contraseña",
+    "inviteSmtpNote": "Requiere que SMTP esté configurado.",
+    "setPasswordLabel": "Establecer una contraseña ahora",
+    "tempPasswordLabel": "Generar una contraseña temporal",
+    "tempPasswordNote": "Se muestra una vez después de la creación. El usuario debe cambiarla en el primer inicio de sesión.",
+    "passwordFieldLabel": "Contraseña",
+    "passwordPlaceholder": "Establecer una contraseña",
+    "createButton": "Crear usuario",
+    "validation": {
+      "invalidPassword": "Contraseña inválida."
+    },
+    "toasts": {
+      "createFailed": "Error al crear el usuario"
+    }
+  },
+  "resetPasswordModal": {
+    "defaultTitle": "Contraseña restablecida correctamente",
+    "defaultDescription": "Se ha establecido una contraseña temporal para {userName}.",
+    "temporaryPasswordLabel": "Contraseña temporal",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "notShownAgain": "Esta contraseña no se mostrará de nuevo.",
+    "mustChangeOnLogin": "El usuario deberá cambiar su contraseña en el próximo inicio de sesión.",
+    "toasts": {
+      "copied": "Contraseña copiada al portapapeles",
+      "copyFailed": "Error al copiar al portapapeles"
+    }
+  },
+  "userTable": {
+    "colUser": "Usuario",
+    "colRole": "Rol",
+    "colProvider": "Proveedor",
+    "colStatus": "Estado",
+    "colLastLogin": "Último inicio de sesión",
+    "colActions": "Acciones",
+    "youSuffix": "(tú)",
+    "noEmail": "Sin correo",
+    "unknown": "Desconocido",
+    "never": "Nunca",
+    "providerSso": "SSO",
+    "providerLocal": "Local",
+    "roleAdmin": "Administrador",
+    "roleUser": "Usuario",
+    "statusActive": "Activo",
+    "statusDisabled": "Desactivado",
+    "clickToDisable": "Clic para desactivar",
+    "clickToEnable": "Clic para activar",
+    "resetPassword": "Restablecer contraseña",
+    "noUsers": "No se encontraron usuarios."
+  },
+  "usersPage": {
+    "title": "Gestión de usuarios",
+    "userCount": "{count, plural, one {# usuario} other {# usuarios}}",
+    "newUser": "+ Nuevo usuario",
+    "loadingUsers": "Cargando usuarios...",
+    "toasts": {
+      "inviteSent": "Correo de invitación enviado a {email}",
+      "userCreated": "{name} ha sido creado",
+      "userUpgraded": "{name} fue promovido a cuenta completa",
+      "roleChanged": "{name} ahora es {role}",
+      "roleAdmin": "administrador",
+      "roleUser": "usuario",
+      "userEnabled": "{name} ha sido activado",
+      "userDisabled": "{name} ha sido desactivado",
+      "userDeleted": "{name} ha sido eliminado",
+      "userDowngraded": "Los datos propios de {name} fueron eliminados; su acceso como delegado se conserva.",
+      "loadFailed": "Error al cargar los usuarios",
+      "deleteFailed": "Error al eliminar el usuario",
+      "disableFailed": "Error al desactivar el usuario",
+      "resetFailed": "Error al restablecer la contraseña"
+    },
+    "dialogs": {
+      "promoteTitle": "¿Promover usuario?",
+      "demoteTitle": "¿Degradar usuario?",
+      "promoteMessage": "¿Seguro que quieres promover a {name} a {role}?",
+      "demoteMessage": "¿Seguro que quieres degradar a {name} a {role}?",
+      "promoteConfirm": "Promover a administrador",
+      "demoteConfirm": "Degradar a usuario",
+      "disableTitle": "¿Desactivar usuario?",
+      "disableMessage": "¿Seguro que quieres desactivar a {name}? No podrá iniciar sesión.",
+      "disableConfirm": "Desactivar usuario",
+      "resetTitle": "¿Restablecer contraseña?",
+      "resetMessage": "Esto generará una nueva contraseña temporal para {name}. Deberá cambiarla en el próximo inicio de sesión.",
+      "resetConfirm": "Restablecer contraseña",
+      "deleteTitle": "¿Eliminar usuario?",
+      "deleteMessage": "¿Seguro que quieres eliminar a {name}? Esto eliminará permanentemente su cuenta y todos los datos asociados. Esta acción no se puede deshacer. Si es delegado de otra cuenta, se eliminan sus datos propios pero se conserva su inicio de sesión para que la delegación siga funcionando — se convierte en usuario solo delegado.",
+      "deleteConfirm": "Eliminar usuario",
+      "tempPasswordTitleCreated": "Usuario creado",
+      "tempPasswordTitleUpgraded": "Cuenta promovida",
+      "tempPasswordDescCreated": "Se generó una contraseña temporal para {name}. Compártela con ellos para que inicien sesión.",
+      "tempPasswordDescUpgraded": "Un usuario compartido existente fue promovido a cuenta completa. Comparte esta contraseña temporal con {name}."
+    }
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { UseFormRegister, FieldErrors, UseFormSetValue } from 'react-hook-form';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
@@ -39,6 +40,10 @@ interface TransferTransactionFieldsProps {
   crossCurrencyInfo: CrossCurrencyInfo | null;
   payees: Payee[];
   payeeAliasMap?: Record<string, string[]>;
+  categoryOptions: Array<{ value: string; label: string }>;
+  selectedCategoryId: string;
+  handleCategoryChange: (categoryId: string, name: string) => void;
+  handleCategoryCreate: (name: string) => void;
   transaction?: Transaction;
   createdAtSlot?: ReactNode;
 }
@@ -62,9 +67,14 @@ export function TransferTransactionFields({
   crossCurrencyInfo,
   payees,
   payeeAliasMap,
+  categoryOptions,
+  selectedCategoryId,
+  handleCategoryChange,
+  handleCategoryCreate,
   transaction,
   createdAtSlot,
 }: TransferTransactionFieldsProps) {
+  const t = useTranslations('transactions');
   // A delegate may only have READ on one side of a transfer; the other
   // account is not in `accounts` (and the backend masked it). Surface it as
   // a read-only "Hidden account" option so the field is not blank.
@@ -80,7 +90,7 @@ export function TransferTransactionFields({
       {/* Row 1: Date and optionally Create Date */}
       <div className={`grid grid-cols-1 gap-4 ${createdAtSlot ? 'md:grid-cols-2' : 'md:grid-cols-2'}`}>
         <DateInput
-          label="Date"
+          label={t('form.fields.date')}
           error={errors.transactionDate?.message as string | undefined}
           onDateChange={(date) => setValue('transactionDate', date, { shouldDirty: true, shouldValidate: true })}
           {...register('transactionDate')}
@@ -91,11 +101,11 @@ export function TransferTransactionFields({
       {/* Row 2: From and To Accounts side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Select
-          label="From Account"
+          label={t('form.fields.fromAccount')}
           error={errors.accountId?.message as string | undefined}
           value={watchedAccountId || ''}
           options={[
-            { value: '', label: 'Select account...' },
+            { value: '', label: t('form.placeholders.selectAccount') },
             ...hiddenAccountOption(watchedAccountId),
             ...buildAccountDropdownOptions(
               accounts,
@@ -107,14 +117,14 @@ export function TransferTransactionFields({
           {...register('accountId')}
         />
         <Select
-          label="To Account"
+          label={t('form.fields.toAccount')}
           value={transferToAccountId}
           onChange={(e) => {
             setTransferToAccountId(e.target.value);
             setTransferTargetAmount(undefined);
           }}
           options={[
-            { value: '', label: 'Select destination account...' },
+            { value: '', label: t('form.placeholders.selectDestinationAccount') },
             ...hiddenAccountOption(transferToAccountId),
             ...buildAccountDropdownOptions(
               accounts,
@@ -127,11 +137,11 @@ export function TransferTransactionFields({
         />
       </div>
 
-      {/* Row 3: Transfer Amount under From, Received Amount under To (for cross-currency) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Row 3: Transfer Amount, Received Amount (cross-currency only), and Reference Number */}
+      <div className={`grid grid-cols-1 gap-4 ${crossCurrencyInfo ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <div>
           <CurrencyInput
-            label={`Transfer Amount${crossCurrencyInfo ? ` (${crossCurrencyInfo.fromCurrency})` : ''}`}
+            label={crossCurrencyInfo ? t('form.fields.transferAmountWithCurrency', { currency: crossCurrencyInfo.fromCurrency }) : t('form.fields.transferAmount')}
             prefix={getCurrencySymbol(watchedCurrencyCode)}
             value={watchedAmount}
             onChange={(value) => setValue('amount', value !== undefined ? Math.abs(value) : 0, { shouldValidate: true })}
@@ -140,7 +150,7 @@ export function TransferTransactionFields({
           />
           {!crossCurrencyInfo && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Amount must be positive for transfers
+              {t('form.transferAmountNote')}
             </p>
           )}
         </div>
@@ -149,24 +159,32 @@ export function TransferTransactionFields({
         {crossCurrencyInfo && (
           <div>
             <CurrencyInput
-              label={`Amount Received (${crossCurrencyInfo.toCurrency})`}
+              label={t('form.fields.amountReceived', { currency: crossCurrencyInfo.toCurrency })}
               prefix={getCurrencySymbol(crossCurrencyInfo.toCurrency)}
               value={transferTargetAmount}
               onChange={(value) => setTransferTargetAmount(value !== undefined ? Math.abs(value) : undefined)}
               allowNegative={false}
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Amount received after currency conversion
+              {t('form.amountReceivedNote')}
             </p>
           </div>
         )}
+
+        <Input
+          label={t('form.fields.referenceNumber')}
+          type="text"
+          placeholder={t('form.placeholders.referenceNumber')}
+          error={errors.referenceNumber?.message as string | undefined}
+          {...register('referenceNumber')}
+        />
       </div>
 
-      {/* Row 4: Payee and Reference Number */}
+      {/* Row 4: Payee and Category */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Combobox
-          label="Payee (Optional)"
-          placeholder="Select or type payee name..."
+          label={t('form.fields.payeeOptional')}
+          placeholder={t('form.placeholders.selectOrTypePayee')}
           options={payees.map(payee => ({
             value: payee.id,
             label: payee.name,
@@ -180,13 +198,24 @@ export function TransferTransactionFields({
           }}
           allowCustomValue={true}
         />
-        <Input
-          label="Reference Number"
-          type="text"
-          placeholder="Cheque #, confirmation #..."
-          error={errors.referenceNumber?.message as string | undefined}
-          {...register('referenceNumber')}
-        />
+        {/* A transfer never counts as income/expense, but a category lets it
+            appear in the monthly category breakdown (e.g. investment contributions). */}
+        <div>
+          <Combobox
+            label={t('form.fields.categoryOptional')}
+            placeholder={t('form.placeholders.selectOrCreateCategory')}
+            options={categoryOptions}
+            value={selectedCategoryId}
+            initialDisplayValue={transaction?.category?.name || ''}
+            onChange={handleCategoryChange}
+            onCreateNew={handleCategoryCreate}
+            allowCustomValue={true}
+            error={errors.categoryId?.message as string | undefined}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t('form.transferCategoryNote')}
+          </p>
+        </div>
       </div>
     </div>
   );

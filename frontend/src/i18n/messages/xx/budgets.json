@@ -1,0 +1,548 @@
+{
+  "alerts": {
+    "title": "[XX-Alerts-XX]",
+    "unread": "[XX-{count} unread-XX]",
+    "markAllRead": "[XX-Mark all read-XX]",
+    "loading": "[XX-Loading alerts...-XX]",
+    "empty": "[XX-No alerts-XX]",
+    "undo": "[XX-Undo-XX]",
+    "buttonTitle": "[XX-Alerts-XX]",
+    "buttonAriaLabel": "[XX-Alerts-XX]",
+    "dismissAriaLabel": "[XX-Dismiss alert-XX]",
+    "severity": {
+      "critical": "[XX-Critical-XX]",
+      "warning": "[XX-Warning-XX]",
+      "success": "[XX-Good News-XX]",
+      "info": "[XX-Info-XX]"
+    }
+  },
+  "summary503020": {
+    "title": "[XX-50/30/20 Allocation-XX]",
+    "groups": {
+      "NEED": "[XX-Needs-XX]",
+      "WANT": "[XX-Wants-XX]",
+      "SAVING": "[XX-Savings-XX]"
+    },
+    "target": "[XX-Target: {percent}%-XX]",
+    "budgeted": "[XX-Budgeted: {percent}% ({amount})-XX]"
+  },
+  "categoryForm": {
+    "editTitle": "[XX-Edit: {name}-XX]",
+    "budgetAmount": "[XX-Budget Amount-XX]",
+    "rolloverType": "[XX-Rollover Type-XX]",
+    "rolloverCap": "[XX-Rollover Cap (optional)-XX]",
+    "rolloverCapPlaceholder": "[XX-No cap-XX]",
+    "flexGroup": "[XX-Flex Group (optional)-XX]",
+    "flexGroupPlaceholder": "[XX-e.g., Fun Money-XX]",
+    "categoryGroup": "[XX-Category Group (50/30/20)-XX]",
+    "warningAt": "[XX-Warning at (%)-XX]",
+    "criticalAt": "[XX-Critical at (%)-XX]",
+    "notes": "[XX-Notes (optional)-XX]",
+    "notesPlaceholder": "[XX-Notes about this category budget-XX]",
+    "rolloverOptions": {
+      "NONE": "[XX-None (resets each period)-XX]",
+      "MONTHLY": "[XX-Monthly rollover-XX]",
+      "QUARTERLY": "[XX-Quarterly rollover-XX]",
+      "ANNUAL": "[XX-Annual rollover-XX]"
+    },
+    "groupOptions": {
+      "none": "[XX-None-XX]",
+      "NEED": "[XX-Need-XX]",
+      "WANT": "[XX-Want-XX]",
+      "SAVING": "[XX-Saving-XX]"
+    },
+    "saving": "[XX-Saving...-XX]"
+  },
+  "categoryList": {
+    "title": "[XX-Category Budgets-XX]",
+    "empty": "[XX-No expense categories in this budget.-XX]",
+    "sort": "[XX-Sort:-XX]",
+    "sortAriaLabel": "[XX-Sort categories-XX]",
+    "sortAscAriaLabel": "[XX-Sort descending-XX]",
+    "sortDescAriaLabel": "[XX-Sort ascending-XX]",
+    "sortDescTitle": "[XX-Sort descending-XX]",
+    "sortAscTitle": "[XX-Sort ascending-XX]",
+    "sortOptions": {
+      "percentUsed": "[XX-% Used-XX]",
+      "spent": "[XX-Spent-XX]",
+      "remaining": "[XX-Remaining-XX]",
+      "name": "[XX-Name-XX]"
+    }
+  },
+  "categoryRow": {
+    "overPace": "[XX-Over pace-XX]",
+    "underPace": "[XX-Under pace-XX]",
+    "onPace": "[XX-On pace-XX]",
+    "rollover": "[XX-Rollover: {type}-XX]",
+    "remaining": "[XX-{amount} left-XX]",
+    "over": "[XX-{amount} over-XX]"
+  },
+  "categoryTrend": {
+    "title": "[XX-Category Trends-XX]",
+    "empty": "[XX-Not enough data to display category trends yet.-XX]",
+    "tableHeaders": {
+      "category": "[XX-Category-XX]",
+      "avgBudget": "[XX-Avg Budget-XX]",
+      "avgActual": "[XX-Avg Actual-XX]",
+      "avgVariance": "[XX-Avg Variance-XX]"
+    }
+  },
+  "flexGroups": {
+    "title": "[XX-Flex Groups-XX]"
+  },
+  "form": {
+    "budgetName": "[XX-Budget Name-XX]",
+    "description": "[XX-Description (optional)-XX]",
+    "descriptionPlaceholder": "[XX-Budget description-XX]",
+    "budgetType": "[XX-Budget Type-XX]",
+    "strategy": "[XX-Strategy-XX]",
+    "baseIncome": "[XX-Base Income (optional)-XX]",
+    "baseIncomePlaceholder": "[XX-Expected monthly income-XX]",
+    "active": "[XX-Active-XX]",
+    "saveChanges": "[XX-Save Changes-XX]",
+    "saving": "[XX-Saving...-XX]",
+    "typeOptions": {
+      "MONTHLY": "[XX-Monthly-XX]",
+      "ANNUAL": "[XX-Annual-XX]",
+      "PAY_PERIOD": "[XX-Pay Period-XX]"
+    },
+    "strategyOptions": {
+      "FIXED": "[XX-Fixed-XX]",
+      "ROLLOVER": "[XX-Rollover-XX]",
+      "ZERO_BASED": "[XX-Zero-Based-XX]",
+      "FIFTY_THIRTY_TWENTY": "[XX-50/30/20-XX]"
+    }
+  },
+  "healthGauge": {
+    "title": "[XX-Health Score-XX]",
+    "labels": {
+      "excellent": "[XX-Excellent-XX]",
+      "good": "[XX-Good-XX]",
+      "needsAttention": "[XX-Needs Attention-XX]",
+      "offTrack": "[XX-Off Track-XX]"
+    }
+  },
+  "heatmap": {
+    "title": "[XX-Spending Heatmap - {monthLabel}-XX]",
+    "ariaLabel": "[XX-Spending heatmap-XX]",
+    "less": "[XX-Less-XX]",
+    "more": "[XX-More-XX]"
+  },
+  "periodDetail": {
+    "summaryCards": {
+      "totalBudgeted": "[XX-Total Budgeted-XX]",
+      "totalSpent": "[XX-Total Spent-XX]",
+      "underBudget": "[XX-Under Budget-XX]",
+      "overBudget": "[XX-Over Budget-XX]",
+      "saved": "[XX-saved-XX]",
+      "overspent": "[XX-overspent-XX]",
+      "income": "[XX-Income-XX]",
+      "savings": "[XX-Savings: {amount}-XX]"
+    },
+    "rolloverSummary": {
+      "title": "[XX-Rollover Summary-XX]",
+      "carriedIn": "[XX-Carried in:-XX]",
+      "carriedOut": "[XX-Carried out:-XX]"
+    },
+    "overallUsage": "[XX-Overall Budget Usage-XX]",
+    "expenseCategories": "[XX-Expense Categories-XX]",
+    "incomeCategories": "[XX-Income Categories-XX]",
+    "categorySublabel": "[XX-{count} categories-XX]",
+    "rolloverBadge": "[XX-+{amount} rollover-XX]",
+    "underBudgetLabel": "[XX-{amount} under budget-XX]",
+    "overBudgetLabel": "[XX-{amount} over budget-XX]",
+    "carriedForward": "[XX-{amount} carried forward-XX]"
+  },
+  "periodSelector": {
+    "label": "[XX-Period:-XX]",
+    "currentPeriod": "[XX-Current Period-XX]",
+    "current": "[XX-{label} (Current)-XX]",
+    "projected": "[XX-{label} (Projected)-XX]"
+  },
+  "progressBar": {
+    "ariaLabel": "[XX-{percent}% used-XX]",
+    "paceMarkerTitle": "[XX-Expected pace: {percent}%-XX]"
+  },
+  "scenarioPlanner": {
+    "title": "[XX-What-If Scenario Planner-XX]",
+    "empty": "[XX-No expense categories to plan with.-XX]",
+    "reset": "[XX-Reset-XX]",
+    "applyChanges": "[XX-Apply Changes-XX]",
+    "currentBudget": "[XX-Current Budget-XX]",
+    "proposedBudget": "[XX-Proposed Budget-XX]",
+    "projectedSavings": "[XX-Projected Savings-XX]",
+    "savingsChange": "[XX-Savings Change-XX]",
+    "original": "[XX-Original: {amount}-XX]"
+  },
+  "summaryCards": {
+    "totalBudget": "[XX-Total Budget-XX]",
+    "spent": "[XX-Spent-XX]",
+    "remaining": "[XX-Remaining-XX]",
+    "savings": "[XX-Savings-XX]",
+    "periodEnded": "[XX-Period ended-XX]",
+    "days": "[XX-{count} days-XX]",
+    "onTrack": "[XX-On track-XX]",
+    "overBudget": "[XX-Over budget-XX]"
+  },
+  "trendChart": {
+    "title": "[XX-Budget vs Actual Trend-XX]",
+    "empty": "[XX-Not enough data to display trends yet.-XX]",
+    "budgeted": "[XX-Budgeted-XX]",
+    "actual": "[XX-Actual-XX]"
+  },
+  "upcomingBills": {
+    "title": "[XX-Upcoming Bills-XX]",
+    "empty": "[XX-No bills due this period.-XX]",
+    "more": "[XX-+{count} more bills-XX]",
+    "totalUpcoming": "[XX-Total upcoming-XX]",
+    "trulyAvailable": "[XX-Truly available-XX]",
+    "over": "[XX- over-XX]"
+  },
+  "velocity": {
+    "title": "[XX-Spending Velocity-XX]",
+    "dailyBurnRate": "[XX-Daily burn rate-XX]",
+    "safeToSpend": "[XX-Safe to spend-XX]",
+    "projectedMonthEnd": "[XX-Projected month-end-XX]",
+    "budgetTotal": "[XX-Budget total-XX]",
+    "billsComing": "[XX-Bills coming-XX]",
+    "trulyAvailable": "[XX-Truly available-XX]",
+    "over": "[XX- over-XX]",
+    "dayProgress": "[XX-Day {elapsed} of {total}-XX]",
+    "daysRemaining": "[XX-{count} days remaining-XX]",
+    "paceStatus": {
+      "under": "[XX-Under budget pace-XX]",
+      "on_track": "[XX-On track-XX]",
+      "over": "[XX-Over budget pace-XX]"
+    }
+  },
+  "wizard": {
+    "steps": {
+      "analyze": "[XX-Analyze-XX]",
+      "categories": "[XX-Categories-XX]",
+      "configure": "[XX-Configure-XX]",
+      "review": "[XX-Review-XX]"
+    },
+    "ariaLabel": "[XX-Wizard steps-XX]",
+    "back": "[XX-Back-XX]"
+  },
+  "wizardAnalysis": {
+    "chooseStrategy": "[XX-Choose a Budget Strategy-XX]",
+    "analysisPeriod": "[XX-Analysis Period-XX]",
+    "analysisPeriodHint": "[XX-How many months of transaction history should we analyze to suggest budget amounts?-XX]",
+    "budgetProfile": "[XX-Budget Profile-XX]",
+    "analyzeButton": "[XX-Analyze My Spending-XX]",
+    "analysisPeriods": {
+      "3": "[XX-3 months-XX]",
+      "6": "[XX-6 months-XX]",
+      "12": "[XX-12 months-XX]"
+    },
+    "strategies": {
+      "FIXED": {
+        "label": "[XX-Fixed-XX]",
+        "description": "[XX-Set fixed amounts per category. Unused budget resets each period.-XX]"
+      },
+      "ROLLOVER": {
+        "label": "[XX-Rollover-XX]",
+        "description": "[XX-Unused budget carries forward. Configure rollover rules per category.-XX]"
+      },
+      "ZERO_BASED": {
+        "label": "[XX-Zero-Based-XX]",
+        "description": "[XX-Every dollar of income is assigned a purpose. Income minus expenses equals zero.-XX]"
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "label": "[XX-50/30/20-XX]",
+        "description": "[XX-50% needs, 30% wants, 20% savings. Categories are tagged by group.-XX]"
+      }
+    },
+    "profiles": {
+      "COMFORTABLE": {
+        "label": "[XX-Comfortable-XX]",
+        "description": "[XX-Based on your 75th percentile spending. Allows headroom.-XX]"
+      },
+      "ON_TRACK": {
+        "label": "[XX-On Track-XX]",
+        "description": "[XX-Based on your median spending. Realistic targets.-XX]"
+      },
+      "AGGRESSIVE": {
+        "label": "[XX-Aggressive-XX]",
+        "description": "[XX-Based on your 25th percentile. A stretch goal to save more.-XX]"
+      }
+    },
+    "toasts": {
+      "analyzeFailed": "[XX-Failed to analyze spending-XX]"
+    }
+  },
+  "wizardCategories": {
+    "title": "[XX-Review Categories-XX]",
+    "noAnalysis": "[XX-No analysis data. Go back and run the analysis first.-XX]",
+    "tableHeaders": {
+      "income": "[XX-Income-XX]",
+      "expenses": "[XX-Expenses-XX]",
+      "transfers": "[XX-Transfers / Savings-XX]",
+      "trendMedian": "[XX-Trend / Median-XX]",
+      "amount": "[XX-Amount-XX]"
+    },
+    "totals": {
+      "totalIncome": "[XX-Total Income-XX]",
+      "totalExpenses": "[XX-Total Expenses-XX]",
+      "transfers": "[XX-Transfers-XX]",
+      "remaining": "[XX-Remaining-XX]"
+    },
+    "allocation503020": "[XX-50/30/20 Allocation-XX]",
+    "allocationTarget": "[XX-(target {percent}%)-XX]",
+    "nextButton": "[XX-Next: Configure-XX]",
+    "profiles": {
+      "COMFORTABLE": "[XX-Comfortable-XX]",
+      "ON_TRACK": "[XX-On Track-XX]",
+      "AGGRESSIVE": "[XX-Aggressive-XX]"
+    }
+  },
+  "wizardStrategy": {
+    "title": "[XX-Configure Your Budget-XX]",
+    "sections": {
+      "budgetDetails": "[XX-Budget Details-XX]",
+      "income": "[XX-Income-XX]",
+      "rolloverRules": "[XX-Rollover Rules-XX]",
+      "alertThresholds": "[XX-Alert Thresholds-XX]",
+      "flexGroups": "[XX-Flex Groups-XX]",
+      "excludedAccounts": "[XX-Excluded Accounts-XX]"
+    },
+    "budgetNameLabel": "[XX-Budget Name-XX]",
+    "budgetNameRequired": "[XX-Budget name is required-XX]",
+    "budgetTypeLabel": "[XX-Budget Type-XX]",
+    "startDateLabel": "[XX-Start Date-XX]",
+    "startDateRequired": "[XX-Start date is required-XX]",
+    "strategyPrefix": "[XX-Strategy: {strategy}-XX]",
+    "strategyNotSelected": "[XX-Not selected-XX]",
+    "strategyDescriptions": {
+      "FIXED": "[XX-Set amounts per category. Unspent budget resets each period.-XX]",
+      "ROLLOVER": "[XX-Unspent budget carries forward based on per-category rollover rules.-XX]",
+      "ZERO_BASED": "[XX-Every dollar of income is assigned. Income minus expenses should equal zero.-XX]",
+      "FIFTY_THIRTY_TWENTY": "[XX-Categories grouped as Needs (50%), Wants (30%), Savings (20%).-XX]"
+    },
+    "linkBudgetToIncome": "[XX-Link budget to income-XX]",
+    "linkBudgetToIncomeHint": "[XX-Category amounts become percentages of your base income-XX]",
+    "baseMonthlyIncome": "[XX-Base Monthly Income-XX]",
+    "estimatedFromAnalysis": "[XX-Estimated from analysis: {amount}/mo-XX]",
+    "defaultRolloverType": "[XX-Default Rollover Type-XX]",
+    "rolloverHint": "[XX-This sets the default for all categories. You can customize individual categories after creating the budget.-XX]",
+    "rolloverOptions": {
+      "NONE": "[XX-None -- Resets each period-XX]",
+      "MONTHLY": "[XX-Monthly -- Rolls forward every month-XX]",
+      "QUARTERLY": "[XX-Quarterly -- Rolls forward every quarter-XX]",
+      "ANNUAL": "[XX-Annual -- Rolls forward every year-XX]"
+    },
+    "warningAt": "[XX-Warning at (%)-XX]",
+    "warningHint": "[XX-Triggers a warning when spending reaches this % of budget-XX]",
+    "criticalAt": "[XX-Critical at (%)-XX]",
+    "criticalHint": "[XX-Triggers a critical alert when spending reaches this % of budget-XX]",
+    "flexGroupsHide": "[XX-Hide-XX]",
+    "flexGroupsConfigure": "[XX-Configure-XX]",
+    "flexGroupsHint": "[XX-Group related expense categories together. Spending is tracked as a group total, giving flexibility within each group.-XX]",
+    "flexGroupsTableHeaders": {
+      "category": "[XX-Category-XX]",
+      "flexGroup": "[XX-Flex Group-XX]"
+    },
+    "flexGroupPlaceholder": "[XX-e.g. Fun Money-XX]",
+    "excludedAccountsHint": "[XX-Transactions from excluded accounts will not count toward your budget totals.-XX]",
+    "excludedCount": "[XX-{count} {count, plural, one {account} other {accounts}} excluded-XX]",
+    "categoriesAndTransfers": "[XX-{categories} categories and {transfers} transfers selected-XX]",
+    "budgetTypeOptions": {
+      "MONTHLY": "[XX-Monthly-XX]",
+      "ANNUAL": "[XX-Annual-XX]",
+      "PAY_PERIOD": "[XX-Pay Period-XX]"
+    },
+    "nextButton": "[XX-Next: Review-XX]"
+  },
+  "wizardReview": {
+    "title": "[XX-Review Your Budget-XX]",
+    "fields": {
+      "name": "[XX-Name-XX]",
+      "type": "[XX-Type-XX]",
+      "strategy": "[XX-Strategy-XX]",
+      "startDate": "[XX-Start Date-XX]",
+      "rollover": "[XX-Rollover-XX]",
+      "alerts": "[XX-Alerts-XX]",
+      "incomeLinked": "[XX-Income Linked-XX]",
+      "excludedAccounts": "[XX-Excluded Accounts-XX]"
+    },
+    "rolloverOff": "[XX-Off-XX]",
+    "alertsValue": "[XX-Warn {warn}% / Critical {critical}%-XX]",
+    "accountCount": "[XX-{count} {count, plural, one {account} other {accounts}}-XX]",
+    "strategyNotSelected": "[XX-Not selected-XX]",
+    "summaryCards": {
+      "estIncome": "[XX-Est. Income-XX]",
+      "totalExpenses": "[XX-Total Expenses-XX]",
+      "transfers": "[XX-Transfers-XX]",
+      "remaining": "[XX-Remaining-XX]"
+    },
+    "tableHeaders": {
+      "category": "[XX-Category-XX]",
+      "amount": "[XX-Amount-XX]",
+      "type": "[XX-Type-XX]"
+    },
+    "categoryTypes": {
+      "income": "[XX-Income-XX]",
+      "expense": "[XX-Expense-XX]",
+      "transfer": "[XX-Transfer-XX]"
+    },
+    "createButton": "[XX-Create Budget-XX]",
+    "categoryCount": "[XX-{count} categories-XX]",
+    "accountsCount": "[XX-{count} accounts-XX]",
+    "toasts": {
+      "created": "[XX-Budget created successfully-XX]",
+      "failed": "[XX-Failed to create budget-XX]"
+    }
+  },
+  "zeroBasedBar": {
+    "title": "[XX-Zero-Based Assignment-XX]",
+    "fullyAssigned": "[XX-Fully assigned-XX]",
+    "overAssigned": "[XX-Over-assigned-XX]",
+    "underAssigned": "[XX-Under-assigned-XX]",
+    "assigned": "[XX-Assigned: {assigned} / {income}-XX]",
+    "unassigned": "[XX-{amount} unassigned-XX]",
+    "over": "[XX-{amount} over-XX]"
+  },
+  "strategyCard": {
+    "pros": "[XX-Pros-XX]",
+    "cons": "[XX-Cons-XX]",
+    "bestFor": "[XX-Best for: -XX]",
+    "strategies": {
+      "FIXED": {
+        "title": "[XX-Fixed Budget-XX]",
+        "description": "[XX-Set a fixed spending limit for each category every period. Any unspent money resets at the end of the period rather than carrying forward.-XX]",
+        "pros": [
+          "[XX-Simple to set up and understand-XX]",
+          "[XX-Clear spending limits per category-XX]",
+          "[XX-Predictable month-to-month budgeting-XX]",
+          "[XX-Good starting point for budgeting beginners-XX]"
+        ],
+        "cons": [
+          "[XX-Unspent money does not carry over-XX]",
+          "[XX-No flexibility between categories-XX]",
+          "[XX-Does not adapt to irregular expenses-XX]",
+          "[XX-Can feel rigid if spending patterns vary-XX]"
+        ],
+        "bestFor": "[XX-People who want straightforward budgeting with clear limits and predictable spending patterns.-XX]"
+      },
+      "ROLLOVER": {
+        "title": "[XX-Rollover Budget-XX]",
+        "description": "[XX-Unspent budget carries forward to the next period based on per-category rollover rules. Build up reserves for categories with irregular or seasonal spending.-XX]",
+        "pros": [
+          "[XX-Builds savings for irregular expenses-XX]",
+          "[XX-Rewards under-spending in categories-XX]",
+          "[XX-Flexible rollover rules per category-XX]",
+          "[XX-Handles seasonal variation naturally-XX]"
+        ],
+        "cons": [
+          "[XX-More complex to configure initially-XX]",
+          "[XX-Accumulated balances need monitoring-XX]",
+          "[XX-Can mask overspending if caps are too high-XX]",
+          "[XX-Requires periodic review of rollover rules-XX]"
+        ],
+        "bestFor": "[XX-People with irregular expenses like car maintenance, annual subscriptions, or seasonal costs who want to save up gradually.-XX]"
+      },
+      "ZERO_BASED": {
+        "title": "[XX-Zero-Based Budget-XX]",
+        "description": "[XX-Every dollar of income is assigned a specific purpose. Your income minus all budgeted amounts should equal zero, ensuring no money is left unallocated.-XX]",
+        "pros": [
+          "[XX-Maximum control over every dollar-XX]",
+          "[XX-Forces intentional spending decisions-XX]",
+          "[XX-Quickly reveals wasteful spending-XX]",
+          "[XX-Highly effective for debt payoff goals-XX]"
+        ],
+        "cons": [
+          "[XX-Requires knowing exact income in advance-XX]",
+          "[XX-Time-intensive to maintain each period-XX]",
+          "[XX-Less flexible for variable income-XX]",
+          "[XX-Can feel restrictive for some users-XX]"
+        ],
+        "bestFor": "[XX-People who want total control over their finances and are willing to plan where every dollar goes each period.-XX]"
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "title": "[XX-50/30/20 Budget-XX]",
+        "description": "[XX-A balanced approach that divides income into three groups: 50% for needs (housing, groceries, utilities), 30% for wants (dining, entertainment), and 20% for savings and debt repayment.-XX]",
+        "pros": [
+          "[XX-Easy to remember and follow-XX]",
+          "[XX-Built-in savings allocation-XX]",
+          "[XX-Balanced approach to spending-XX]",
+          "[XX-Flexible within each group-XX]"
+        ],
+        "cons": [
+          "[XX-May not suit high cost-of-living areas-XX]",
+          "[XX-Fixed ratios may not fit all situations-XX]",
+          "[XX-Less granular category-level control-XX]",
+          "[XX-Requires categorizing every expense by group-XX]"
+        ],
+        "bestFor": "[XX-People who want a balanced, rule-of-thumb approach without tracking every category individually.-XX]"
+      }
+    }
+  },
+  "pages": {
+    "list": {
+      "title": "[XX-Budgets-XX]",
+      "subtitle": "[XX-Manage your budgets and track spending-XX]",
+      "newBudget": "[XX-+ New Budget-XX]",
+      "empty": {
+        "title": "[XX-No budgets yet-XX]",
+        "description": "[XX-Create your first budget by analyzing your spending history. The wizard will suggest realistic amounts based on your transactions.-XX]",
+        "cta": "[XX-Create Your First Budget-XX]"
+      },
+      "card": {
+        "active": "[XX-Active-XX]",
+        "inactive": "[XX-Inactive-XX]",
+        "categories": "[XX-{count} categories-XX]",
+        "started": "[XX-Started {date}-XX]"
+      }
+    },
+    "create": {
+      "title": "[XX-Create Budget-XX]",
+      "subtitle": "[XX-Analyze your spending and create a personalized budget-XX]"
+    },
+    "detail": {
+      "backToBudgets": "[XX-Back to Budgets-XX]",
+      "notFound": "[XX-Budget not found-XX]",
+      "delete": {
+        "title": "[XX-Delete Budget-XX]",
+        "message": "[XX-Are you sure you want to delete \"{name}\"? This will remove all budget data including periods and alerts. This action cannot be undone.-XX]",
+        "confirm": "[XX-Delete-XX]",
+        "cancel": "[XX-Cancel-XX]"
+      },
+      "toasts": {
+        "deleted": "[XX-Budget deleted-XX]",
+        "deleteFailed": "[XX-Failed to delete budget-XX]",
+        "loadFailed": "[XX-Failed to load budget-XX]",
+        "periodFailed": "[XX-Failed to load period-XX]"
+      }
+    },
+    "edit": {
+      "subtitlePrefix": "[XX-Edit: -XX]",
+      "subtitle": "[XX-Update budget settings and category allocations-XX]",
+      "backToDashboard": "[XX-Back to Dashboard-XX]",
+      "budgetSettings": "[XX-Budget Settings-XX]",
+      "categoryAllocations": "[XX-Category Allocations-XX]",
+      "income": "[XX-Income-XX]",
+      "expensesWithCount": "[XX-Expenses ({count})-XX]",
+      "resetsEachPeriod": "[XX-Resets each period-XX]",
+      "percentUsed": "[XX-{percent}% used-XX]",
+      "rolloverType": "[XX-Rollover: {type}-XX]",
+      "editCategoryTitle": "[XX-Edit {name}-XX]",
+      "toasts": {
+        "updated": "[XX-Budget updated-XX]",
+        "updateFailed": "[XX-Failed to update budget-XX]",
+        "categoryUpdated": "[XX-Category updated-XX]",
+        "categoryFailed": "[XX-Failed to update category-XX]",
+        "loadFailed": "[XX-Failed to load budget-XX]"
+      }
+    }
+  },
+  "validation": {
+    "nameRequired": "[XX-Budget name is required-XX]",
+    "nameMax": "[XX-Budget name must be 255 characters or less-XX]",
+    "descriptionMax": "[XX-Description must be 1000 characters or less-XX]"
+  },
+  "categoryValidation": {
+    "amountMin": "[XX-Amount must be 0 or greater-XX]",
+    "mustBeNumber": "[XX-Must be a number-XX]"
+  }
+}

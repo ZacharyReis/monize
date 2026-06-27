@@ -157,11 +157,11 @@ describe('ChatMessage', () => {
           content="Here are your results."
           toolsUsed={[
             {
-              name: 'query_transactions',
+              name: 'list_transactions',
               summary: 'Found 45 transactions',
             },
             {
-              name: 'get_account_balances',
+              name: 'list_accounts',
               summary: '3 accounts found',
             },
           ]}
@@ -169,7 +169,7 @@ describe('ChatMessage', () => {
       );
 
       expect(screen.getByText('Transactions')).toBeInTheDocument();
-      expect(screen.getByText('Account Balances')).toBeInTheDocument();
+      expect(screen.getByText('Accounts')).toBeInTheDocument();
     });
 
     it('falls back to raw tool name for unknown tools', () => {
@@ -191,7 +191,7 @@ describe('ChatMessage', () => {
         <ChatMessage
           role="assistant"
           content="ok"
-          toolsUsed={[{ name: 'query_transactions', summary: 'Found 1' }]}
+          toolsUsed={[{ name: 'list_transactions', summary: 'Found 1' }]}
         />,
       );
       expect(screen.getByLabelText('Tool succeeded')).toBeInTheDocument();
@@ -205,8 +205,8 @@ describe('ChatMessage', () => {
           content="ok"
           toolsUsed={[
             {
-              name: 'query_transactions',
-              summary: 'Invalid input for query_transactions: ...',
+              name: 'list_transactions',
+              summary: 'Invalid input for list_transactions: ...',
               isError: true,
             },
           ]}
@@ -221,11 +221,10 @@ describe('ChatMessage', () => {
 
     it('renders all known tool labels correctly', () => {
       const tools = [
-        { name: 'query_transactions', expected: 'Transactions' },
-        { name: 'get_account_balances', expected: 'Account Balances' },
-        { name: 'get_spending_by_category', expected: 'Spending by Category' },
-        { name: 'get_income_summary', expected: 'Income Summary' },
-        { name: 'get_net_worth_history', expected: 'Net Worth History' },
+        { name: 'list_transactions', expected: 'Transactions' },
+        { name: 'list_accounts', expected: 'Accounts' },
+        { name: 'manage_payees', expected: 'Manage Payees' },
+        { name: 'list_investment_transactions', expected: 'Investment Transactions' },
         { name: 'compare_periods', expected: 'Period Comparison' },
       ];
 
@@ -252,9 +251,7 @@ describe('ChatMessage', () => {
 
       // Should not have any badge elements
       expect(screen.queryByText('Transactions')).not.toBeInTheDocument();
-      expect(
-        screen.queryByText('Account Balances'),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Accounts')).not.toBeInTheDocument();
     });
 
     it('does not show tool badges for user messages', () => {
@@ -263,7 +260,7 @@ describe('ChatMessage', () => {
           role="user"
           content="My query"
           toolsUsed={[
-            { name: 'query_transactions', summary: 'test' },
+            { name: 'list_transactions', summary: 'test' },
           ]}
         />,
       );
@@ -476,6 +473,74 @@ describe('ChatMessage', () => {
       );
 
       expect(screen.getByText('Chart')).toBeInTheDocument();
+    });
+  });
+
+  describe('pending action cards', () => {
+    it('renders the single-row card for create_transaction', () => {
+      render(
+        <ChatMessage
+          id="m1"
+          role="assistant"
+          content="Review the card."
+          pendingActions={[
+            {
+              actionId: 'a1',
+              type: 'create_transaction',
+              status: 'pending',
+              expiresAt: Date.now() + 60_000,
+              signature: 'sig',
+              descriptor: { type: 'create_transaction' },
+              preview: {
+                accountName: 'Checking',
+                amount: -10,
+                currencyCode: 'USD',
+                transactionDate: '2026-01-15',
+              },
+            },
+          ]}
+        />,
+      );
+      expect(
+        screen.getByText('Create this transaction?'),
+      ).toBeInTheDocument();
+    });
+
+    it('routes the bulk type to the bulk confirmation card', () => {
+      render(
+        <ChatMessage
+          id="m2"
+          role="assistant"
+          content="Review the card."
+          pendingActions={[
+            {
+              actionId: 'a2',
+              type: 'create_investment_transactions',
+              status: 'pending',
+              expiresAt: Date.now() + 60_000,
+              signature: 'sig',
+              descriptor: { type: 'create_investment_transactions' },
+              preview: {
+                rows: [
+                  {
+                    status: 'ok',
+                    investmentAction: 'BUY',
+                    symbol: 'AAPL',
+                    transactionDate: '2026-01-15',
+                    quantity: 5,
+                  },
+                ],
+              },
+            },
+          ]}
+        />,
+      );
+      expect(
+        screen.getByText('Create these investment transactions?'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Approve all' }),
+      ).toBeInTheDocument();
     });
   });
 });

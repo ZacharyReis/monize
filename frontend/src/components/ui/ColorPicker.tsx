@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface ColorPickerProps {
   value: string | null;
@@ -29,6 +30,7 @@ const COLORS = [
 ];
 
 export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
+  const t = useTranslations('common');
   const [isOpen, setIsOpen] = useState(false);
   const [customColor, setCustomColor] = useState(value || '#3b82f6');
 
@@ -89,7 +91,7 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
               ))}
             </div>
             <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <label className="text-xs text-gray-500 dark:text-gray-400">Custom:</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400">{t('colorPicker.custom')}</label>
               <input
                 type="color"
                 value={customColor}
@@ -117,7 +119,7 @@ export function ColorPicker({ value, onChange, label }: ColorPickerProps) {
                 }}
                 className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                Apply
+                {t('colorPicker.apply')}
               </button>
             </div>
           </div>

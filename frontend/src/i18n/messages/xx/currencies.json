@@ -1,0 +1,117 @@
+{
+  "page": {
+    "title": "[XX-Currencies-XX]",
+    "subtitle": "[XX-Manage currencies used across your accounts and securities-XX]",
+    "refreshRates": "[XX-Refresh Rates-XX]",
+    "refreshing": "[XX-Refreshing...-XX]",
+    "newCurrency": "[XX-+ New Currency-XX]",
+    "searchPlaceholder": "[XX-Search by code or name...-XX]",
+    "statusAll": "[XX-All ({count})-XX]",
+    "statusActive": "[XX-Active ({count})-XX]",
+    "statusInactive": "[XX-Inactive ({count})-XX]",
+    "modalTitleEdit": "[XX-Edit Currency-XX]",
+    "modalTitleNew": "[XX-New Currency-XX]",
+    "loading": "[XX-Loading currencies...-XX]",
+    "count": "[XX-{count, plural, one {# currency} other {# currencies}}-XX]",
+    "toasts": {
+      "loadFailed": "[XX-Failed to load currencies-XX]",
+      "updated": "[XX-Currency updated successfully-XX]",
+      "created": "[XX-Currency created successfully-XX]",
+      "updateFailed": "[XX-Failed to update currency-XX]",
+      "createFailed": "[XX-Failed to create currency-XX]",
+      "deactivated": "[XX-Currency deactivated-XX]",
+      "activated": "[XX-Currency activated-XX]",
+      "statusFailed": "[XX-Failed to update currency status-XX]",
+      "ratesRefreshed": "[XX-Exchange rates refreshed: {updated} pairs updated-XX]",
+      "ratesRefreshedWithFailed": "[XX-Exchange rates refreshed: {updated} updated, {failed} failed-XX]",
+      "ratesFailed": "[XX-Failed to refresh exchange rates-XX]"
+    },
+    "summary": {
+      "totalCurrencies": "[XX-Total Currencies-XX]",
+      "active": "[XX-Active-XX]",
+      "inactive": "[XX-Inactive-XX]"
+    }
+  },
+  "list": {
+    "columns": {
+      "code": "[XX-Code-XX]",
+      "name": "[XX-Name-XX]",
+      "symbol": "[XX-Symbol-XX]",
+      "decimals": "[XX-Decimals-XX]",
+      "usage": "[XX-Usage-XX]",
+      "rate": "[XX-Rate ({currency})-XX]",
+      "status": "[XX-Status-XX]",
+      "actions": "[XX-Actions-XX]"
+    },
+    "density": {
+      "normal": "[XX-Normal-XX]",
+      "compact": "[XX-Compact-XX]",
+      "dense": "[XX-Dense-XX]",
+      "toggle": "[XX-Toggle row density-XX]"
+    },
+    "defaultBadge": "[XX-Default-XX]",
+    "statusBadge": {
+      "active": "[XX-Active-XX]",
+      "activeShort": "[XX-Act-XX]",
+      "inactive": "[XX-Inactive-XX]",
+      "inactiveShort": "[XX-Ina-XX]"
+    },
+    "actions": {
+      "edit": "[XX-Edit-XX]",
+      "deactivate": "[XX-Deactivate-XX]",
+      "activate": "[XX-Activate-XX]"
+    },
+    "contextMenu": {
+      "editCurrency": "[XX-Edit Currency-XX]",
+      "deactivate": "[XX-Deactivate-XX]",
+      "activate": "[XX-Activate-XX]",
+      "deleteCurrency": "[XX-Delete Currency-XX]"
+    },
+    "usageTooltip": "[XX-{accounts} account(s), {securities} security/ies-XX]",
+    "usageAccounts": "[XX-{count, plural, one {# acct} other {# accts}}-XX]",
+    "usageSecurities": "[XX-{count, plural, one {# sec} other {# secs}}-XX]",
+    "empty": {
+      "title": "[XX-No currencies-XX]",
+      "subtitle": "[XX-Get started by adding a currency.-XX]"
+    },
+    "deleteConfirm": {
+      "title": "[XX-Delete \"{code}\"?-XX]",
+      "message": "[XX-This currency will be permanently deleted. This only works if the currency is not in use by any accounts or securities.-XX]",
+      "confirmLabel": "[XX-Delete-XX]",
+      "cancelLabel": "[XX-Cancel-XX]"
+    },
+    "toasts": {
+      "deleted": "[XX-Currency deleted successfully-XX]",
+      "deleteFailed": "[XX-Failed to delete currency. It may be in use.-XX]"
+    }
+  },
+  "form": {
+    "codeLabel": "[XX-Currency Code-XX]",
+    "codePlaceholder": "[XX-e.g., USD, EUR, GBP-XX]",
+    "nameLabel": "[XX-Name-XX]",
+    "namePlaceholderCreate": "[XX-e.g., Canadian Dollar, Malaysia, Ringgit (used for lookup too)-XX]",
+    "namePlaceholderEdit": "[XX-e.g., Canadian Dollar-XX]",
+    "symbolLabel": "[XX-Symbol-XX]",
+    "symbolPlaceholder": "[XX-e.g., $, €, £, ¥-XX]",
+    "decimalPlacesLabel": "[XX-Decimal Places-XX]",
+    "lookupButton": "[XX-Lookup-XX]",
+    "lookingUp": "[XX-Looking up...-XX]",
+    "clearButton": "[XX-Clear-XX]",
+    "clearTitle": "[XX-Clear all fields-XX]",
+    "submitCreate": "[XX-Create Currency-XX]",
+    "submitUpdate": "[XX-Update Currency-XX]",
+    "toasts": {
+      "lookupTooShort": "[XX-Enter a currency code or name (at least 2 characters) to lookup-XX]",
+      "found": "[XX-Found: {details}-XX]",
+      "notFound": "[XX-No currency found for \"{query}\"-XX]",
+      "lookupFailed": "[XX-Lookup failed - please try again-XX]"
+    }
+  },
+  "validation": {
+    "codeLength": "[XX-Currency code must be exactly 3 characters-XX]",
+    "nameRequired": "[XX-Name is required-XX]",
+    "nameMax": "[XX-Name must be 100 characters or less-XX]",
+    "symbolRequired": "[XX-Symbol is required-XX]",
+    "symbolMax": "[XX-Symbol must be 10 characters or less-XX]"
+  }
+}

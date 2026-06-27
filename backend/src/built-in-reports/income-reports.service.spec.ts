@@ -322,7 +322,7 @@ describe("IncomeReportsService", () => {
         "2025-12-31",
       );
 
-      expect(result.data[0].total).toBe(33.33);
+      expect(result.data[0].total).toBe(33.333);
     });
 
     it("filters out the asset value change category in the SQL query", async () => {
@@ -489,8 +489,8 @@ describe("IncomeReportsService", () => {
         "2025-12-31",
       );
 
-      expect(result.data[0].income).toBe(100.56);
-      expect(result.data[0].expenses).toBe(50.44);
+      expect(result.data[0].income).toBe(100.555);
+      expect(result.data[0].expenses).toBe(50.444);
     });
 
     it("passes startDate parameter when provided", async () => {

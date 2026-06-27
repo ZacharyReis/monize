@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import type { BudgetAlert, AlertSeverity } from '@/types/budget';
 
@@ -53,16 +54,16 @@ function severityStyles(severity: AlertSeverity): {
   }
 }
 
-function severityLabel(severity: AlertSeverity): string {
+function severityLabel(severity: AlertSeverity, t: (key: string) => string): string {
   switch (severity) {
     case 'critical':
-      return 'Critical';
+      return t('alerts.severity.critical');
     case 'warning':
-      return 'Warning';
+      return t('alerts.severity.warning');
     case 'success':
-      return 'Good News';
+      return t('alerts.severity.success');
     default:
-      return 'Info';
+      return t('alerts.severity.info');
   }
 }
 
@@ -99,6 +100,7 @@ export function BudgetAlertList({
   collapsingIds,
   onClose,
 }: BudgetAlertListProps) {
+  const t = useTranslations('budgets');
   const router = useRouter();
 
   const unreadCount = alerts.filter((a) => !a.isRead && !dismissingIds.has(a.id)).length;
@@ -123,10 +125,10 @@ export function BudgetAlertList({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Alerts
+          {t('alerts.title')}
           {unreadCount > 0 && (
             <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-              {unreadCount} unread
+              {t('alerts.unread', { count: unreadCount })}
             </span>
           )}
         </h3>
@@ -136,7 +138,7 @@ export function BudgetAlertList({
             className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
             data-testid="mark-all-read"
           >
-            Mark all read
+            {t('alerts.markAllRead')}
           </button>
         )}
       </div>
@@ -145,14 +147,14 @@ export function BudgetAlertList({
       <div className="overflow-y-auto flex-1">
         {isLoading && alerts.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-            Loading alerts...
+            {t('alerts.loading')}
           </div>
         ) : alerts.length === 0 ? (
           <div
             className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
             data-testid="no-alerts"
           >
-            No alerts
+            {t('alerts.empty')}
           </div>
         ) : (
           <div>
@@ -177,7 +179,7 @@ export function BudgetAlertList({
                         className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                         data-testid={`undo-dismiss-${alert.id}`}
                       >
-                        Undo
+                        {t('alerts.undo')}
                       </button>
                     </div>
                   ) : (
@@ -210,7 +212,7 @@ export function BudgetAlertList({
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${styles.bg} ${styles.text}`}
                                 data-testid="severity-badge"
                               >
-                                {severityLabel(alert.severity)}
+                                {severityLabel(alert.severity, t)}
                               </span>
                               <span className="text-[11px] text-gray-400 dark:text-gray-500">
                                 {timeAgo(alert.createdAt)}
@@ -232,7 +234,7 @@ export function BudgetAlertList({
                         }}
                         className="absolute top-2 right-2 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         data-testid={`dismiss-alert-${alert.id}`}
-                        aria-label="Dismiss alert"
+                        aria-label={t('alerts.dismissAriaLabel')}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />

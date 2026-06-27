@@ -1,0 +1,85 @@
+{
+  "page": {
+    "title": "Kategorie",
+    "subtitle": "Organizuj swoje transakcje za pomoca wlasnych kategorii",
+    "newButton": "+ Nowa kategoria",
+    "searchPlaceholder": "Szukaj kategorii...",
+    "filterAll": "Wszystkie ({count})",
+    "filterExpenses": "Wydatki ({count})",
+    "filterIncome": "Przychody ({count})",
+    "modalTitleNew": "Nowa kategoria",
+    "modalTitleEdit": "Edytuj kategorie",
+    "countSingle": "1 kategoria",
+    "countPlural": "{count} kategorii",
+    "loadingText": "Wczytywanie kategorii...",
+    "summaryTotal": "Wszystkie kategorie",
+    "summaryIncome": "Kategorie przychodów",
+    "summaryExpense": "Kategorie wydatków",
+    "summaryTopLevel": "Najwyzszy poziom"
+  },
+  "empty": {
+    "heading": "Brak kategorii",
+    "description": "Kategorie pomagaja organizowac transakcje. Zacznij od zaimportowania naszego domyslnego zestawu kategorii lub utworz własne od podstaw.",
+    "importButton": "Importuj domyslne kategorie",
+    "createButton": "Utworz własne",
+    "hint": "Domyslny zestaw zawiera typowe kategorie przychodow i wydatkow wraz z podkategoriami"
+  },
+  "toasts": {
+    "created": "Kategoria utworzona pomyslnie",
+    "updated": "Kategoria zaktualizowana pomyslnie",
+    "deleted": "Kategoria usunieta pomyslnie",
+    "cannotDeleteSystem": "Kategorii systemowych nie mozna usuwac",
+    "importSuccess": "Zaimportowano kategorie: {count}",
+    "loadFailed": "Nie udało się wczytać kategorii",
+    "deleteFailed": "Nie udało się usunąć kategorii",
+    "createFailed": "Nie udało się utworzyć kategorii",
+    "updateFailed": "Nie udało się zaktualizować kategorii",
+    "importFailed": "Nie udało się zaimportować domyślnych kategorii"
+  },
+  "form": {
+    "nameLabel": "Nazwa kategorii",
+    "parentLabel": "Kategoria nadrzedna",
+    "noParent": "Brak nadrzednej (najwyzszy poziom)",
+    "typeLabel": "Typ",
+    "typeExpense": "Wydatek",
+    "typeIncome": "Przychody",
+    "typeInherited": "Typ dziedziczony z kategorii nadrzednej",
+    "colourLabel": "Kolor",
+    "colourInherit": "Dziedzicz z kategorii nadrzednej",
+    "colourNone": "Brak koloru",
+    "colourInheritedFrom": "Kolor dziedziczony z kategorii nadrzednej ({name})",
+    "descriptionLabel": "Opis (opcjonalnie)",
+    "submitCreate": "Utworz kategorie",
+    "submitUpdate": "Zaktualizuj kategorie"
+  },
+  "list": {
+    "emptyHeading": "Brak kategorii",
+    "emptyDescription": "Zacznij od utworzenia nowej kategorii.",
+    "colName": "Nazwa",
+    "colType": "Typ",
+    "colCount": "Liczba",
+    "colDescription": "Opis",
+    "colActions": "Akcje",
+    "badgeIncome": "Przychody",
+    "badgeExpense": "Wydatek",
+    "systemBadge": "(Systemowa)",
+    "inheritedColorTitle": "Dziedziczony z kategorii nadrzednej",
+    "viewTransactionsTitle": "Wyswietl transakcje w tej kategorii",
+    "densityToggleTitle": "Przełącz gęstość wierszy",
+    "densityNormal": "Normalna",
+    "densityCompact": "Kompaktowa",
+    "densityDense": "Gęsta"
+  },
+  "deleteDialog": {
+    "title": "Usunąć \"{name}\"?",
+    "checkingUsage": "Sprawdzanie uzycia...",
+    "usedBy": "Ta kategoria jest używana przez {count, plural, one {# element} few {# elementy} many {# elementów} other {# elementu}} (transakcje i/lub zaplanowane rachunki oraz wpłaty).",
+    "reassignLabel": "Przypisz ponownie do:",
+    "leaveUncategorized": "Pozostaw bez kategorii",
+    "safeToDelete": "Ta kategoria nie jest uzywana. Mozna ja bezpiecznie usunąć.",
+    "cannotUndo": "Tej operacji nie można cofnąć."
+  },
+  "validation": {
+    "nameRequired": "Nazwa kategorii jest wymagana"
+  }
+}

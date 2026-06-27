@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import { Button } from '@/components/ui/Button';
@@ -9,13 +10,15 @@ import { PayeeForm } from '@/components/payees/PayeeForm';
 import { PayeeList, type DensityLevel, type SortField, type SortDirection } from '@/components/payees/PayeeList';
 import { CategoryAutoAssignDialog } from '@/components/payees/CategoryAutoAssignDialog';
 import { DeactivateUnusedPayeesDialog } from '@/components/payees/DeactivateUnusedPayeesDialog';
+import { AutoMergePayeesDialog } from '@/components/payees/AutoMergePayeesDialog';
 import { Modal } from '@/components/ui/Modal';
 import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { payeesApi } from '@/lib/payees';
 import { categoriesApi } from '@/lib/categories';
-import { buildCategoryColorMap } from '@/lib/categoryUtils';
+import { buildCategoryColorMap, buildCategoryLabelMap } from '@/lib/categoryUtils';
 import { MergePayeeDialog } from '@/components/payees/MergePayeeDialog';
-import { Payee, PayeeStatusFilter } from '@/types/payee';
+import { Payee, PayeeStatusFilter, PayeeCategoryFilter } from '@/types/payee';
 import { Category } from '@/types/category';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -27,6 +30,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
 import { PAGE_SIZE } from '@/lib/constants';
+import { useHighlightParam } from '@/hooks/useHighlightTarget';
 
 const logger = createLogger('Payees');
 
@@ -39,13 +43,17 @@ export default function PayeesPage() {
 }
 
 function PayeesContent() {
+  const t = useTranslations('payees');
   const [payees, setPayees] = useState<Payee[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAutoAssign, setShowAutoAssign] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
+  const [showAutoMerge, setShowAutoMerge] = useState(false);
+  const [showApplyDefaults, setShowApplyDefaults] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<PayeeStatusFilter>('active');
+  const [categoryFilter, setCategoryFilter] = useState<PayeeCategoryFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [listDensity, setListDensity] = useLocalStorage<DensityLevel>('monize-payees-density', 'normal');
   const [sortField, setSortField] = useLocalStorage<SortField>('monize-payees-sort-field', 'name');
@@ -63,12 +71,12 @@ function PayeesContent() {
       setPayees(payeesData);
       setCategories(categoriesData);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load data'));
+      toast.error(getErrorMessage(error, t('page.toasts.loadFailed')));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -89,9 +97,19 @@ function PayeesContent() {
 
       if (editingItem) {
         const updated = await payeesApi.update(editingItem.id, cleanedData);
-        toast.success('Payee updated successfully');
+        toast.success(t('page.toasts.updated'));
+        const categorized = updated.transactionsCategorized ?? 0;
+        if (categorized > 0) {
+          toast.success(t('page.toasts.categorized', { count: categorized }));
+        }
         close();
-        setPayees(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+        if (categorized > 0) {
+          // The backfill changed transaction categories, so derived per-payee
+          // counts (uncategorized, etc.) are stale -- reload rather than merge.
+          loadData();
+        } else {
+          setPayees(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+        }
       } else {
         const created = await payeesApi.create(cleanedData);
 
@@ -104,12 +122,12 @@ function PayeesContent() {
           }
         }
 
-        toast.success('Payee created successfully');
+        toast.success(t('page.toasts.created'));
         close();
         setPayees(prev => [{ ...created, aliasCount }, ...prev]);
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, `Failed to ${editingItem ? 'update' : 'create'} payee`));
+      toast.error(getErrorMessage(error, editingItem ? t('page.toasts.updateFailed') : t('page.toasts.createFailed')));
       throw error;
     }
   };
@@ -117,15 +135,54 @@ function PayeesContent() {
   const handleReactivate = async (payeeId: string) => {
     try {
       const reactivated = await payeesApi.reactivatePayee(payeeId);
-      toast.success(`Payee "${reactivated.name}" reactivated`);
+      toast.success(t('page.toasts.reactivated', { name: reactivated.name }));
       setPayees(prev => prev.map(p => p.id === reactivated.id ? reactivated : p));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to reactivate payee'));
+      toast.error(getErrorMessage(error, t('page.toasts.reactivateFailed')));
       logger.error(error);
     }
   };
 
   const categoryColorMap = useMemo(() => buildCategoryColorMap(categories), [categories]);
+  const categoryLabelMap = useMemo(() => buildCategoryLabelMap(categories), [categories]);
+
+  // Payees that have a default category set but still have uncategorized
+  // transactions -- the scope of the bulk "apply default categories" action.
+  const backfillTargets = useMemo(
+    () => payees.filter((p) => p.defaultCategoryId && (p.uncategorizedCount ?? 0) > 0),
+    [payees],
+  );
+  const backfillTotals = useMemo(
+    () => ({
+      payees: backfillTargets.length,
+      transactions: backfillTargets.reduce((sum, p) => sum + (p.uncategorizedCount ?? 0), 0),
+    }),
+    [backfillTargets],
+  );
+
+  // Apply each payee's existing default category to its uncategorized
+  // transactions, reusing the category-suggestions apply endpoint (which sets
+  // the default category -- a no-op here -- and backfills when asked).
+  const handleApplyDefaultCategories = async () => {
+    setShowApplyDefaults(false);
+    if (backfillTargets.length === 0) {
+      toast(t('defaultCategoryBackfill.toasts.nothingToDo'));
+      return;
+    }
+    try {
+      const assignments = backfillTargets.map((p) => ({
+        payeeId: p.id,
+        categoryId: p.defaultCategoryId as string,
+        backfillTransactions: true,
+      }));
+      const result = await payeesApi.applyCategorySuggestions(assignments);
+      toast.success(t('defaultCategoryBackfill.toasts.applied', { count: result.transactionsBackfilled }));
+      loadData();
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('defaultCategoryBackfill.toasts.failed')));
+      logger.error(error);
+    }
+  };
 
   // Apply status filter
   const statusFilteredPayees = useMemo(() => {
@@ -133,12 +190,24 @@ function PayeesContent() {
     return payees.filter(p => statusFilter === 'active' ? p.isActive : !p.isActive);
   }, [payees, statusFilter]);
 
+  // Apply category filter: payees missing a default category, or payees that
+  // still have transactions with no category at all.
+  const categoryFilteredPayees = useMemo(() => {
+    if (categoryFilter === 'noDefaultCategory') {
+      return statusFilteredPayees.filter(p => !p.defaultCategoryId);
+    }
+    if (categoryFilter === 'uncategorizedTransactions') {
+      return statusFilteredPayees.filter(p => (p.uncategorizedCount ?? 0) > 0);
+    }
+    return statusFilteredPayees;
+  }, [statusFilteredPayees, categoryFilter]);
+
   const filteredPayees = useMemo(() => {
-    if (!searchQuery) return statusFilteredPayees;
-    return statusFilteredPayees.filter((p) =>
+    if (!searchQuery) return categoryFilteredPayees;
+    return categoryFilteredPayees.filter((p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [statusFilteredPayees, searchQuery]);
+  }, [categoryFilteredPayees, searchQuery]);
 
   const sortedPayees = useMemo(() => {
     return [...filteredPayees].sort((a, b) => {
@@ -146,8 +215,8 @@ function PayeesContent() {
       if (sortField === 'name') {
         comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       } else if (sortField === 'category') {
-        const catA = a.defaultCategory?.name || '';
-        const catB = b.defaultCategory?.name || '';
+        const catA = a.defaultCategory ? (categoryLabelMap.get(a.defaultCategory.id) ?? a.defaultCategory.name) : '';
+        const catB = b.defaultCategory ? (categoryLabelMap.get(b.defaultCategory.id) ?? b.defaultCategory.name) : '';
         comparison = catA.localeCompare(catB, undefined, { sensitivity: 'base' });
       } else if (sortField === 'count') {
         comparison = (a.transactionCount ?? 0) - (b.transactionCount ?? 0);
@@ -160,7 +229,7 @@ function PayeesContent() {
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredPayees, sortField, sortDirection]);
+  }, [filteredPayees, sortField, sortDirection, categoryLabelMap]);
 
   const totalPages = Math.ceil(sortedPayees.length / PAGE_SIZE);
   const paginatedPayees = useMemo(() => {
@@ -180,7 +249,7 @@ function PayeesContent() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, categoryFilter]);
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -188,52 +257,75 @@ function PayeesContent() {
     }
   };
 
+  // Deep link to a specific payee (e.g. the AI chat "View payees" link): once
+  // the list has loaded, jump to the client-side page that contains it so the
+  // row can flash and scroll into view. Runs once per arrival.
+  const highlightId = useHighlightParam();
+  const highlightJumpedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightId || highlightJumpedRef.current || sortedPayees.length === 0) {
+      return;
+    }
+    const index = sortedPayees.findIndex((p) => p.id === highlightId);
+    if (index >= 0) {
+      highlightJumpedRef.current = true;
+      setCurrentPage(Math.floor(index / PAGE_SIZE) + 1);
+    }
+  }, [highlightId, sortedPayees]);
+
   // Summary counts
   const activeCount = payees.filter(p => p.isActive).length;
   const inactiveCount = payees.filter(p => !p.isActive).length;
   const payeesWithCategory = payees.filter((p) => p.defaultCategoryId).length;
   const payeesWithoutCategory = payees.length - payeesWithCategory;
+  const payeesWithUncategorizedTx = payees.filter((p) => (p.uncategorizedCount ?? 0) > 0).length;
 
   return (
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Payees"
-          subtitle="Manage your payees and their default categories"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Categories-and-Payees"
           actions={
             <>
+              <Button variant="secondary" onClick={() => setShowAutoMerge(true)}>
+                {t('page.autoMergePayees')}
+              </Button>
               <Button variant="secondary" onClick={() => setShowDeactivate(true)}>
-                Deactivate Unused
+                {t('page.deactivateUnused')}
               </Button>
               <Button variant="secondary" onClick={() => setShowAutoAssign(true)}>
-                Auto-Assign Categories
+                {t('page.autoAssignCategories')}
               </Button>
-              <Button onClick={openCreate}>+ New Payee</Button>
+              <Button variant="secondary" onClick={() => setShowApplyDefaults(true)}>
+                {t('page.applyDefaultCategories')}
+              </Button>
+              <Button onClick={openCreate}>{t('page.newPayee')}</Button>
             </>
           }
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <SummaryCard
-            label="Total Payees"
+            label={t('page.summary.totalPayees')}
             value={payees.length}
             icon={SummaryIcons.users}
           />
           <SummaryCard
-            label="Active"
+            label={t('page.summary.active')}
             value={activeCount}
             icon={SummaryIcons.checkCircle}
             valueColor="green"
           />
           <SummaryCard
-            label="Inactive"
+            label={t('page.summary.inactive')}
             value={inactiveCount}
             icon={SummaryIcons.warning}
             valueColor={inactiveCount > 0 ? 'yellow' : undefined}
           />
           <SummaryCard
-            label="Without Category"
+            label={t('page.summary.withoutCategory')}
             value={payeesWithoutCategory}
             icon={SummaryIcons.warning}
             valueColor={payeesWithoutCategory > 0 ? 'yellow' : undefined}
@@ -244,7 +336,7 @@ function PayeesContent() {
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
-            placeholder="Search payees..."
+            placeholder={t('page.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full sm:max-w-md rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400"
@@ -266,9 +358,32 @@ function PayeesContent() {
                   status !== 'all' ? '-ml-px' : ''
                 }`}
               >
-                {status === 'active' ? `Active (${activeCount})` :
-                 status === 'inactive' ? `Inactive (${inactiveCount})` :
-                 `All (${payees.length})`}
+                {status === 'active' ? t('page.statusActive', { count: activeCount }) :
+                 status === 'inactive' ? t('page.statusInactive', { count: inactiveCount }) :
+                 t('page.statusAll', { count: payees.length })}
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-md shadow-sm">
+            {(['all', 'noDefaultCategory', 'uncategorizedTransactions'] as PayeeCategoryFilter[]).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setCategoryFilter(filter)}
+                className={`px-4 py-2 text-sm font-medium border ${
+                  categoryFilter === filter
+                    ? 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                } ${
+                  filter === 'all' ? 'rounded-l-md' : ''
+                } ${
+                  filter === 'uncategorizedTransactions' ? 'rounded-r-md' : ''
+                } ${
+                  filter !== 'all' ? '-ml-px' : ''
+                }`}
+              >
+                {filter === 'noDefaultCategory' ? t('page.categoryFilterNoCategory', { count: payeesWithoutCategory }) :
+                 filter === 'uncategorizedTransactions' ? t('page.categoryFilterUncategorized', { count: payeesWithUncategorizedTx }) :
+                 t('page.categoryFilterAll', { count: payees.length })}
               </button>
             ))}
           </div>
@@ -277,7 +392,7 @@ function PayeesContent() {
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="lg" className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Payee' : 'New Payee'}
+            {isEditing ? t('page.modalTitleEdit') : t('page.modalTitleNew')}
           </h2>
           <PayeeForm
             payee={editingItem}
@@ -293,7 +408,7 @@ function PayeesContent() {
         {/* Payees List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading payees..." />
+            <LoadingSpinner text={t('page.loading')} />
           ) : (
             <PayeeList
               payees={paginatedPayees}
@@ -309,6 +424,8 @@ function PayeesContent() {
               sortDirection={sortDirection}
               onSort={handleSort}
               categoryColorMap={categoryColorMap}
+              categoryLabelMap={categoryLabelMap}
+              highlightId={highlightId}
             />
           )}
         </div>
@@ -330,7 +447,7 @@ function PayeesContent() {
         {/* Show total count when only one page */}
         {totalPages <= 1 && sortedPayees.length > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {sortedPayees.length} payee{sortedPayees.length !== 1 ? 's' : ''}
+            {t('page.count', { count: sortedPayees.length })}
           </div>
         )}
       </main>
@@ -340,6 +457,7 @@ function PayeesContent() {
         isOpen={showAutoAssign}
         onClose={() => setShowAutoAssign(false)}
         onSuccess={loadData}
+        categories={categories}
       />
 
       {/* Merge Payee Dialog */}
@@ -356,6 +474,28 @@ function PayeesContent() {
         isOpen={showDeactivate}
         onClose={() => setShowDeactivate(false)}
         onSuccess={loadData}
+      />
+
+      {/* Auto-Merge Payees Dialog */}
+      <AutoMergePayeesDialog
+        isOpen={showAutoMerge}
+        onClose={() => setShowAutoMerge(false)}
+        onSuccess={loadData}
+        categories={categories}
+      />
+
+      {/* Apply default categories to all payees with uncategorized transactions */}
+      <ConfirmDialog
+        isOpen={showApplyDefaults}
+        variant="info"
+        title={t('defaultCategoryBackfill.allConfirmTitle')}
+        message={t('defaultCategoryBackfill.allConfirmMessage', {
+          transactions: backfillTotals.transactions,
+          payees: backfillTotals.payees,
+        })}
+        confirmLabel={t('defaultCategoryBackfill.confirmButton')}
+        onConfirm={handleApplyDefaultCategories}
+        onCancel={() => setShowApplyDefaults(false)}
       />
     </PageLayout>
   );

@@ -13,8 +13,11 @@ import {
   CreateSecurityPriceData,
   PaginatedInvestmentTransactions,
   TopMover,
+  FavouriteSecurityQuote,
   SectorWeightingResult,
+  CountryWeightingResult,
   SecurityPrice,
+  SecurityTransactionHistory,
 } from '@/types/investment';
 import { getCached, setCache, invalidateCache } from './apiCache';
 
@@ -40,6 +43,33 @@ export const investmentsApi = {
       params: accountIds && accountIds.length > 0 ? { accountIds: accountIds.join(',') } : undefined,
     });
     setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  // Get portfolio "exposure by tag" allocation. Overlapping exposure: a
+  // multi-tagged holding counts in full under each tag, so percentages can sum
+  // to more than 100%.
+  getAllocationByTag: async (accountIds?: string[]): Promise<AssetAllocation> => {
+    const cacheKey = `investments:allocation-by-tag:${accountIds?.join(',') || 'all'}`;
+    const cached = getCached<AssetAllocation>(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get<AssetAllocation>('/portfolio/allocation/by-tag', {
+      params: accountIds && accountIds.length > 0 ? { accountIds: accountIds.join(',') } : undefined,
+    });
+    setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  // Suggest a description for a security from the Yahoo provider profile
+  // (advisory pre-fill for the "Fetch from Yahoo" button). Not cached.
+  getSuggestedDescription: async (
+    symbol: string,
+    exchange?: string,
+  ): Promise<{ symbol: string; description: string | null }> => {
+    const response = await apiClient.get<{ symbol: string; description: string | null }>(
+      '/securities/profile-description',
+      { params: { symbol, ...(exchange ? { exchange } : {}) } },
+    );
     return response.data;
   },
 
@@ -181,10 +211,37 @@ export const investmentsApi = {
     return response.data;
   },
 
+  // Transfer a security between two investment accounts, preserving cost
+  // basis. Creates both legs (TRANSFER_OUT in source, TRANSFER_IN in
+  // destination) atomically on the backend.
+  transferSecurity: async (data: {
+    fromAccountId: string;
+    toAccountId: string;
+    securityId: string;
+    transactionDate: string;
+    quantity: number;
+    costPerShare: number;
+    description?: string;
+  }): Promise<{
+    transferOut: InvestmentTransaction;
+    transferIn: InvestmentTransaction;
+  }> => {
+    const response = await apiClient.post<{
+      transferOut: InvestmentTransaction;
+      transferIn: InvestmentTransaction;
+    }>('/investment-transactions/transfer-security', data);
+    invalidateCache('investments:');
+    return response.data;
+  },
+
   // Update investment transaction
   updateTransaction: async (
     id: string,
-    data: Partial<CreateInvestmentTransactionData>,
+    // destinationAccountId is only used when editing a security-transfer leg,
+    // to reroute the paired leg's account.
+    data: Partial<CreateInvestmentTransactionData> & {
+      destinationAccountId?: string;
+    },
   ): Promise<InvestmentTransaction> => {
     const response = await apiClient.patch<InvestmentTransaction>(
       `/investment-transactions/${id}`,
@@ -198,6 +255,17 @@ export const investmentsApi = {
   getTransaction: async (id: string): Promise<InvestmentTransaction> => {
     const response = await apiClient.get<InvestmentTransaction>(
       `/investment-transactions/${id}`,
+    );
+    return response.data;
+  },
+
+  // Full transaction history for a security with running share totals and the
+  // accounts (including closed) it was used in.
+  getSecurityTransactionHistory: async (
+    securityId: string,
+  ): Promise<SecurityTransactionHistory> => {
+    const response = await apiClient.get<SecurityTransactionHistory>(
+      `/investment-transactions/security/${securityId}/history`,
     );
     return response.data;
   },
@@ -216,9 +284,34 @@ export const investmentsApi = {
     return response.data;
   },
 
+  // Get favourite securities with latest price and daily change (for the dashboard widget)
+  getFavouriteSecurities: async (): Promise<FavouriteSecurityQuote[]> => {
+    const cacheKey = 'investments:favouriteSecurities';
+    const cached = getCached<FavouriteSecurityQuote[]>(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get<FavouriteSecurityQuote[]>('/securities/favourites');
+    setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  // Toggle a security's favourite flag. Invalidates the cached favourites list
+  // so the dashboard widget reflects the change on next load.
+  setSecurityFavourite: async (id: string, isFavourite: boolean): Promise<Security> => {
+    const response = await apiClient.patch<Security>(`/securities/${id}`, { isFavourite });
+    invalidateCache('investments:favouriteSecurities');
+    return response.data;
+  },
+
   // Get a single security by ID
   getSecurity: async (id: string): Promise<Security> => {
     const response = await apiClient.get<Security>(`/securities/${id}`);
+    return response.data;
+  },
+
+  // Country names for the manual ETF/fund allocation picker: canonical list
+  // plus any custom countries the user has saved, base-currency country first.
+  getCountryOptions: async (): Promise<string[]> => {
+    const response = await apiClient.get<string[]>('/securities/country-options');
     return response.data;
   },
 
@@ -367,6 +460,28 @@ export const investmentsApi = {
     return response.data;
   },
 
+  // Force-refresh historical prices for a single security across the full
+  // period the user has held it, overwriting existing rows.
+  backfillSecurityPrices: async (
+    securityId: string,
+  ): Promise<{
+    symbol: string;
+    success: boolean;
+    pricesLoaded?: number;
+    error?: string;
+    provider?: string;
+  }> => {
+    // Hits the quote provider for the security's full history, so give it the
+    // same generous timeout as the bulk refresh endpoints.
+    const response = await apiClient.post(
+      `/securities/${securityId}/prices/backfill`,
+      undefined,
+      { timeout: 120_000 },
+    );
+    invalidateCache('investments:');
+    return response.data;
+  },
+
   // Get price update status
   getPriceStatus: async (): Promise<{ lastUpdated: string | null }> => {
     const response = await apiClient.get('/securities/prices/status');
@@ -426,6 +541,20 @@ export const investmentsApi = {
     const cached = getCached<SectorWeightingResult>(cacheKey);
     if (cached) return cached;
     const response = await apiClient.get<SectorWeightingResult>('/portfolio/sector-weightings', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  getCountryWeightings: async (accountIds?: string[], securityIds?: string[]): Promise<CountryWeightingResult> => {
+    const params: Record<string, string> = {};
+    if (accountIds && accountIds.length > 0) params.accountIds = accountIds.join(',');
+    if (securityIds && securityIds.length > 0) params.securityIds = securityIds.join(',');
+    const cacheKey = `investments:countryWeightings:${params.accountIds || 'all'}:${params.securityIds || 'all'}`;
+    const cached = getCached<CountryWeightingResult>(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get<CountryWeightingResult>('/portfolio/country-weightings', {
       params: Object.keys(params).length > 0 ? params : undefined,
     });
     setCache(cacheKey, response.data, 60_000);

@@ -14,6 +14,10 @@ import {
   CreatePayeeAliasData,
   MergePayeeData,
   MergePayeeResult,
+  AutoMergePreviewParams,
+  AutoMergeGroup,
+  ApplyAutoMergeGroup,
+  ApplyAutoMergeResult,
 } from '@/types/payee';
 import { dedupe, invalidateCache } from './apiCache';
 
@@ -48,9 +52,16 @@ export const payeesApi = {
     return response.data;
   },
 
-  // Update payee
-  update: async (id: string, data: UpdatePayeeData): Promise<Payee> => {
-    const response = await apiClient.patch<Payee>(`/payees/${id}`, data);
+  // Update payee. When the update applies the default category to existing
+  // transactions, the response also reports how many were categorized.
+  update: async (
+    id: string,
+    data: UpdatePayeeData,
+  ): Promise<Payee & { transactionsCategorized?: number }> => {
+    const response = await apiClient.patch<Payee & { transactionsCategorized?: number }>(
+      `/payees/${id}`,
+      data,
+    );
     invalidateCache('payees:');
     return response.data;
   },
@@ -118,18 +129,20 @@ export const payeesApi = {
   },
 
   // Apply category auto-assignments (batches in chunks of 500 to respect server limit)
-  applyCategorySuggestions: async (assignments: CategoryAssignment[]): Promise<{ updated: number }> => {
+  applyCategorySuggestions: async (assignments: CategoryAssignment[]): Promise<{ updated: number; transactionsBackfilled: number }> => {
     const BATCH_SIZE = 500;
     let totalUpdated = 0;
+    let totalBackfilled = 0;
 
     for (let i = 0; i < assignments.length; i += BATCH_SIZE) {
       const batch = assignments.slice(i, i + BATCH_SIZE);
-      const response = await apiClient.post<{ updated: number }>('/payees/category-suggestions/apply', { assignments: batch });
+      const response = await apiClient.post<{ updated: number; transactionsBackfilled: number }>('/payees/category-suggestions/apply', { assignments: batch });
       totalUpdated += response.data.updated;
+      totalBackfilled += response.data.transactionsBackfilled;
     }
 
     invalidateCache('payees:');
-    return { updated: totalUpdated };
+    return { updated: totalUpdated, transactionsBackfilled: totalBackfilled };
   },
 
   // Preview deactivation candidates
@@ -205,6 +218,31 @@ export const payeesApi = {
   // Merge one payee into another
   mergePayees: async (data: MergePayeeData): Promise<MergePayeeResult> => {
     const response = await apiClient.post<MergePayeeResult>('/payees/merge', data);
+    invalidateCache('payees:');
+    return response.data;
+  },
+
+  // ===== Auto-Merge Methods =====
+
+  // Preview auto-merge groups of near-duplicate payees
+  getAutoMergePreview: async (params: AutoMergePreviewParams): Promise<AutoMergeGroup[]> => {
+    const response = await apiClient.get<{ groups: AutoMergeGroup[] }>('/payees/auto-merge/preview', {
+      params: {
+        minGroupSize: params.minGroupSize,
+        similarityThreshold: params.similarityThreshold,
+        minTokenLength: params.minTokenLength,
+        includeInactive: params.includeInactive,
+        categoryMatch: params.categoryMatch,
+        ignoreCommonWords: params.ignoreCommonWords,
+        commonWordMinVariants: params.commonWordMinVariants,
+      },
+    });
+    return response.data.groups;
+  },
+
+  // Apply the chosen auto-merge groups
+  applyAutoMerge: async (groups: ApplyAutoMergeGroup[]): Promise<ApplyAutoMergeResult> => {
+    const response = await apiClient.post<ApplyAutoMergeResult>('/payees/auto-merge/apply', { groups });
     invalidateCache('payees:');
     return response.data;
   },

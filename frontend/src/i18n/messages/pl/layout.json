@@ -1,0 +1,132 @@
+{
+  "demoBanner": {
+    "label": "Tryb demo",
+    "message": "Wszystkie dane są resetowane codziennie o 4:00 UTC. Korzystaj swobodnie!"
+  },
+  "delegationBanner": {
+    "viewing": "Wyświetlasz:",
+    "sharedAccount": "Konto współdzielone",
+    "yourAccount": "Twoje konto",
+    "switchAccountLabel": "Przełącz konto",
+    "selfSuffix": "{label} (Ty)",
+    "error2fa": "To konto wymaga uwierzytelniania dwuskładnikowego. Skonfiguruj 2FA w Ustawieniach przed przełączeniem.",
+    "errorSwitch": "Nie można przełączyć konta"
+  },
+  "backendDownBanner": {
+    "connectionBlockedLabel": "Połączenie zablokowane",
+    "connectionBlockedDetail": "Nagłówki bezpieczeństwa blokują żądania przez zwykły protokół HTTP.",
+    "connectionLostLabel": "Utracono połączenie",
+    "connectionLostDetail": "Nie można połączyć się z serwerem. Ponawianie automatyczne...",
+    "httpsHint": "Ustaw <code>DISABLE_HTTPS_HEADERS=true</code> w swoim środowisku lub korzystaj z witryny przez HTTPS."
+  },
+  "httpWarningBanner": {
+    "label": "Wymagany HTTPS",
+    "detail": "Nagłówki bezpieczeństwa są aktywne, ale witryna jest używana przez zwykły protokół HTTP. Żądania API mogą się nie powieść.",
+    "httpsHint": "Ustaw <code>DISABLE_HTTPS_HEADERS=true</code> w swoim środowisku lub korzystaj z witryny przez HTTPS.",
+    "dismiss": "Zamknij",
+    "dismissAriaLabel": "Zamknij ostrzeżenie o HTTPS"
+  },
+  "updateBanner": {
+    "availableWithVersion": "Dostępna jest wersja Monize v{version}",
+    "availableGeneric": "Dostępna jest nowa wersja Monize",
+    "runningVersion": "(działa wersja v{version})",
+    "releaseNotes": "Informacje o wydaniu",
+    "dismiss": "Zamknij",
+    "dismissAriaLabel": "Zamknij powiadomienie o aktualizacji"
+  },
+  "actionHistory": {
+    "title": "Historia akcji",
+    "buttonAriaLabel": "Historia akcji",
+    "closeAriaLabel": "Zamknij",
+    "undo": "Cofnij",
+    "redo": "Ponów",
+    "noRecentActions": "Brak ostatnich akcji",
+    "undoneLabel": "Cofnięto",
+    "nothingToUndo": "Nie ma nic do cofnięcia",
+    "nothingToRedo": "Nie ma nic do ponowienia",
+    "cannotUndoDefault": "Nie można cofnąć tej akcji",
+    "cannotRedoDefault": "Nie można ponowić tej akcji",
+    "undoFailed": "Cofanie nie powiodło się",
+    "redoFailed": "Ponawianie nie powiodło się",
+    "entityLabels": {
+      "transaction": "Transakcja",
+      "transfer": "Przelew",
+      "investment_transaction": "Inwestycja",
+      "bulk_transaction": "Zbiorcza",
+      "category": "Kategoria",
+      "payee": "Odbiorca",
+      "tag": "Tag",
+      "account": "Konto",
+      "scheduled_transaction": "Zaplanowana",
+      "security": "Papier wartościowy",
+      "budget": "Budżet",
+      "custom_report": "Raport"
+    },
+    "actionLabels": {
+      "BUY": "Kupno",
+      "SELL": "Sprzedaż",
+      "DIVIDEND": "Dywidenda",
+      "INTEREST": "Odsetki",
+      "CAPITAL_GAIN": "Zysk kapitałowy",
+      "SPLIT": "Podział akcji",
+      "TRANSFER_IN": "Przeniesienie przychodzące",
+      "TRANSFER_OUT": "Przeniesienie wychodzące",
+      "REINVEST": "Reinwestycja",
+      "ADD_SHARES": "Dodaj udziały",
+      "REMOVE_SHARES": "Usuń udziały"
+    },
+    "descriptions": {
+      "createdAccount": "Utworzono konto \"{name}\"",
+      "updatedAccount": "Zaktualizowano konto \"{name}\"",
+      "deletedAccount": "Usunięto konto \"{name}\"",
+      "createdBudget": "Utworzono budżet \"{name}\"",
+      "updatedBudget": "Zaktualizowano budżet \"{name}\"",
+      "deletedBudget": "Usunięto budżet \"{name}\"",
+      "createdCategory": "Utworzono kategorię \"{name}\"",
+      "updatedCategory": "Zaktualizowano kategorię \"{name}\"",
+      "deletedCategory": "Usunięto kategorię \"{name}\"",
+      "createdInstitution": "Utworzono instytucję \"{name}\"",
+      "updatedInstitution": "Zaktualizowano instytucję \"{name}\"",
+      "deletedInstitution": "Usunięto instytucję \"{name}\"",
+      "createdInvestmentReport": "Utworzono raport inwestycyjny \"{name}\"",
+      "updatedInvestmentReport": "Zaktualizowano raport inwestycyjny \"{name}\"",
+      "deletedInvestmentReport": "Usunięto raport inwestycyjny \"{name}\"",
+      "createdPayee": "Utworzono odbiorcę \"{name}\"",
+      "updatedPayee": "Zaktualizowano odbiorcę \"{name}\"",
+      "deletedPayee": "Usunięto odbiorcę \"{name}\"",
+      "createdReport": "Utworzono raport \"{name}\"",
+      "updatedReport": "Zaktualizowano raport \"{name}\"",
+      "deletedReport": "Usunięto raport \"{name}\"",
+      "createdScheduledTransaction": "Utworzono zaplanowaną transakcję \"{name}\"",
+      "updatedScheduledTransaction": "Zaktualizowano zaplanowaną transakcję \"{name}\"",
+      "deletedScheduledTransaction": "Usunięto zaplanowaną transakcję \"{name}\"",
+      "createdSecurity": "Utworzono papier wartościowy \"{symbol}\"",
+      "updatedSecurity": "Zaktualizowano papier wartościowy \"{symbol}\"",
+      "deletedSecurity": "Usunięto papier wartościowy \"{symbol}\"",
+      "createdTag": "Utworzono tag \"{name}\"",
+      "updatedTag": "Zaktualizowano tag \"{name}\"",
+      "deletedTag": "Usunięto tag \"{name}\"",
+      "createdTransaction": "Utworzono transakcję {payee} {amount}",
+      "updatedTransaction": "Zaktualizowano transakcję {payee} {amount}",
+      "deletedTransaction": "Usunięto transakcję {payee} {amount}",
+      "createdTransfer": "Utworzono przelew {amount} z {from} do {to}",
+      "createdInvestmentTransaction": "Utworzono transakcję {action}",
+      "updatedInvestmentTransaction": "Zaktualizowano transakcję {action}",
+      "deletedInvestmentTransaction": "Usunięto transakcję {action}",
+      "transferredSecurity": "Przeniesiono papier wartościowy między kontami",
+      "updatedSecurityTransfer": "Zaktualizowano transfer papierów wartościowych"
+    },
+    "timeAgo": {
+      "justNow": "przed chwilą",
+      "minutes": "{count} min temu",
+      "hours": "{count} godz. temu",
+      "days": "{count} dni temu"
+    },
+    "undonePrefix": "Cofnięto: {description}",
+    "redonePrefix": "Ponowiono: {description}"
+  },
+  "pageHeader": {
+    "helpAriaLabel": "Otwórz wiki Monize, aby uzyskać pomoc dotyczącą tej sekcji",
+    "helpTooltip": "Otwórz wiki Monize, aby uzyskać pomoc dotyczącą tej sekcji"
+  }
+}

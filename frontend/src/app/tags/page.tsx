@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import dynamic from 'next/dynamic';
@@ -34,6 +35,8 @@ export default function TagsPage() {
 }
 
 function TagsContent() {
+  const t = useTranslations('tags');
+  const tc = useTranslations('common');
   const router = useRouter();
   const [tags, setTags] = useState<Tag[]>([]);
   const [transactionCounts, setTransactionCounts] = useState<Record<string, number>>({});
@@ -56,12 +59,12 @@ function TagsContent() {
       setTags(data);
       setTransactionCounts(counts);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load tags'));
+      toast.error(getErrorMessage(error, t('page.toasts.loadFailed')));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadTags();
@@ -79,17 +82,17 @@ function TagsContent() {
 
       if (editingItem) {
         await tagsApi.update(editingItem.id, cleanedData);
-        toast.success('Tag updated successfully');
+        toast.success(t('page.toasts.updated'));
         close();
         loadTags();
       } else {
         await tagsApi.create(cleanedData);
-        toast.success('Tag created successfully');
+        toast.success(t('page.toasts.created'));
         close();
         loadTags();
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, `Failed to ${editingItem ? 'update' : 'create'} tag`));
+      toast.error(getErrorMessage(error, editingItem ? t('page.toasts.updateFailed') : t('page.toasts.createFailed')));
       throw error;
     }
   };
@@ -109,10 +112,10 @@ function TagsContent() {
 
     try {
       await tagsApi.delete(deleteTag.id);
-      toast.success('Tag deleted successfully');
-      setTags(prev => prev.filter(t => t.id !== deleteTag.id));
+      toast.success(t('page.toasts.deleted'));
+      setTags(prev => prev.filter(tag => tag.id !== deleteTag.id));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete tag'));
+      toast.error(getErrorMessage(error, t('page.toasts.deleteFailed')));
       logger.error(error);
     } finally {
       setDeleteTag(null);
@@ -146,25 +149,25 @@ function TagsContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Tags"
-          subtitle="Label your transactions with custom tags"
-          actions={<Button onClick={openCreate}>+ New Tag</Button>}
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
+          actions={<Button onClick={openCreate}>{t('page.newButton')}</Button>}
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <SummaryCard
-            label="Total Tags"
+            label={t('page.summary.totalTags')}
             value={tags.length}
             icon={SummaryIcons.tag}
           />
           <SummaryCard
-            label="Tags with Colour"
+            label={t('page.summary.tagsWithColour')}
             value={tagsWithColor}
             icon={SummaryIcons.plusCircle}
             valueColor="blue"
           />
           <SummaryCard
-            label="Tags with Icon"
+            label={t('page.summary.tagsWithIcon')}
             value={tagsWithIcon}
             icon={SummaryIcons.list}
             valueColor="blue"
@@ -175,7 +178,7 @@ function TagsContent() {
         <div className="mb-6">
           <input
             type="text"
-            placeholder="Search tags..."
+            placeholder={t('page.search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full sm:max-w-md rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400"
@@ -185,7 +188,7 @@ function TagsContent() {
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="lg" allowOverflow className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Tag' : 'New Tag'}
+            {isEditing ? t('page.modal.editTitle') : t('page.modal.newTitle')}
           </h2>
           <TagForm
             tag={editingItem}
@@ -200,13 +203,13 @@ function TagsContent() {
         {/* Delete Confirmation */}
         <ConfirmDialog
           isOpen={deleteTag !== null}
-          title="Delete Tag"
+          title={t('page.delete.title')}
           message={
             deleteTransactionCount > 0
-              ? `Are you sure you want to delete "${deleteTag?.name}"? This tag is used on ${deleteTransactionCount} transaction${deleteTransactionCount !== 1 ? 's' : ''}. The tag will be removed from those transactions.`
-              : `Are you sure you want to delete "${deleteTag?.name}"? This action cannot be undone.`
+              ? t('page.delete.withTransactionsMessage', { name: deleteTag?.name ?? '', count: deleteTransactionCount })
+              : t('page.delete.simpleMessage', { name: deleteTag?.name ?? '' })
           }
-          confirmLabel="Delete"
+          confirmLabel={tc('delete')}
           variant="danger"
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeleteTag(null)}
@@ -215,7 +218,7 @@ function TagsContent() {
         {/* Tags List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading tags..." />
+            <LoadingSpinner text={t('page.loading')} />
           ) : tags.length === 0 ? (
             <div className="p-12 text-center">
               <svg
@@ -232,14 +235,14 @@ function TagsContent() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-                No tags yet
+                {t('page.emptyState.title')}
               </h3>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-                Tags help you label and filter your transactions. Create your first tag to get started.
+                {t('page.emptyState.body')}
               </p>
               <div className="mt-6">
                 <Button onClick={openCreate}>
-                  Create Your First Tag
+                  {t('page.emptyState.createButton')}
                 </Button>
               </div>
             </div>
@@ -262,7 +265,7 @@ function TagsContent() {
         {/* Total count */}
         {filteredTags.length > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {filteredTags.length} tag{filteredTags.length !== 1 ? 's' : ''}
+            {t('page.totalCount', { count: filteredTags.length })}
           </div>
         )}
       </main>

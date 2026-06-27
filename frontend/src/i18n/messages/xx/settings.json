@@ -1,0 +1,893 @@
+{
+  "language": {
+    "label": "[XX-Language-XX]",
+    "browserOption": "[XX-Use browser locale (auto-detected as {locale})-XX]",
+    "helpText": "[XX-Choose the language used throughout the Monize interface. Number and date formatting are controlled separately below.-XX]",
+    "saved": "[XX-Language updated-XX]",
+    "saveFailed": "[XX-Failed to save language-XX]"
+  },
+  "profile": {
+    "heading": "[XX-Profile-XX]",
+    "firstNameLabel": "[XX-First Name-XX]",
+    "firstNamePlaceholder": "[XX-Enter your first name-XX]",
+    "lastNameLabel": "[XX-Last Name-XX]",
+    "lastNamePlaceholder": "[XX-Enter your last name-XX]",
+    "emailLabel": "[XX-Email-XX]",
+    "emailPlaceholder": "[XX-Enter your email-XX]",
+    "currentPasswordLabel": "[XX-Current Password-XX]",
+    "currentPasswordPlaceholder": "[XX-Required to change email-XX]",
+    "passwordRequired": "[XX-Current password is required to change email-XX]",
+    "noChanges": "[XX-No changes to save-XX]",
+    "passwordConfirmNote": "[XX-Password confirmation is required when changing your email address.-XX]",
+    "saveButton": "[XX-Save Profile-XX]",
+    "savingButton": "[XX-Saving...-XX]",
+    "toasts": {
+      "success": "[XX-Profile updated successfully-XX]",
+      "updateFailed": "[XX-Failed to update profile-XX]"
+    },
+    "validation": {
+      "firstNameMax": "[XX-First name must be 100 characters or less-XX]",
+      "lastNameMax": "[XX-Last name must be 100 characters or less-XX]",
+      "emailRequired": "[XX-Email is required-XX]",
+      "emailInvalid": "[XX-Please enter a valid email address-XX]",
+      "emailMax": "[XX-Email must be 254 characters or less-XX]",
+      "passwordMax": "[XX-Password must be 128 characters or less-XX]"
+    }
+  },
+  "security": {
+    "heading": "[XX-Security-XX]",
+    "ssoNotice": "[XX-Your account uses Single Sign-On (SSO) for authentication. The password below is not used for login but can be kept as a backup if SSO is disabled.-XX]",
+    "currentPasswordLabel": "[XX-Current Password-XX]",
+    "currentPasswordPlaceholder": "[XX-Enter current password-XX]",
+    "newPasswordLabel": "[XX-New Password-XX]",
+    "newPasswordPlaceholder": "[XX-Enter new password-XX]",
+    "confirmPasswordLabel": "[XX-Confirm New Password-XX]",
+    "confirmPasswordPlaceholder": "[XX-Confirm new password-XX]",
+    "changePasswordButton": "[XX-Change Password-XX]",
+    "changingPasswordButton": "[XX-Changing...-XX]",
+    "toasts": {
+      "passwordChanged": "[XX-Password changed successfully-XX]",
+      "passwordChangeFailed": "[XX-Failed to change password-XX]"
+    },
+    "twoFactor": {
+      "heading": "[XX-Two-Factor Authentication-XX]",
+      "ssoUnavailable": "[XX-Two-factor authentication is not available for SSO accounts. Authentication security is managed by your identity provider.-XX]",
+      "enabledBadge": "[XX-Enabled-XX]",
+      "enabledDescription": "[XX-Your account is protected with TOTP verification.-XX]",
+      "requiredByAdmin": "[XX-Required by administrator-XX]",
+      "addLayerDescription": "[XX-Add an extra layer of security to your account.-XX]",
+      "enableButton": "[XX-Enable 2FA-XX]",
+      "disableButton": "[XX-Disable 2FA-XX]",
+      "disableModal": {
+        "title": "[XX-Disable Two-Factor Authentication-XX]",
+        "description": "[XX-Enter your current 6-digit code to confirm disabling 2FA.-XX]",
+        "verificationCodeLabel": "[XX-Verification Code-XX]",
+        "disablingButton": "[XX-Disabling...-XX]",
+        "toasts": {
+          "disabled": "[XX-Two-factor authentication disabled-XX]",
+          "disableFailed": "[XX-Failed to disable 2FA-XX]"
+        }
+      }
+    },
+    "backupCodes": {
+      "heading": "[XX-Backup Codes-XX]",
+      "description": "[XX-Use backup codes to sign in if you lose access to your authenticator app.-XX]",
+      "regenerateButton": "[XX-Regenerate codes-XX]",
+      "regenerateModal": {
+        "title": "[XX-Regenerate Backup Codes-XX]",
+        "description": "[XX-Enter your current 6-digit code to confirm regenerating backup codes. This will invalidate any existing codes.-XX]",
+        "verificationCodeLabel": "[XX-Verification Code-XX]",
+        "regeneratingButton": "[XX-Regenerating...-XX]",
+        "regenerateButton": "[XX-Regenerate-XX]"
+      },
+      "toasts": {
+        "generateFailed": "[XX-Failed to generate backup codes-XX]"
+      }
+    },
+    "trustedDevices": {
+      "heading": "[XX-Trusted Devices-XX]",
+      "revokeAllButton": "[XX-Revoke All-XX]",
+      "noDevices": "[XX-No trusted devices. When you check \"Don't ask again on this browser\" during 2FA login, the device will appear here.-XX]",
+      "currentBadge": "[XX-Current-XX]",
+      "revokeButton": "[XX-Revoke-XX]",
+      "revokeAllModal": {
+        "title": "[XX-Revoke All Trusted Devices-XX]",
+        "description": "[XX-This will remove all trusted devices. You will need to enter your 2FA code on your next login from any device.-XX]"
+      },
+      "toasts": {
+        "revoked": "[XX-Device revoked-XX]",
+        "revokedAll": "[XX-{count} device(s) revoked-XX]",
+        "revokeFailed": "[XX-Failed to revoke device-XX]",
+        "revokeAllFailed": "[XX-Failed to revoke devices-XX]"
+      }
+    },
+    "validation": {
+      "currentPasswordRequired": "[XX-Current password is required-XX]",
+      "passwordMax": "[XX-Password must be 128 characters or less-XX]",
+      "confirmRequired": "[XX-Please confirm your new password-XX]",
+      "newPasswordsNoMatch": "[XX-New passwords do not match-XX]"
+    }
+  },
+  "preferences": {
+    "heading": "[XX-Preferences-XX]",
+    "themeLabel": "[XX-Theme-XX]",
+    "defaultCurrencyLabel": "[XX-Default Currency-XX]",
+    "preferredExchangesLabel": "[XX-Preferred Exchanges (for security lookups)-XX]",
+    "preferredExchangesHelp": "[XX-Select up to 3 exchanges in priority order. These will be preferred when looking up securities.-XX]",
+    "exchangePriorityPlaceholder": "[XX-Priority {n}-XX]",
+    "defaultQuoteProviderLabel": "[XX-Default Stock Quote Provider-XX]",
+    "defaultQuoteProviderHelp": "[XX-Used when a security has no provider override. If the chosen provider fails, Monize automatically tries the other.-XX]",
+    "msnNoIntradayNote": "[XX-Note: MSN Money does not provide intraday quote data, so the 1D / 1W / 1M ranges on the Portfolio Value Over Time chart are unavailable for MSN-tracked holdings.-XX]",
+    "msnNotConfigured": "[XX-MSN is selected as the default quote provider, but MSN_API_KEY is not configured on the server. MSN quotes will fail until an administrator sets the env var and restarts the backend.-XX]",
+    "dateFormatLabel": "[XX-Date Format-XX]",
+    "numberFormatLabel": "[XX-Number Format-XX]",
+    "timezoneLabel": "[XX-Timezone-XX]",
+    "timezonePlaceholder": "[XX-Search timezones...-XX]",
+    "weekStartsOnLabel": "[XX-Week starts on-XX]",
+    "showCreatedAtLabel": "[XX-Show Create Date in transaction forms-XX]",
+    "showCreatedAtTooltip": "[XX-Displays the date and time a transaction was originally created on transaction forms. This is separate from the transaction date and can help you tell when an entry was actually added to Monize.-XX]",
+    "timeFormatLabel": "[XX-Time Format-XX]",
+    "recentTransactionsLabel": "[XX-Recent transactions in quick-fill-XX]",
+    "recentTransactionsHelp": "[XX-Number of entries shown in the history button popover next to the Payee field on transaction forms.-XX]",
+    "saveButton": "[XX-Save Preferences-XX]",
+    "savingButton": "[XX-Saving...-XX]",
+    "toasts": {
+      "saved": "[XX-Preferences saved-XX]",
+      "saveFailed": "[XX-Failed to save preferences-XX]",
+      "themeSaveFailed": "[XX-Failed to save theme-XX]",
+      "colorThemeSaveFailed": "[XX-Failed to save colour theme-XX]"
+    },
+    "browserLocale": "[XX-Use browser locale (auto-detect)-XX]",
+    "browserTimezonePrefix": "[XX-Use browser timezone (auto-detected as {tz})-XX]",
+    "numberFormatOptions": {
+      "browser": "[XX-Use browser locale (auto-detected as {sample})-XX]",
+      "enUS": "[XX-English (US) - 1,234.56-XX]",
+      "enGB": "[XX-English (UK) - 1,234.56-XX]",
+      "deDE": "[XX-German - 1.234,56-XX]",
+      "frFR": "[XX-French - 1 234,56-XX]"
+    },
+    "weekDays": {
+      "sunday": "[XX-Sunday-XX]",
+      "monday": "[XX-Monday-XX]",
+      "tuesday": "[XX-Tuesday-XX]",
+      "wednesday": "[XX-Wednesday-XX]",
+      "thursday": "[XX-Thursday-XX]",
+      "friday": "[XX-Friday-XX]",
+      "saturday": "[XX-Saturday-XX]"
+    },
+    "themeOptions": {
+      "system": "[XX-System (follow device setting)-XX]",
+      "light": "[XX-Light-XX]",
+      "dark": "[XX-Dark-XX]"
+    },
+    "colorThemeLabel": "[XX-Colour theme-XX]",
+    "colorThemeOptions": {
+      "default": "[XX-Default-XX]",
+      "latte": "[XX-Latte-XX]",
+      "msmoney": "[XX-MS Money-XX]",
+      "newspaper": "[XX-Newspaper-XX]",
+      "burgundy": "[XX-Burgundy-XX]",
+      "nord": "[XX-Nord-XX]",
+      "forest": "[XX-Forest-XX]",
+      "solarized": "[XX-Solarized-XX]",
+      "gruvbox": "[XX-Gruvbox-XX]",
+      "dracula": "[XX-Dracula-XX]",
+      "tokyonight": "[XX-Tokyo Night-XX]",
+      "rosepine": "[XX-Rosé Pine-XX]",
+      "midnight": "[XX-Midnight-XX]",
+      "highcontrast": "[XX-High contrast-XX]",
+      "colorblind": "[XX-Colour-blind safe-XX]"
+    },
+    "timezoneBrowserOption": "[XX-Use browser timezone (auto-detected as {tz})-XX]"
+  },
+  "notifications": {
+    "heading": "[XX-Notifications-XX]",
+    "smtpNotConfigured": "[XX-Email notifications are not available. SMTP has not been configured by the administrator.-XX]",
+    "emailNotificationsTitle": "[XX-Email Notifications-XX]",
+    "emailNotificationsDescription": "[XX-Receive email reminders for upcoming bills and budget alerts-XX]",
+    "budgetNotificationsHeading": "[XX-Budget Notifications-XX]",
+    "weeklyBudgetDigestTitle": "[XX-Weekly Budget Digest-XX]",
+    "weeklyBudgetDigestDescription": "[XX-Receive a weekly summary of budget alerts and status-XX]",
+    "toggleBudgetDigestLabel": "[XX-Toggle budget digest-XX]",
+    "digestDayLabel": "[XX-Digest day-XX]",
+    "digestDayAriaLabel": "[XX-Budget digest day-XX]",
+    "mondayOption": "[XX-Monday-XX]",
+    "fridayOption": "[XX-Friday-XX]",
+    "immediateAlertsNote": "[XX-Critical budget alerts (over budget, income shortfall) are sent immediately regardless of digest settings.-XX]",
+    "sendTestEmailDescription": "[XX-Send a test email to verify your notifications are working.-XX]",
+    "sendTestEmailButton": "[XX-Send Test Email-XX]",
+    "sendingTestEmailButton": "[XX-Sending...-XX]",
+    "toasts": {
+      "emailEnabled": "[XX-Email notifications enabled-XX]",
+      "emailDisabled": "[XX-Email notifications disabled-XX]",
+      "digestEnabled": "[XX-Budget digest enabled-XX]",
+      "digestDisabled": "[XX-Budget digest disabled-XX]",
+      "digestDaySet": "[XX-Budget digest day set to {day}-XX]",
+      "testEmailSent": "[XX-Test email sent! Check your inbox.-XX]",
+      "emailUpdateFailed": "[XX-Failed to update notification preference-XX]",
+      "digestUpdateFailed": "[XX-Failed to update budget digest preference-XX]",
+      "digestDayFailed": "[XX-Failed to update digest day-XX]",
+      "testEmailFailed": "[XX-Failed to send test email-XX]"
+    }
+  },
+  "help": {
+    "heading": "[XX-Help & Support-XX]",
+    "description": "[XX-Find documentation, report issues, or join the conversation.-XX]",
+    "github": {
+      "label": "[XX-GitHub-XX]",
+      "description": "[XX-View the source code and star the project.-XX]"
+    },
+    "openIssue": {
+      "label": "[XX-Open an Issue-XX]",
+      "description": "[XX-Report a bug or request a feature.-XX]"
+    },
+    "discussions": {
+      "label": "[XX-Discussions-XX]",
+      "description": "[XX-Ask questions and share ideas with the community.-XX]"
+    },
+    "wiki": {
+      "label": "[XX-Wiki-XX]",
+      "description": "[XX-Browse guides and documentation.-XX]"
+    }
+  },
+  "dangerZone": {
+    "heading": "[XX-Danger Zone-XX]",
+    "deleteData": {
+      "heading": "[XX-Delete Data-XX]",
+      "description": "[XX-Remove financial data from your account. This cannot be undone.-XX]",
+      "openButton": "[XX-Delete Data...-XX]",
+      "alwaysDeletedHeading": "[XX-The following will always be deleted:-XX]",
+      "optionalHeading": "[XX-Optionally also delete:-XX]",
+      "accountsOption": "[XX-Accounts-XX]",
+      "categoriesOption": "[XX-Categories-XX]",
+      "payeesOption": "[XX-Payees-XX]",
+      "currencyPreferencesOption": "[XX-Currency preferences-XX]",
+      "balanceResetNote": "[XX-Account balances will be reset to their opening balance.-XX]",
+      "oidcConfirmLabel": "[XX-Re-authenticate with your identity provider to confirm:-XX]",
+      "passwordConfirmLabel": "[XX-Enter your password to confirm:-XX]",
+      "passwordPlaceholder": "[XX-Enter your password-XX]",
+      "oidcReauthButton": "[XX-Re-authenticate and Delete-XX]",
+      "deletingButton": "[XX-Deleting...-XX]",
+      "confirmButton": "[XX-Confirm Delete Data-XX]",
+      "toasts": {
+        "success": "[XX-Deleted {count} records successfully-XX]",
+        "failed": "[XX-Failed to delete data-XX]"
+      }
+    },
+    "deleteAccount": {
+      "heading": "[XX-Delete Account-XX]",
+      "description": "[XX-Permanently delete your account and all associated data. This cannot be undone.-XX]",
+      "delegateNotice": {
+        "title": "[XX-You are a delegate of another account.-XX]",
+        "body": "[XX-Deleting your account will remove your own data, but your login and the shared access others granted you stay so the delegation keeps working. To revoke that access, ask the owner to remove you from their Shared Access list first.-XX]"
+      },
+      "openButton": "[XX-Delete Account-XX]",
+      "typeDeleteLabel": "[XX-Type DELETE to confirm account deletion:-XX]",
+      "typeDeletePlaceholder": "[XX-Type DELETE-XX]",
+      "enterPasswordLabel": "[XX-Enter your password:-XX]",
+      "enterPasswordPlaceholder": "[XX-Enter your password-XX]",
+      "deletingButton": "[XX-Deleting...-XX]",
+      "confirmButton": "[XX-Confirm Delete-XX]",
+      "toasts": {
+        "downgraded": "[XX-Your own data was removed. Your login and shared access are kept so the delegation stays in place.-XX]",
+        "deleted": "[XX-Account deleted-XX]",
+        "failed": "[XX-Failed to delete account-XX]"
+      },
+      "errors": {
+        "typeDelete": "[XX-Please type DELETE to confirm-XX]",
+        "passwordRequired": "[XX-Please enter your password to confirm-XX]"
+      }
+    }
+  },
+  "apiAccess": {
+    "heading": "[XX-API Access-XX]",
+    "description": "[XX-Create personal access tokens to connect external AI tools like Claude Desktop via MCP.-XX]",
+    "createTokenButton": "[XX-Create Token-XX]",
+    "mcpServerUrlLabel": "[XX-MCP Server URL-XX]",
+    "mcpServerUrlHelp": "[XX-Use this URL when configuring MCP clients such as Claude Code or Claude Desktop.-XX]",
+    "copyButton": "[XX-Copy-XX]",
+    "copiedButton": "[XX-Copied-XX]",
+    "noTokens": "[XX-No API tokens yet. Create one to get started.-XX]",
+    "tokenPrefix": "[XX-Last used-XX]",
+    "expires": "[XX-Expires-XX]",
+    "created": "[XX-Created-XX]",
+    "lastUsed": "[XX-Last used-XX]",
+    "revokeButton": "[XX-Revoke-XX]",
+    "revokeModal": {
+      "title": "[XX-Revoke Token-XX]",
+      "message": "[XX-This token will immediately stop working. Any MCP connections using it will be disconnected.-XX]",
+      "confirmLabel": "[XX-Revoke-XX]"
+    },
+    "createModal": {
+      "title": "[XX-Create API Token-XX]",
+      "tokenNameLabel": "[XX-Token Name-XX]",
+      "tokenNamePlaceholder": "[XX-e.g., Claude Desktop-XX]",
+      "scopesLabel": "[XX-Scopes-XX]",
+      "expirationLabel": "[XX-Expiration-XX]",
+      "creatingButton": "[XX-Creating...-XX]",
+      "createButton": "[XX-Create Token-XX]",
+      "scopes": {
+        "read": {
+          "label": "[XX-Read-XX]",
+          "description": "[XX-View accounts, transactions, categories, and financial reports-XX]"
+        },
+        "write": {
+          "label": "[XX-Write-XX]",
+          "description": "[XX-Create transactions, payees, and categories-XX]"
+        }
+      },
+      "expiry": {
+        "none": "[XX-No expiration-XX]",
+        "d30": "[XX-30 days-XX]",
+        "d90": "[XX-90 days-XX]",
+        "y1": "[XX-1 year-XX]"
+      },
+      "validation": {
+        "nameRequired": "[XX-Token name is required-XX]",
+        "nameMax": "[XX-Token name must be 100 characters or less-XX]"
+      }
+    },
+    "createdModal": {
+      "title": "[XX-Token Created-XX]",
+      "warningNote": "[XX-Copy this token now. You won't be able to see it again.-XX]",
+      "doneButton": "[XX-Done-XX]"
+    },
+    "toasts": {
+      "copied": "[XX-Token copied to clipboard-XX]",
+      "mcpUrlCopied": "[XX-MCP URL copied to clipboard-XX]",
+      "revoked": "[XX-Token revoked-XX]",
+      "selectScope": "[XX-Select at least one scope-XX]",
+      "copyTokenFailed": "[XX-Failed to copy token-XX]",
+      "copyUrlFailed": "[XX-Failed to copy URL-XX]",
+      "loadFailed": "[XX-Failed to load API tokens-XX]",
+      "createFailed": "[XX-Failed to create token-XX]",
+      "revokeFailed": "[XX-Failed to revoke token-XX]"
+    },
+    "relative": {
+      "never": "[XX-Never-XX]",
+      "today": "[XX-Today-XX]",
+      "yesterday": "[XX-Yesterday-XX]",
+      "daysAgo": "[XX-{count} days ago-XX]",
+      "monthsAgo": "[XX-{count} months ago-XX]"
+    }
+  },
+  "autoBackup": {
+    "heading": "[XX-Automatic Backup-XX]",
+    "description": "[XX-Automatically back up your data to a folder on a schedule. Since Monize runs in Docker, you must map a host folder into the container as a volume (e.g., -v /host/backups:/backups).-XX]",
+    "loadingText": "[XX-Loading...-XX]",
+    "enableLabel": "[XX-Enable automatic backups-XX]",
+    "backupFolderLabel": "[XX-Backup Folder-XX]",
+    "backupFolderPlaceholder": "[XX-/backups-XX]",
+    "browseButton": "[XX-Browse...-XX]",
+    "validateButton": "[XX-Validate-XX]",
+    "validatingButton": "[XX-Validating...-XX]",
+    "folderValid": "[XX-Folder is valid and writable-XX]",
+    "selectThisFolder": "[XX-Select This Folder-XX]",
+    "noSubdirectories": "[XX-No subdirectories-XX]",
+    "frequencyLabel": "[XX-Backup Frequency-XX]",
+    "backupTimeLabel": "[XX-Backup Time ({timezone})-XX]",
+    "backupTimeHelpInterval": "[XX-First backup of the day starts at this time ({timezone}). Subsequent backups follow at the configured interval.-XX]",
+    "backupTimeHelpDaily": "[XX-Time of day to run the backup in your local timezone ({timezone}).-XX]",
+    "retention": {
+      "heading": "[XX-Retention Policy-XX]",
+      "description": "[XX-Configure how many backups to keep. Older backups beyond these limits are automatically deleted.-XX]",
+      "dailyLabel": "[XX-Daily backups-XX]",
+      "dailyHelp": "[XX-Most recent backups to keep-XX]",
+      "weeklyLabel": "[XX-Weekly backups-XX]",
+      "weeklyHelp": "[XX-One per week retained-XX]",
+      "monthlyLabel": "[XX-Monthly backups-XX]",
+      "monthlyHelp": "[XX-One per month retained-XX]"
+    },
+    "status": {
+      "heading": "[XX-Status-XX]",
+      "lastBackup": "[XX-Last backup-XX]",
+      "nextBackup": "[XX-Next backup-XX]",
+      "error": "[XX-Error-XX]",
+      "success": "[XX-Success-XX]",
+      "failed": "[XX-Failed-XX]"
+    },
+    "saveButton": "[XX-Save Settings-XX]",
+    "savingButton": "[XX-Saving...-XX]",
+    "runNowButton": "[XX-Run Backup Now-XX]",
+    "runningButton": "[XX-Running Backup...-XX]",
+    "toasts": {
+      "saved": "[XX-Auto-backup settings saved-XX]",
+      "backupCreated": "[XX-Backup created: {filename}-XX]",
+      "folderValid": "[XX-Folder is valid and writable-XX]",
+      "loadFailed": "[XX-Failed to load auto-backup settings-XX]",
+      "saveFailed": "[XX-Failed to save settings-XX]",
+      "runFailed": "[XX-Failed to run backup-XX]",
+      "browseFailed": "[XX-Failed to browse folders-XX]"
+    },
+    "folderErrors": {
+      "required": "[XX-Folder path is required-XX]",
+      "validationFailed": "[XX-Folder validation failed-XX]",
+      "validationError": "[XX-Validation failed-XX]"
+    },
+    "frequencyOptions": {
+      "every6hours": "[XX-Every 6 Hours-XX]",
+      "every12hours": "[XX-Every 12 Hours-XX]",
+      "daily": "[XX-Daily-XX]",
+      "weekly": "[XX-Weekly-XX]"
+    }
+  },
+  "backupRestore": {
+    "heading": "[XX-Backup & Restore-XX]",
+    "encryption": {
+      "heading": "[XX-Backup Encryption-XX]",
+      "descriptionOidc": "[XX-Encrypt manual and automatic backups with a dedicated backup password you set here. The password is required to restore.-XX]",
+      "descriptionLocal": "[XX-Encrypt manual and automatic backups with your login password. The password is required to restore.-XX]",
+      "loading": "[XX-Loading...-XX]",
+      "enabledBadge": "[XX-Enabled-XX]",
+      "changePasswordButton": "[XX-Change Backup Password-XX]",
+      "disableButton": "[XX-Disable-XX]",
+      "setPasswordButton": "[XX-Set Backup Password-XX]",
+      "enableEncryptedButton": "[XX-Enable Encrypted Backups-XX]",
+      "setupModal": {
+        "titleOidc": "[XX-Set Backup Password-XX]",
+        "titleLocal": "[XX-Enable Encrypted Backups-XX]",
+        "descriptionOidc": "[XX-Choose a password that will be used to encrypt your backups. Save it somewhere safe -- you will need it to restore.-XX]",
+        "descriptionLocal": "[XX-Confirm your login password. It will be used to encrypt all backups (manual and automatic).-XX]",
+        "placeholderOidc": "[XX-New backup password (12+ chars)-XX]",
+        "placeholderLocal": "[XX-Your login password-XX]",
+        "savingButton": "[XX-Saving...-XX]",
+        "confirmButton": "[XX-Confirm-XX]"
+      },
+      "toasts": {
+        "enabled": "[XX-Encrypted backups enabled-XX]",
+        "disabled": "[XX-Encrypted backups disabled-XX]",
+        "enableFailed": "[XX-Failed to enable encryption-XX]",
+        "disableFailed": "[XX-Failed to disable encryption-XX]"
+      }
+    },
+    "export": {
+      "heading": "[XX-Create Backup-XX]",
+      "description": "[XX-Download a complete backup of your financial data. This includes accounts, transactions, categories, payees, budgets, investments, and all other user data.-XX]",
+      "downloadButton": "[XX-Download Backup-XX]",
+      "creatingButton": "[XX-Creating Backup...-XX]",
+      "exportPasswordModal": {
+        "title": "[XX-Encrypt Backup-XX]",
+        "description": "[XX-Enter the password to encrypt this backup. You will need it to restore.-XX]",
+        "placeholderOidc": "[XX-Backup password-XX]",
+        "placeholderLocal": "[XX-Login password-XX]",
+        "encryptingButton": "[XX-Encrypting...-XX]",
+        "downloadButton": "[XX-Download-XX]"
+      },
+      "toasts": {
+        "success": "[XX-Backup downloaded successfully-XX]",
+        "failed": "[XX-Failed to create backup-XX]"
+      }
+    },
+    "restore": {
+      "heading": "[XX-Restore from Backup-XX]",
+      "description": "[XX-Replace all your current data with data from a previously exported backup file. This will permanently overwrite your existing data.-XX]",
+      "openButton": "[XX-Restore from Backup...-XX]",
+      "warning": "[XX-Warning: This will delete all your current data and replace it with the backup contents. This action cannot be undone.-XX]",
+      "selectFileLabel": "[XX-Select backup file-XX]",
+      "encryptedBackupLabel": "[XX-This backup is encrypted. Enter the backup password it was created with:-XX]",
+      "backupPasswordPlaceholder": "[XX-Backup password-XX]",
+      "oidcConfirmLabel": "[XX-Re-authenticate with your identity provider to confirm:-XX]",
+      "passwordConfirmLabel": "[XX-Enter your account password to confirm:-XX]",
+      "passwordPlaceholder": "[XX-Enter your password-XX]",
+      "oidcRestoreButton": "[XX-Re-authenticate and Restore-XX]",
+      "restoringButton": "[XX-Restoring...-XX]",
+      "confirmRestoreButton": "[XX-Confirm Restore-XX]",
+      "toasts": {
+        "pleaseSelectFile": "[XX-Please select a backup file-XX]",
+        "pleaseEnterPassword": "[XX-Please enter your password to confirm-XX]",
+        "encryptedNeedsPassword": "[XX-This backup is encrypted. Enter the password it was created with in the \"Backup password\" field, then try again.-XX]",
+        "failed": "[XX-Failed to restore backup-XX]"
+      }
+    },
+    "restoreResult": {
+      "title": "[XX-Restore Complete-XX]",
+      "description": "[XX-Your data has been restored successfully. Here is a summary of what was restored:-XX]",
+      "totalRecords": "[XX-Total records-XX]",
+      "doneButton": "[XX-Done-XX]"
+    }
+  },
+  "sharedAccess": {
+    "description": "[XX-Delegates sign in with their own credentials and never see your password. They only see the accounts and sections you grant them.-XX]",
+    "addDelegateButton": "[XX-Add delegate-XX]",
+    "loading": "[XX-Loading...-XX]",
+    "noDelegates": "[XX-No delegates yet.-XX]",
+    "statusLabel": "[XX-Status: {status}-XX]",
+    "sectionsLabel": "[XX-Sections: {count}-XX]",
+    "accountsLabel": "[XX-Accounts: {count}-XX]",
+    "sharedDataLabel": "[XX-Shared data: {count}-XX]",
+    "editAccessButton": "[XX-Edit access-XX]",
+    "resetPasswordButton": "[XX-Reset password-XX]",
+    "resetPasswordDisabledTitle": "[XX-This person manages their own password (they have their own Monize account or delegated access elsewhere).-XX]",
+    "removeButton": "[XX-Remove-XX]",
+    "createModal": {
+      "title": "[XX-Add delegate-XX]",
+      "description": "[XX-Grant another person scoped access to your accounts.-XX]",
+      "emailLabel": "[XX-Email-XX]",
+      "emailPlaceholder": "[XX-Delegate email-XX]",
+      "firstNameLabel": "[XX-First name-XX]",
+      "firstNamePlaceholder": "[XX-First name (optional)-XX]",
+      "lastNameLabel": "[XX-Last name-XX]",
+      "lastNamePlaceholder": "[XX-Last name (optional)-XX]",
+      "existingAccountNotice": "[XX-This person already has a Monize login. They'll keep their own credentials and simply be granted the additional shared access — no password or invite needed.-XX]",
+      "sendInviteLabel": "[XX-Send an email invite instead of setting a password-XX]",
+      "passwordLabel": "[XX-Password-XX]",
+      "passwordPlaceholder": "[XX-Set a password-XX]",
+      "submitButton": "[XX-Add delegate-XX]"
+    },
+    "revokeDialog": {
+      "title": "[XX-Remove delegate-XX]",
+      "message": "[XX-Remove this delegate? They lose access to your account. If they have no other shared access and never claimed this email as their own Monize account, their owner-managed login is removed too.-XX]",
+      "removingButton": "[XX-Removing...-XX]",
+      "removeButton": "[XX-Remove-XX]"
+    },
+    "tempPasswordModal": {
+      "title": "[XX-Temporary password-XX]",
+      "description": "[XX-Share this with the delegate securely. They will be asked to change it on first sign in. It will not be shown again.-XX]",
+      "copyButton": "[XX-Copy-XX]",
+      "copiedButton": "[XX-Copied-XX]",
+      "doneButton": "[XX-Done-XX]"
+    },
+    "toasts": {
+      "created": "[XX-Delegate created-XX]",
+      "createdWithTempPassword": "[XX-Delegate created. Temporary password: {password}-XX]",
+      "invited": "[XX-Invitation email sent-XX]",
+      "removed": "[XX-Delegate removed-XX]"
+    },
+    "errors": {
+      "setPasswordOrInvite": "[XX-Set a password or send an email invite.-XX]",
+      "loadFailed": "[XX-Failed to load shared access-XX]",
+      "createFailed": "[XX-Failed to create delegate-XX]",
+      "revokeFailed": "[XX-Failed to revoke delegate-XX]",
+      "resetPasswordFailed": "[XX-Failed to reset password-XX]",
+      "copyFailed": "[XX-Could not copy to clipboard-XX]"
+    }
+  },
+  "delegateAccessModal": {
+    "title": "[XX-Edit access-XX]",
+    "tabs": {
+      "accounts": "[XX-Accounts-XX]",
+      "sections": "[XX-Sections-XX]",
+      "shared": "[XX-Shared data-XX]"
+    },
+    "sections": {
+      "description": "[XX-Grant read-only access to whole app sections. Account-scoped data still also needs per-account access.-XX]"
+    },
+    "accounts": {
+      "noAccounts": "[XX-No accounts to grant.-XX]",
+      "grantAll": "[XX-Grant all-XX]"
+    },
+    "shared": {
+      "description": "[XX-READ of payees, categories and tags is always allowed. These control create/edit/delete.-XX]"
+    },
+    "saveButton": "[XX-Save-XX]",
+    "toasts": {
+      "saved": "[XX-Access updated-XX]",
+      "saveFailed": "[XX-Failed to update access-XX]"
+    }
+  },
+  "nav": {
+    "sectionsAriaLabel": "[XX-Settings sections-XX]",
+    "profile": "[XX-Profile-XX]",
+    "preferences": "[XX-Preferences-XX]",
+    "notifications": "[XX-Notifications-XX]",
+    "security": "[XX-Security-XX]",
+    "sharedAccess": "[XX-Shared Access-XX]",
+    "emergencyAccess": "[XX-Emergency Access-XX]",
+    "apiAccess": "[XX-API Access-XX]",
+    "aiSettings": "[XX-AI Settings-XX]",
+    "backupRestore": "[XX-Backup & Restore-XX]",
+    "autoBackup": "[XX-Automatic Backup-XX]",
+    "help": "[XX-Help & Support-XX]",
+    "dangerZone": "[XX-Danger Zone-XX]"
+  },
+  "page": {
+    "title": "[XX-Settings-XX]",
+    "demoRestricted": {
+      "heading": "[XX-Restricted in Demo Mode-XX]",
+      "body": "[XX-Profile editing, password changes, two-factor authentication, and account deletion are disabled in demo mode.-XX]"
+    },
+    "sharedAccessCard": {
+      "title": "[XX-Shared Access-XX]",
+      "description": "[XX-Grant another person granular access to specific accounts.-XX]"
+    },
+    "emergencyAccessCard": {
+      "title": "[XX-Emergency Access-XX]",
+      "description": "[XX-Designate contacts who automatically receive full access to your account if you do not sign in for an extended period.-XX]"
+    },
+    "aiSettingsCard": {
+      "title": "[XX-AI Settings-XX]",
+      "description": "[XX-Configure AI providers, manage API keys, and view usage statistics.-XX]"
+    },
+    "delegateSecurityError": "[XX-Unable to load your security settings.-XX]",
+    "toasts": {
+      "securityLoadFailed": "[XX-Failed to load security settings-XX]",
+      "loadFailed": "[XX-Failed to load settings-XX]"
+    }
+  },
+  "aiSettings": {
+    "backLink": "[XX-Back to Settings-XX]",
+    "title": "[XX-AI Settings-XX]",
+    "subtitle": "[XX-Configure AI providers for intelligent financial features-XX]",
+    "bubble": {
+      "title": "[XX-Floating chat bubble-XX]",
+      "subtitle": "[XX-Show a chat button on every page so you can ask the AI assistant from anywhere. It opens as a bottom sheet you can expand to full screen.-XX]",
+      "toggleLabel": "[XX-Enable floating AI chat bubble-XX]",
+      "enabled": "[XX-Floating chat bubble enabled-XX]",
+      "disabled": "[XX-Floating chat bubble disabled-XX]",
+      "saveFailed": "[XX-Could not update the chat bubble setting-XX]"
+    },
+    "demoRestricted": {
+      "heading": "[XX-Restricted in Demo Mode-XX]",
+      "body": "[XX-AI provider configuration is disabled in demo mode.-XX]"
+    },
+    "toasts": {
+      "loadFailed": "[XX-Failed to load AI settings-XX]",
+      "usageLoadFailed": "[XX-Failed to load usage data-XX]"
+    },
+    "mcpRelay": {
+      "title": "[XX-Bring your own assistant (MCP relay)-XX]",
+      "subtitle": "[XX-Answer chat prompts with your own MCP agent instead of a server-side AI provider.-XX]",
+      "toggleLabel": "[XX-Use MCP relay-XX]",
+      "saved": "[XX-Relay setting saved-XX]",
+      "saveFailed": "[XX-Could not save the relay setting-XX]",
+      "how": {
+        "intro": "[XX-When enabled, the AI chat does not call a server-side LLM. Instead:-XX]",
+        "step1": "[XX-You run an MCP agent (e.g. Claude CLI) on your own machine, signed in to your subscription.-XX]",
+        "step2": "[XX-The agent long-polls Monize for prompts you type in the chat and answers them using the Monize tools.-XX]",
+        "step3": "[XX-Answers stream back into the chat. A status dot shows whether your agent is connected.-XX]",
+        "note": "[XX-Nothing runs until your agent is connected and listening. The chat shows connection instructions.-XX]"
+      }
+    }
+  },
+  "sharedAccessPage": {
+    "backLink": "[XX-Back to Settings-XX]",
+    "title": "[XX-Shared Access-XX]",
+    "subtitle": "[XX-Grant another person granular access to specific accounts-XX]",
+    "demoRestricted": {
+      "heading": "[XX-Restricted in Demo Mode-XX]",
+      "body": "[XX-Delegate management is disabled in demo mode.-XX]"
+    }
+  },
+  "emergencyAccess": {
+    "backLink": "[XX-Back to Settings-XX]",
+    "title": "[XX-Emergency Access-XX]",
+    "subtitle": "[XX-Designate contacts who automatically receive full access to your account if you do not sign in for an extended period-XX]",
+    "delegateRestricted": "[XX-Emergency access can only be configured by the account owner.-XX]",
+    "demoRestricted": "[XX-Emergency access is disabled in demo mode.-XX]",
+    "emailNotConfigured": {
+      "heading": "[XX-Email is not configured-XX]",
+      "body": "[XX-Emergency access depends on email delivery. Ask your administrator to configure the SMTP environment variables (SMTP_HOST, SMTP_USER, SMTP_PASSWORD) and try again.-XX]"
+    },
+    "alreadyGranted": {
+      "heading": "[XX-Emergency access already granted-XX]",
+      "description": "[XX-your designated contacts received magic links to take over the account. If this was unintended, clear the granted state below to void outstanding links.-XX]",
+      "clearButton": "[XX-Clear granted state-XX]"
+    },
+    "loadError": "[XX-Unable to load emergency access settings.-XX]",
+    "settings": {
+      "heading": "[XX-Settings-XX]",
+      "enableLabel": "[XX-Enable emergency access-XX]",
+      "grantAfterDaysLabel": "[XX-Days of inactivity before access is granted-XX]",
+      "reminderAfterDaysLabel": "[XX-Days of inactivity before reminder emails-XX]",
+      "saveButton": "[XX-Save settings-XX]",
+      "toasts": {
+        "saved": "[XX-Emergency access settings saved-XX]",
+        "saveFailed": "[XX-Failed to save settings-XX]"
+      }
+    },
+    "message": {
+      "heading": "[XX-Message to your contacts-XX]",
+      "description": "[XX-Encrypted at rest. Viewing or editing requires re-verifying your identity.-XX]",
+      "unlockTimer": "[XX-Unlocked for {mins}:{secs}-XX]",
+      "messageSet": "[XX-Message set-XX]",
+      "charCount": "[XX-({count} chars-XX]",
+      "updatedAt": "[XX-, updated {timestamp}-XX]",
+      "noMessage": "[XX-No message set-XX]",
+      "revealButton": "[XX-Reveal message-XX]",
+      "editButton": "[XX-Edit message-XX]",
+      "addButton": "[XX-Add message-XX]",
+      "emptyMessage": "[XX-(empty)-XX]",
+      "lockNowButton": "[XX-Lock now-XX]",
+      "editMessageButton": "[XX-Edit-XX]",
+      "messagePlaceholder": "[XX-Notes, instructions, locations of important documents...-XX]",
+      "maxCharsNote": "[XX-Maximum 4000 characters. Stored encrypted at rest.-XX]",
+      "cancelButton": "[XX-Cancel-XX]",
+      "saveButton": "[XX-Save message-XX]",
+      "toasts": {
+        "saved": "[XX-Message saved-XX]",
+        "verifyAgain": "[XX-Verification expired -- please verify again to save-XX]",
+        "loadFailed": "[XX-Failed to load message-XX]",
+        "saveFailed": "[XX-Failed to save message-XX]"
+      }
+    },
+    "contacts": {
+      "heading": "[XX-Emergency Contacts-XX]",
+      "description": "[XX-Each contact receives a magic link by email when access is granted. They use it to set a new password and take over your account. The first contact to claim wins.-XX]",
+      "addButton": "[XX-Add contact-XX]",
+      "noContacts": "[XX-No contacts yet.-XX]",
+      "editButton": "[XX-Edit-XX]",
+      "removeButton": "[XX-Remove-XX]",
+      "contactModal": {
+        "addTitle": "[XX-Add emergency contact-XX]",
+        "editTitle": "[XX-Edit contact-XX]",
+        "firstNameLabel": "[XX-First name-XX]",
+        "emailLabel": "[XX-Email-XX]",
+        "addButton": "[XX-Add contact-XX]",
+        "saveButton": "[XX-Save changes-XX]"
+      },
+      "removeDialog": {
+        "title": "[XX-Remove contact-XX]",
+        "message": "[XX-This contact will no longer receive emergency access. You can add them again later.-XX]",
+        "removingButton": "[XX-Removing...-XX]",
+        "removeButton": "[XX-Remove-XX]"
+      },
+      "toasts": {
+        "added": "[XX-Contact added-XX]",
+        "updated": "[XX-Contact updated-XX]",
+        "removed": "[XX-Contact removed-XX]",
+        "saveFailed": "[XX-Failed to save contact-XX]",
+        "removeFailed": "[XX-Failed to remove contact-XX]"
+      }
+    },
+    "status": {
+      "heading": "[XX-Status-XX]",
+      "lastAccess": "[XX-Last access: -XX]",
+      "lastReminderSent": "[XX-Last reminder sent: -XX]",
+      "grantStatus": "[XX-Grant status: -XX]",
+      "unknown": "[XX-unknown-XX]",
+      "never": "[XX-never-XX]",
+      "daysAgo": "[XX-{count} day{plural} ago-XX]",
+      "grantedOn": "[XX-granted on {timestamp}-XX]",
+      "notYetGranted": "[XX-not yet granted-XX]",
+      "timerNote": "[XX-The timer resets automatically any time you use the app -- signing in, viewing a page, recording a transaction, anything authenticated.-XX]"
+    },
+    "resetConfirm": {
+      "title": "[XX-Clear granted state-XX]",
+      "message": "[XX-This voids any outstanding magic links, lets the reminder cadence start again, and lets the grant cascade fire again after another period of inactivity.-XX]",
+      "clearingButton": "[XX-Clearing...-XX]",
+      "clearButton": "[XX-Clear-XX]",
+      "toasts": {
+        "cleared": "[XX-Granted state cleared-XX]",
+        "resetFailed": "[XX-Failed to reset granted state-XX]"
+      }
+    },
+    "stepUp": {
+      "reason": "[XX-Re-verify your identity to view or edit your emergency-access message.-XX]"
+    },
+    "toasts": {
+      "loadFailed": "[XX-Failed to load emergency access-XX]",
+      "reauthFailed": "[XX-Failed to confirm re-authentication-XX]"
+    }
+  },
+  "aiProviders": {
+    "heading": "[XX-AI Providers-XX]",
+    "addButton": "[XX-Add Provider-XX]",
+    "encryptionWarning": "[XX-AI_ENCRYPTION_KEY is not configured. You can use Ollama (local, no API key needed) but cloud providers require encryption to store API keys securely.-XX]",
+    "systemDefault": {
+      "heading": "[XX-System Default AI Provider Available-XX]",
+      "description": "[XX-A central AI provider has been configured by your administrator-XX]",
+      "usedAutomatically": "[XX-It will be used automatically since you have no personal providers configured.-XX]",
+      "personalPriority": "[XX-Your personal providers take priority over the system default.-XX]"
+    },
+    "noProviders": {
+      "withSystemDefault": "[XX-No personal AI providers configured. The system default provider will be used.-XX]",
+      "withoutSystemDefault": "[XX-No AI providers configured. Add a provider to enable AI features.-XX]"
+    },
+    "providerCard": {
+      "activeBadge": "[XX-Active-XX]",
+      "inactiveBadge": "[XX-Inactive-XX]",
+      "priorityLabel": "[XX-Priority: {n}-XX]",
+      "modelLabel": "[XX-Model: {model}-XX]",
+      "keyLabel": "[XX-Key: {key}-XX]",
+      "urlLabel": "[XX-URL: {url}-XX]",
+      "costLabel": "[XX-Cost/1M ({currency}): {input} in / {output} out-XX]",
+      "disableButton": "[XX-Disable-XX]",
+      "enableButton": "[XX-Enable-XX]",
+      "editButton": "[XX-Edit-XX]",
+      "deleteButton": "[XX-Delete-XX]"
+    },
+    "configForm": {
+      "addTitle": "[XX-Add AI Provider-XX]",
+      "editTitle": "[XX-Edit Provider-XX]",
+      "providerLabel": "[XX-Provider-XX]",
+      "displayNameLabel": "[XX-Display Name-XX]",
+      "modelLabel": "[XX-Model-XX]",
+      "testButton": "[XX-Test-XX]",
+      "testingButton": "[XX-Testing...-XX]",
+      "ollamaCloudNote": "[XX-Model names must include the -cloud suffix (e.g. gpt-oss:20b-cloud).-XX]",
+      "apiKeyLabel": "[XX-API Key-XX]",
+      "baseUrlLabel": "[XX-Base URL-XX]",
+      "priorityLabel": "[XX-Priority-XX]",
+      "priorityHelp": "[XX-Lower number = higher priority. Used for fallback ordering.-XX]",
+      "costRatesHeading": "[XX-Cost rates (optional)-XX]",
+      "costRatesHelp": "[XX-Enter your provider's published rates per 1,000,000 tokens to see estimated cost on the Usage dashboard. Leave blank to skip cost estimates.-XX]",
+      "inputCostLabel": "[XX-Input cost / 1M tokens-XX]",
+      "outputCostLabel": "[XX-Output cost / 1M tokens-XX]",
+      "rateCurrencyLabel": "[XX-Rate Currency-XX]",
+      "rateCurrencyHelp": "[XX-If this differs from your home currency, the Usage dashboard can convert costs using your saved exchange rates.-XX]",
+      "saveButton": "[XX-Save Changes-XX]",
+      "addProviderButton": "[XX-Add Provider-XX]",
+      "modelPlaceholder": "[XX-Enter model name-XX]",
+      "testModelAria": "[XX-Test model-XX]",
+      "apiKeyPlaceholder": "[XX-Enter API key-XX]",
+      "saveFailed": "[XX-Failed to save configuration-XX]",
+      "inputCostPlaceholder": "[XX-e.g., 3.00-XX]",
+      "outputCostPlaceholder": "[XX-e.g., 15.00-XX]",
+      "toasts": {
+        "notReachable": "[XX-Could not reach the provider.-XX]",
+        "modelUnavailable": "[XX-Model \"{model}\" is not available on this provider.-XX]",
+        "modelReady": "[XX-Model \"{model}\" is ready.-XX]",
+        "success": "[XX-Connection successful.-XX]",
+        "testFailed": "[XX-Model test failed-XX]"
+      },
+      "costCurrencies": {
+        "USD": "[XX-USD - US Dollar-XX]",
+        "EUR": "[XX-EUR - Euro-XX]",
+        "GBP": "[XX-GBP - British Pound-XX]",
+        "CAD": "[XX-CAD - Canadian Dollar-XX]",
+        "AUD": "[XX-AUD - Australian Dollar-XX]",
+        "JPY": "[XX-JPY - Japanese Yen-XX]",
+        "CNY": "[XX-CNY - Chinese Yuan-XX]",
+        "INR": "[XX-INR - Indian Rupee-XX]"
+      },
+      "validation": {
+        "displayNameMax": "[XX-Display name must be 100 characters or less-XX]",
+        "mustBeNumber": "[XX-Must be a number-XX]",
+        "currencyCode": "[XX-Must be a 3-letter currency code-XX]"
+      }
+    },
+    "testButton": {
+      "testLabel": "[XX-Test-XX]",
+      "connectionFailed": "[XX-Connection failed-XX]",
+      "modelUnavailable": "[XX-Model \"{model}\" is not available on this provider.-XX]",
+      "successWithModel": "[XX-Connection successful. Model \"{model}\" is ready.-XX]",
+      "success": "[XX-Connection successful-XX]",
+      "testFailed": "[XX-Connection test failed-XX]"
+    },
+    "toasts": {
+      "added": "[XX-Provider added-XX]",
+      "updated": "[XX-Provider updated-XX]",
+      "removed": "[XX-Provider removed-XX]",
+      "modelReady": "[XX-Model \"{model}\" is ready.-XX]",
+      "notReachable": "[XX-Saved, but the provider could not be reached. Double-check the URL/API key.-XX]",
+      "modelUnavailable": "[XX-Saved, but model \"{model}\" is not available on this provider.-XX]",
+      "deleteFailed": "[XX-Failed to delete provider-XX]",
+      "updateFailed": "[XX-Failed to update provider-XX]"
+    }
+  },
+  "usage": {
+    "heading": "[XX-Usage-XX]",
+    "totalRequests": "[XX-Total Requests-XX]",
+    "inputTokens": "[XX-Input Tokens-XX]",
+    "outputTokens": "[XX-Output Tokens-XX]",
+    "estCost": "[XX-Est. Cost-XX]",
+    "setRatesToEnable": "[XX-Set rates on a provider to enable-XX]",
+    "inHomeCurrency": "[XX-In {currency}-XX]",
+    "inProviderCurrency": "[XX-In provider currency-XX]",
+    "byProvider": {
+      "heading": "[XX-By Provider-XX]",
+      "provider": "[XX-Provider-XX]",
+      "requests": "[XX-Requests-XX]",
+      "inputTokens": "[XX-Input Tokens-XX]",
+      "outputTokens": "[XX-Output Tokens-XX]",
+      "estCost": "[XX-Est. Cost-XX]"
+    },
+    "recentActivity": {
+      "heading": "[XX-Recent Activity-XX]",
+      "date": "[XX-Date-XX]",
+      "provider": "[XX-Provider-XX]",
+      "feature": "[XX-Feature-XX]",
+      "tokens": "[XX-Tokens-XX]",
+      "duration": "[XX-Duration-XX]",
+      "estCost": "[XX-Est. Cost-XX]"
+    },
+    "noUsage": "[XX-No usage data yet. Usage will appear here once you start using AI features.-XX]",
+    "periods": {
+      "d7": "[XX-7 days-XX]",
+      "d30": "[XX-30 days-XX]",
+      "d90": "[XX-90 days-XX]",
+      "all": "[XX-All time-XX]"
+    },
+    "estCostTooltip": "[XX-Estimated using the cost rates you configured on each provider. Excludes any activity where no matching rate is set.-XX]"
+  }
+}

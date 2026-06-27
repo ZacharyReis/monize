@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -38,6 +39,7 @@ export default function BudgetEditPage() {
 }
 
 function BudgetEditContent() {
+  const t = useTranslations('budgets');
   const params = useParams();
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
@@ -61,12 +63,12 @@ function BudgetEditContent() {
       setBudget(budgetData);
       setSummary(summaryData);
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to load budget'));
+      toast.error(getErrorMessage(err, t('pages.edit.toasts.loadFailed')));
       router.push('/budgets');
     } finally {
       setIsLoading(false);
     }
-  }, [budgetId, router]);
+  }, [budgetId, router, t]);
 
   useEffect(() => {
     loadData();
@@ -76,10 +78,10 @@ function BudgetEditContent() {
     setIsSaving(true);
     try {
       await budgetsApi.update(budgetId, data);
-      toast.success('Budget updated');
+      toast.success(t('pages.edit.toasts.updated'));
       loadData();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to update budget'));
+      toast.error(getErrorMessage(err, t('pages.edit.toasts.updateFailed')));
     } finally {
       setIsSaving(false);
     }
@@ -90,11 +92,11 @@ function BudgetEditContent() {
     setIsSaving(true);
     try {
       await budgetsApi.updateCategory(budgetId, editingCategory.id, data);
-      toast.success('Category updated');
+      toast.success(t('pages.edit.toasts.categoryUpdated'));
       setEditingCategory(null);
       loadData();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to update category'));
+      toast.error(getErrorMessage(err, t('pages.edit.toasts.categoryFailed')));
     } finally {
       setIsSaving(false);
     }
@@ -117,15 +119,15 @@ function BudgetEditContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title={`Edit: ${budget.name}`}
-          subtitle="Update budget settings and category allocations"
+          title={`${t('pages.edit.subtitlePrefix')}${budget.name}`}
+          subtitle={t('pages.edit.subtitle')}
           actions={
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 onClick={() => router.push(`/budgets/${budgetId}`)}
               >
-                Back to Dashboard
+                {t('pages.edit.backToDashboard')}
               </Button>
             </div>
           }
@@ -135,7 +137,7 @@ function BudgetEditContent() {
           {/* Budget Settings */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Budget Settings
+              {t('pages.edit.budgetSettings')}
             </h2>
             <BudgetForm
               budget={budget}
@@ -148,13 +150,13 @@ function BudgetEditContent() {
           {/* Category List */}
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Category Allocations
+              {t('pages.edit.categoryAllocations')}
             </h2>
 
             {incomeCategories.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                  Income
+                  {t('pages.edit.income')}
                 </h3>
                 <div className="space-y-2">
                   {incomeCategories.map((cat) => (
@@ -179,7 +181,7 @@ function BudgetEditContent() {
             )}
 
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
-              Expenses ({expenseCategories.length})
+              {t('pages.edit.expensesWithCount', { count: expenseCategories.length })}
             </h3>
             <div className="space-y-2">
               {expenseCategories.map((cat) => {
@@ -214,10 +216,10 @@ function BudgetEditContent() {
                     <div className="flex items-center justify-between mt-1 text-xs text-gray-500 dark:text-gray-400">
                       <span>
                         {cat.rolloverType !== 'NONE'
-                          ? `Rollover: ${cat.rolloverType.toLowerCase()}`
-                          : 'Resets each period'}
+                          ? t('pages.edit.rolloverType', { type: cat.rolloverType.toLowerCase() })
+                          : t('pages.edit.resetsEachPeriod')}
                       </span>
-                      <span>{Math.round(percentUsed)}% used</span>
+                      <span>{t('pages.edit.percentUsed', { percent: String(Math.round(percentUsed)) })}</span>
                     </div>
                   </button>
                 );
@@ -234,7 +236,7 @@ function BudgetEditContent() {
             className="p-6"
           >
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-              Edit {getCategoryDisplayName(editingCategory)}
+              {t('pages.edit.editCategoryTitle', { name: getCategoryDisplayName(editingCategory) })}
             </h2>
             <BudgetCategoryForm
               category={editingCategory}

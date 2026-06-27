@@ -11,6 +11,7 @@ import { TransactionTransferService } from "./transaction-transfer.service";
 import { TransactionReconciliationService } from "./transaction-reconciliation.service";
 import { TransactionAnalyticsService } from "./transaction-analytics.service";
 import { TransactionBulkUpdateService } from "./transaction-bulk-update.service";
+import { TransactionToolPrepService } from "./transaction-tool-prep.service";
 import { TransactionsController } from "./transactions.controller";
 import { AccountsModule } from "../accounts/accounts.module";
 import { PayeesModule } from "../payees/payees.module";
@@ -44,8 +45,14 @@ import { DelegationModule } from "../delegation/delegation.module";
     TransactionReconciliationService,
     TransactionAnalyticsService,
     TransactionBulkUpdateService,
+    TransactionToolPrepService,
   ],
   controllers: [TransactionsController],
-  exports: [TransactionsService, TransactionAnalyticsService],
+  exports: [
+    TransactionsService,
+    TransactionAnalyticsService,
+    TransactionTransferService,
+    TransactionToolPrepService,
+  ],
 })
 export class TransactionsModule {}

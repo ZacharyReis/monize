@@ -302,4 +302,219 @@ describe('SharedAccessSection', () => {
       screen.getByRole('button', { name: 'Reset password' }),
     ).toBeDisabled();
   });
+
+  it('errors when submitting with neither a password nor an invite', async () => {
+    // lookupEmail stays at the default { exists: false }, so the new email is
+    // treated as a brand-new login that requires a password or invite.
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      openCreateModal();
+    });
+    await screen.findByPlaceholderText('Delegate email');
+
+    const emailInput = screen.getByPlaceholderText('Delegate email');
+    await act(async () => {
+      fireEvent.change(emailInput, { target: { value: 'new@x.y' } });
+    });
+    // Submit the form directly: the password field is `required`, so a real
+    // submit-button click is blocked by native validation before handleCreate
+    // runs. Submitting the form exercises the component's own JS guard that
+    // protects programmatic submits.
+    await act(async () => {
+      fireEvent.submit(emailInput.closest('form')!);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'Set a password or send an email invite.',
+    );
+    expect(delegationApi.createDelegate).not.toHaveBeenCalled();
+  });
+
+  it('creates a delegate via email invite instead of a password', async () => {
+    vi.mocked(delegationApi.createDelegate).mockResolvedValue({
+      id: 'g4',
+      delegateUserId: 'd4',
+      email: 'invite@x.y',
+      invited: true,
+    });
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      openCreateModal();
+    });
+    await screen.findByPlaceholderText('Delegate email');
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('Delegate email'), {
+        target: { value: 'invite@x.y' },
+      });
+    });
+    // Toggle "send an email invite instead of setting a password".
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch'));
+    });
+    await act(async () => {
+      submitCreate();
+    });
+
+    await waitFor(() =>
+      expect(delegationApi.createDelegate).toHaveBeenCalledWith(
+        expect.objectContaining({ sendInvite: true, password: undefined }),
+      ),
+    );
+    expect(toast.success).toHaveBeenCalledWith('Invitation email sent');
+  });
+
+  it('reports a temporary password returned from create', async () => {
+    vi.mocked(delegationApi.createDelegate).mockResolvedValue({
+      id: 'g5',
+      delegateUserId: 'd5',
+      email: 'new@x.y',
+      invited: false,
+      temporaryPassword: 'Generated!Pass9',
+    });
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      openCreateModal();
+    });
+    await screen.findByPlaceholderText('Delegate email');
+
+    fireEvent.change(screen.getByPlaceholderText('Delegate email'), {
+      target: { value: 'new@x.y' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Set a password'), {
+      target: { value: 'StrongPass1!xyz' },
+    });
+    await act(async () => {
+      submitCreate();
+    });
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('Generated!Pass9'),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('treats the email as new when the lookup request fails', async () => {
+    vi.mocked(delegationApi.lookupEmail).mockRejectedValue(
+      new Error('lookup failed'),
+    );
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      openCreateModal();
+    });
+    await screen.findByPlaceholderText('Delegate email');
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText('Delegate email'), {
+        target: { value: 'maybe@x.y' },
+      });
+    });
+
+    // After the 400ms debounce + failed lookup, emailExists stays null so the
+    // password field remains visible (existing-login notice never appears).
+    await waitFor(
+      () =>
+        expect(
+          screen.getByPlaceholderText('Set a password'),
+        ).toBeInTheDocument(),
+      { timeout: 2000 },
+    );
+    await waitFor(() =>
+      expect(delegationApi.lookupEmail).toHaveBeenCalledWith('maybe@x.y'),
+    );
+  });
+
+  it('surfaces an error toast when creating a delegate fails', async () => {
+    vi.mocked(delegationApi.createDelegate).mockRejectedValue(
+      new Error('create failed'),
+    );
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      openCreateModal();
+    });
+    await screen.findByPlaceholderText('Delegate email');
+
+    fireEvent.change(screen.getByPlaceholderText('Delegate email'), {
+      target: { value: 'new@x.y' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Set a password'), {
+      target: { value: 'StrongPass1!xyz' },
+    });
+    await act(async () => {
+      submitCreate();
+    });
+    await act(async () => {});
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
+
+  it('surfaces an error toast when revoking a delegate fails', async () => {
+    vi.mocked(delegationApi.revokeDelegate).mockRejectedValue(
+      new Error('revoke failed'),
+    );
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    });
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
+    await act(async () => {
+      fireEvent.click(removeButtons[removeButtons.length - 1]);
+    });
+    await act(async () => {});
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
+
+  it('surfaces an error toast when resetting the password fails', async () => {
+    vi.mocked(delegationApi.resetPassword).mockRejectedValue(
+      new Error('reset failed'),
+    );
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Reset password'));
+    });
+    await act(async () => {});
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
+
+  it('surfaces an error toast when copying the temporary password fails', async () => {
+    vi.mocked(delegationApi.resetPassword).mockResolvedValue({
+      temporaryPassword: 'Tiger!River42',
+    });
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    await renderSection();
+    await screen.findByText('d@e.f');
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Reset password'));
+    });
+    expect(await screen.findByText('Tiger!River42')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    });
+    await act(async () => {});
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Could not copy to clipboard'),
+    );
+  });
 });

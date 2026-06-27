@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Transaction } from '@/types/transaction';
 import { Category } from '@/types/category';
 import { Modal } from '@/components/ui/Modal';
@@ -39,6 +40,7 @@ export function TransactionActionSheet({
   onTagFilterClick,
   categoryLabelMap,
 }: TransactionActionSheetProps) {
+  const t = useTranslations('transactions');
   // The list query joins a category's own row but not its parent, so fall back
   // to the bare name when the full-path label isn't available.
   const categoryLabel = useCallback(
@@ -119,7 +121,7 @@ export function TransactionActionSheet({
       <div className="py-2">
         <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-            {transaction?.payeeName || 'Transaction'}
+            {transaction?.payeeName || t('actionSheet.defaultTitle')}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {transaction && formatDate(transaction.transactionDate)}
@@ -133,7 +135,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            Filter by date &ldquo;{formatDate(transaction.transactionDate)}&rdquo;
+            {t('actionSheet.filterByDate', { date: formatDate(transaction.transactionDate) })}
           </button>
         )}
         {onAccountFilterClick && transaction?.account && (
@@ -144,7 +146,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
-            Filter by &ldquo;{transaction.account.name}&rdquo;
+            {t('actionSheet.filterByAccount', { name: transaction.account.name })}
           </button>
         )}
         {onPayeeFilterClick && transaction?.payeeId && (
@@ -155,7 +157,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            Filter by &ldquo;{transaction.payeeName || 'Payee'}&rdquo;
+            {t('actionSheet.filterByPayee', { name: transaction.payeeName || '' })}
           </button>
         )}
         {onCategoryClick && transaction?.category && (
@@ -166,7 +168,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter by &ldquo;{categoryLabel(transaction.category)}&rdquo;
+            {t('actionSheet.filterByCategory', { name: categoryLabel(transaction.category) })}
           </button>
         )}
         {onCategoryClick && splitCategories.map((category) => (
@@ -178,7 +180,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter by &ldquo;{categoryLabel(category)}&rdquo;
+            {t('actionSheet.filterByCategory', { name: categoryLabel(category) })}
           </button>
         ))}
         {onTagFilterClick && transaction?.tags && transaction.tags.length > 0 && (
@@ -191,7 +193,7 @@ export function TransactionActionSheet({
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
               </svg>
-              Filter by tag &ldquo;{tag.name}&rdquo;
+              {t('actionSheet.filterByTag', { name: tag.name })}
             </button>
           ))
         )}
@@ -203,7 +205,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            Edit
+            {t('actionSheet.edit')}
           </button>
         )}
         {onDuplicate && !transaction?.linkedInvestmentTransactionId && (
@@ -214,7 +216,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            Duplicate
+            {t('actionSheet.duplicate')}
           </button>
         )}
         {onScheduleRecurring && !transaction?.linkedInvestmentTransactionId && (
@@ -225,7 +227,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            Schedule as Recurring
+            {t('actionSheet.scheduleRecurring')}
           </button>
         )}
         {!transaction?.linkedInvestmentTransactionId && (
@@ -236,7 +238,7 @@ export function TransactionActionSheet({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            Delete
+            {t('actionSheet.delete')}
           </button>
         )}
       </div>

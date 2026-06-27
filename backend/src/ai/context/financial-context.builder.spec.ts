@@ -108,9 +108,9 @@ describe("FinancialContextBuilder", () => {
       expect(result).toContain("</USER_DATA>");
     });
 
-    it("instructs to use get_account_balances tool for balances", async () => {
+    it("instructs to use list_accounts tool for balances", async () => {
       const result = await builder.buildQueryContext(userId);
-      expect(result).toContain("get_account_balances");
+      expect(result).toContain("list_accounts");
     });
 
     it("includes today's date", async () => {

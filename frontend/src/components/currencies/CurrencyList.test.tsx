@@ -162,6 +162,25 @@ describe('CurrencyList', () => {
       expect(screen.getByText('Edit Currency')).toBeInTheDocument();
       vi.useRealTimers();
     });
+
+    it('hides Delete Currency in context menu for system currencies', async () => {
+      vi.useFakeTimers();
+      const currencies = [makeCurrency({ code: 'JPY', name: 'Japanese Yen', isSystem: true })];
+
+      render(<CurrencyList currencies={currencies} {...defaultProps} />);
+      const row = screen.getByText('JPY').closest('tr')!;
+
+      await act(async () => {
+        fireEvent.mouseDown(row);
+        vi.advanceTimersByTime(750);
+      });
+
+      // System currencies are shared catalog rows: they can be deactivated
+      // (hidden from your list) but not deleted.
+      expect(screen.getAllByText('Deactivate').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('Delete Currency')).not.toBeInTheDocument();
+      vi.useRealTimers();
+    });
   });
 
   it('shows Default badge for default currency', () => {
@@ -613,25 +632,25 @@ describe('CurrencyList', () => {
       expect(screen.getByText('Ina')).toBeInTheDocument();
     });
 
-    it('shows dense edit symbol in dense mode', () => {
+    it('shows the edit icon button in dense mode', () => {
       const currencies = [makeCurrency({ code: 'USD' })];
 
       render(<CurrencyList currencies={currencies} {...defaultProps} density="dense" />);
-      expect(screen.getByText('✎')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     });
 
-    it('shows dense deactivate symbol in dense mode', () => {
+    it('shows the deactivate icon button in dense mode', () => {
       const currencies = [makeCurrency({ code: 'USD', isActive: true })];
 
       render(<CurrencyList currencies={currencies} {...defaultProps} density="dense" />);
-      expect(screen.getByText('⊘')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
     });
 
-    it('shows dense activate symbol for inactive currency in dense mode', () => {
+    it('shows the activate icon button for inactive currency in dense mode', () => {
       const currencies = [makeCurrency({ code: 'USD', isActive: false })];
 
       render(<CurrencyList currencies={currencies} {...defaultProps} density="dense" />);
-      expect(screen.getByText('✓')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Activate' })).toBeInTheDocument();
     });
 
     it('hides Decimals column in compact mode', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('ErrorPage');
@@ -12,6 +13,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations('common.errorPage');
+
   useEffect(() => {
     // Log the error to an error reporting service
     logger.error('Application error:', error);
@@ -36,14 +39,14 @@ export default function Error({
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          Something went wrong
+          {t('title')}
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-8">
-          An unexpected error occurred. Please try again or contact support if the problem persists.
+          {t('description')}
         </p>
         {error.digest && (
           <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-            Error ID: {error.digest}
+            {t('errorId', { digest: error.digest })}
           </p>
         )}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -51,13 +54,13 @@ export default function Error({
             onClick={reset}
             className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
-            Try again
+            {t('tryAgain')}
           </button>
           <a
             href="/dashboard"
             className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-gray-600 text-base font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
-            Go to Dashboard
+            {t('goToDashboard')}
           </a>
         </div>
       </div>

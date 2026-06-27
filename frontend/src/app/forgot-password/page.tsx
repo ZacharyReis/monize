@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
@@ -11,14 +12,18 @@ import Image from 'next/image';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { authApi } from '@/lib/auth';
+import { buildEmailSchema } from '@/lib/zod-helpers';
 
-const schema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+const buildSchema = (tc: (key: string) => string) => z.object({
+  email: buildEmailSchema(tc),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.infer<ReturnType<typeof buildSchema>>;
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth');
+  const tf = useTranslations('auth.forgotPassword');
+  const tc = useTranslations('common');
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -46,7 +51,7 @@ export default function ForgotPasswordPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(buildSchema(tc)),
   });
 
   const onSubmit = async (data: FormData) => {
@@ -64,7 +69,7 @@ export default function ForgotPasswordPage() {
   if (isCheckingSmtp) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-gray-500 dark:text-gray-400">{tc('loading')}</div>
       </div>
     );
   }
@@ -75,10 +80,10 @@ export default function ForgotPasswordPage() {
         <div>
           <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
           <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-            Reset your password
+            {tf('title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Enter your email address and we&apos;ll send you a link to reset your password.
+            {tf('subtitle')}
           </p>
         </div>
 
@@ -86,21 +91,20 @@ export default function ForgotPasswordPage() {
           <div className="text-center space-y-4">
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <p className="text-sm text-green-800 dark:text-green-200">
-                If an account exists with that email address, we have sent a password reset link.
-                Please check your inbox.
+                {tf('successMessage')}
               </p>
             </div>
             <Link
               href="/login"
               className="inline-block font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Back to sign in
+              {t('backToSignIn')}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
             <Input
-              label="Email address"
+              label={tf('emailLabel')}
               type="email"
               autoComplete="email"
               error={errors.email?.message}
@@ -113,14 +117,14 @@ export default function ForgotPasswordPage() {
               isLoading={isLoading}
               className="w-full"
             >
-              Send reset link
+              {tf('submit')}
             </Button>
             <p className="text-center text-sm">
               <Link
                 href="/login"
                 className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                Back to sign in
+                {t('backToSignIn')}
               </Link>
             </p>
           </form>

@@ -118,11 +118,11 @@ export class ScheduledTransactionOverride {
   investmentTotalAmount: number | null;
 
   @ApiProperty({ description: "When this override was created" })
-  @CreateDateColumn({ name: "created_at" })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 
   @ApiProperty({ description: "When this override was last updated" })
-  @UpdateDateColumn({ name: "updated_at" })
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt: Date;
 }
 

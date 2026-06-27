@@ -5,6 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { tr } from "../../i18n/translate";
 
 export const SKIP_PASSWORD_CHECK_KEY = "skipPasswordCheck";
 
@@ -28,7 +29,10 @@ export class MustChangePasswordGuard implements CanActivate {
 
     if (user.mustChangePassword) {
       throw new ForbiddenException(
-        "Password change required before accessing this resource",
+        tr(
+          "errors.auth.passwordChangeRequiredForAccess",
+          "Password change required before accessing this resource",
+        ),
       );
     }
 

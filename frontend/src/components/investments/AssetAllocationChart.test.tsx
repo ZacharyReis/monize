@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/render';
+import { render, screen, fireEvent, waitFor, act } from '@/test/render';
 import { AssetAllocationChart } from './AssetAllocationChart';
+import { investmentsApi } from '@/lib/investments';
+
+vi.mock('@/lib/investments', () => ({
+  investmentsApi: {
+    getAllocationByTag: vi.fn(),
+  },
+}));
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
@@ -116,5 +123,47 @@ describe('AssetAllocationChart', () => {
     };
     render(<AssetAllocationChart allocation={allocation} isLoading={false} singleAccountCurrency="USD" />);
     expect(screen.queryByText('(USD)')).not.toBeInTheDocument();
+  });
+
+  describe('by-tag grouping', () => {
+    const securityAllocation = {
+      totalValue: 10000,
+      allocation: [
+        { symbol: 'AAPL', name: 'Apple', type: 'security' as const, value: 10000, percentage: 100, color: '#3b82f6', currencyCode: 'CAD' },
+      ],
+    };
+
+    it('fetches and renders the by-tag allocation when toggled', async () => {
+      (investmentsApi.getAllocationByTag as any).mockResolvedValue({
+        totalValue: 10000,
+        allocation: [
+          { symbol: null, name: 'AI', type: 'tag', value: 8000, percentage: 80, color: '#abcdef', currencyCode: 'CAD' },
+          { symbol: null, name: 'Untagged', type: 'untagged', value: 2000, percentage: 20, color: '#9ca3af', currencyCode: 'CAD' },
+        ],
+      });
+
+      render(<AssetAllocationChart allocation={securityAllocation} isLoading={false} accountIds={[]} />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('By tag'));
+      });
+
+      await waitFor(() => {
+        expect(investmentsApi.getAllocationByTag).toHaveBeenCalledWith(undefined);
+      });
+      expect(await screen.findByText('AI')).toBeInTheDocument();
+      expect(screen.getByText('Untagged')).toBeInTheDocument();
+    });
+
+    it('can be disabled via enableTagGrouping', () => {
+      render(
+        <AssetAllocationChart
+          allocation={securityAllocation}
+          isLoading={false}
+          enableTagGrouping={false}
+        />,
+      );
+      expect(screen.queryByText('By tag')).not.toBeInTheDocument();
+    });
   });
 });

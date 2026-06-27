@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { budgetsApi } from '@/lib/budgets';
 import type { Budget, CategoryTrendSeries } from '@/types/budget';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useReportData } from '@/hooks/useReportData';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportError } from '@/components/reports/ReportError';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('CategoryPerformanceReport');
 
@@ -21,40 +25,35 @@ type CategoryPerformanceSortField =
   | 'trend'
   | 'status';
 
-function getTrendArrow(values: number[]): { arrow: string; color: string } {
-  if (values.length < 2) return { arrow: '--', color: 'text-gray-400' };
-
-  const recent = values.slice(-3);
-  const earlier = values.slice(0, Math.max(1, values.length - 3));
-  const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
-  const earlierAvg = earlier.reduce((s, v) => s + v, 0) / earlier.length;
-
-  if (earlierAvg === 0) return { arrow: '--', color: 'text-gray-400' };
-
-  const change = ((recentAvg - earlierAvg) / earlierAvg) * 100;
-
-  if (change > 10) return { arrow: 'Up', color: 'text-red-600 dark:text-red-400' };
-  if (change < -10) return { arrow: 'Down', color: 'text-green-600 dark:text-green-400' };
-  return { arrow: 'Flat', color: 'text-gray-500 dark:text-gray-400' };
-}
-
-function getStatusBadge(avgPercent: number): { label: string; className: string } {
-  if (avgPercent <= 80) {
-    return { label: 'Under Budget', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
-  }
-  if (avgPercent <= 100) {
-    return { label: 'On Track', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' };
-  }
-  return { label: 'Over Budget', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
-}
-
 export function CategoryPerformanceReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
+
+  const getTrendArrow = (values: number[]): { arrow: string; color: string } => {
+    if (values.length < 2) return { arrow: '--', color: 'text-gray-400' };
+    const recent = values.slice(-3);
+    const earlier = values.slice(0, Math.max(1, values.length - 3));
+    const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
+    const earlierAvg = earlier.reduce((s, v) => s + v, 0) / earlier.length;
+    if (earlierAvg === 0) return { arrow: '--', color: 'text-gray-400' };
+    const change = ((recentAvg - earlierAvg) / earlierAvg) * 100;
+    if (change > 10) return { arrow: t('categoryPerformance.trendUp'), color: 'text-red-600 dark:text-red-400' };
+    if (change < -10) return { arrow: t('categoryPerformance.trendDown'), color: 'text-green-600 dark:text-green-400' };
+    return { arrow: t('categoryPerformance.trendFlat'), color: 'text-gray-500 dark:text-gray-400' };
+  };
+
+  const getStatusBadge = (avgPercent: number): { label: string; className: string } => {
+    if (avgPercent <= 80) {
+      return { label: t('categoryPerformance.statusUnderBudget'), className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
+    }
+    if (avgPercent <= 100) {
+      return { label: t('categoryPerformance.statusOnTrack'), className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' };
+    }
+    return { label: t('categoryPerformance.statusOverBudget'), className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+  };
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
   const [months, setMonths] = useState(6);
-  const [categoryData, setCategoryData] = useState<CategoryTrendSeries[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { sortField, sortDirection, handleSort } = useSortableTable<CategoryPerformanceSortField>(
     'reports.category-performance.sort',
     { field: 'avgPercent', direction: 'desc' },
@@ -78,25 +77,15 @@ export function CategoryPerformanceReport() {
     loadBudgets();
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!selectedBudgetId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await budgetsApi.getCategoryTrend(selectedBudgetId, months);
-      setCategoryData(data);
-    } catch (error) {
-      logger.error('Failed to load category trend data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBudgetId, months]);
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      selectedBudgetId
+        ? budgetsApi.getCategoryTrend(selectedBudgetId, months)
+        : Promise.resolve<CategoryTrendSeries[]>([]),
+    [selectedBudgetId, months],
+  );
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const categoryData = useMemo<CategoryTrendSeries[]>(() => response ?? [], [response]);
 
   const processedData = useMemo(() => {
     return categoryData.map((series) => {
@@ -132,7 +121,8 @@ export function CategoryPerformanceReport() {
         monthData,
       };
     });
-  }, [categoryData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryData, t]);
 
   const sortedData = useMemo(() => {
     const sorted = [...processedData];
@@ -171,7 +161,7 @@ export function CategoryPerformanceReport() {
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Category', 'Avg Budget', 'Avg Actual', '% Used', 'Total Variance', 'Over/Total', 'Trend', 'Status'];
+    const headers = [t('categoryPerformance.colCategory'), t('categoryPerformance.colAvgBudget'), t('categoryPerformance.colAvgActual'), t('categoryPerformance.colPercentUsed'), t('categoryPerformance.colTotalVariance'), t('categoryPerformance.colOverTotal'), t('categoryPerformance.colTrend'), t('categoryPerformance.colStatus')];
     const rows = sortedData.map(row => [
       row.categoryName,
       formatCurrency(row.avgBudgeted),
@@ -183,18 +173,22 @@ export function CategoryPerformanceReport() {
       row.status.label,
     ]);
     await exportToPdf({
-      title: 'Category Performance',
+      title: t('page.names.category-performance' as Parameters<typeof t>[0]),
       tableData: { headers, rows },
       filename: 'category-performance',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -204,7 +198,7 @@ export function CategoryPerformanceReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No budgets found. Create a budget to see category performance.
+          {t('categoryPerformance.noBudgets')}
         </p>
       </div>
     );
@@ -229,9 +223,9 @@ export function CategoryPerformanceReport() {
             onChange={(e) => setMonths(Number(e.target.value))}
             className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
-            <option value={3}>3 Months</option>
-            <option value={6}>6 Months</option>
-            <option value={12}>12 Months</option>
+            <option value={3}>{t('categoryPerformance.months3')}</option>
+            <option value={6}>{t('categoryPerformance.months6')}</option>
+            <option value={12}>{t('categoryPerformance.months12')}</option>
           </select>
           <div className="ml-auto">
             <ExportDropdown onExportPdf={handleExportPdf} />
@@ -243,7 +237,7 @@ export function CategoryPerformanceReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
         {sortedData.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No category data available yet.
+            {t('categoryPerformance.noData')}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -257,7 +251,7 @@ export function CategoryPerformanceReport() {
                     onSort={handleSort}
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Category
+                    {t('categoryPerformance.colCategory')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="avgBudgeted"
@@ -267,7 +261,7 @@ export function CategoryPerformanceReport() {
                     align="right"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Avg Budget
+                    {t('categoryPerformance.colAvgBudget')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="avgActual"
@@ -277,7 +271,7 @@ export function CategoryPerformanceReport() {
                     align="right"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Avg Actual
+                    {t('categoryPerformance.colAvgActual')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="avgPercent"
@@ -287,7 +281,7 @@ export function CategoryPerformanceReport() {
                     align="right"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    % Used
+                    {t('categoryPerformance.colPercentUsed')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="variance"
@@ -297,7 +291,7 @@ export function CategoryPerformanceReport() {
                     align="right"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Total Variance
+                    {t('categoryPerformance.colTotalVariance')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="overCount"
@@ -307,7 +301,7 @@ export function CategoryPerformanceReport() {
                     align="center"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Over/Total
+                    {t('categoryPerformance.colOverTotal')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="trend"
@@ -317,7 +311,7 @@ export function CategoryPerformanceReport() {
                     align="center"
                     className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Trend
+                    {t('categoryPerformance.colTrend')}
                   </SortableHeader>
                   <SortableHeader<CategoryPerformanceSortField>
                     field="status"
@@ -327,7 +321,7 @@ export function CategoryPerformanceReport() {
                     align="center"
                     className="py-2 font-medium text-gray-500 dark:text-gray-400"
                   >
-                    Status
+                    {t('categoryPerformance.colStatus')}
                   </SortableHeader>
                 </tr>
               </thead>

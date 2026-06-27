@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { I18nContext } from "nestjs-i18n";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { AccountsService } from "./accounts.service";
@@ -9,6 +10,7 @@ import {
 } from "./entities/account.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
+import { Institution } from "../institutions/entities/institution.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ScheduledTransactionsService } from "../scheduled-transactions/scheduled-transactions.service";
 import { NetWorthService } from "../net-worth/net-worth.service";
@@ -22,6 +24,7 @@ describe("AccountsService", () => {
   let accountsRepository: Record<string, jest.Mock>;
   let transactionRepository: Record<string, jest.Mock>;
   let investmentTxRepository: Record<string, jest.Mock>;
+  let institutionsRepository: Record<string, jest.Mock>;
   let scheduledTransactionsService: Record<string, jest.Mock>;
   let categoriesService: Record<string, jest.Mock>;
   let netWorthService: Record<string, jest.Mock>;
@@ -102,6 +105,8 @@ describe("AccountsService", () => {
 
     netWorthService = {
       recalculateAccount: jest.fn().mockResolvedValue(undefined),
+      getMonthlyNetWorth: jest.fn().mockResolvedValue([]),
+      getLatestNetWorth: jest.fn().mockResolvedValue(null),
     };
 
     mockQrRepo = {
@@ -125,7 +130,13 @@ describe("AccountsService", () => {
         findOne: jest.fn(),
         findOneOrFail: jest.fn(),
         save: jest.fn().mockImplementation((data) => data),
+        remove: jest.fn().mockImplementation((data) => data),
+        count: jest.fn().mockResolvedValue(0),
       },
+    };
+
+    institutionsRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: "inst-1" }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -140,6 +151,10 @@ describe("AccountsService", () => {
         {
           provide: getRepositoryToken(InvestmentTransaction),
           useValue: investmentTxRepository,
+        },
+        {
+          provide: getRepositoryToken(Institution),
+          useValue: institutionsRepository,
         },
         { provide: CategoriesService, useValue: categoriesService },
         {
@@ -210,6 +225,36 @@ describe("AccountsService", () => {
       expect(createCall.currentBalance).toBe(500);
       expect(createCall.userId).toBe("user-1");
       expect(accountsRepository.save).toHaveBeenCalled();
+    });
+
+    it("assigns a valid owned institution", async () => {
+      await service.create("user-1", {
+        name: "Bank Account",
+        accountType: AccountType.CHEQUING,
+        currencyCode: "USD",
+        institutionId: "inst-1",
+      } as any);
+
+      expect(institutionsRepository.findOne).toHaveBeenCalledWith({
+        where: { id: "inst-1", userId: "user-1" },
+        select: { id: true },
+      });
+      const createCall = accountsRepository.create.mock.calls[0][0];
+      expect(createCall.institutionId).toBe("inst-1");
+    });
+
+    it("rejects an institution that does not belong to the user", async () => {
+      institutionsRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.create("user-1", {
+          name: "Bank Account",
+          accountType: AccountType.CHEQUING,
+          currencyCode: "USD",
+          institutionId: "someone-elses",
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(accountsRepository.save).not.toHaveBeenCalled();
     });
 
     it("defaults opening balance to 0", async () => {
@@ -432,6 +477,26 @@ describe("AccountsService", () => {
       expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
+    it("assigns an owned institution on update", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+
+      await service.update("user-1", "account-1", { institutionId: "inst-1" });
+
+      const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+      expect(saved.institutionId).toBe("inst-1");
+      expect(institutionsRepository.findOne).toHaveBeenCalled();
+    });
+
+    it("rejects an unowned institution on update", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+      institutionsRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update("user-1", "account-1", { institutionId: "x" }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+    });
+
     it("throws BadRequestException for closed account", async () => {
       mockQueryRunner.manager.findOne.mockResolvedValue({
         ...mockAccount,
@@ -594,6 +659,67 @@ describe("AccountsService", () => {
         }),
       );
     });
+
+    describe("currency lock", () => {
+      it("allows currency change when account has no transactions", async () => {
+        mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+        mockQueryRunner.manager.count.mockResolvedValue(0);
+
+        await service.update("user-1", "account-1", { currencyCode: "CAD" });
+
+        const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+        expect(saved.currencyCode).toBe("CAD");
+        expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      });
+
+      it("rejects currency change when account has regular transactions", async () => {
+        mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+        mockQueryRunner.manager.count
+          .mockResolvedValueOnce(3) // transactions
+          .mockResolvedValueOnce(0); // investment transactions
+
+        await expect(
+          service.update("user-1", "account-1", { currencyCode: "CAD" }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+        expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
+      });
+
+      it("rejects currency change when account has investment transactions", async () => {
+        mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+        mockQueryRunner.manager.count
+          .mockResolvedValueOnce(0) // transactions
+          .mockResolvedValueOnce(2); // investment transactions
+
+        await expect(
+          service.update("user-1", "account-1", { currencyCode: "CAD" }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+        expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
+      });
+
+      it("allows other field updates on accounts with transactions when currency is unchanged", async () => {
+        mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+        mockQueryRunner.manager.count.mockResolvedValue(5);
+
+        await service.update("user-1", "account-1", { name: "Renamed" });
+
+        const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+        expect(saved.name).toBe("Renamed");
+        expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      });
+
+      it("allows passing the same currency on an account with transactions (no-op)", async () => {
+        mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+        mockQueryRunner.manager.count.mockResolvedValue(5);
+
+        await service.update("user-1", "account-1", {
+          currencyCode: mockAccount.currencyCode,
+        });
+
+        expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      });
+    });
   });
 
   describe("close", () => {
@@ -670,7 +796,7 @@ describe("AccountsService", () => {
 
   describe("reopen", () => {
     it("reopens a closed account", async () => {
-      accountsRepository.findOne.mockResolvedValue({
+      mockQueryRunner.manager.findOne.mockResolvedValue({
         ...mockAccount,
         isClosed: true,
         closedDate: new Date(),
@@ -683,7 +809,7 @@ describe("AccountsService", () => {
     });
 
     it("throws when account is not closed", async () => {
-      accountsRepository.findOne.mockResolvedValue(mockAccount);
+      mockQueryRunner.manager.findOne.mockResolvedValue(mockAccount);
 
       await expect(service.reopen("user-1", "account-1")).rejects.toThrow(
         "Account is not closed",
@@ -709,7 +835,7 @@ describe("AccountsService", () => {
 
       await service.delete("user-1", "account-1");
 
-      expect(accountsRepository.remove).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.remove).toHaveBeenCalled();
     });
 
     it("throws when account has transactions", async () => {
@@ -732,21 +858,20 @@ describe("AccountsService", () => {
     });
 
     it("unlinks paired investment account before deletion", async () => {
-      accountsRepository.findOne
-        .mockResolvedValueOnce({
-          ...mockAccount,
-          linkedAccountId: "brokerage-1",
-        })
-        .mockResolvedValueOnce({
-          id: "brokerage-1",
-          linkedAccountId: "account-1",
-        });
+      accountsRepository.findOne.mockResolvedValueOnce({
+        ...mockAccount,
+        linkedAccountId: "brokerage-1",
+      });
+      mockQueryRunner.manager.findOne.mockResolvedValueOnce({
+        id: "brokerage-1",
+        linkedAccountId: "account-1",
+      });
       transactionRepository.count.mockResolvedValue(0);
       investmentTxRepository.count.mockResolvedValue(0);
 
       await service.delete("user-1", "account-1");
 
-      const savedLinked = accountsRepository.save.mock.calls[0][0];
+      const savedLinked = mockQueryRunner.manager.save.mock.calls[0][0];
       expect(savedLinked.linkedAccountId).toBeNull();
     });
 
@@ -956,6 +1081,32 @@ describe("AccountsService", () => {
       const cashCreate = mockQrRepo.create.mock.calls[0][0];
       expect(cashCreate.openingBalance).toBe(0);
       expect(cashCreate.currentBalance).toBe(0);
+    });
+
+    it("localizes the cash and brokerage suffixes to the request locale", async () => {
+      const localized: Record<string, string> = {
+        "common.accountSuffix.cash": "Bargeld",
+        "common.accountSuffix.brokerage": "Depot",
+      };
+      jest.spyOn(I18nContext, "current").mockReturnValue({
+        t: (key: string) => localized[key] ?? key,
+      } as never);
+
+      mockQrRepo.save.mockImplementation((data) => ({
+        ...data,
+        id: data.id || "gen-id",
+      }));
+
+      await service.createInvestmentAccountPair("user-1", {
+        name: "Depotkonto",
+        accountType: AccountType.INVESTMENT,
+        currencyCode: "EUR",
+      } as any);
+
+      const cashCreate = mockQrRepo.create.mock.calls[0][0];
+      const brokerageCreate = mockQrRepo.create.mock.calls[1][0];
+      expect(cashCreate.name).toBe("Depotkonto - Bargeld");
+      expect(brokerageCreate.name).toBe("Depotkonto - Depot");
     });
   });
 
@@ -1977,7 +2128,7 @@ describe("AccountsService", () => {
 
   describe("reopen - investment cash account linked behavior", () => {
     it("also reopens linked brokerage account for investment cash", async () => {
-      accountsRepository.findOne
+      mockQueryRunner.manager.findOne
         .mockResolvedValueOnce({
           ...mockAccount,
           isClosed: true,
@@ -1991,18 +2142,17 @@ describe("AccountsService", () => {
           isClosed: true,
           closedDate: new Date(),
         });
-      accountsRepository.save.mockImplementation((data) => data);
 
       await service.reopen("user-1", "account-1");
 
-      expect(accountsRepository.save).toHaveBeenCalledTimes(2);
-      const brokerageSave = accountsRepository.save.mock.calls[1][0];
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(2);
+      const brokerageSave = mockQueryRunner.manager.save.mock.calls[1][0];
       expect(brokerageSave.isClosed).toBe(false);
       expect(brokerageSave.closedDate).toBeNull();
     });
 
     it("does not reopen brokerage if already open", async () => {
-      accountsRepository.findOne
+      mockQueryRunner.manager.findOne
         .mockResolvedValueOnce({
           ...mockAccount,
           isClosed: true,
@@ -2016,27 +2166,25 @@ describe("AccountsService", () => {
           isClosed: false,
           closedDate: null,
         });
-      accountsRepository.save.mockImplementation((data) => data);
 
       await service.reopen("user-1", "account-1");
 
       // Only one save for the cash account
-      expect(accountsRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
     });
 
     it("does not attempt to reopen linked account for non-investment account", async () => {
-      accountsRepository.findOne.mockResolvedValue({
+      mockQueryRunner.manager.findOne.mockResolvedValue({
         ...mockAccount,
         isClosed: true,
         closedDate: new Date(),
         accountSubType: null,
         linkedAccountId: null,
       });
-      accountsRepository.save.mockImplementation((data) => data);
 
       await service.reopen("user-1", "account-1");
 
-      expect(accountsRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -2057,7 +2205,7 @@ describe("AccountsService", () => {
         "user-1",
         "sched-tx-to-delete",
       );
-      expect(accountsRepository.remove).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.remove).toHaveBeenCalled();
     });
 
     it("deletes scheduled transaction for mortgage account", async () => {
@@ -2093,7 +2241,7 @@ describe("AccountsService", () => {
 
       await service.delete("user-1", "account-1");
 
-      expect(accountsRepository.remove).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.remove).toHaveBeenCalled();
     });
 
     it("does not delete scheduled transaction for non-loan/mortgage accounts", async () => {
@@ -2114,41 +2262,39 @@ describe("AccountsService", () => {
 
   describe("delete - linked account unlinking", () => {
     it("unlinks paired investment account before deletion", async () => {
-      accountsRepository.findOne
-        .mockResolvedValueOnce({
-          ...mockAccount,
-          linkedAccountId: "brokerage-1",
-        })
-        .mockResolvedValueOnce({
-          id: "brokerage-1",
-          linkedAccountId: "account-1",
-        });
+      accountsRepository.findOne.mockResolvedValueOnce({
+        ...mockAccount,
+        linkedAccountId: "brokerage-1",
+      });
+      mockQueryRunner.manager.findOne.mockResolvedValueOnce({
+        id: "brokerage-1",
+        linkedAccountId: "account-1",
+      });
       transactionRepository.count.mockResolvedValue(0);
       investmentTxRepository.count.mockResolvedValue(0);
 
       await service.delete("user-1", "account-1");
 
-      const savedLinked = accountsRepository.save.mock.calls[0][0];
+      const savedLinked = mockQueryRunner.manager.save.mock.calls[0][0];
       expect(savedLinked.linkedAccountId).toBeNull();
-      expect(accountsRepository.remove).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.remove).toHaveBeenCalled();
     });
 
     it("handles case where linked account no longer exists", async () => {
-      accountsRepository.findOne
-        .mockResolvedValueOnce({
-          ...mockAccount,
-          linkedAccountId: "gone-account",
-        })
-        .mockResolvedValueOnce(null);
+      accountsRepository.findOne.mockResolvedValueOnce({
+        ...mockAccount,
+        linkedAccountId: "gone-account",
+      });
+      mockQueryRunner.manager.findOne.mockResolvedValueOnce(null);
       transactionRepository.count.mockResolvedValue(0);
       investmentTxRepository.count.mockResolvedValue(0);
 
       await service.delete("user-1", "account-1");
 
       // Should still delete successfully without error
-      expect(accountsRepository.remove).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.remove).toHaveBeenCalled();
       // save should not have been called for the linked account
-      expect(accountsRepository.save).not.toHaveBeenCalled();
+      expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
     });
   });
 
@@ -2192,210 +2338,76 @@ describe("AccountsService", () => {
     });
   });
 
-  describe("getSummary - asset vs liability categorization", () => {
-    it("categorizes chequing, savings, investment, cash, asset as assets", async () => {
-      const assetAccounts = [
-        {
-          ...mockAccount,
-          id: "a1",
-          accountType: AccountType.CHEQUING,
-          currentBalance: 1000,
-        },
-        {
-          ...mockAccount,
-          id: "a2",
-          accountType: AccountType.SAVINGS,
-          currentBalance: 2000,
-        },
-        {
-          ...mockAccount,
-          id: "a3",
-          accountType: AccountType.INVESTMENT,
-          currentBalance: 5000,
-        },
-        {
-          ...mockAccount,
-          id: "a4",
-          accountType: AccountType.CASH,
-          currentBalance: 500,
-        },
-        {
-          ...mockAccount,
-          id: "a5",
-          accountType: AccountType.ASSET,
-          currentBalance: 10000,
-        },
-      ];
-
-      const getMany = jest.fn().mockResolvedValue(assetAccounts);
+  describe("getSummary - net worth derivation", () => {
+    const stubAccounts = (accounts: unknown[]) => {
+      const getMany = jest.fn().mockResolvedValue(accounts);
       accountsRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         getMany,
       });
+    };
+
+    it("sums currentBalance into totalBalance and counts accounts", async () => {
+      stubAccounts([
+        { ...mockAccount, id: "a1", currentBalance: 5000 },
+        { ...mockAccount, id: "a2", currentBalance: 10000 },
+        { ...mockAccount, id: "l1", currentBalance: -2000 },
+        { ...mockAccount, id: "l2", currentBalance: -300000 },
+      ]);
 
       const result = await service.getSummary("user-1");
 
-      expect(result.totalAssets).toBe(18500);
-      expect(result.totalLiabilities).toBe(0);
-      expect(result.netWorth).toBe(18500);
-      expect(result.totalAccounts).toBe(5);
-    });
-
-    it("categorizes credit card, loan, mortgage, line of credit as liabilities", async () => {
-      const liabilityAccounts = [
-        {
-          ...mockAccount,
-          id: "l1",
-          accountType: AccountType.CREDIT_CARD,
-          currentBalance: -500,
-        },
-        {
-          ...mockAccount,
-          id: "l2",
-          accountType: AccountType.LOAN,
-          currentBalance: -10000,
-        },
-        {
-          ...mockAccount,
-          id: "l3",
-          accountType: AccountType.MORTGAGE,
-          currentBalance: -200000,
-        },
-        {
-          ...mockAccount,
-          id: "l4",
-          accountType: AccountType.LINE_OF_CREDIT,
-          currentBalance: -3000,
-        },
-      ];
-
-      const getMany = jest.fn().mockResolvedValue(liabilityAccounts);
-      accountsRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany,
-      });
-
-      const result = await service.getSummary("user-1");
-
-      expect(result.totalAssets).toBe(0);
-      expect(result.totalLiabilities).toBe(213500);
-      expect(result.netWorth).toBe(-213500);
-      expect(result.totalAccounts).toBe(4);
-    });
-
-    it("correctly computes net worth from mixed assets and liabilities", async () => {
-      const mixedAccounts = [
-        {
-          ...mockAccount,
-          id: "a1",
-          accountType: AccountType.CHEQUING,
-          currentBalance: 5000,
-        },
-        {
-          ...mockAccount,
-          id: "a2",
-          accountType: AccountType.SAVINGS,
-          currentBalance: 10000,
-        },
-        {
-          ...mockAccount,
-          id: "l1",
-          accountType: AccountType.CREDIT_CARD,
-          currentBalance: -2000,
-        },
-        {
-          ...mockAccount,
-          id: "l2",
-          accountType: AccountType.MORTGAGE,
-          currentBalance: -300000,
-        },
-      ];
-
-      const getMany = jest.fn().mockResolvedValue(mixedAccounts);
-      accountsRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany,
-      });
-
-      const result = await service.getSummary("user-1");
-
-      expect(result.totalAssets).toBe(15000);
-      expect(result.totalLiabilities).toBe(302000);
-      expect(result.netWorth).toBe(15000 - 302000);
       expect(result.totalBalance).toBe(5000 + 10000 - 2000 - 300000);
       expect(result.totalAccounts).toBe(4);
     });
 
-    it("returns zeros when no accounts exist", async () => {
-      const getMany = jest.fn().mockResolvedValue([]);
-      accountsRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany,
+    it("derives assets, liabilities and net worth from the latest monthly snapshot", async () => {
+      stubAccounts([{ ...mockAccount, id: "a1", currentBalance: 5000 }]);
+      // getLatestNetWorth is the canonical source shared with the dashboard
+      // widget and get_account_balances; getSummary must report its latest month.
+      netWorthService.getLatestNetWorth.mockResolvedValue({
+        assets: 25000,
+        liabilities: 302000,
+        netWorth: 25000 - 302000,
       });
+
+      const result = await service.getSummary("user-1");
+
+      expect(result.totalAssets).toBe(25000);
+      expect(result.totalLiabilities).toBe(302000);
+      expect(result.netWorth).toBe(25000 - 302000);
+    });
+
+    it("returns zero net worth when no monthly snapshots exist", async () => {
+      stubAccounts([{ ...mockAccount, id: "a1", currentBalance: 5000 }]);
+      netWorthService.getLatestNetWorth.mockResolvedValue(null);
+
+      const result = await service.getSummary("user-1");
+
+      expect(result.totalAssets).toBe(0);
+      expect(result.totalLiabilities).toBe(0);
+      expect(result.netWorth).toBe(0);
+      // totalBalance still reflects the raw book balance
+      expect(result.totalBalance).toBe(5000);
+    });
+
+    it("returns zeros across the board when no accounts exist", async () => {
+      stubAccounts([]);
+      netWorthService.getLatestNetWorth.mockResolvedValue(null);
 
       const result = await service.getSummary("user-1");
 
       expect(result.totalAccounts).toBe(0);
-      expect(result.totalAssets).toBe(0);
-      expect(result.totalLiabilities).toBe(0);
-      expect(result.netWorth).toBe(0);
       expect(result.totalBalance).toBe(0);
-    });
-
-    it("excludes accounts with excludeFromNetWorth from net worth but includes in totalBalance", async () => {
-      const mixedAccounts = [
-        {
-          ...mockAccount,
-          id: "a1",
-          accountType: AccountType.CHEQUING,
-          currentBalance: 5000,
-          excludeFromNetWorth: false,
-        },
-        {
-          ...mockAccount,
-          id: "a2",
-          accountType: AccountType.SAVINGS,
-          currentBalance: 10000,
-          excludeFromNetWorth: true,
-        },
-        {
-          ...mockAccount,
-          id: "l1",
-          accountType: AccountType.CREDIT_CARD,
-          currentBalance: -2000,
-          excludeFromNetWorth: true,
-        },
-      ];
-
-      const getMany = jest.fn().mockResolvedValue(mixedAccounts);
-      accountsRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany,
-      });
-
-      const result = await service.getSummary("user-1");
-
-      expect(result.totalAccounts).toBe(3);
-      expect(result.totalBalance).toBe(5000 + 10000 - 2000);
-      expect(result.totalAssets).toBe(5000);
-      expect(result.totalLiabilities).toBe(0);
-      expect(result.netWorth).toBe(5000);
+      expect(result.netWorth).toBe(0);
     });
   });
 
   describe("reorderFavourites()", () => {
-    it("updates favourite_sort_order for each account in order", async () => {
-      mockQueryRunner.manager.update = jest.fn().mockResolvedValue(undefined);
+    it("applies the new ordering in a single bulk UPDATE scoped to the user", async () => {
+      accountsRepository.query.mockResolvedValue(undefined);
 
       await service.reorderFavourites("user-1", [
         "account-a",
@@ -2403,39 +2415,20 @@ describe("AccountsService", () => {
         "account-c",
       ]);
 
-      expect(mockQueryRunner.connect).toHaveBeenCalled();
-      expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.manager.update).toHaveBeenCalledTimes(3);
-      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
-        Account,
-        { id: "account-a", userId: "user-1" },
-        { favouriteSortOrder: 0 },
-      );
-      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
-        Account,
-        { id: "account-b", userId: "user-1" },
-        { favouriteSortOrder: 1 },
-      );
-      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
-        Account,
-        { id: "account-c", userId: "user-1" },
-        { favouriteSortOrder: 2 },
-      );
-      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
+      expect(accountsRepository.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = accountsRepository.query.mock.calls[0];
+      // ids are parameterized, the sort order is the array index, and the
+      // userId is the final parameter constraining the update.
+      expect(sql).toContain("UPDATE accounts SET favourite_sort_order");
+      expect(sql).toContain("accounts.user_id = $4");
+      expect(sql).toContain("($1::uuid, 0)");
+      expect(sql).toContain("($3::uuid, 2)");
+      expect(params).toEqual(["account-a", "account-b", "account-c", "user-1"]);
     });
 
-    it("rolls back transaction on error", async () => {
-      mockQueryRunner.manager.update = jest
-        .fn()
-        .mockRejectedValue(new Error("DB error"));
-
-      await expect(
-        service.reorderFavourites("user-1", ["account-a"]),
-      ).rejects.toThrow("DB error");
-
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
+    it("does nothing when the list is empty", async () => {
+      await service.reorderFavourites("user-1", []);
+      expect(accountsRepository.query).not.toHaveBeenCalled();
     });
 
     it("throws BadRequestException when accountIds is not an array", async () => {
@@ -2504,6 +2497,26 @@ describe("AccountsService", () => {
       });
       // Only the main account save runs
       expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
+    });
+
+    it("syncs institution to the linked investment account when changed", async () => {
+      mockQueryRunner.manager.findOne
+        .mockResolvedValueOnce({
+          ...mockAccount,
+          accountType: AccountType.INVESTMENT,
+          linkedAccountId: "linked-1",
+          institutionId: null,
+        })
+        .mockResolvedValueOnce({
+          id: "linked-1",
+          userId: "user-1",
+          institutionId: null,
+        });
+      await service.update("user-1", "account-1", { institutionId: "inst-1" });
+      // 2 saves: original account + linked partner
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(2);
+      const linkedSave = mockQueryRunner.manager.save.mock.calls[1][0];
+      expect(linkedSave.institutionId).toBe("inst-1");
     });
 
     it("triggers net-worth recalc when openingBalance changes", async () => {
@@ -2669,7 +2682,7 @@ describe("AccountsService", () => {
     });
   });
 
-  describe("getLlmBalances filters", () => {
+  describe("getLlmAccounts", () => {
     const allAccounts = [
       {
         id: "a1",
@@ -2680,6 +2693,11 @@ describe("AccountsService", () => {
         currencyCode: "USD",
         currentBalance: 100,
         futureTransactionsSum: 0,
+        creditLimit: null,
+        interestRate: null,
+        excludeFromNetWorth: false,
+        institutionId: "inst-1",
+        accountNumber: "1234",
         isClosed: false,
       },
       {
@@ -2691,6 +2709,11 @@ describe("AccountsService", () => {
         currencyCode: "USD",
         currentBalance: 200,
         futureTransactionsSum: 0,
+        creditLimit: 5000,
+        interestRate: 1.25,
+        excludeFromNetWorth: true,
+        institutionId: null,
+        accountNumber: null,
         isClosed: true,
       },
       {
@@ -2702,6 +2725,11 @@ describe("AccountsService", () => {
         currencyCode: "USD",
         currentBalance: 500,
         futureTransactionsSum: 0,
+        creditLimit: null,
+        interestRate: null,
+        excludeFromNetWorth: false,
+        institutionId: null,
+        accountNumber: null,
         isClosed: false,
       },
     ];
@@ -2710,9 +2738,9 @@ describe("AccountsService", () => {
       jest.spyOn(service, "findAll").mockResolvedValue(allAccounts as never);
       (
         netWorthService as unknown as Record<string, jest.Mock>
-      ).getMonthlyNetWorth = jest
+      ).getLatestNetWorth = jest
         .fn()
-        .mockResolvedValue([{ assets: 800, liabilities: 0, netWorth: 800 }]);
+        .mockResolvedValue({ assets: 800, liabilities: 0, netWorth: 800 });
       (
         service["portfolioService"] as unknown as {
           getAccountMarketValues: jest.Mock;
@@ -2720,48 +2748,127 @@ describe("AccountsService", () => {
       ).getAccountMarketValues = jest
         .fn()
         .mockResolvedValue(new Map([["a3", 750]]));
+      institutionsRepository.find = jest
+        .fn()
+        .mockResolvedValue([{ id: "inst-1", name: "Big Bank" }]);
     });
 
-    it("status=open filters closed", async () => {
-      const r = await service.getLlmBalances("user-1");
+    it("status defaults to open and filters closed accounts", async () => {
+      const r = await service.getLlmAccounts("user-1");
       expect(r.accounts.find((a) => a.name === "Savings")).toBeUndefined();
+      expect(r.totalAccounts).toBe(2);
     });
 
     it("status=closed only returns closed", async () => {
-      const r = await service.getLlmBalances("user-1", undefined, "closed");
+      const r = await service.getLlmAccounts("user-1", { status: "closed" });
       expect(r.accounts.length).toBe(1);
       expect(r.accounts[0].name).toBe("Savings");
+      expect(r.totalAccounts).toBe(1);
     });
 
     it("status=all returns everything", async () => {
-      const r = await service.getLlmBalances("user-1", undefined, "all");
+      const r = await service.getLlmAccounts("user-1", { status: "all" });
       expect(r.accounts.length).toBe(3);
+      expect(r.totalAccounts).toBe(3);
     });
 
     it("filters by accountTypes", async () => {
-      const r = await service.getLlmBalances("user-1", undefined, "all", [
-        AccountType.CHEQUING,
-      ]);
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        accountTypes: [AccountType.CHEQUING],
+      });
       expect(r.accounts.length).toBe(1);
       expect(r.accounts[0].name).toBe("Checking");
     });
 
     it("filters by accountNames (case-insensitive)", async () => {
-      const r = await service.getLlmBalances("user-1", ["checking"], "all");
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        accountNames: ["checking"],
+      });
       expect(r.accounts.length).toBe(1);
       expect(r.accounts[0].name).toBe("Checking");
     });
 
-    it("uses market value for brokerage accounts", async () => {
-      const r = await service.getLlmBalances("user-1", ["Brokerage"], "all");
-      expect(r.accounts[0].balance).toBe(750);
+    it("filters by accountIds", async () => {
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        accountIds: ["a2"],
+      });
+      expect(r.accounts.length).toBe(1);
+      expect(r.accounts[0].id).toBe("a2");
     });
 
-    it("falls back to 0 when monthly net worth empty", async () => {
+    it("filters by nameQuery substring (case-insensitive)", async () => {
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        nameQuery: "ING",
+      });
+      const names = r.accounts.map((a) => a.name).sort();
+      expect(names).toEqual(["Checking", "Savings"]);
+    });
+
+    it("uses market value for brokerage accounts and currentBalance for others", async () => {
+      const r = await service.getLlmAccounts("user-1", { status: "all" });
+      const brokerage = r.accounts.find((a) => a.name === "Brokerage")!;
+      const checking = r.accounts.find((a) => a.name === "Checking")!;
+      expect(brokerage.balance).toBe(750);
+      expect(brokerage.currentBalance).toBe(500);
+      expect(checking.balance).toBe(100);
+    });
+
+    it("exposes full per-account detail incl. null credit/interest/institution", async () => {
+      const r = await service.getLlmAccounts("user-1", { status: "all" });
+      const checking = r.accounts.find((a) => a.name === "Checking")!;
+      const brokerage = r.accounts.find((a) => a.name === "Brokerage")!;
+      const savings = r.accounts.find((a) => a.name === "Savings")!;
+
+      expect(checking.creditLimit).toBeNull();
+      expect(checking.interestRate).toBeNull();
+      expect(checking.institutionName).toBe("Big Bank");
+      expect(checking.accountNumber).toBe("1234");
+      expect(checking.excludeFromNetWorth).toBe(false);
+
+      expect(savings.creditLimit).toBe(5000);
+      expect(savings.interestRate).toBe(1.25);
+      expect(savings.excludeFromNetWorth).toBe(true);
+      expect(savings.institutionName).toBeNull();
+      expect(savings.accountNumber).toBeNull();
+
+      expect(brokerage.subType).toBe(AccountSubType.INVESTMENT_BROKERAGE);
+      expect(brokerage.institutionName).toBeNull();
+    });
+
+    it("skips the institution lookup when no account references one", async () => {
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        accountIds: ["a3"],
+      });
+      expect(institutionsRepository.find).not.toHaveBeenCalled();
+      expect(r.accounts[0].institutionName).toBeNull();
+    });
+
+    it("returns null institutionName when the institution is not found", async () => {
+      institutionsRepository.find = jest.fn().mockResolvedValue([]);
+      const r = await service.getLlmAccounts("user-1", {
+        status: "all",
+        accountIds: ["a1"],
+      });
+      expect(r.accounts[0].institutionName).toBeNull();
+    });
+
+    it("returns totals from the latest net worth snapshot", async () => {
+      const r = await service.getLlmAccounts("user-1", { status: "all" });
+      expect(r.totalAssets).toBe(800);
+      expect(r.totalLiabilities).toBe(0);
+      expect(r.netWorth).toBe(800);
+    });
+
+    it("falls back to 0 totals when the net worth snapshot is null", async () => {
       (
         netWorthService as unknown as Record<string, jest.Mock>
-      ).getMonthlyNetWorth = jest.fn().mockResolvedValue([]);
-      const r = await service.getLlmBalances("user-1");
+      ).getLatestNetWorth = jest.fn().mockResolvedValue(null);
+      const r = await service.getLlmAccounts("user-1");
       expect(r.totalAssets).toBe(0);
       expect(r.totalLiabilities).toBe(0);
       expect(r.netWorth).toBe(0);
@@ -2862,12 +2969,19 @@ describe("AccountsService", () => {
         // accountRows
         .mockResolvedValueOnce([{ account_id: "a1" }])
         // balances
-        .mockResolvedValueOnce([{ account_id: "a1", balance: "150" }]);
-      accountsRepository.update.mockResolvedValue({ affected: 1 });
+        .mockResolvedValueOnce([{ account_id: "a1", balance: "150" }])
+        // bulk UPDATE ... FROM (VALUES ...)
+        .mockResolvedValueOnce(undefined);
       await service.applyDueTransactionBalances();
-      expect(accountsRepository.update).toHaveBeenCalledWith("a1", {
-        currentBalance: 150,
-      });
+      // Balances applied via a single bulk UPDATE, not one update per account
+      const bulkUpdateCall = ds.query.mock.calls.find(
+        (c) =>
+          typeof c[0] === "string" &&
+          c[0].includes("UPDATE accounts SET current_balance"),
+      );
+      expect(bulkUpdateCall).toBeDefined();
+      expect(bulkUpdateCall?.[1]).toEqual(["a1", 150]);
+      expect(accountsRepository.update).not.toHaveBeenCalled();
     });
 
     it("logs error when query throws", async () => {
@@ -2875,6 +2989,179 @@ describe("AccountsService", () => {
       ds.query = jest.fn().mockRejectedValue(new Error("db down"));
       await service.applyDueTransactionBalances();
       // Should not throw
+    });
+  });
+
+  describe("resolveByName", () => {
+    it("returns the open account matching the name case-insensitively", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue([
+        { id: "a1", name: "Checking", currencyCode: "USD" },
+        { id: "a2", name: "Savings", currencyCode: "CAD" },
+      ] as never);
+
+      const result = await service.resolveByName("user-1", "checking");
+      expect(service.findAll).toHaveBeenCalledWith("user-1", false);
+      expect(result).toEqual({
+        id: "a1",
+        name: "Checking",
+        currencyCode: "USD",
+      });
+    });
+
+    it("returns undefined when no open account matches", async () => {
+      jest
+        .spyOn(service, "findAll")
+        .mockResolvedValue([
+          { id: "a1", name: "Checking", currencyCode: "USD" },
+        ] as never);
+      const result = await service.resolveByName("user-1", "Nope");
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("resolveAccountFilter", () => {
+    it("returns accountIds: undefined when no names are supplied", async () => {
+      const findAllSpy = jest.spyOn(service, "findAll");
+      expect(await service.resolveAccountFilter("user-1")).toEqual({
+        accountIds: undefined,
+      });
+      expect(await service.resolveAccountFilter("user-1", [])).toEqual({
+        accountIds: undefined,
+      });
+      expect(findAllSpy).not.toHaveBeenCalled();
+    });
+
+    it("maps names to ids case-insensitively over open accounts", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue([
+        { id: "a1", name: "Checking", currencyCode: "USD" },
+        { id: "a2", name: "RRSP", currencyCode: "CAD" },
+      ] as never);
+
+      const result = await service.resolveAccountFilter("user-1", [
+        "checking",
+        "RRSP",
+      ]);
+      expect(service.findAll).toHaveBeenCalledWith("user-1", false);
+      expect(result).toEqual({ accountIds: ["a1", "a2"] });
+    });
+
+    it("returns a did-you-mean error when a name does not match", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue([
+        { id: "a1", name: "Checking", currencyCode: "USD" },
+        { id: "a2", name: "Savings", currencyCode: "USD" },
+      ] as never);
+
+      const result = await service.resolveAccountFilter("user-1", ["Savngs"]);
+      expect(result.accountIds).toBeUndefined();
+      expect(result.error).toContain("Unknown account: Savngs.");
+      expect(result.error).toContain("Did you mean 'Savings'?");
+      expect(result.error).toContain("Call list_accounts");
+    });
+
+    it("errors on any unresolved name rather than running with a partial set", async () => {
+      jest
+        .spyOn(service, "findAll")
+        .mockResolvedValue([
+          { id: "a1", name: "Checking", currencyCode: "USD" },
+        ] as never);
+
+      const result = await service.resolveAccountFilter("user-1", [
+        "Checking",
+        "Nope",
+      ]);
+      expect(result.accountIds).toBeUndefined();
+      expect(result.error).toContain("Unknown account: Nope.");
+    });
+  });
+
+  describe("resolveBrokerageByName", () => {
+    const rrspBrokerage = {
+      id: "b1",
+      name: "RRSP - Brokerage",
+      currencyCode: "CAD",
+      accountType: AccountType.INVESTMENT,
+      accountSubType: AccountSubType.INVESTMENT_BROKERAGE,
+    };
+    const rrspCash = {
+      id: "c1",
+      name: "RRSP - Cash",
+      currencyCode: "CAD",
+      accountType: AccountType.INVESTMENT,
+      accountSubType: AccountSubType.INVESTMENT_CASH,
+    };
+
+    it("returns an exact case-insensitive match over all open accounts", async () => {
+      jest
+        .spyOn(service, "findAll")
+        .mockResolvedValue([
+          rrspBrokerage,
+          rrspCash,
+          { id: "a1", name: "Checking", currencyCode: "USD" },
+        ] as never);
+
+      const result = await service.resolveBrokerageByName(
+        "user-1",
+        "rrsp - brokerage",
+      );
+      expect(service.findAll).toHaveBeenCalledWith("user-1", false);
+      expect(result.match).toEqual({
+        id: "b1",
+        name: "RRSP - Brokerage",
+        currencyCode: "CAD",
+      });
+      expect(result.candidates).toEqual([]);
+    });
+
+    it("resolves the base pair name to its brokerage account", async () => {
+      jest
+        .spyOn(service, "findAll")
+        .mockResolvedValue([rrspBrokerage, rrspCash] as never);
+
+      const result = await service.resolveBrokerageByName("user-1", "RRSP");
+      expect(result.match).toEqual({
+        id: "b1",
+        name: "RRSP - Brokerage",
+        currencyCode: "CAD",
+      });
+      expect(result.candidates).toEqual([]);
+    });
+
+    it("returns candidates when the base name is ambiguous", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue([
+        rrspBrokerage,
+        {
+          id: "b2",
+          name: "RRSP - Brokerage",
+          currencyCode: "CAD",
+          accountType: AccountType.INVESTMENT,
+          accountSubType: AccountSubType.INVESTMENT_BROKERAGE,
+        },
+      ] as never);
+
+      const result = await service.resolveBrokerageByName("user-1", "RRSP");
+      expect(result.match).toBeUndefined();
+      expect(result.candidates).toEqual([
+        { id: "b1", name: "RRSP - Brokerage" },
+        { id: "b2", name: "RRSP - Brokerage" },
+      ]);
+    });
+
+    it("does not match the cash half of the pair by its base name", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue([rrspCash] as never);
+
+      const result = await service.resolveBrokerageByName("user-1", "RRSP");
+      expect(result.match).toBeUndefined();
+      expect(result.candidates).toEqual([]);
+    });
+
+    it("returns no match when nothing matches", async () => {
+      jest
+        .spyOn(service, "findAll")
+        .mockResolvedValue([rrspBrokerage] as never);
+
+      const result = await service.resolveBrokerageByName("user-1", "TFSA");
+      expect(result.match).toBeUndefined();
+      expect(result.candidates).toEqual([]);
     });
   });
 });

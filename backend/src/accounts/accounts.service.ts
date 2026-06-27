@@ -15,6 +15,7 @@ import {
 } from "./entities/account.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
+import { Institution } from "../institutions/entities/institution.entity";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { UpdateAccountDto } from "./dto/update-account.dto";
 import { CategoriesService } from "../categories/categories.service";
@@ -28,7 +29,16 @@ import {
   MortgageAmortizationResult,
 } from "./mortgage-amortization.util";
 import { Cron } from "@nestjs/schedule";
+import { roundMoney, sumMoney } from "../common/round.util";
+import { tr } from "../i18n/translate";
+import {
+  brokerageSuffix,
+  cashSuffix,
+  stripBrokerageSuffix,
+} from "./account-name.util";
 import { formatDateYMD, todayInTimezone, todayYMD } from "../common/date-utils";
+import { getUsersByEffectiveTimezone } from "../common/users-by-timezone.util";
+import { didYouMean } from "../common/name-suggestions.util";
 import { ActionHistoryService } from "../action-history/action-history.service";
 
 @Injectable()
@@ -42,6 +52,8 @@ export class AccountsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(InvestmentTransaction)
     private investmentTransactionRepository: Repository<InvestmentTransaction>,
+    @InjectRepository(Institution)
+    private institutionsRepository: Repository<Institution>,
     @Inject(forwardRef(() => CategoriesService))
     private categoriesService: CategoriesService,
     @Inject(forwardRef(() => ScheduledTransactionsService))
@@ -56,6 +68,28 @@ export class AccountsService {
   ) {}
 
   /**
+   * Verify that an institution id (if provided) exists and belongs to the user.
+   * Prevents assigning an account to another user's institution.
+   */
+  private async assertInstitutionOwned(
+    userId: string,
+    institutionId: string | null | undefined,
+  ): Promise<void> {
+    if (!institutionId) return;
+    const institution = await this.institutionsRepository.findOne({
+      where: { id: institutionId, userId },
+      select: { id: true },
+    });
+    if (!institution) {
+      throw new BadRequestException(
+        tr("errors.accounts.institutionNotFound", "Institution not found", {
+          id: institutionId,
+        }),
+      );
+    }
+  }
+
+  /**
    * Create a new account for a user
    */
   async create(
@@ -67,6 +101,8 @@ export class AccountsService {
       createInvestmentPair,
       ...accountData
     } = createAccountDto;
+
+    await this.assertInstitutionOwned(userId, accountData.institutionId);
 
     // If creating an investment account pair, delegate to the pair creation method
     if (
@@ -119,6 +155,8 @@ export class AccountsService {
       action: "create",
       afterData: { ...saved },
       description: `Created account "${saved.name}"`,
+      descriptionKey: "createdAccount",
+      descriptionParams: { name: saved.name },
     });
 
     return saved;
@@ -141,10 +179,16 @@ export class AccountsService {
     try {
       const repo = queryRunner.manager.getRepository(Account);
 
+      // Suffixes are localized to the requester's language so the generated
+      // pair names read naturally (e.g. "TFSA - Bargeld") instead of always
+      // appending the English words.
+      const cashSuffixWord = cashSuffix();
+      const brokerageSuffixWord = brokerageSuffix();
+
       // Create the cash account first
       const cashAccount = repo.create({
         ...accountData,
-        name: `${name} - Cash`,
+        name: `${name} - ${cashSuffixWord}`,
         userId,
         openingBalance,
         currentBalance: openingBalance,
@@ -156,7 +200,7 @@ export class AccountsService {
       // Create the brokerage account linked to the cash account
       const brokerageAccount = repo.create({
         ...accountData,
-        name: `${name} - Brokerage`,
+        name: `${name} - ${brokerageSuffixWord}`,
         userId,
         openingBalance: 0,
         currentBalance: 0,
@@ -264,15 +308,12 @@ export class AccountsService {
       invTxCountMap.set(row.accountId, parseInt(row.cnt, 10));
     const futureSumMap = new Map<string, number>();
     for (const row of futureSums)
-      futureSumMap.set(
-        row.accountId,
-        Math.round(Number(row.futureSum) * 10000) / 10000,
-      );
+      futureSumMap.set(row.accountId, roundMoney(Number(row.futureSum)));
     const currentBalanceMap = new Map<string, number>();
     for (const row of currentSums)
       currentBalanceMap.set(
         row.accountId,
-        Math.round(Number(row.currentBalance) * 10000) / 10000,
+        roundMoney(Number(row.currentBalance)),
       );
 
     return accounts.map((account) => ({
@@ -287,6 +328,125 @@ export class AccountsService {
   }
 
   /**
+   * Resolve a single account name to its id, canonical name, and currency.
+   * Case-insensitive exact match over the user's OPEN accounts. Returns
+   * undefined when no open account matches the given name.
+   */
+  async resolveByName(
+    userId: string,
+    name: string,
+  ): Promise<{ id: string; name: string; currencyCode: string } | undefined> {
+    const accounts = await this.findAll(userId, false);
+    const match = accounts.find(
+      (a) => a.name.toLowerCase() === name.toLowerCase(),
+    );
+    return match
+      ? { id: match.id, name: match.name, currencyCode: match.currencyCode }
+      : undefined;
+  }
+
+  /**
+   * Resolve a list of account names to an account-id filter. Case-insensitive
+   * exact match over the user's OPEN accounts. Returns:
+   * - `{ accountIds: undefined }` when no names are supplied (treat as "all
+   *   accounts");
+   * - `{ accountIds }` when every name resolves;
+   * - `{ error }` with a "did you mean" hint when one or more names do not
+   *   match, so the caller can surface a self-correcting message instead of
+   *   silently dropping the unknown name (which would scope the answer to the
+   *   wrong set of accounts).
+   *
+   * Shared by the AI Assistant tool executor and the MCP investment tools so
+   * both accept friendly account names with consistent error messaging.
+   */
+  async resolveAccountFilter(
+    userId: string,
+    names?: string[],
+  ): Promise<{ accountIds?: string[]; error?: string }> {
+    if (!names || names.length === 0) return { accountIds: undefined };
+
+    const accounts = await this.findAll(userId, false);
+    const nameMap = new Map(accounts.map((a) => [a.name.toLowerCase(), a.id]));
+
+    const accountIds: string[] = [];
+    const unresolved: string[] = [];
+    for (const name of names) {
+      const id = nameMap.get(name.toLowerCase());
+      if (id) accountIds.push(id);
+      else unresolved.push(name);
+    }
+
+    if (unresolved.length > 0) {
+      const suggestion = didYouMean(
+        unresolved[0],
+        accounts.map((a) => a.name),
+      );
+      return {
+        error: `Unknown account${unresolved.length === 1 ? "" : "s"}: ${unresolved.join(", ")}.${suggestion} Call list_accounts to look up valid names.`,
+      };
+    }
+
+    return { accountIds };
+  }
+
+  /**
+   * Resolve an account name for an investment transaction, preferring the
+   * brokerage half of a linked investment pair. Investment transactions must be
+   * booked against the brokerage account, which is auto-named "<name> -
+   * Brokerage", but users (and the AI) naturally refer to the pair by its base
+   * name (e.g. "RRSP"). So: try an exact case-insensitive match first (existing
+   * behaviour); failing that, match the base name against open brokerage
+   * accounts with the " - Brokerage" suffix stripped. Returns the resolved
+   * account, plus the candidate names when the base name is ambiguous (more than
+   * one brokerage account shares it) so the caller can surface a clear error.
+   */
+  async resolveBrokerageByName(
+    userId: string,
+    name: string,
+  ): Promise<{
+    match: { id: string; name: string; currencyCode: string } | undefined;
+    candidates: { id: string; name: string }[];
+  }> {
+    const accounts = await this.findAll(userId, false);
+    const target = name.trim().toLowerCase();
+
+    const exact = accounts.find((a) => a.name.toLowerCase() === target);
+    if (exact) {
+      return {
+        match: {
+          id: exact.id,
+          name: exact.name,
+          currencyCode: exact.currencyCode,
+        },
+        candidates: [],
+      };
+    }
+
+    const brokerageMatches = accounts.filter(
+      (a) =>
+        a.accountType === AccountType.INVESTMENT &&
+        a.accountSubType === AccountSubType.INVESTMENT_BROKERAGE &&
+        stripBrokerageSuffix(a.name).toLowerCase() === target,
+    );
+    if (brokerageMatches.length === 1) {
+      const match = brokerageMatches[0];
+      return {
+        match: {
+          id: match.id,
+          name: match.name,
+          currencyCode: match.currencyCode,
+        },
+        candidates: [],
+      };
+    }
+
+    return {
+      match: undefined,
+      candidates: brokerageMatches.map((a) => ({ id: a.id, name: a.name })),
+    };
+  }
+
+  /**
    * Find a single account by ID
    */
   async findOne(userId: string, id: string): Promise<Account> {
@@ -295,7 +455,13 @@ export class AccountsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID ${id} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.accounts.accountWithIdNotFound",
+          `Account with ID ${id} not found`,
+          { id },
+        ),
+      );
     }
 
     return account;
@@ -327,14 +493,20 @@ export class AccountsService {
       !account.accountSubType
     ) {
       throw new BadRequestException(
-        "This account is not part of an investment account pair",
+        tr(
+          "errors.accounts.notInvestmentPair",
+          "This account is not part of an investment account pair",
+        ),
       );
     }
 
     // Get the linked account
     if (!account.linkedAccountId) {
       throw new BadRequestException(
-        "This investment account does not have a linked account",
+        tr(
+          "errors.accounts.noLinkedInvestmentAccount",
+          "This investment account does not have a linked account",
+        ),
       );
     }
 
@@ -440,11 +612,41 @@ export class AccountsService {
       });
 
       if (!account) {
-        throw new NotFoundException("Account not found");
+        throw new NotFoundException(
+          tr("errors.accounts.notFound", "Account not found"),
+        );
       }
 
       if (account.isClosed) {
-        throw new BadRequestException("Cannot update a closed account");
+        throw new BadRequestException(
+          tr("errors.accounts.updateClosed", "Cannot update a closed account"),
+        );
+      }
+
+      // Currency is locked once the account has transactions. Allowing it to
+      // change after that would silently re-denominate existing balances.
+      if (
+        updateAccountDto.currencyCode !== undefined &&
+        updateAccountDto.currencyCode !== account.currencyCode
+      ) {
+        const [transactionCount, investmentTransactionCount] =
+          await Promise.all([
+            queryRunner.manager.count(Transaction, {
+              where: { accountId: id },
+            }),
+            queryRunner.manager.count(InvestmentTransaction, {
+              where: { accountId: id },
+            }),
+          ]);
+
+        if (transactionCount > 0 || investmentTransactionCount > 0) {
+          throw new BadRequestException(
+            tr(
+              "errors.accounts.changeCurrencyWithTransactions",
+              "Cannot change the currency of an account that has transactions.",
+            ),
+          );
+        }
       }
 
       const beforeData = { ...account };
@@ -460,9 +662,9 @@ export class AccountsService {
         const difference = newOpeningBalance - oldOpeningBalance;
 
         // Adjust currentBalance by the difference
-        account.currentBalance =
-          Math.round((Number(account.currentBalance) + difference) * 10000) /
-          10000;
+        account.currentBalance = roundMoney(
+          Number(account.currentBalance) + difference,
+        );
       }
 
       // SECURITY: Explicit property mapping instead of Object.assign to prevent mass assignment
@@ -480,6 +682,16 @@ export class AccountsService {
         account.accountNumber = updateAccountDto.accountNumber;
       if (updateAccountDto.institution !== undefined)
         account.institution = updateAccountDto.institution;
+      if (updateAccountDto.institutionId !== undefined) {
+        await this.assertInstitutionOwned(
+          userId,
+          updateAccountDto.institutionId,
+        );
+        account.institutionId = updateAccountDto.institutionId;
+        // Clear the loaded relation so TypeORM persists the scalar FK change
+        // rather than re-deriving it from a stale relation object.
+        account.institutionRef = null;
+      }
       if (updateAccountDto.creditLimit !== undefined)
         account.creditLimit = updateAccountDto.creditLimit;
       if (updateAccountDto.interestRate !== undefined)
@@ -546,9 +758,13 @@ export class AccountsService {
 
       const savedAccount = await queryRunner.manager.save(account);
 
-      // If currency changed on an investment account, update the linked account too
+      // Keep a linked investment pair (cash <-> brokerage) in sync. Both halves
+      // represent one real-world account, so shared attributes -- currency and
+      // institution -- propagate to the partner automatically.
+      const currencyChanged = updateAccountDto.currencyCode !== undefined;
+      const institutionChanged = updateAccountDto.institutionId !== undefined;
       if (
-        updateAccountDto.currencyCode !== undefined &&
+        (currencyChanged || institutionChanged) &&
         account.linkedAccountId &&
         account.accountType === AccountType.INVESTMENT
       ) {
@@ -556,7 +772,12 @@ export class AccountsService {
           where: { id: account.linkedAccountId, userId },
         });
         if (linkedAccount) {
-          linkedAccount.currencyCode = updateAccountDto.currencyCode;
+          if (updateAccountDto.currencyCode !== undefined) {
+            linkedAccount.currencyCode = updateAccountDto.currencyCode;
+          }
+          if (updateAccountDto.institutionId !== undefined) {
+            linkedAccount.institutionId = updateAccountDto.institutionId;
+          }
           await queryRunner.manager.save(linkedAccount);
         }
       }
@@ -570,6 +791,8 @@ export class AccountsService {
         beforeData,
         afterData: { ...savedAccount },
         description: `Updated account "${savedAccount.name}"`,
+        descriptionKey: "updatedAccount",
+        descriptionParams: { name: savedAccount.name },
       });
 
       // Trigger net worth recalculation if balance-affecting fields changed
@@ -612,18 +835,29 @@ export class AccountsService {
       });
 
       if (!account) {
-        throw new NotFoundException(`Account with ID ${id} not found`);
+        throw new NotFoundException(
+          tr(
+            "errors.accounts.accountWithIdNotFound",
+            `Account with ID ${id} not found`,
+            { id },
+          ),
+        );
       }
 
       if (account.isClosed) {
-        throw new BadRequestException("Account is already closed");
+        throw new BadRequestException(
+          tr("errors.accounts.alreadyClosed", "Account is already closed"),
+        );
       }
 
       // Check if balance is not zero (under lock, so no race)
       if (Number(account.currentBalance) !== 0) {
         throw new BadRequestException(
-          "Cannot close account with non-zero balance. Current balance: " +
-            account.currentBalance,
+          tr(
+            "errors.accounts.closeNonZeroBalance",
+            `Cannot close account with non-zero balance. Current balance: ${account.currentBalance}`,
+            { currentBalance: account.currentBalance },
+          ),
         );
       }
 
@@ -661,33 +895,61 @@ export class AccountsService {
    * Reopen a closed account
    */
   async reopen(userId: string, id: string): Promise<Account> {
-    const account = await this.findOne(userId, id);
+    // Mirror close(): reopen the account and any linked brokerage account in a
+    // single transaction so the pair cannot end up in mismatched states.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!account.isClosed) {
-      throw new BadRequestException("Account is not closed");
-    }
-
-    account.isClosed = false;
-    account.closedDate = null;
-
-    const saved = await this.accountsRepository.save(account);
-
-    // If this is an investment cash account, also reopen the linked brokerage account
-    if (
-      account.accountSubType === AccountSubType.INVESTMENT_CASH &&
-      account.linkedAccountId
-    ) {
-      const brokerageAccount = await this.accountsRepository.findOne({
-        where: { id: account.linkedAccountId, userId },
+    try {
+      const account = await queryRunner.manager.findOne(Account, {
+        where: { id, userId },
       });
-      if (brokerageAccount && brokerageAccount.isClosed) {
-        brokerageAccount.isClosed = false;
-        brokerageAccount.closedDate = null;
-        await this.accountsRepository.save(brokerageAccount);
-      }
-    }
 
-    return saved;
+      if (!account) {
+        throw new NotFoundException(
+          tr(
+            "errors.accounts.accountWithIdNotFound",
+            `Account with ID ${id} not found`,
+            { id },
+          ),
+        );
+      }
+
+      if (!account.isClosed) {
+        throw new BadRequestException(
+          tr("errors.accounts.notClosed", "Account is not closed"),
+        );
+      }
+
+      account.isClosed = false;
+      account.closedDate = null;
+
+      const saved = await queryRunner.manager.save(account);
+
+      // If this is an investment cash account, also reopen the linked brokerage account
+      if (
+        account.accountSubType === AccountSubType.INVESTMENT_CASH &&
+        account.linkedAccountId
+      ) {
+        const brokerageAccount = await queryRunner.manager.findOne(Account, {
+          where: { id: account.linkedAccountId, userId },
+        });
+        if (brokerageAccount && brokerageAccount.isClosed) {
+          brokerageAccount.isClosed = false;
+          brokerageAccount.closedDate = null;
+          await queryRunner.manager.save(brokerageAccount);
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   /**
@@ -712,12 +974,21 @@ export class AccountsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID ${accountId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.accounts.accountWithIdNotFound",
+          `Account with ID ${accountId} not found`,
+          { id: accountId },
+        ),
+      );
     }
 
     if (account.isClosed) {
       throw new BadRequestException(
-        "Cannot modify balance of a closed account",
+        tr(
+          "errors.accounts.modifyBalanceClosed",
+          "Cannot modify balance of a closed account",
+        ),
       );
     }
 
@@ -753,7 +1024,13 @@ export class AccountsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID ${accountId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.accounts.accountWithIdNotFound",
+          `Account with ID ${accountId} not found`,
+          { id: accountId },
+        ),
+      );
     }
 
     const balanceSql = `SELECT COALESCE($2::NUMERIC, 0) + COALESCE(SUM(t.amount), 0) as balance
@@ -778,8 +1055,8 @@ export class AccountsService {
 
     const newBalance =
       result.length > 0
-        ? Math.round(Number(result[0].balance) * 10000) / 10000
-        : Math.round(Number(account.openingBalance) * 10000) / 10000;
+        ? roundMoney(Number(result[0].balance))
+        : roundMoney(Number(account.openingBalance));
 
     if (queryRunner) {
       await queryRunner.query(
@@ -815,7 +1092,7 @@ export class AccountsService {
         GROUP BY a.id, a.opening_balance`,
       [accountId, userId],
     );
-    return Math.round(Number(result?.[0]?.balance ?? 0) * 10000) / 10000;
+    return roundMoney(Number(result?.[0]?.balance ?? 0));
   }
 
   /**
@@ -830,70 +1107,88 @@ export class AccountsService {
   }> {
     const accounts = await this.findAll(userId, false);
 
-    const assetTypes = ["CHEQUING", "SAVINGS", "INVESTMENT", "CASH", "ASSET"];
-    const liabilityTypes = [
-      "CREDIT_CARD",
-      "LOAN",
-      "MORTGAGE",
-      "LINE_OF_CREDIT",
-    ];
+    // totalBalance is the raw book-balance sum across accounts. Assets,
+    // liabilities and net worth are derived from the same canonical source as
+    // the dashboard Net Worth widget and the `get_account_balances` tool
+    // (the latest monthly net-worth snapshot) so every surface reports an
+    // identical net worth. The previous naive currentBalance classification
+    // here ignored brokerage market value and futureTransactionsSum, producing
+    // a different number than the rest of the app.
+    const totalBalance = sumMoney(
+      accounts.map((account) => Number(account.currentBalance)),
+    );
 
-    let totalBalance = 0;
-    let totalAssets = 0;
-    let totalLiabilities = 0;
-
-    accounts.forEach((account) => {
-      const balance = Number(account.currentBalance);
-      totalBalance += balance;
-
-      if (account.excludeFromNetWorth) return;
-
-      if (assetTypes.includes(account.accountType)) {
-        totalAssets += balance;
-      } else if (liabilityTypes.includes(account.accountType)) {
-        // Liabilities are typically negative or stored as positive but represent debt
-        totalLiabilities += Math.abs(balance);
-      }
-    });
+    const latest = await this.netWorthService.getLatestNetWorth(userId);
 
     return {
       totalAccounts: accounts.length,
       totalBalance,
-      totalAssets,
-      totalLiabilities,
-      netWorth: totalAssets - totalLiabilities,
+      totalAssets: roundMoney(latest?.assets ?? 0),
+      totalLiabilities: roundMoney(latest?.liabilities ?? 0),
+      netWorth: roundMoney(latest?.netWorth ?? 0),
     };
   }
 
   /**
-   * Account balances shaped for LLM tools. Shared by the AI Assistant's
-   * `get_account_balances` tool and the MCP server's matching tool so both
-   * surfaces return the same data.
+   * Accounts shaped for LLM tools. Shared by the AI Assistant's `list_accounts`
+   * tool and the MCP server's matching tool so both surfaces return the same
+   * data. Supersedes the former `getLlmBalances` (and the old per-account
+   * lookup tools): it returns full per-account details plus the assets /
+   * liabilities / net-worth / count summary, with rich filtering.
+   *
+   * Filters (all optional, AND-combined):
+   *   - status: "open" (default) | "closed" | "all"
+   *   - accountTypes: restrict to specific AccountType values
+   *   - accountNames: exact, case-insensitive name match
+   *   - accountIds: exact account UUID match
+   *   - nameQuery: case-insensitive substring match on the account name
    *
    * Per-account balance mirrors the Account List UI: brokerage accounts show
    * market value of holdings; every other account shows
-   * currentBalance + futureTransactionsSum. Totals come from the same source
-   * as the dashboard Net Worth widget (getMonthlyNetWorth), so all three
-   * surfaces agree.
+   * currentBalance + futureTransactionsSum. The totals (totalAssets,
+   * totalLiabilities, netWorth) stay GLOBAL -- derived from the latest net-worth
+   * snapshot, the same source as the dashboard Net Worth widget -- so every
+   * surface agrees regardless of the filters applied. totalAccounts is the
+   * number of accounts returned AFTER filtering.
    */
-  async getLlmBalances(
+  async getLlmAccounts(
     userId: string,
-    accountNames?: string[],
-    status: "open" | "closed" | "all" = "open",
-    accountTypes?: AccountType[],
+    opts?: {
+      accountNames?: string[];
+      accountIds?: string[];
+      nameQuery?: string;
+      status?: "open" | "closed" | "all";
+      accountTypes?: AccountType[];
+    },
   ): Promise<{
     accounts: Array<{
+      id: string;
       name: string;
       type: AccountType;
+      subType: string | null;
       balance: number;
+      currentBalance: number;
+      creditLimit: number | null;
+      interestRate: number | null;
       currency: string;
       isClosed: boolean;
+      excludeFromNetWorth: boolean;
+      institutionName: string | null;
+      accountNumber: string | null;
     }>;
     totalAssets: number;
     totalLiabilities: number;
     netWorth: number;
     totalAccounts: number;
   }> {
+    const {
+      accountNames,
+      accountIds,
+      nameQuery,
+      status = "open",
+      accountTypes,
+    } = opts ?? {};
+
     // findAll(userId, true) returns every account; we then narrow by status
     // so "open" / "closed" / "all" all go through a single query path.
     const allAccounts = await this.findAll(userId, true);
@@ -917,7 +1212,34 @@ export class AccountsService {
       accounts = accounts.filter((a) => lowerNames.has(a.name.toLowerCase()));
     }
 
-    const roundMoney = (v: number): number => Math.round(v * 100) / 100;
+    if (accountIds && accountIds.length > 0) {
+      const idSet = new Set(accountIds);
+      accounts = accounts.filter((a) => idSet.has(a.id));
+    }
+
+    if (nameQuery && nameQuery.trim().length > 0) {
+      const needle = nameQuery.trim().toLowerCase();
+      accounts = accounts.filter((a) => a.name.toLowerCase().includes(needle));
+    }
+
+    // Resolve institution names for the filtered set in a single batch query
+    // rather than relying on a relation findAll does not load. Skip the query
+    // entirely when none of the remaining accounts reference an institution.
+    const institutionIds = Array.from(
+      new Set(
+        accounts.map((a) => a.institutionId).filter((id): id is string => !!id),
+      ),
+    );
+    const institutionNameMap = new Map<string, string>();
+    if (institutionIds.length > 0) {
+      const institutions = await this.institutionsRepository.find({
+        where: { id: In(institutionIds), userId },
+        select: { id: true, name: true },
+      });
+      for (const inst of institutions) {
+        institutionNameMap.set(inst.id, inst.name);
+      }
+    }
 
     const accountList = accounts.map((a) => {
       const balance =
@@ -925,23 +1247,32 @@ export class AccountsService {
           ? (marketValues.get(a.id) ?? 0)
           : Number(a.currentBalance) + Number(a.futureTransactionsSum ?? 0);
       return {
+        id: a.id,
         name: a.name,
         type: a.accountType,
+        subType: a.accountSubType ?? null,
         balance: roundMoney(balance),
+        currentBalance: roundMoney(Number(a.currentBalance)),
+        creditLimit: a.creditLimit ?? null,
+        interestRate: a.interestRate ?? null,
         currency: a.currencyCode,
         isClosed: a.isClosed,
+        excludeFromNetWorth: a.excludeFromNetWorth,
+        institutionName: a.institutionId
+          ? (institutionNameMap.get(a.institutionId) ?? null)
+          : null,
+        accountNumber: a.accountNumber ?? null,
       };
     });
 
-    const monthly = await this.netWorthService.getMonthlyNetWorth(userId);
-    const latest = monthly[monthly.length - 1];
+    const latest = await this.netWorthService.getLatestNetWorth(userId);
 
     return {
       accounts: accountList,
       totalAssets: roundMoney(latest?.assets ?? 0),
       totalLiabilities: roundMoney(latest?.liabilities ?? 0),
       netWorth: roundMoney(latest?.netWorth ?? 0),
-      totalAccounts: allAccounts.length,
+      totalAccounts: accountList.length,
     };
   }
 
@@ -988,7 +1319,11 @@ export class AccountsService {
 
     if (transactionCount > 0) {
       throw new BadRequestException(
-        `Cannot delete account with ${transactionCount} transaction(s). Close the account instead.`,
+        tr(
+          "errors.accounts.deleteWithTransactions",
+          `Cannot delete account with ${transactionCount} transaction(s). Close the account instead.`,
+          { transactionCount },
+        ),
       );
     }
 
@@ -1000,22 +1335,18 @@ export class AccountsService {
 
     if (investmentTransactionCount > 0) {
       throw new BadRequestException(
-        `Cannot delete account with ${investmentTransactionCount} investment transaction(s). Close the account instead.`,
+        tr(
+          "errors.accounts.deleteWithInvestmentTransactions",
+          `Cannot delete account with ${investmentTransactionCount} investment transaction(s). Close the account instead.`,
+          { investmentTransactionCount },
+        ),
       );
     }
 
-    // If this is part of an investment account pair, remove the link from the paired account
-    if (account.linkedAccountId) {
-      const linkedAccount = await this.accountsRepository.findOne({
-        where: { id: account.linkedAccountId },
-      });
-      if (linkedAccount) {
-        linkedAccount.linkedAccountId = null;
-        await this.accountsRepository.save(linkedAccount);
-      }
-    }
-
-    // If this is a loan or mortgage account with an associated scheduled transaction, delete it
+    // If this is a loan or mortgage account with an associated scheduled
+    // transaction, delete it first. This runs in the scheduled-transactions
+    // service's own transaction and is best-effort, so it stays outside the
+    // account-deletion transaction below.
     if (
       (account.accountType === AccountType.LOAN ||
         account.accountType === AccountType.MORTGAGE) &&
@@ -1035,7 +1366,32 @@ export class AccountsService {
     }
 
     const beforeData = { ...account };
-    await this.accountsRepository.remove(account);
+
+    // Unlink the paired account and remove this account atomically, so a
+    // failure cannot leave a dangling link pointing at a deleted account.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      if (account.linkedAccountId) {
+        const linkedAccount = await queryRunner.manager.findOne(Account, {
+          where: { id: account.linkedAccountId },
+        });
+        if (linkedAccount) {
+          linkedAccount.linkedAccountId = null;
+          await queryRunner.manager.save(linkedAccount);
+        }
+      }
+
+      await queryRunner.manager.remove(account);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
 
     this.actionHistoryService.record(userId, {
       entityType: "account",
@@ -1043,6 +1399,8 @@ export class AccountsService {
       action: "delete",
       beforeData,
       description: `Deleted account "${beforeData.name}"`,
+      descriptionKey: "deletedAccount",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -1190,37 +1548,8 @@ export class AccountsService {
   @Cron("0 * * * *")
   async applyDueTransactionBalances(): Promise<void> {
     try {
-      // Group users by their effective timezone. LEFT JOIN keeps users
-      // without a preferences row -- they fall back to UTC. For users whose
-      // timezone is still the "browser" sentinel, prefer the last-known
-      // X-Client-Timezone captured by RequestContextInterceptor so we don't
-      // post a day too early for negative-UTC-offset users.
-      const userRows: {
-        user_id: string;
-        timezone: string | null;
-        last_client_timezone: string | null;
-      }[] = await this.dataSource.query(
-        `SELECT u.id as user_id, p.timezone, p.last_client_timezone
-           FROM users u
-           LEFT JOIN user_preferences p ON p.user_id = u.id`,
-      );
-
-      if (userRows.length === 0) return;
-
-      const userIdsByTz = new Map<string, string[]>();
-      for (const { user_id, timezone, last_client_timezone } of userRows) {
-        const explicit = timezone?.trim();
-        const cached = last_client_timezone?.trim();
-        const tz =
-          explicit && explicit !== "browser"
-            ? explicit
-            : cached && cached !== "browser"
-              ? cached
-              : "UTC";
-        const list = userIdsByTz.get(tz) ?? [];
-        list.push(user_id);
-        userIdsByTz.set(tz, list);
-      }
+      const userIdsByTz = await getUsersByEffectiveTimezone(this.dataSource);
+      if (userIdsByTz.size === 0) return;
 
       let totalApplied = 0;
 
@@ -1262,11 +1591,22 @@ export class AccountsService {
             [accountIds, today],
           );
 
-        for (const row of balances) {
-          const newBalance = Math.round(Number(row.balance) * 10000) / 10000;
-          await this.accountsRepository.update(row.account_id, {
-            currentBalance: newBalance,
-          });
+        if (balances.length > 0) {
+          // Apply all recomputed balances in a single statement instead of one
+          // UPDATE per account.
+          const valuesClause = balances
+            .map((_, i) => `($${i * 2 + 1}::uuid, $${i * 2 + 2}::numeric)`)
+            .join(", ");
+          const params = balances.flatMap((row) => [
+            row.account_id,
+            roundMoney(Number(row.balance)),
+          ]);
+          await this.dataSource.query(
+            `UPDATE accounts SET current_balance = v.balance
+               FROM (VALUES ${valuesClause}) AS v(id, balance)
+               WHERE accounts.id = v.id`,
+            params,
+          );
         }
 
         totalApplied += balances.length;
@@ -1290,30 +1630,27 @@ export class AccountsService {
     // layer already validates this via @IsArray, but we re-check here so the
     // invariant is visible to static analysis.
     if (!Array.isArray(accountIds)) {
-      throw new BadRequestException("accountIds must be an array");
+      throw new BadRequestException(
+        tr(
+          "errors.accounts.accountIdsMustBeArray",
+          "accountIds must be an array",
+        ),
+      );
     }
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      for (let i = 0; i < accountIds.length; i++) {
-        await queryRunner.manager.update(
-          Account,
-          {
-            id: accountIds[i],
-            userId,
-          },
-          {
-            favouriteSortOrder: i,
-          },
-        );
-      }
-      await queryRunner.commitTransaction();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
+    if (accountIds.length === 0) {
+      return;
     }
+
+    // Apply the new ordering in a single statement instead of one UPDATE per
+    // account. favouriteSortOrder is the array index; ids are parameterized and
+    // the user_id predicate keeps the update scoped to the caller's accounts.
+    const valuesClause = accountIds
+      .map((_, i) => `($${i + 1}::uuid, ${i})`)
+      .join(", ");
+    const userParam = `$${accountIds.length + 1}`;
+    const sql = `UPDATE accounts SET favourite_sort_order = c.ord
+       FROM (VALUES ${valuesClause}) AS c(id, ord)
+       WHERE accounts.id = c.id AND accounts.user_id = ${userParam}`;
+    await this.accountsRepository.query(sql, [...accountIds, userId]);
   }
 }

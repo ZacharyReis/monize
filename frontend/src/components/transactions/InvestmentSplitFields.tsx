@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Select } from '@/components/ui/Select';
 import { NumericInput } from '@/components/ui/NumericInput';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
@@ -54,6 +55,7 @@ export function InvestmentSplitFields({
   disabled = false,
   currencyCode = 'CAD',
 }: InvestmentSplitFieldsProps) {
+  const t = useTranslations('transactions');
   const [securities, setSecurities] = useState<Security[]>([]);
   const symbol = getCurrencySymbol(currencyCode);
 
@@ -112,12 +114,12 @@ export function InvestmentSplitFields({
           value={action}
           onChange={(e) => updateField('action', e.target.value as InvestmentAction)}
           disabled={disabled}
-          aria-label="Investment action"
+          aria-label={t('investmentSplit.ariaAction')}
         />
         {needsSecurity && (
           <Select
             options={[
-              { value: '', label: 'Select security...' },
+              { value: '', label: t('investmentSplit.selectSecurity') },
               ...securities.map((s) => ({
                 value: s.id,
                 label: `${s.symbol} - ${s.name}`,
@@ -126,7 +128,7 @@ export function InvestmentSplitFields({
             value={value?.securityId ?? ''}
             onChange={(e) => updateField('securityId', e.target.value || undefined)}
             disabled={disabled}
-            aria-label="Security"
+            aria-label={t('investmentSplit.ariaSecurity')}
           />
         )}
       </div>
@@ -138,7 +140,7 @@ export function InvestmentSplitFields({
             decimalPlaces={8}
             min={0}
             disabled={disabled}
-            placeholder="Quantity"
+            placeholder={t('investmentSplit.quantityPlaceholder')}
           />
           <NumericInput
             value={price || undefined}
@@ -146,14 +148,14 @@ export function InvestmentSplitFields({
             decimalPlaces={6}
             min={0}
             disabled={disabled}
-            placeholder="Price"
+            placeholder={t('investmentSplit.pricePlaceholder')}
             prefix={symbol}
           />
           <CurrencyInput
             value={commission || undefined}
             onChange={(v) => updateField('commission', Number(v ?? 0))}
             disabled={disabled}
-            placeholder="Commission"
+            placeholder={t('investmentSplit.commissionPlaceholder')}
             prefix={symbol}
             allowNegative={false}
           />
@@ -164,7 +166,7 @@ export function InvestmentSplitFields({
           value={price || undefined}
           onChange={(v) => updateField('price', Number(v ?? 0))}
           disabled={disabled}
-          placeholder={`Amount (${currencyCode})`}
+          placeholder={t('investmentSplit.amountPlaceholder', { currency: currencyCode })}
           prefix={symbol}
           allowNegative={false}
         />

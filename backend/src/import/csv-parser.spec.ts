@@ -107,6 +107,21 @@ describe("CSV Parser", () => {
       expect(result.sampleRows).toEqual([]);
       expect(result.rowCount).toBe(0);
     });
+
+    it("auto-detects a delimiter with inconsistent column counts", () => {
+      // Comma appears in every line but with differing counts, so detection
+      // falls through the "consistent" check to the most-present candidate.
+      const csv = "A,B,C\nd,e\nf,g,h,i\n";
+      const result = parseCsvHeaders(csv);
+      expect(result.headers).toEqual(["A", "B", "C"]);
+    });
+
+    it("ignores delimiters inside quoted fields during auto-detection", () => {
+      const csv = '"Name","Amount"\n"Smith, John",100\n';
+      const result = parseCsvHeaders(csv);
+      expect(result.headers).toEqual(["Name", "Amount"]);
+      expect(result.sampleRows[0]).toEqual(["Smith, John", "100"]);
+    });
   });
 
   describe("parseCsv", () => {
@@ -263,6 +278,32 @@ describe("CSV Parser", () => {
         // reverseSign only applies to single amount mode
         expect(result.transactions[0].amount).toBe(-50);
         expect(result.transactions[1].amount).toBe(100);
+      });
+
+      it("uses a debit-only column (no credit mapping)", () => {
+        const csv = "Date,Debit,Payee\n01/15/2026,50.00,Store\n";
+        const config = baseConfig({
+          amount: undefined,
+          debit: 1,
+          credit: undefined,
+          payee: 2,
+        });
+        const result = parseCsv(csv, config);
+
+        expect(result.transactions[0].amount).toBe(-50);
+      });
+
+      it("uses a credit-only column (no debit mapping)", () => {
+        const csv = "Date,Credit,Payee\n01/15/2026,100.00,Deposit\n";
+        const config = baseConfig({
+          amount: undefined,
+          debit: undefined,
+          credit: 1,
+          payee: 2,
+        });
+        const result = parseCsv(csv, config);
+
+        expect(result.transactions[0].amount).toBe(100);
       });
     });
 
@@ -635,6 +676,56 @@ describe("CSV Parser", () => {
         expect(result.transactions).toHaveLength(1);
         expect(result.transactions[0].payee).toBe("Shop");
       });
+
+      it("skips a non-ISO date when the format expects YYYY-MM-DD", () => {
+        const csv =
+          "Date,Amount,Payee\n01/15/2026,-50.00,Store\n2026-01-16,-30.00,Shop\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "YYYY-MM-DD" }));
+
+        // First row does not match the ISO regex and is skipped
+        expect(result.transactions).toHaveLength(1);
+        expect(result.transactions[0].payee).toBe("Shop");
+      });
+    });
+
+    describe("custom date format patterns", () => {
+      it("parses a dotted DD.MM.YYYY custom pattern", () => {
+        const csv = "Date,Amount,Payee\n15.01.2026,-50.00,Store\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "DD.MM.YYYY" }));
+
+        expect(result.transactions[0].date).toBe("2026-01-15");
+      });
+
+      it("resolves a 2-digit year in a custom YY/MM/DD pattern (20xx)", () => {
+        const csv = "Date,Amount,Payee\n26/01/15,-50.00,Store\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "YY/MM/DD" }));
+
+        expect(result.transactions[0].date).toBe("2026-01-15");
+      });
+
+      it("resolves a 2-digit year above 50 to the 1900s", () => {
+        const csv = "Date,Amount,Payee\n75/01/15,-50.00,Store\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "YY/MM/DD" }));
+
+        expect(result.transactions[0].date).toBe("1975-01-15");
+      });
+
+      it("skips a row when a custom pattern does not match", () => {
+        const csv =
+          "Date,Amount,Payee\nnot-a-date,-50.00,Store\n15.01.2026,-30.00,Shop\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "DD.MM.YYYY" }));
+
+        expect(result.transactions).toHaveLength(1);
+        expect(result.transactions[0].payee).toBe("Shop");
+      });
+
+      it("skips a row when a custom pattern lacks a required component", () => {
+        // Pattern has no year token, so year stays empty and the date is null
+        const csv = "Date,Amount,Payee\n01/15,-50.00,Store\n";
+        const result = parseCsv(csv, baseConfig({ dateFormat: "MM/DD" }));
+
+        expect(result.transactions).toHaveLength(0);
+      });
     });
 
     describe("amount formatting", () => {
@@ -852,6 +943,17 @@ describe("CSV Parser", () => {
           "Transport:Bus Fare",
         ]);
       });
+
+      it("truncates an over-long combined category to the column limit", () => {
+        const cat = "C".repeat(200);
+        const sub = "S".repeat(200);
+        const csv = `Date,Amount,Payee,Category,Subcategory\n01/15/2026,-50.00,Store,${cat},${sub}\n`;
+        const config = baseConfig({ category: 3, subcategory: 4 });
+        const result = parseCsv(csv, config);
+
+        // CATEGORY limit is 255
+        expect(result.transactions[0].category).toHaveLength(255);
+      });
     });
 
     describe("amount type column", () => {
@@ -898,6 +1000,17 @@ describe("CSV Parser", () => {
 
       it("leaves amount unchanged for unrecognized values (not in any list)", () => {
         const csv = "Date,Amount,Type\n01/15/2026,650.23,Unknown\n";
+        const config = baseConfig({
+          amountTypeColumn: 2,
+          expenseValues: ["Expense"],
+        });
+        const result = parseCsv(csv, config);
+
+        expect(result.transactions[0].amount).toBe(650.23);
+      });
+
+      it("leaves amount unchanged when the type column is empty", () => {
+        const csv = "Date,Amount,Type\n01/15/2026,650.23,\n";
         const config = baseConfig({
           amountTypeColumn: 2,
           expenseValues: ["Expense"],
@@ -1562,6 +1675,35 @@ describe("CSV Parser", () => {
       expect(normalizeReconciliationStatus("anything weird")).toBe(
         "UNRECONCILED",
       );
+    });
+
+    it("falls back to substring matches inside longer status sentences", () => {
+      expect(normalizeReconciliationStatus("order cancellation pending")).toBe(
+        "VOID",
+      );
+      expect(
+        normalizeReconciliationStatus("Payment reconciled on 2026-01-15"),
+      ).toBe("RECONCILED");
+      expect(normalizeReconciliationStatus("Transaction posted today")).toBe(
+        "CLEARED",
+      );
+      expect(normalizeReconciliationStatus("still pending review")).toBe(
+        "UNRECONCILED",
+      );
+    });
+
+    it("de-duplicates tags case-insensitively and truncates long names", () => {
+      expect(splitTagValue("Food, food, FOOD", ",")).toEqual(["Food"]);
+      const longTag = "T".repeat(120);
+      const [name] = splitTagValue(longTag, ",");
+      // TAG limit is 100
+      expect(name).toHaveLength(100);
+    });
+
+    it("ignores null entries when detecting a tag separator", () => {
+      expect(
+        detectTagSeparator([null as unknown as string, "a;b", "c;d"]),
+      ).toBe(";");
     });
   });
 });

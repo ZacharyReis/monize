@@ -13,6 +13,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { TransactionStatus } from "../entities/transaction.entity";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
+import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
 
 export class CreateTransferDto {
   @ApiProperty({
@@ -40,8 +41,7 @@ export class CreateTransferDto {
   @ApiProperty({
     description: "Currency code of source account (e.g., CAD, USD)",
   })
-  @IsString()
-  @MaxLength(3)
+  @IsCurrencyCode()
   fromCurrencyCode: string;
 
   @ApiPropertyOptional({
@@ -49,8 +49,7 @@ export class CreateTransferDto {
       "Currency code of destination account (defaults to fromCurrencyCode)",
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(3)
+  @IsCurrencyCode()
   toCurrencyCode?: string;
 
   @ApiPropertyOptional({
@@ -59,6 +58,8 @@ export class CreateTransferDto {
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 10 })
+  @Min(0)
+  @Max(1_000_000)
   exchangeRate?: number;
 
   @ApiPropertyOptional({
@@ -67,6 +68,8 @@ export class CreateTransferDto {
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(999999999999)
   toAmount?: number;
 
   @ApiPropertyOptional({
@@ -84,6 +87,14 @@ export class CreateTransferDto {
   @MaxLength(100)
   @SanitizeHtml()
   payeeName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Optional spending category for the transfer. The transfer still does not count as income/expense or affect net worth; it only lets the amount surface under this category in the monthly category breakdown (e.g. tracking monthly investment contributions).",
+  })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
 
   @ApiPropertyOptional({ description: "Transfer description/notes" })
   @IsOptional()

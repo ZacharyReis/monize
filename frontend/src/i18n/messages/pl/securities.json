@@ -1,0 +1,324 @@
+{
+  "priceRefresh": {
+    "noneToUpdate": "Brak papierów wartościowych do zaktualizowania",
+    "updated": "{count, plural, one {Zaktualizowano # cenę papieru wartościowego} few {Zaktualizowano # ceny papierów wartościowych} many {Zaktualizowano # cen papierów wartościowych} other {Zaktualizowano # cen papierów wartościowych}}",
+    "partialFailure": "Aktualizacja cen — udane: {updated}, nieudane: {failed}{symbols}",
+    "failed": "Nie udało się odświeżyć cen"
+  },
+  "page": {
+    "title": "Papiery wartościowe",
+    "subtitle": "Zarządzaj swoimi akcjami, ETF-ami, funduszami inwestycyjnymi i innymi papierami wartościowymi",
+    "newSecurity": "+ Nowy papier wartościowy",
+    "searchPlaceholder": "Szukaj po symbolu lub nazwie...",
+    "statusAll": "Wszystkie ({count})",
+    "statusActive": "Aktywne ({count})",
+    "statusInactive": "Nieaktywne ({count})",
+    "modalTitleEdit": "Edytuj papier wartościowy",
+    "modalTitleNew": "Nowy papier wartościowy",
+    "loading": "Wczytywanie papierów wartościowych...",
+    "count": "{count, plural, one {# papier wartościowy} few {# papiery wartościowe} many {# papierów wartościowych} other {# papieru wartościowego}}",
+    "toasts": {
+      "loadFailed": "Nie udało się załadować papierów wartościowych",
+      "updated": "Papier wartościowy zaktualizowany",
+      "created": "Papier wartościowy utworzony",
+      "deactivated": "Papier wartościowy dezaktywowany",
+      "activated": "Papier wartościowy aktywowany",
+      "statusFailed": "Nie udało się zaktualizować statusu papieru wartościowego",
+      "deleted": "Papier wartościowy \"{symbol}\" usunięty",
+      "deleteFailed": "Nie udało się usunąć papieru wartościowego",
+      "favouriteFailed": "Nie udało się zaktualizować ulubionych",
+      "updateFailed": "Nie udało się zaktualizować papieru wartościowego",
+      "createFailed": "Nie udało się utworzyć papieru wartościowego"
+    },
+    "deleteConfirm": {
+      "title": "Usuń papier wartościowy",
+      "message": "Czy na pewno chcesz usunąć \"{symbol}\"? Cała historia cen również zostanie usunięta. Tej operacji nie można cofnąć.",
+      "confirmLabel": "Usuń",
+      "cancelLabel": "Anuluj"
+    }
+  },
+  "summary": {
+    "totalSecurities": "Wszystkie papiery wartościowe",
+    "types": "Typy",
+    "exchanges": "Giełdy",
+    "currencies": "Waluty"
+  },
+  "list": {
+    "columns": {
+      "symbol": "Symbol",
+      "name": "Nazwa",
+      "type": "Typ",
+      "shares": "Udziały",
+      "exchange": "Giełda",
+      "currency": "Waluta",
+      "provider": "Dostawca",
+      "source": "Źródło",
+      "status": "Status",
+      "actions": "Akcje",
+      "favourite": "Ulubione"
+    },
+    "density": {
+      "normal": "Normalna",
+      "compact": "Kompaktowa",
+      "dense": "Gęsta",
+      "toggle": "Przełącz gęstość wierszy"
+    },
+    "statusBadge": {
+      "active": "Aktywny",
+      "activeShort": "Akt",
+      "inactive": "Nieaktywny",
+      "inactiveShort": "Nie"
+    },
+    "providerTitle": {
+      "override": "Nadpisanie dostawcy dla papieru wartościowego",
+      "inherited": "Odziedziczone z domyślnego dostawcy notowań"
+    },
+    "columnTitles": {
+      "shares": "Aktualnie posiadane udziały na wszystkich kontach",
+      "source": "Źródło ostatniej ceny"
+    },
+    "actions": {
+      "history": "Historia",
+      "prices": "Ceny",
+      "edit": "Edytuj",
+      "deactivate": "Dezaktywuj",
+      "activate": "Aktywuj",
+      "delete": "Usuń"
+    },
+    "favouriteButton": {
+      "add": "Dodaj do ulubionych",
+      "remove": "Usuń z ulubionych"
+    },
+    "empty": {
+      "title": "Brak papierów wartościowych",
+      "subtitle": "Zacznij od dodania pierwszego papieru wartościowego."
+    },
+    "contextMenu": {
+      "transactionHistory": "Historia transakcji",
+      "viewPrices": "Pokaż ceny",
+      "editSecurity": "Edytuj papier wartościowy",
+      "deactivate": "Dezaktywuj",
+      "activate": "Aktywuj",
+      "delete": "Usuń"
+    }
+  },
+  "typeLabels": {
+    "STOCK": "Akcje",
+    "ETF": "ETF",
+    "MUTUAL_FUND": "Fundusz inwestycyjny",
+    "BOND": "Obligacja",
+    "OPTION": "Opcja",
+    "CRYPTO": "Krypto",
+    "OTHER": "Inne",
+    "STOCK_short": "Akc",
+    "ETF_short": "ETF",
+    "MUTUAL_FUND_short": "FI",
+    "BOND_short": "Obl",
+    "OPTION_short": "Opc",
+    "CRYPTO_short": "Kry",
+    "OTHER_short": "Inn"
+  },
+  "form": {
+    "symbolLabel": "Symbol",
+    "nameLabel": "Nazwa",
+    "typeLabel": "Typ",
+    "exchangeLabel": "Giełda",
+    "currencyLabel": "Waluta",
+    "quoteProviderLabel": "Dostawca notowań",
+    "msnIdLabel": "Identyfikator instrumentu MSN (zaawansowane)",
+    "lookupProviderAriaLabel": "Dostawca wyszukiwania",
+    "lookupButton": "Wyszukaj",
+    "revertButton": "Przywróć",
+    "clearButton": "Wyczyść",
+    "revertTitle": "Przywróć pierwotne wartości",
+    "clearTitle": "Wyczyść wszystkie pola",
+    "favouriteLabel": "Ulubione",
+    "addToFavourites": "Dodaj do ulubionych",
+    "removeFromFavourites": "Usuń z ulubionych",
+    "submitCreate": "Utwórz papier wartościowy",
+    "submitUpdate": "Zaktualizuj papier wartościowy",
+    "toasts": {
+      "lookupTooShort": "Wpisz symbol lub nazwę (co najmniej 2 znaki), aby wyszukać",
+      "notFound": "Nie znaleziono papieru wartościowego dla \"{query}\"",
+      "found": "Znaleziono: {details}",
+      "lookupFailed": "Wyszukiwanie nie powiodło się - spróbuj ponownie",
+      "tagCreated": "Tag \"{name}\" utworzony"
+    },
+    "msnNotConfigured": "MSN jest wybrany jako domyślny dostawca notowań, ale na serwerze nie skonfigurowano MSN_API_KEY. Notowania MSN nie będą działać, dopóki administrator nie ustawi zmiennej środowiskowej i nie zrestartuje backendu.",
+    "providers": {
+      "auto": "Auto",
+      "yahoo": "Yahoo",
+      "msn": "MSN"
+    },
+    "types": {
+      "select": "Wybierz typ...",
+      "stock": "Akcje",
+      "etf": "ETF",
+      "mutualFund": "Fundusz inwestycyjny",
+      "bond": "Obligacja",
+      "option": "Opcja",
+      "crypto": "Kryptowaluta",
+      "other": "Inne"
+    },
+    "quoteProviderUseDefault": "Użyj domyślnego ({provider})",
+    "symbolPlaceholder": "np. AAPL, XEQT, BTC",
+    "namePlaceholder": "np. Apple Inc., iShares Core Equity ETF",
+    "exchangeSearchPlaceholder": "Szukaj giełd...",
+    "exchangePlaceholder": "Rozpoznawany automatycznie z tickera; nadpisz tylko jeśli jest błędny",
+    "descriptionLabel": "Opis",
+    "descriptionPlaceholder": "Notatki o tym papierze wartościowym.",
+    "tagsLabel": "Tagi",
+    "tagsPlaceholder": "Wybierz tagi...",
+    "createNewTag": "Utwórz nowy tag...",
+    "newTagTitle": "Nowy tag",
+    "allocation": {
+      "help": "Dostawcy notowań nie udostępniają ekspozycji krajowej dla ETF-ów i funduszy. Dodaj ją ręcznie w procentach. Wszystko poniżej 100% jest wyświetlane jako „Pozostałe”. Możesz wkleić zestawienie do Asystenta AI, aby je uzupełnić.",
+      "sectionTitle": "Alokacja geograficzna",
+      "countryPlaceholder": "Wybierz lub wpisz kraj",
+      "addRow": "Dodaj kraj",
+      "removeRow": "Usuń wiersz",
+      "other": "Pozostałe",
+      "total": "Razem: {total}%",
+      "overError": "Suma alokacji przekracza 100%.",
+      "nameAriaLabel": "Kraj",
+      "weightAriaLabel": "Procent"
+    }
+  },
+  "priceForm": {
+    "dateLabel": "Data",
+    "closePriceLabel": "Cena zamknięcia",
+    "openPriceLabel": "Cena otwarcia",
+    "highPriceLabel": "Cena maksymalna",
+    "lowPriceLabel": "Cena minimalna",
+    "volumeLabel": "Wolumen",
+    "optionalPlaceholder": "Opcjonalne",
+    "submitCreate": "Dodaj cenę",
+    "submitUpdate": "Zaktualizuj cenę"
+  },
+  "priceHistory": {
+    "title": "{symbol} - Historia cen",
+    "forceUpdateButton": "Wymuś aktualizację cen",
+    "forceUpdateTitle": "Pobierz ponownie historyczne ceny za cały okres posiadania tego papieru wartościowego",
+    "addPriceButton": "+ Dodaj cenę",
+    "addPriceSection": "Dodaj cenę",
+    "editPriceSection": "Edytuj cenę",
+    "loading": "Wczytywanie cen...",
+    "empty": "Brak dostępnej historii cen",
+    "columns": {
+      "date": "Data",
+      "close": "Zamknij",
+      "open": "Otwarcie",
+      "high": "Wysoka",
+      "low": "Niska",
+      "volume": "Wolumen",
+      "source": "Źródło",
+      "actions": "Akcje"
+    },
+    "toasts": {
+      "added": "Cena dodana",
+      "updated": "Cena zaktualizowana",
+      "deleted": "Cena usunięta",
+      "loadFailed": "Nie udało się wczytać historii cen",
+      "addFailed": "Nie udało się dodać ceny",
+      "updateFailed": "Nie udało się zaktualizować ceny",
+      "deleteFailed": "Nie udało się usunąć ceny",
+      "updatedCount": "{count, plural, one {Zaktualizowano # cenę dla {symbol}} few {Zaktualizowano # ceny dla {symbol}} many {Zaktualizowano # cen dla {symbol}} other {Zaktualizowano # ceny dla {symbol}}}",
+      "noPricesFound": "Nie znaleziono cen dla {symbol}",
+      "updatePricesFailed": "Nie udało się zaktualizować cen dla {symbol}",
+      "updateFetchFailed": "Nie udało się zaktualizować cen"
+    },
+    "closeButton": "Zamknij",
+    "deleteConfirm": {
+      "title": "Usuń cenę",
+      "confirmLabel": "Usuń"
+    }
+  },
+  "transactionHistory": {
+    "inactiveBadge": "Nieaktywny",
+    "currentShares": "Aktualne udziały",
+    "accountLabel": "Konto",
+    "allAccounts": "Wszystkie konta ({shares})",
+    "accountClosed": "{name} (zamknięte)",
+    "addTransaction": "+ Dodaj transakcję",
+    "loading": "Ładowanie transakcji...",
+    "emptyAll": "Brak transakcji dla tego papieru wartościowego.",
+    "emptyAccount": "Brak transakcji dla tego papieru wartościowego na wybranym koncie.",
+    "editTransactionTitle": "Edytuj transakcję",
+    "columns": {
+      "date": "Data",
+      "account": "Konto",
+      "action": "Akcja",
+      "quantity": "Ilość",
+      "runningTotal": "Suma narastająca",
+      "price": "Cena",
+      "amount": "Kwota",
+      "actionsLabel": "Akcje"
+    },
+    "actionLabels": {
+      "BUY": "Kupno",
+      "SELL": "Sprzedaż",
+      "DIVIDEND": "Dywidenda",
+      "INTEREST": "Odsetki",
+      "CAPITAL_GAIN": "Zysk kapitałowy",
+      "SPLIT": "Podział akcji",
+      "TRANSFER_IN": "Przeniesienie przychodzące",
+      "TRANSFER_OUT": "Przeniesienie wychodzące",
+      "REINVEST": "Reinwestycja",
+      "ADD_SHARES": "Dodaj udziały",
+      "REMOVE_SHARES": "Usuń udziały"
+    },
+    "toasts": {
+      "loadHistoryFailed": "Nie udało się wczytać historii",
+      "loadTransactionFailed": "Nie udało się załadować transakcji"
+    }
+  },
+  "shareAdjustment": {
+    "heading": "Skoryguj udziały",
+    "accountLabel": "Konto",
+    "accountPlaceholder": "Wybierz konto...",
+    "actionLabel": "Akcja",
+    "quantityLabel": "Ilość (udziały)",
+    "dateLabel": "Data",
+    "descriptionLabel": "Opis (opcjonalnie)",
+    "descriptionPlaceholder": "np. Wyczyszczenie pozostałych udziałów",
+    "saving": "Zapisywanie...",
+    "submitButton": "Zapisz korektę",
+    "accountClosed": "{name} (zamknięte)",
+    "adjustmentActions": {
+      "REMOVE_SHARES": "Usuń udziały",
+      "ADD_SHARES": "Dodaj udziały"
+    },
+    "toasts": {
+      "selectAccount": "Wybierz konto",
+      "quantityRequired": "Ilość musi być większa od zera",
+      "recorded": "Korekta zapisana",
+      "failed": "Nie udało się zapisać korekty"
+    }
+  },
+  "lookupPicker": {
+    "title": "Wiele dopasowań dla \"{query}\"",
+    "subtitle": "Wybierz papier wartościowy, którego chcesz użyć.",
+    "columns": {
+      "symbol": "Symbol",
+      "name": "Nazwa",
+      "exchange": "Giełda",
+      "currency": "Waluta",
+      "type": "Typ",
+      "source": "Źródło"
+    },
+    "selectButton": "Zaznacz"
+  },
+  "validation": {
+    "symbolRequired": "Symbol jest wymagany",
+    "symbolMax": "Symbol może mieć maksymalnie 20 znaków",
+    "nameRequired": "Nazwa jest wymagana",
+    "nameMax": "Nazwa może mieć maksymalnie 255 znaków",
+    "currencyRequired": "Waluta jest wymagana",
+    "descriptionMax": "Opis może mieć maksymalnie 5000 znaków"
+  },
+  "priceValidation": {
+    "dateRequired": "Data jest wymagana",
+    "priceRequired": "Cena jest wymagana",
+    "priceNonNegative": "Cena musi być liczbą nieujemną"
+  }
+}

@@ -149,6 +149,19 @@ describe('aiApi', () => {
         { timeout: 120000 },
       );
     });
+
+    it('includes attachments in the body when provided', async () => {
+      vi.mocked(apiClient.post).mockResolvedValue({ data: {} });
+      const attachments = [
+        { kind: 'image' as const, mediaType: 'image/png', filename: 'r.png', data: 'AAAA' },
+      ];
+      await aiApi.query('hi', undefined, attachments);
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/ai/query',
+        { query: 'hi', conversationHistory: undefined, attachments },
+        { timeout: 120000 },
+      );
+    });
   });
 
   describe('insights', () => {
@@ -261,6 +274,48 @@ describe('aiApi', () => {
           'X-CSRF-Token': 'csrf-test-token',
         }),
       }));
+    });
+
+    it('includes attachments in the request body on the direct path', async () => {
+      const sse = 'data: {"type":"done"}\n\n';
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: makeBodyStream([sse]),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      const attachments = [
+        { kind: 'image' as const, mediaType: 'image/png', filename: 'r.png', data: 'AAAA' },
+      ];
+      aiApi.queryStream('q', { onEvent: () => {} }, [], undefined, attachments);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/v1/ai/query/stream');
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.attachments).toEqual(attachments);
+    });
+
+    it('includes attachments on the relay path', async () => {
+      const sse = 'data: {"type":"done"}\n\n';
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: makeBodyStream([sse]),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      const attachments = [
+        { kind: 'image' as const, mediaType: 'image/png', filename: 'r.png', data: 'AAAA' },
+      ];
+      aiApi.queryStream('q', { onEvent: () => {} }, [], { relay: true }, attachments);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      // The backend stores them and exposes each to the agent as an
+      // monize-attachment:// MCP resource, so they ride the relay path too.
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/v1/ai/relay/query/stream');
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.attachments).toEqual(attachments);
     });
 
     it('retries the request after a token refresh on 401', async () => {

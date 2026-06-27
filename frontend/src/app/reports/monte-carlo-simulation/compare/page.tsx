@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +18,7 @@ function parseIds(raw: string | null): string[] {
 }
 
 function ComparePageContent() {
+  const t = useTranslations('reports');
   const searchParams = useSearchParams();
   const ids = parseIds(searchParams.get('ids'));
 
@@ -24,11 +26,11 @@ function ComparePageContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Compare Monte Carlo Scenarios"
-          subtitle="Side-by-side metrics for up to 4 saved scenarios."
+          title={t('monteCarloComparePage.title')}
+          subtitle={t('monteCarloComparePage.subtitle')}
           actions={
             <Link href="/reports/monte-carlo-simulation">
-              <Button variant="outline">Back to Monte Carlo</Button>
+              <Button variant="outline">{t('monteCarloComparePage.backToMonteCarlo')}</Button>
             </Link>
           }
         />

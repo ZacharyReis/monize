@@ -1,36 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
 import { builtInReportsApi } from '@/lib/built-in-reports';
-import { SpendingAnomaly, SpendingAnomaliesResponse } from '@/types/built-in-reports';
+import { SpendingAnomaly } from '@/types/built-in-reports';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('SpendingAnomaliesReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 
 export function SpendingAnomaliesReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
-  const [anomaliesData, setAnomaliesData] = useState<SpendingAnomaliesResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [threshold, setThreshold] = useState(2); // Standard deviations
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await builtInReportsApi.getSpendingAnomalies(threshold);
-        setAnomaliesData(data);
-      } catch (error) {
-        logger.error('Failed to load data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [threshold]);
+  const { data: anomaliesData, isLoading, error, reload } = useReportData(
+    () => builtInReportsApi.getSpendingAnomalies(threshold),
+    [threshold],
+  );
 
   const handleTransactionClick = (anomaly: SpendingAnomaly) => {
     if (anomaly.transactionId && anomaly.payeeName) {
@@ -46,9 +36,9 @@ export function SpendingAnomaliesReport() {
 
   const getTypeName = (type: SpendingAnomaly['type']): string => {
     switch (type) {
-      case 'large_transaction': return 'Large Transaction';
-      case 'category_spike': return 'Category Spike';
-      case 'unusual_payee': return 'Unusual Payee';
+      case 'large_transaction': return t('spendingAnomalies.anomalyLargeTransaction');
+      case 'category_spike': return t('spendingAnomalies.anomalyCategorySpike');
+      case 'unusual_payee': return t('spendingAnomalies.anomalyUnusualPayee');
       default: return type;
     }
   };
@@ -56,7 +46,12 @@ export function SpendingAnomaliesReport() {
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const anomalies = anomaliesData?.anomalies || [];
-    const headers = ['Type', 'Severity', 'Title', 'Amount'];
+    const headers = [
+      t('spendingAnomalies.pdfColType'),
+      t('spendingAnomalies.pdfColSeverity'),
+      t('spendingAnomalies.pdfColTitle'),
+      t('spendingAnomalies.pdfColAmount'),
+    ];
     const rows = anomalies.map((a) => [
       getTypeName(a.type),
       a.severity.charAt(0).toUpperCase() + a.severity.slice(1),
@@ -65,12 +60,12 @@ export function SpendingAnomaliesReport() {
     ]);
     const c = anomaliesData?.counts ?? { high: 0, medium: 0, low: 0 };
     await exportToPdf({
-      title: 'Spending Anomalies',
-      subtitle: `Threshold: ${threshold} standard deviations`,
+      title: t('spendingAnomalies.pdfTitle'),
+      subtitle: t('spendingAnomalies.pdfSubtitle', { count: threshold }),
       summaryCards: [
-        { label: 'High Priority', value: String(c.high), color: '#dc2626' },
-        { label: 'Medium Priority', value: String(c.medium), color: '#ea580c' },
-        { label: 'Low Priority', value: String(c.low), color: '#ca8a04' },
+        { label: t('spendingAnomalies.highPriority'), value: String(c.high), color: '#dc2626' },
+        { label: t('spendingAnomalies.mediumPriority'), value: String(c.medium), color: '#ea580c' },
+        { label: t('spendingAnomalies.lowPriority'), value: String(c.low), color: '#ca8a04' },
       ],
       tableData: { headers, rows },
       filename: 'spending-anomalies',
@@ -122,12 +117,16 @@ export function SpendingAnomaliesReport() {
     }
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -141,19 +140,19 @@ export function SpendingAnomaliesReport() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-          <div className="text-sm text-red-600 dark:text-red-400">High Priority</div>
+          <div className="text-sm text-red-600 dark:text-red-400">{t('spendingAnomalies.highPriority')}</div>
           <div className="text-2xl font-bold text-red-700 dark:text-red-300">
             {counts.high}
           </div>
         </div>
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
-          <div className="text-sm text-orange-600 dark:text-orange-400">Medium Priority</div>
+          <div className="text-sm text-orange-600 dark:text-orange-400">{t('spendingAnomalies.mediumPriority')}</div>
           <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
             {counts.medium}
           </div>
         </div>
         <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-          <div className="text-sm text-yellow-600 dark:text-yellow-400">Low Priority</div>
+          <div className="text-sm text-yellow-600 dark:text-yellow-400">{t('spendingAnomalies.lowPriority')}</div>
           <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
             {counts.low}
           </div>
@@ -164,17 +163,17 @@ export function SpendingAnomaliesReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            Sensitivity:
+            {t('spendingAnomalies.sensitivityLabel')}
           </label>
           <select
             value={threshold}
             onChange={(e) => setThreshold(Number(e.target.value))}
             className="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
           >
-            <option value={1.5}>High</option>
-            <option value={2}>Medium</option>
-            <option value={2.5}>Low</option>
-            <option value={3}>Very Low</option>
+            <option value={1.5}>{t('spendingAnomalies.sensitivityHigh')}</option>
+            <option value={2}>{t('spendingAnomalies.sensitivityMedium')}</option>
+            <option value={2.5}>{t('spendingAnomalies.sensitivityLow')}</option>
+            <option value={3}>{t('spendingAnomalies.sensitivityVeryLow')}</option>
           </select>
           <div className="ml-auto shrink-0">
             <ExportDropdown onExportPdf={handleExportPdf} />
@@ -190,7 +189,7 @@ export function SpendingAnomaliesReport() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-gray-500 dark:text-gray-400">
-              No spending anomalies detected. Your spending patterns look normal.
+              {t('spendingAnomalies.noAnomalies')}
             </p>
           </div>
         </div>
@@ -234,11 +233,11 @@ export function SpendingAnomaliesReport() {
                   {anomaly.type === 'category_spike' && anomaly.currentPeriodAmount && anomaly.previousPeriodAmount && (
                     <div className="flex gap-4 mt-2 text-sm">
                       <span className="text-gray-600 dark:text-gray-400">
-                        Last month: {formatCurrency(anomaly.previousPeriodAmount)}
+                        {t('spendingAnomalies.lastMonth', { amount: formatCurrency(anomaly.previousPeriodAmount) })}
                       </span>
                       <span className="text-gray-600 dark:text-gray-400">→</span>
                       <span className="text-red-600 dark:text-red-400">
-                        This month: {formatCurrency(anomaly.currentPeriodAmount)}
+                        {t('spendingAnomalies.thisMonth', { amount: formatCurrency(anomaly.currentPeriodAmount) })}
                       </span>
                     </div>
                   )}

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
+import { I18nService } from "nestjs-i18n";
 import { NotificationsController } from "./notifications.controller";
 import { EmailService } from "./email.service";
 import { UsersService } from "../users/users.service";
@@ -30,6 +31,13 @@ describe("NotificationsController", () => {
         {
           provide: UsersService,
           useValue: mockUsersService,
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: (key: string, opts?: { defaultValue?: string }) =>
+              opts?.defaultValue ?? key,
+          },
         },
       ],
     }).compile();

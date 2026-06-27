@@ -14,6 +14,9 @@ import {
   buildTransactionSearchClause,
   escapeLikePattern,
 } from "./transaction-search.util";
+import { RecurringCharge, detectFrequency } from "./recurring-charges.util";
+import { roundMoney, sumMoney } from "../common/round.util";
+import { suggestClosestNames } from "../common/name-suggestions.util";
 
 export interface TransferAccountSummary {
   accountName: string;
@@ -42,6 +45,13 @@ export const MIN_AGGREGATION_COUNT = 3;
 export type LlmQueryDirection = "expenses" | "income" | "both";
 export type LlmQueryGroupBy = "category" | "payee" | "year" | "month" | "week";
 
+/**
+ * Group-by options for the unified `list_transactions` tool. Adds a "none"
+ * sentinel on top of {@link LlmQueryGroupBy} so a caller can ask for totals
+ * without any grouped breakdown.
+ */
+export type LlmListGroupBy = LlmQueryGroupBy | "none";
+
 export interface LlmQueryTransactionsInput {
   startDate: string;
   endDate: string;
@@ -69,22 +79,43 @@ export interface LlmQueryTransactionsResult {
   breakdown?: unknown;
 }
 
-export interface LlmSpendingByCategoryResult {
-  categories: Array<{
-    category: string;
-    amount: number;
-    percentage: number;
-    transactionCount: number;
-  }>;
-  totalSpending: number;
+/**
+ * Input for the unified `list_transactions` summary. Folds the filters of
+ * `search_transactions` (search/amount/payee), the grouped breakdown of
+ * `query_transactions`, and the per-account transfer rollup of `get_transfers`
+ * into one shape. Callers resolve account/category/payee names to IDs first.
+ */
+export interface LlmListTransactionsInput {
+  startDate: string;
+  endDate: string;
+  accountIds?: string[];
+  categoryIds?: string[];
+  payeeIds?: string[];
+  searchText?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  direction?: LlmQueryDirection;
+  groupBy?: LlmListGroupBy;
+  transfersOnly?: boolean;
 }
 
-export type LlmIncomeGroupBy = "category" | "payee" | "month";
-
-export interface LlmIncomeSummaryResult {
-  items: Array<{ label: string; amount: number; count: number }>;
+export interface LlmListTransactionsResult {
   totalIncome: number;
-  groupedBy: LlmIncomeGroupBy;
+  totalExpenses: number;
+  netCashFlow: number;
+  transactionCount: number;
+  byCurrency?: Record<
+    string,
+    {
+      totalIncome: number;
+      totalExpenses: number;
+      netCashFlow: number;
+      transactionCount: number;
+    }
+  >;
+  groupedBy: LlmListGroupBy;
+  breakdown?: unknown;
+  transfers?: TransfersByAccountResult;
 }
 
 export type LlmComparisonGroupBy = "category" | "payee";
@@ -111,14 +142,6 @@ export interface LlmPeriodComparisonResult {
     change: number;
     changePercent: number;
   }>;
-}
-
-function sumMoney(values: number[]): number {
-  return values.reduce((sum, v) => sum + Math.round(v * 10000), 0) / 10000;
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function sanitizeLikePattern(input: string | undefined): string | undefined {
@@ -182,10 +205,6 @@ export class TransactionAnalyticsService {
     }
 
     const rows = await qb.getRawMany();
-
-    const roundMoney = (v: number): number => Math.round(v * 10000) / 10000;
-    const sumMoney = (values: number[]): number =>
-      values.reduce((s, v) => s + Math.round(v * 10000), 0) / 10000;
 
     const accounts: TransferAccountSummary[] = rows.map((r) => {
       const inbound = roundMoney(Number(r.inbound) || 0);
@@ -612,7 +631,7 @@ export class TransactionAnalyticsService {
 
     return rows.map((row) => ({
       month: row.month,
-      total: Math.round((Number(row.total) || 0) * 100) / 100,
+      total: roundMoney(Number(row.total) || 0),
       count: Number(row.count) || 0,
     }));
   }
@@ -638,9 +657,13 @@ export class TransactionAnalyticsService {
   async resolveLlmCategoryIds(
     userId: string,
     categoryNames: string[],
-  ): Promise<{ categoryIds: string[]; unresolved: string[] }> {
+  ): Promise<{
+    categoryIds: string[];
+    unresolved: string[];
+    suggestions: string[];
+  }> {
     if (categoryNames.length === 0) {
-      return { categoryIds: [], unresolved: [] };
+      return { categoryIds: [], unresolved: [], suggestions: [] };
     }
 
     const allCategories = await this.categoriesRepository.find({
@@ -691,8 +714,18 @@ export class TransactionAnalyticsService {
       else unresolved.push(raw);
     }
 
+    // Closest valid category names for the first unmatched input, so callers can
+    // surface a "did you mean?" hint instead of just "call list_categories".
+    const suggestions =
+      unresolved.length > 0
+        ? suggestClosestNames(
+            unresolved[0],
+            allCategories.map((c) => c.name),
+          )
+        : [];
+
     if (matched.length === 0) {
-      return { categoryIds: [], unresolved };
+      return { categoryIds: [], unresolved, suggestions };
     }
 
     const categoryIds = await getAllCategoryIdsWithChildren(
@@ -700,7 +733,7 @@ export class TransactionAnalyticsService {
       userId,
       matched,
     );
-    return { categoryIds, unresolved };
+    return { categoryIds, unresolved, suggestions };
   }
 
   /**
@@ -762,6 +795,83 @@ export class TransactionAnalyticsService {
     return result;
   }
 
+  /**
+   * Unified transaction summary for the `list_transactions` tool. Composes the
+   * existing building blocks: the income/expense/net + per-currency totals from
+   * {@link getSummary} (transfers and investment-linked rows excluded so the
+   * totals answer "how much did I spend/earn"), an optional grouped breakdown
+   * via {@link getLlmGroupedBreakdown} when `groupBy` is a real grouping (not
+   * "none"), and an optional per-account transfer rollup via
+   * {@link getTransfersByAccount} when `transfersOnly` is set.
+   *
+   * The RAW transaction list is NOT produced here -- tool adapters fetch it
+   * separately via `TransactionsService.getLlmTransactionRows` only when asked.
+   *
+   * Callers resolve account/category/payee names to IDs before calling. Shared
+   * by the AI Assistant tool executor and the MCP server so both surfaces
+   * return the same shape.
+   */
+  async getLlmListTransactions(
+    userId: string,
+    input: LlmListTransactionsInput,
+  ): Promise<LlmListTransactionsResult> {
+    const safeSearch = sanitizeLikePattern(input.searchText);
+    const groupBy: LlmListGroupBy = input.groupBy ?? "none";
+
+    const summary = await this.getSummary(
+      userId,
+      input.accountIds,
+      input.startDate,
+      input.endDate,
+      input.categoryIds,
+      input.payeeIds,
+      safeSearch,
+      input.minAmount,
+      input.maxAmount,
+      true,
+      true,
+    );
+
+    const result: LlmListTransactionsResult = {
+      totalIncome: summary.totalIncome,
+      totalExpenses: summary.totalExpenses,
+      netCashFlow: summary.netCashFlow,
+      transactionCount: summary.transactionCount,
+      groupedBy: groupBy,
+    };
+
+    if (Object.keys(summary.byCurrency).length > 1) {
+      result.byCurrency = summary.byCurrency;
+    }
+
+    if (groupBy !== "none") {
+      result.breakdown = await this.getLlmGroupedBreakdown(
+        userId,
+        input.startDate,
+        input.endDate,
+        groupBy,
+        input.direction,
+        input.accountIds,
+        input.categoryIds,
+        safeSearch,
+        input.payeeIds,
+        input.minAmount,
+        input.maxAmount,
+      );
+    }
+
+    if (input.transfersOnly) {
+      result.transfers = await this.getTransfersByAccount(
+        userId,
+        input.startDate,
+        input.endDate,
+        input.accountIds,
+      );
+    }
+
+    return result;
+  }
+
   private async getLlmGroupedBreakdown(
     userId: string,
     startDate: string,
@@ -771,6 +881,9 @@ export class TransactionAnalyticsService {
     accountIds?: string[],
     categoryIds?: string[],
     safeSearchText?: string,
+    payeeIds?: string[],
+    minAmount?: number,
+    maxAmount?: number,
   ): Promise<unknown> {
     const qb = this.transactionsRepository
       .createQueryBuilder("t")
@@ -800,6 +913,18 @@ export class TransactionAnalyticsService {
         "COALESCE(ts.categoryId, t.categoryId) IN (:...categoryIds)",
         { categoryIds },
       );
+    }
+
+    if (payeeIds && payeeIds.length > 0) {
+      qb.andWhere("t.payeeId IN (:...payeeIds)", { payeeIds });
+    }
+
+    if (minAmount !== undefined) {
+      qb.andWhere(`${SPLIT_AMOUNT} >= :minAmount`, { minAmount });
+    }
+
+    if (maxAmount !== undefined) {
+      qb.andWhere(`${SPLIT_AMOUNT} <= :maxAmount`, { maxAmount });
     }
 
     if (safeSearchText) {
@@ -891,145 +1016,6 @@ export class TransactionAnalyticsService {
         }));
       }
     }
-  }
-
-  /**
-   * Spending-by-category breakdown shaped for LLM tools. Shared by
-   * `ToolExecutorService.getSpendingByCategory` and the MCP tool.
-   *
-   * Distinct from `SpendingReportsService.getSpendingByCategory`: that one
-   * does currency conversion and parent rollup for the reports UI. This one
-   * preserves subcategory-level detail with per-row percentage and
-   * transaction counts expected by LLM callers.
-   */
-  async getLlmSpendingByCategory(
-    userId: string,
-    startDate: string,
-    endDate: string,
-    topN?: number,
-  ): Promise<LlmSpendingByCategoryResult> {
-    const qb = this.transactionsRepository
-      .createQueryBuilder("t")
-      .leftJoin("t.category", "cat")
-      .leftJoin("t.account", "spendingAccount")
-      .select(SPLIT_CATEGORY_NAME, "category")
-      .addSelect(`SUM(ABS(${SPLIT_AMOUNT}))`, "total")
-      .addSelect("COUNT(*)", "count")
-      .where("t.userId = :userId", { userId })
-      .andWhere("t.transactionDate >= :startDate", { startDate })
-      .andWhere("t.transactionDate <= :endDate", { endDate })
-      .andWhere(`${SPLIT_AMOUNT} < 0`)
-      .andWhere("t.status != 'VOID'")
-      .andWhere("t.isTransfer = false")
-      .andWhere("t.parentTransactionId IS NULL")
-      .groupBy(SPLIT_CATEGORY_NAME)
-      .orderBy("total", "DESC");
-
-    joinSplitsForAnalytics(qb);
-    applyInvestmentTransactionFilters(qb, "spendingAccount", "t");
-
-    const rows = await qb.getRawMany();
-    const totalSpending = sumMoney(rows.map((r) => Number(r.total)));
-
-    let categories = rows.map((r) => {
-      const amount = roundMoney(Number(r.total));
-      return {
-        category: r.category,
-        amount,
-        percentage:
-          totalSpending > 0
-            ? Math.round((amount / totalSpending) * 10000) / 100
-            : 0,
-        transactionCount: Number(r.count),
-      };
-    });
-
-    if (topN && topN > 0) {
-      categories = categories.slice(0, topN);
-    }
-
-    return { categories, totalSpending };
-  }
-
-  /**
-   * Income summary grouped by category, payee, or month. Shared by
-   * `ToolExecutorService.getIncomeSummary` and the MCP tool.
-   */
-  async getLlmIncomeSummary(
-    userId: string,
-    startDate: string,
-    endDate: string,
-    groupBy: LlmIncomeGroupBy = "category",
-  ): Promise<LlmIncomeSummaryResult> {
-    const qb = this.transactionsRepository
-      .createQueryBuilder("t")
-      .leftJoin("t.account", "incomeAccount")
-      .where("t.userId = :userId", { userId })
-      .andWhere("t.transactionDate >= :startDate", { startDate })
-      .andWhere("t.transactionDate <= :endDate", { endDate })
-      .andWhere(`${SPLIT_AMOUNT} > 0`)
-      .andWhere("t.status != 'VOID'")
-      .andWhere("t.isTransfer = false")
-      .andWhere("t.parentTransactionId IS NULL");
-
-    joinSplitsForAnalytics(qb);
-    applyInvestmentTransactionFilters(qb, "incomeAccount", "t");
-
-    let items: Array<{ label: string; amount: number; count: number }>;
-
-    switch (groupBy) {
-      case "payee": {
-        qb.select("COALESCE(t.payeeName, 'Unknown')", "label")
-          .addSelect(`SUM(${SPLIT_AMOUNT})`, "total")
-          .addSelect("COUNT(*)", "count")
-          .groupBy("t.payeeName")
-          .orderBy("total", "DESC");
-        const rows = await qb.getRawMany();
-        const payeeItems = rows.map((r) => ({
-          label: r.label,
-          amount: roundMoney(Number(r.total)),
-          count: Number(r.count),
-        }));
-        items = enforceLabeledAggregationThreshold(payeeItems);
-        break;
-      }
-      case "month": {
-        qb.select("TO_CHAR(t.transactionDate, 'YYYY-MM')", "label")
-          .addSelect(`SUM(${SPLIT_AMOUNT})`, "total")
-          .addSelect("COUNT(*)", "count")
-          .groupBy("TO_CHAR(t.transactionDate, 'YYYY-MM')")
-          .orderBy("label", "ASC");
-        const rows = await qb.getRawMany();
-        items = rows.map((r) => ({
-          label: r.label,
-          amount: roundMoney(Number(r.total)),
-          count: Number(r.count),
-        }));
-        break;
-      }
-      case "category":
-      default: {
-        qb.leftJoin("t.category", "cat")
-          .select(SPLIT_CATEGORY_NAME, "label")
-          .addSelect(`SUM(${SPLIT_AMOUNT})`, "total")
-          .addSelect("COUNT(*)", "count")
-          .groupBy(SPLIT_CATEGORY_NAME)
-          .orderBy("total", "DESC");
-        const rows = await qb.getRawMany();
-        items = rows.map((r) => ({
-          label: r.label,
-          amount: roundMoney(Number(r.total)),
-          count: Number(r.count),
-        }));
-        break;
-      }
-    }
-
-    return {
-      items,
-      totalIncome: sumMoney(items.map((i) => i.amount)),
-      groupedBy: groupBy,
-    };
   }
 
   /**
@@ -1176,6 +1162,85 @@ export class TransactionAnalyticsService {
 
     return items.map((r) => ({ label: r.label, total: r.total }));
   }
+
+  /**
+   * Detect recurring (subscription-like) charges for a user over a date range.
+   * Shared by the AI insights and forecast aggregators so both compute
+   * recurring charges identically. Groups debit transactions by payee/category,
+   * keeps groups seen at least 3 times, and classifies their cadence. Pass
+   * `uncategorizedLabel` to substitute a label for charges with no category
+   * (the forecast aggregator uses "Uncategorized"; insights leaves it null).
+   */
+  async getRecurringCharges(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    options: { uncategorizedLabel?: string } = {},
+  ): Promise<RecurringCharge[]> {
+    const categoryNameSelect = options.uncategorizedLabel
+      ? "COALESCE(cat.name, :uncategorizedLabel)"
+      : "cat.name";
+
+    const rows = await this.transactionsRepository
+      .createQueryBuilder("t")
+      .leftJoin("t.category", "cat")
+      .select("COALESCE(t.payeeName, 'Unknown')", "payeeName")
+      .addSelect(categoryNameSelect, "categoryName")
+      .addSelect(
+        "ARRAY_AGG(ABS(t.amount) ORDER BY t.transactionDate ASC)",
+        "amounts",
+      )
+      .addSelect(
+        "ARRAY_AGG(TO_CHAR(t.transactionDate, 'YYYY-MM-DD') ORDER BY t.transactionDate ASC)",
+        "dates",
+      )
+      .addSelect("COUNT(*)", "txnCount")
+      .where("t.userId = :userId", { userId })
+      .andWhere("t.transactionDate >= :startDate", { startDate })
+      .andWhere("t.transactionDate <= :endDate", { endDate })
+      .andWhere("t.amount < 0")
+      .andWhere("t.status != 'VOID'")
+      .andWhere("t.isTransfer = false")
+      .andWhere("t.parentTransactionId IS NULL")
+      .andWhere("t.payeeName IS NOT NULL")
+      // Exclude investment-linked cash debits so regular BUY activity
+      // isn't flagged as a subscription-like "recurring charge".
+      .andWhere(
+        "NOT EXISTS (SELECT 1 FROM investment_transactions it WHERE it.transaction_id = t.id)",
+      )
+      .setParameters(
+        options.uncategorizedLabel
+          ? { uncategorizedLabel: options.uncategorizedLabel }
+          : {},
+      )
+      .groupBy("t.payeeName")
+      .addGroupBy("cat.name")
+      .having("COUNT(*) >= 3")
+      .orderBy("COUNT(*)", "DESC")
+      .getRawMany();
+
+    return rows
+      .map((r) => {
+        const amounts: number[] = (r.amounts || []).map(Number);
+        const dates: string[] = r.dates || [];
+        const frequency = detectFrequency(dates);
+        const currentAmount =
+          amounts.length > 0 ? amounts[amounts.length - 1] : 0;
+        const previousAmount =
+          amounts.length > 1 ? amounts[amounts.length - 2] : currentAmount;
+
+        return {
+          payeeName: r.payeeName,
+          amounts,
+          dates,
+          frequency,
+          currentAmount,
+          previousAmount,
+          categoryName: r.categoryName,
+        };
+      })
+      .filter((r) => r.frequency !== "irregular");
+  }
 }
 
 /**
@@ -1198,21 +1263,4 @@ function enforcePayeeAggregationThreshold(
   }
 
   return above.sort((a, b) => b.total - a.total);
-}
-
-function enforceLabeledAggregationThreshold(
-  items: Array<{ label: string; amount: number; count: number }>,
-): Array<{ label: string; amount: number; count: number }> {
-  const above = items.filter((i) => i.count >= MIN_AGGREGATION_COUNT);
-  const below = items.filter((i) => i.count < MIN_AGGREGATION_COUNT);
-
-  if (below.length > 0) {
-    above.push({
-      label: "Other (aggregated)",
-      amount: sumMoney(below.map((i) => i.amount)),
-      count: below.reduce((s, i) => s + i.count, 0),
-    });
-  }
-
-  return above;
 }

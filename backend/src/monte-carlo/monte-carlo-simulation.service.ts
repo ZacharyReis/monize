@@ -6,6 +6,7 @@ import {
   SimulationPercentiles,
   SimulationResult,
 } from "./dto/simulation-result.dto";
+import { roundMoney } from "../common/round.util";
 
 export interface CashFlowSpec {
   /** Signed amount: positive = income, negative = expense. */
@@ -356,13 +357,15 @@ export class MonteCarloSimulationService {
       variance += d * d;
     }
     variance /= n;
+    const stdev = Math.sqrt(variance);
 
     return {
-      min: this.round(min),
-      max: this.round(max),
-      mean: this.round(mean),
-      median: this.round(this.quantile(sorted, 0.5)),
-      stdev: this.round(Math.sqrt(variance)),
+      min: roundMoney(min),
+      max: roundMoney(max),
+      mean: roundMoney(mean),
+      median: roundMoney(this.quantile(sorted, 0.5)),
+      // Float-noise residue (e.g. a "zero volatility" run) rounds cleanly to 0.
+      stdev: roundMoney(stdev),
       depletionRate: depleted / n,
     };
   }
@@ -372,12 +375,8 @@ export class MonteCarloSimulationService {
     const pos = (sorted.length - 1) * q;
     const lo = Math.floor(pos);
     const hi = Math.ceil(pos);
-    if (lo === hi) return this.round(sorted[lo]);
-    return this.round(sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo));
-  }
-
-  private round(v: number): number {
-    return Math.round(v * 10000) / 10000;
+    if (lo === hi) return roundMoney(sorted[lo]);
+    return roundMoney(sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo));
   }
 
   private makeYearLabels(totalYears: number): string[] {

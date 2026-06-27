@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { SummaryCard, SummaryIcons } from '@/components/ui/SummaryCard';
 
 interface BudgetSummaryCardsProps {
@@ -21,19 +22,20 @@ export function BudgetSummaryCards({
   daysRemaining,
   formatCurrency,
 }: BudgetSummaryCardsProps) {
+  const t = useTranslations('budgets');
   const projectedSavings = totalIncome - totalSpent;
-  const savingsLabel = projectedSavings >= 0 ? 'On track' : 'Over budget';
+  const savingsLabel = projectedSavings >= 0 ? t('summaryCards.onTrack') : t('summaryCards.overBudget');
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <SummaryCard
-        label="Total Budget"
+        label={t('summaryCards.totalBudget')}
         value={formatCurrency(totalBudgeted)}
         icon={SummaryIcons.money}
         valueColor="blue"
       />
       <SummaryCard
-        label="Spent"
+        label={t('summaryCards.spent')}
         value={
           <span>
             {formatCurrency(totalSpent)}
@@ -46,12 +48,12 @@ export function BudgetSummaryCards({
         valueColor={percentUsed > 100 ? 'red' : 'default'}
       />
       <SummaryCard
-        label="Remaining"
+        label={t('summaryCards.remaining')}
         value={
           <span>
             {formatCurrency(Math.abs(remaining))}
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
-              {daysRemaining > 0 ? `${daysRemaining} days` : 'Period ended'}
+              {daysRemaining > 0 ? t('summaryCards.days', { count: String(daysRemaining) }) : t('summaryCards.periodEnded')}
             </span>
           </span>
         }
@@ -59,7 +61,7 @@ export function BudgetSummaryCards({
         valueColor={remaining >= 0 ? 'green' : 'red'}
       />
       <SummaryCard
-        label="Savings"
+        label={t('summaryCards.savings')}
         value={
           <span>
             {formatCurrency(Math.abs(projectedSavings))}

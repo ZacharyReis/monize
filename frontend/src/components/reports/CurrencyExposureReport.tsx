@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useClickOutside } from '@/hooks/useClickOutside';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   PieChart,
   Pie,
@@ -16,26 +16,38 @@ import { Account } from '@/types/account';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
+import { CHART_SERIES } from '@/lib/chart-colors';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
+import { resolvePdfColor } from '@/components/reports/resolve-pdf-color';
 
 const logger = createLogger('CurrencyExposureReport');
+
+// Holdings are keyed off the brokerage sub-account, so offer those (the
+// sibling cash account is excluded from the picker).
+const excludeCashAccounts = (a: Account) => a.accountSubType !== 'INVESTMENT_CASH';
 
 type CurrencyExposureSortField = 'currency' | 'nativeValue' | 'rate' | 'convertedValue' | 'percentage' | 'count';
 
 const CURRENCY_COLOURS: Record<string, string> = {
-  CAD: '#ef4444',
-  USD: '#3b82f6',
-  EUR: '#22c55e',
-  GBP: '#8b5cf6',
-  JPY: '#f97316',
-  CHF: '#ec4899',
-  AUD: '#14b8a6',
-  HKD: '#eab308',
+  CAD: CHART_SERIES[0],
+  USD: CHART_SERIES[1],
+  EUR: CHART_SERIES[2],
+  GBP: CHART_SERIES[3],
+  JPY: CHART_SERIES[4],
+  CHF: CHART_SERIES[5],
+  AUD: CHART_SERIES[6],
+  HKD: CHART_SERIES[7],
 };
 
-const FALLBACK_COLOURS = ['#06b6d4', '#a855f7', '#f43f5e', '#84cc16', '#6b7280'];
+const FALLBACK_COLOURS = [CHART_SERIES[8], CHART_SERIES[9]];
+
 
 interface CurrencyAllocation {
   currency: string;
@@ -47,11 +59,13 @@ interface CurrencyAllocation {
   rate: number | null;
 }
 
-function CustomTooltip({ active, payload, formatCurrencyFull, defaultCurrency }: {
+function CustomTooltip({ active, payload, formatCurrencyFull, defaultCurrency, labelNative, labelConverted }: {
   active?: boolean;
   payload?: Array<{ payload: CurrencyAllocation }>;
   formatCurrencyFull: (v: number, c?: string) => string;
   defaultCurrency: string;
+  labelNative: string;
+  labelConverted: string;
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -59,10 +73,10 @@ function CustomTooltip({ active, payload, formatCurrencyFull, defaultCurrency }:
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
       <p className="font-medium text-gray-900 dark:text-gray-100">{d.currency}</p>
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Native: {formatCurrencyFull(d.nativeValue, d.currency)}
+        {labelNative} {formatCurrencyFull(d.nativeValue, d.currency)}
       </p>
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Converted: {formatCurrencyFull(d.convertedValue, defaultCurrency)}
+        {labelConverted} {formatCurrencyFull(d.convertedValue, defaultCurrency)}
       </p>
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {d.percentage.toFixed(1)}% of portfolio ({d.count} holding{d.count !== 1 ? 's' : ''})
@@ -72,21 +86,16 @@ function CustomTooltip({ active, payload, formatCurrencyFull, defaultCurrency }:
 }
 
 export function CurrencyExposureReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency, formatCurrency: formatCurrencyFull } = useNumberFormat();
   const { defaultCurrency, convertToDefault, getRate } = useExchangeRates();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [holdings, setHoldings] = useState<HoldingWithMarketValue[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showAccountFilter, setShowAccountFilter] = useState(false);
-  const accountFilterRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const { sortField, sortDirection, handleSort } = useSortableTable<CurrencyExposureSortField>(
     'reports.currency-exposure.sort',
     { field: 'convertedValue', direction: 'desc' },
   );
-
-  useClickOutside(accountFilterRef, () => setShowAccountFilter(false), { enabled: showAccountFilter });
 
   // Fetch accounts once on mount
   useEffect(() => {
@@ -95,29 +104,21 @@ export function CurrencyExposureReport() {
       .catch((error) => logger.error('Failed to load accounts:', error));
   }, []);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const summaryData = await investmentsApi.getPortfolioSummary(
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      investmentsApi.getPortfolioSummary(
         selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
-      );
-      setHoldings(summaryData.holdings);
-    } catch (error) {
-      logger.error('Failed to load data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedAccountIds]);
+      ),
+    [selectedAccountIds],
+  );
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const toggleAccountId = (id: string) => {
-    setSelectedAccountIds((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
-    );
-  };
+  // Only the first load shows the full skeleton. Later reloads (e.g. changing
+  // the account filter) keep the existing content -- and the account dropdown --
+  // mounted so they update in place instead of unmounting the whole report.
+  const holdings = useMemo<HoldingWithMarketValue[]>(
+    () => response?.holdings ?? [],
+    [response],
+  );
 
   const allocationData = useMemo((): CurrencyAllocation[] => {
     const currencyMap = new Map<string, { nativeValue: number; convertedValue: number; count: number }>();
@@ -192,7 +193,7 @@ export function CurrencyExposureReport() {
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Currency', 'Native Value', `Rate to ${defaultCurrency}`, `${defaultCurrency} Value`, '% of Portfolio', 'Holdings'];
+    const headers = [t('currencyExposure.colCurrency'), t('currencyExposure.colNativeValue'), t('currencyExposure.colRate', { defaultCurrency }), t('currencyExposure.colConvertedValue', { defaultCurrency }), t('currencyExposure.colPortfolioPct'), t('currencyExposure.colHoldings')];
     const rows = allocationData.map(item => [
       item.currency,
       formatCurrencyFull(item.nativeValue, item.currency),
@@ -205,11 +206,11 @@ export function CurrencyExposureReport() {
       ? accounts.filter((a) => selectedAccountIds.includes(a.id)).map((a) => a.name).join(', ')
       : 'All Accounts';
     const legendItems = allocationData.map((item) => ({
-      color: item.color,
+      color: resolvePdfColor(item.color),
       label: `${item.currency} - ${formatCurrencyFull(item.convertedValue, defaultCurrency)} (${item.percentage.toFixed(1)}%)`,
     }));
     await exportToPdf({
-      title: 'Currency Exposure',
+      title: t('page.names.currency-exposure' as Parameters<typeof t>[0]),
       subtitle: accountLabel,
       chartContainer: chartRef.current,
       chartLegend: legendItems.length > 0 ? legendItems : undefined,
@@ -218,13 +219,17 @@ export function CurrencyExposureReport() {
     });
   };
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && response === null) {
     return (
       <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </div>
       </div>
@@ -235,7 +240,7 @@ export function CurrencyExposureReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-8 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No investment holdings found. Add securities to see currency exposure.
+          {t('currencyExposure.empty')}
         </p>
       </div>
     );
@@ -246,70 +251,37 @@ export function CurrencyExposureReport() {
       {/* Account Filter */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-3 items-center justify-between">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative" ref={accountFilterRef}>
-            <button
-              onClick={() => setShowAccountFilter(!showAccountFilter)}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Accounts{selectedAccountIds.length > 0 ? ` (${selectedAccountIds.length})` : ''}
-            </button>
-            {showAccountFilter && (
-              <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-700/50 border border-gray-200 dark:border-gray-700 z-10 max-h-60 overflow-y-auto">
-                <div className="p-2">
-                  {accounts.filter((a) => a.accountSubType !== 'INVESTMENT_CASH').length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 p-2">No investment accounts</p>
-                  ) : (
-                    accounts.filter((a) => a.accountSubType !== 'INVESTMENT_CASH').map((acct) => (
-                      <label
-                        key={acct.id}
-                        className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAccountIds.includes(acct.id)}
-                          onChange={() => toggleAccountId(acct.id)}
-                          className="rounded border-gray-300 dark:border-gray-600"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                          {acct.name}
-                        </span>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+          <div className="flex flex-wrap gap-3 items-center">
+            <ReportAccountMultiSelect
+              accounts={accounts}
+              value={selectedAccountIds}
+              onChange={setSelectedAccountIds}
+              filter={excludeCashAccounts}
+            />
           </div>
-          {selectedAccountIds.length > 0 && (
-            <button
-              onClick={() => setSelectedAccountIds([])}
-              className="px-4 py-2 text-sm font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              Clear Filters
-            </button>
-          )}
+          <div className="flex gap-2 items-center">
+            <RefreshPricesButton onRefreshComplete={reload} />
+            <ExportDropdown onExportPdf={handleExportPdf} />
           </div>
-          <ExportDropdown onExportPdf={handleExportPdf} />
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Portfolio</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('currencyExposure.totalPortfolio')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {formatCurrency(totalPortfolioValue, defaultCurrency)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Currencies</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('currencyExposure.currencies')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {allocationData.length}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Home Currency ({defaultCurrency})</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('currencyExposure.homeCurrency', { defaultCurrency })}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {totalPortfolioValue > 0
               ? ((1 - foreignCurrencyExposure / totalPortfolioValue) * 100).toFixed(1)
@@ -317,7 +289,7 @@ export function CurrencyExposureReport() {
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Foreign Exposure</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('currencyExposure.foreignExposure')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {formatCurrency(foreignCurrencyExposure, defaultCurrency)}
           </p>
@@ -327,7 +299,7 @@ export function CurrencyExposureReport() {
       {/* Pie Chart */}
       <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Currency Allocation
+          {t('currencyExposure.currencyAllocation')}
         </h3>
         <div style={{ width: '100%', height: 350 }}>
           <ResponsiveContainer minWidth={0}>
@@ -346,7 +318,7 @@ export function CurrencyExposureReport() {
                   <Cell key={entry.currency} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip formatCurrencyFull={formatCurrencyFull} defaultCurrency={defaultCurrency} />} />
+              <Tooltip content={<CustomTooltip formatCurrencyFull={formatCurrencyFull} defaultCurrency={defaultCurrency} labelNative={t('currencyExposure.tooltipNative')} labelConverted={t('currencyExposure.tooltipConverted')} />} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -366,7 +338,7 @@ export function CurrencyExposureReport() {
                   onSort={handleSort}
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  Currency
+                  {t('currencyExposure.colCurrency')}
                 </SortableHeader>
                 <SortableHeader<CurrencyExposureSortField>
                   field="nativeValue"
@@ -376,7 +348,7 @@ export function CurrencyExposureReport() {
                   align="right"
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  Native Value
+                  {t('currencyExposure.colNativeValue')}
                 </SortableHeader>
                 <SortableHeader<CurrencyExposureSortField>
                   field="rate"
@@ -386,7 +358,7 @@ export function CurrencyExposureReport() {
                   align="right"
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  Rate to {defaultCurrency}
+                  {t('currencyExposure.colRate', { defaultCurrency })}
                 </SortableHeader>
                 <SortableHeader<CurrencyExposureSortField>
                   field="convertedValue"
@@ -396,7 +368,7 @@ export function CurrencyExposureReport() {
                   align="right"
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  {defaultCurrency} Value
+                  {t('currencyExposure.colConvertedValue', { defaultCurrency })}
                 </SortableHeader>
                 <SortableHeader<CurrencyExposureSortField>
                   field="percentage"
@@ -406,7 +378,7 @@ export function CurrencyExposureReport() {
                   align="right"
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  % of Portfolio
+                  {t('currencyExposure.colPortfolioPct')}
                 </SortableHeader>
                 <SortableHeader<CurrencyExposureSortField>
                   field="count"
@@ -416,7 +388,7 @@ export function CurrencyExposureReport() {
                   align="right"
                   className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
-                  Holdings
+                  {t('currencyExposure.colHoldings')}
                 </SortableHeader>
               </tr>
             </thead>
@@ -457,7 +429,7 @@ export function CurrencyExposureReport() {
             <tfoot className="bg-gray-50 dark:bg-gray-900/50">
               <tr>
                 <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-gray-100">
-                  Total
+                  {t('currencyExposure.total')}
                 </td>
                 <td />
                 <td />

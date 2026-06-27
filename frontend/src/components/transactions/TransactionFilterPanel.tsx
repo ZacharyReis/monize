@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
@@ -12,19 +13,6 @@ import { Tag } from '@/types/tag';
 import { TransactionStatus } from '@/types/transaction';
 import { TimePeriod, TIME_PERIOD_OPTIONS, resolveTimePeriod } from '@/lib/time-periods';
 
-const STATUS_LABELS: Record<TransactionStatus, string> = {
-  [TransactionStatus.UNRECONCILED]: 'Unreconciled',
-  [TransactionStatus.CLEARED]: 'Cleared',
-  [TransactionStatus.RECONCILED]: 'Reconciled',
-  [TransactionStatus.VOID]: 'Void',
-};
-
-const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
-  { value: TransactionStatus.UNRECONCILED, label: STATUS_LABELS[TransactionStatus.UNRECONCILED] },
-  { value: TransactionStatus.CLEARED, label: STATUS_LABELS[TransactionStatus.CLEARED] },
-  { value: TransactionStatus.RECONCILED, label: STATUS_LABELS[TransactionStatus.RECONCILED] },
-  { value: TransactionStatus.VOID, label: STATUS_LABELS[TransactionStatus.VOID] },
-];
 
 interface TransactionFilterPanelProps {
   filterAccountIds: string[];
@@ -121,13 +109,29 @@ export function TransactionFilterPanel({
   bulkSelectMode,
   onToggleBulkSelectMode,
 }: TransactionFilterPanelProps) {
+  const t = useTranslations('transactions');
+
+  const STATUS_LABELS: Record<TransactionStatus, string> = {
+    [TransactionStatus.UNRECONCILED]: t('filter.statusLabels.unreconciled'),
+    [TransactionStatus.CLEARED]: t('filter.statusLabels.cleared'),
+    [TransactionStatus.RECONCILED]: t('filter.statusLabels.reconciled'),
+    [TransactionStatus.VOID]: t('filter.statusLabels.void'),
+  };
+
+  const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
+    { value: TransactionStatus.UNRECONCILED, label: STATUS_LABELS[TransactionStatus.UNRECONCILED] },
+    { value: TransactionStatus.CLEARED, label: STATUS_LABELS[TransactionStatus.CLEARED] },
+    { value: TransactionStatus.RECONCILED, label: STATUS_LABELS[TransactionStatus.RECONCILED] },
+    { value: TransactionStatus.VOID, label: STATUS_LABELS[TransactionStatus.VOID] },
+  ];
+
   return (
     <>
       {/* Quick Account Select - Favourites */}
       {filteredAccounts.filter(a => a.isFavourite).length > 0 && (
         <div className="flex items-center gap-2 mb-4 overflow-x-auto scrollbar-hide">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
-            Favourites:
+            {t('filter.favourites')}
           </span>
           {filteredAccounts
             .filter(a => a.isFavourite)
@@ -173,7 +177,7 @@ export function TransactionFilterPanel({
               <svg className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Filters</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('filter.panel.title')}</span>
               {activeFilterCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                   {activeFilterCount}
@@ -191,11 +195,11 @@ export function TransactionFilterPanel({
                   }}
                   className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
-                  Clear
+                  {t('filter.panel.clear')}
                 </button>
               )}
               <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400">
-                {filtersExpanded ? 'Hide' : 'Show'}
+                {filtersExpanded ? t('filter.panel.hide') : t('filter.panel.show')}
                 <svg
                   className={`w-4 h-4 transition-transform duration-200 ${filtersExpanded ? 'rotate-180' : ''}`}
                   fill="none"
@@ -221,7 +225,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleArrayFilterChange(setFilterAccountIds, filterAccountIds.filter(id => id !== account.id))}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-emerald-200 dark:hover:bg-emerald-800"
-                    aria-label={`Remove ${account.name} filter`}
+                    aria-label={t('filter.chips.removeAccount', { name: account.name })}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -239,7 +243,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleArrayFilterChange(setFilterPayeeIds, filterPayeeIds.filter(id => id !== payee.id))}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-purple-200 dark:hover:bg-purple-800"
-                    aria-label={`Remove ${payee.name} filter`}
+                    aria-label={t('filter.chips.removePayee', { name: payee.name })}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -263,7 +267,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleArrayFilterChange(setFilterCategoryIds, filterCategoryIds.filter(id => id !== cat.id))}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800"
-                    aria-label={`Remove ${cat.name} filter`}
+                    aria-label={t('filter.chips.removeCategory', { name: cat.name })}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -287,7 +291,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleArrayFilterChange(setFilterTagIds, filterTagIds.filter(id => id !== tag.id))}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-rose-200 dark:hover:bg-rose-800"
-                    aria-label={`Remove ${tag.name} filter`}
+                    aria-label={t('filter.chips.removeTag', { name: tag.name })}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -301,15 +305,15 @@ export function TransactionFilterPanel({
                   {filterStartDate && filterEndDate
                     ? `${formatDate(filterStartDate)} - ${formatDate(filterEndDate)}`
                     : filterStartDate
-                      ? `From ${formatDate(filterStartDate)}`
-                      : `Until ${formatDate(filterEndDate)}`}
+                      ? t('filter.chips.dateFrom', { date: formatDate(filterStartDate) })
+                      : t('filter.chips.dateUntil', { date: formatDate(filterEndDate) })}
                   <button
                     onClick={() => {
                       handleFilterChange(setFilterStartDate, '');
                       handleFilterChange(setFilterEndDate, '');
                     }}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-amber-200 dark:hover:bg-amber-800"
-                    aria-label="Remove date filter"
+                    aria-label={t('filter.chips.removeDate')}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -323,15 +327,15 @@ export function TransactionFilterPanel({
                   {filterAmountFrom && filterAmountTo
                     ? `${filterAmountFrom} - ${filterAmountTo}`
                     : filterAmountFrom
-                      ? `From ${filterAmountFrom}`
-                      : `Up to ${filterAmountTo}`}
+                      ? t('filter.chips.amountFrom', { amount: filterAmountFrom })
+                      : t('filter.chips.amountUpTo', { amount: filterAmountTo })}
                   <button
                     onClick={() => {
                       handleFilterChange(setFilterAmountFrom, '');
                       handleFilterChange(setFilterAmountTo, '');
                     }}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-teal-200 dark:hover:bg-teal-800"
-                    aria-label="Remove amount filter"
+                    aria-label={t('filter.chips.removeAmount')}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -349,7 +353,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleArrayFilterChange(setFilterStatuses, filterStatuses.filter(s => s !== status))}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-800"
-                    aria-label={`Remove ${STATUS_LABELS[status]} filter`}
+                    aria-label={t('filter.chips.removeAccount', { name: STATUS_LABELS[status] })}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -364,7 +368,7 @@ export function TransactionFilterPanel({
                   <button
                     onClick={() => handleFilterChange(setFilterSearch, '')}
                     className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600"
-                    aria-label="Remove search filter"
+                    aria-label={t('filter.chips.removeSearch')}
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -385,7 +389,7 @@ export function TransactionFilterPanel({
             <div className="px-4 pb-4 sm:px-6 border-t border-gray-200 dark:border-gray-700">
               {/* Account status segmented control + Bulk Update button */}
               <div className="flex flex-wrap items-center gap-3 pt-4 pb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Show accounts:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filter.accounts.label')}</span>
                 <div className="inline-flex rounded-md shadow-sm">
                   <button
                     onClick={() => setFilterAccountStatus('')}
@@ -395,7 +399,7 @@ export function TransactionFilterPanel({
                         : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
-                    All
+                    {t('filter.accounts.all')}
                   </button>
                   <button
                     onClick={() => setFilterAccountStatus('active')}
@@ -405,7 +409,7 @@ export function TransactionFilterPanel({
                         : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
-                    Active
+                    {t('filter.accounts.active')}
                   </button>
                   <button
                     onClick={() => setFilterAccountStatus('closed')}
@@ -415,7 +419,7 @@ export function TransactionFilterPanel({
                         : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                     }`}
                   >
-                    Closed
+                    {t('filter.accounts.closed')}
                   </button>
                 </div>
                 {onToggleBulkSelectMode && (
@@ -425,7 +429,7 @@ export function TransactionFilterPanel({
                     onClick={onToggleBulkSelectMode}
                     className="hidden sm:inline-flex ml-auto"
                   >
-                    {bulkSelectMode ? 'Cancel Bulk' : 'Bulk Update'}
+                    {bulkSelectMode ? t('filter.cancelBulk') : t('filter.bulkUpdate')}
                   </Button>
                 )}
               </div>
@@ -433,35 +437,35 @@ export function TransactionFilterPanel({
               {/* First row: Main filters */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                 <MultiSelect
-                  label="Accounts"
+                  label={t('filter.fields.accounts')}
                   options={accountFilterOptions}
                   value={filterAccountIds}
                   onChange={(values) => handleArrayFilterChange(setFilterAccountIds, values)}
-                  placeholder="All accounts"
+                  placeholder={t('filter.placeholders.accounts')}
                 />
 
                 <MultiSelect
-                  label="Payees"
+                  label={t('filter.fields.payees')}
                   options={payeeFilterOptions}
                   value={filterPayeeIds}
                   onChange={(values) => handleArrayFilterChange(setFilterPayeeIds, values)}
-                  placeholder="All payees"
+                  placeholder={t('filter.placeholders.payees')}
                 />
 
                 <MultiSelect
-                  label="Categories"
+                  label={t('filter.fields.categories')}
                   options={categoryFilterOptions}
                   value={filterCategoryIds}
                   onChange={(values) => handleArrayFilterChange(setFilterCategoryIds, values)}
-                  placeholder="All categories"
+                  placeholder={t('filter.placeholders.categories')}
                 />
 
                 <MultiSelect
-                  label="Tags"
+                  label={t('filter.fields.tags')}
                   options={tagFilterOptions}
                   value={filterTagIds}
                   onChange={(values) => handleArrayFilterChange(setFilterTagIds, values)}
-                  placeholder="All tags"
+                  placeholder={t('filter.placeholders.tags')}
                 />
               </div>
 
@@ -470,8 +474,8 @@ export function TransactionFilterPanel({
                   of the width of the other inputs. */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_2fr_1fr_1fr_2fr_3fr] gap-4 mt-4">
                 <Select
-                  label="Time Period"
-                  options={TIME_PERIOD_OPTIONS}
+                  label={t('filter.fields.timePeriod')}
+                  options={TIME_PERIOD_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
                   value={filterTimePeriod}
                   onChange={(e) => {
                     const period = e.target.value;
@@ -485,7 +489,7 @@ export function TransactionFilterPanel({
                 />
 
                 <DateInput
-                  label="Start Date"
+                  label={t('filter.fields.startDate')}
                   value={filterStartDate}
                   onDateChange={(date) => {
                     handleFilterChange(setFilterStartDate, date);
@@ -502,7 +506,7 @@ export function TransactionFilterPanel({
                 />
 
                 <DateInput
-                  label="End Date"
+                  label={t('filter.fields.endDate')}
                   value={filterEndDate}
                   onDateChange={(date) => {
                     handleFilterChange(setFilterEndDate, date);
@@ -519,38 +523,38 @@ export function TransactionFilterPanel({
                 />
 
                 <Input
-                  label="Amount From"
+                  label={t('filter.fields.amountFrom')}
                   type="number"
                   step="0.01"
                   value={filterAmountFrom}
                   onChange={(e) => handleFilterChange(setFilterAmountFrom, e.target.value)}
-                  placeholder="Min"
+                  placeholder={t('filter.placeholders.amountMin')}
                 />
 
                 <Input
-                  label="Amount To"
+                  label={t('filter.fields.amountTo')}
                   type="number"
                   step="0.01"
                   value={filterAmountTo}
                   onChange={(e) => handleFilterChange(setFilterAmountTo, e.target.value)}
-                  placeholder="Max"
+                  placeholder={t('filter.placeholders.amountMax')}
                 />
 
                 <MultiSelect
-                  label="Status"
+                  label={t('filter.fields.status')}
                   options={STATUS_FILTER_OPTIONS}
                   value={filterStatuses}
                   onChange={(values) => handleArrayFilterChange(setFilterStatuses, values as TransactionStatus[])}
-                  placeholder="All statuses"
+                  placeholder={t('filter.placeholders.statuses')}
                   showSearch={false}
                 />
 
                 <Input
-                  label="Search"
+                  label={t('filter.fields.search')}
                   type="text"
                   value={searchInput}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Search payee, category, amount, tag, description, reference #..."
+                  placeholder={t('filter.placeholders.search')}
                 />
               </div>
 
@@ -562,7 +566,7 @@ export function TransactionFilterPanel({
                   onClick={onToggleBulkSelectMode}
                   className="w-full mt-4 sm:hidden"
                 >
-                  {bulkSelectMode ? 'Cancel Bulk' : 'Bulk Update'}
+                  {bulkSelectMode ? t('filter.cancelBulk') : t('filter.bulkUpdate')}
                 </Button>
               )}
             </div>

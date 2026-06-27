@@ -183,81 +183,103 @@ export class YahooFinanceService implements QuoteProvider {
     }
   }
 
-  private async fetchCrumb(): Promise<boolean> {
-    try {
-      const cookieStr = await new Promise<string>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error("Cookie request timeout")),
-          YahooFinanceService.FETCH_TIMEOUT_MS,
-        );
-        https
-          .get(
-            "https://finance.yahoo.com/",
-            {
-              headers: {
-                "User-Agent": YahooFinanceService.USER_AGENT,
-                Accept: "text/html",
-              },
-              maxHeaderSize: 65536,
-            },
-            (res) => {
-              clearTimeout(timer);
-              res.resume();
-              const setCookies = res.headers["set-cookie"] ?? [];
-              resolve(
-                setCookies
-                  .map((c) => c.split(";")[0])
-                  .filter(Boolean)
-                  .join("; "),
-              );
-            },
-          )
-          .on("error", (err) => {
-            clearTimeout(timer);
-            reject(err);
-          });
-      });
+  // Cookie sources tried in order when establishing a v10 session. fc.yahoo.com
+  // returns the A1 auth cookie directly (a 404 page, but the Set-Cookie is what
+  // we want) and sidesteps the GDPR consent redirect that finance.yahoo.com hits
+  // in some regions/data-centres -- that redirect yields only a consent cookie,
+  // which getcrumb then rejects with a 401. finance.yahoo.com stays as a fallback.
+  private static readonly COOKIE_SOURCES: ReadonlyArray<string> = [
+    "https://fc.yahoo.com/",
+    "https://finance.yahoo.com/",
+  ];
 
-      if (!cookieStr) {
-        this.logger.warn("Yahoo Finance: no cookies received");
-        return false;
-      }
-
-      const crumbResp = await fetch(
-        "https://query2.finance.yahoo.com/v1/test/getcrumb",
-        {
-          headers: {
-            "User-Agent": YahooFinanceService.USER_AGENT,
-            Cookie: cookieStr,
+  /**
+   * Fetch the first-party cookies Yahoo sets for `url`, joined into a single
+   * Cookie header value. Returns "" when none are offered. Resolves regardless
+   * of HTTP status (fc.yahoo.com answers 404 but still sets the cookie we need).
+   */
+  private fetchYahooCookie(url: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error("Cookie request timeout")),
+        YahooFinanceService.FETCH_TIMEOUT_MS,
+      );
+      https
+        .get(
+          url,
+          {
+            headers: {
+              "User-Agent": YahooFinanceService.USER_AGENT,
+              Accept: "text/html",
+            },
+            maxHeaderSize: 65536,
           },
-          signal: AbortSignal.timeout(YahooFinanceService.FETCH_TIMEOUT_MS),
-        },
-      );
+          (res) => {
+            clearTimeout(timer);
+            res.resume();
+            const setCookies = res.headers["set-cookie"] ?? [];
+            resolve(
+              setCookies
+                .map((c) => c.split(";")[0])
+                .filter(Boolean)
+                .join("; "),
+            );
+          },
+        )
+        .on("error", (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
 
-      if (!crumbResp.ok) {
-        this.logger.warn(
-          `Yahoo Finance crumb endpoint returned ${crumbResp.status}`,
+  private async fetchCrumb(): Promise<boolean> {
+    let lastStatus: number | string = "no cookies";
+    for (const source of YahooFinanceService.COOKIE_SOURCES) {
+      try {
+        const cookieStr = await this.fetchYahooCookie(source);
+        if (!cookieStr) {
+          lastStatus = "no cookies";
+          continue;
+        }
+
+        const crumbResp = await fetch(
+          "https://query1.finance.yahoo.com/v1/test/getcrumb",
+          {
+            headers: {
+              "User-Agent": YahooFinanceService.USER_AGENT,
+              Cookie: cookieStr,
+            },
+            signal: AbortSignal.timeout(YahooFinanceService.FETCH_TIMEOUT_MS),
+          },
         );
-        return false;
-      }
 
-      const crumbText = await crumbResp.text();
-      if (!crumbText || crumbText.length > 50 || crumbText.startsWith("{")) {
-        this.logger.warn("Yahoo Finance: invalid crumb response");
-        return false;
-      }
+        if (!crumbResp.ok) {
+          lastStatus = crumbResp.status;
+          await crumbResp.text().catch(() => undefined);
+          continue;
+        }
 
-      this.crumb = crumbText;
-      this.cookie = cookieStr;
-      this.crumbExpiresAt = Date.now() + 60 * 60 * 1000;
-      return true;
-    } catch (error) {
-      this.logger.error(
-        "Failed to obtain Yahoo Finance crumb",
-        error instanceof Error ? error.stack : undefined,
-      );
-      return false;
+        const crumbText = await crumbResp.text();
+        if (!crumbText || crumbText.length > 50 || crumbText.startsWith("{")) {
+          lastStatus = "invalid crumb";
+          continue;
+        }
+
+        this.crumb = crumbText;
+        this.cookie = cookieStr;
+        this.crumbExpiresAt = Date.now() + 60 * 60 * 1000;
+        return true;
+      } catch (error) {
+        lastStatus =
+          error instanceof Error ? error.message : "cookie/crumb error";
+      }
     }
+
+    this.logger.warn(
+      `Yahoo Finance: could not obtain a crumb (last: ${lastStatus})`,
+    );
+    return false;
   }
 
   private async fetchV10(url: string): Promise<Response | null> {
@@ -357,6 +379,11 @@ export class YahooFinanceService implements QuoteProvider {
           regularMarketDayLow: convert(meta.regularMarketDayLow),
           regularMarketVolume: meta.regularMarketVolume,
           regularMarketTime: meta.regularMarketTime,
+          // Authoritative currency from the instrument itself. GBX/GBp (pence,
+          // the LSE quote unit) maps to GBP since prices above are converted to
+          // pounds; otherwise pass the reported currency (e.g. USD for a
+          // USD-denominated LSE ETF, where guessing from the exchange is wrong).
+          currencyCode: meta.currency ? (gbx ? "GBP" : meta.currency) : null,
           provider: "yahoo",
         };
       }
@@ -390,13 +417,53 @@ export class YahooFinanceService implements QuoteProvider {
     range: string = "max",
     _opts?: QuoteProviderOptions,
   ): Promise<HistoricalPrice[] | null> {
+    return this.fetchHistoricalQuery(
+      symbol,
+      exchange,
+      `interval=1d&range=${encodeURIComponent(range)}`,
+    );
+  }
+
+  /**
+   * Fetch the daily series bounded to an explicit [from, to] date window using
+   * Yahoo's period1/period2 parameters, instead of a `range` like "max". Use
+   * this when you only need a few days around a specific date (e.g. the FX rate
+   * for one transaction's date): it returns ~a handful of bars rather than the
+   * entire multi-year history, which keeps the request fast and the parsed
+   * payload small (the "max" range can be thousands of bars / several MB).
+   */
+  async fetchHistoricalWindow(
+    symbol: string,
+    fromDate: Date,
+    toDate: Date,
+    exchange: string | null = null,
+  ): Promise<HistoricalPrice[] | null> {
+    const period1 = Math.floor(fromDate.getTime() / 1000);
+    const period2 = Math.floor(toDate.getTime() / 1000);
+    return this.fetchHistoricalQuery(
+      symbol,
+      exchange,
+      `period1=${period1}&period2=${period2}&interval=1d`,
+    );
+  }
+
+  /**
+   * Shared primary-then-alternate-symbol resolution for the v8 chart history
+   * API. `query` is the URL query fragment (either a `range=...` or a
+   * `period1=...&period2=...` window).
+   */
+  private async fetchHistoricalQuery(
+    symbol: string,
+    exchange: string | null,
+    query: string,
+  ): Promise<HistoricalPrice[] | null> {
     const primary = this.getYahooSymbol(symbol, exchange);
-    const prices = await this.fetchHistoricalRaw(primary, range);
+    const prices = await this.fetchHistoricalRaw(primary, query);
     if (prices) return prices;
 
     if (primary === symbol) {
       for (const altSymbol of this.getAlternateSymbols(symbol)) {
-        const alt = await this.fetchHistoricalRaw(altSymbol, range);
+        const alt = await this.fetchHistoricalRaw(altSymbol, query);
         if (alt) return alt;
       }
     }
@@ -405,10 +472,10 @@ export class YahooFinanceService implements QuoteProvider {
 
   private async fetchHistoricalRaw(
     yahooSymbol: string,
-    range: string,
+    query: string,
   ): Promise<HistoricalPrice[] | null> {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=${encodeURIComponent(range)}`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?${query}`;
 
       const response = await this.throttledFetch(
         url,
@@ -997,5 +1064,107 @@ export class YahooFinanceService implements QuoteProvider {
       );
       return null;
     }
+  }
+
+  /**
+   * Best-effort free-text description for a security, fetched from Yahoo's
+   * v10 quoteSummary (cookie+crumb) for the "Fetch from Yahoo" pre-fill.
+   *
+   * Stocks expose `summaryProfile.longBusinessSummary` (full prose) -- returned
+   * verbatim. ETFs/funds expose no prose, so we synthesize a one-liner from the
+   * fund family, asset-class split, expense ratio and yield, e.g.
+   *   "iShares Core Global Aggregate Bond ETF (BlackRock). ~99% bonds, ~1% cash. TER 0.10%, yield 3.14%."
+   *
+   * Returns null when nothing usable comes back. Never throws -- the caller
+   * treats the suggestion as advisory and the user can always edit or ignore it.
+   */
+  async fetchSecurityProfileDescription(
+    symbol: string,
+    exchange: string | null = null,
+  ): Promise<string | null> {
+    const yahooSymbol = this.getYahooSymbol(symbol, exchange);
+    try {
+      const modules =
+        "summaryProfile,quoteType,fundProfile,topHoldings,summaryDetail";
+      const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(yahooSymbol)}?modules=${modules}`;
+
+      const response = await this.fetchV10(url);
+      if (!response || !response.ok) {
+        this.logger.warn(
+          `Yahoo Finance profile returned ${response?.status ?? "no response"} for ${yahooSymbol}`,
+        );
+        return null;
+      }
+
+      const data = await response.json();
+      const result = data.quoteSummary?.result?.[0];
+      if (!result) return null;
+
+      const prose: string | undefined =
+        result.summaryProfile?.longBusinessSummary;
+      if (prose && prose.trim().length > 0) {
+        return prose.trim();
+      }
+
+      return this.synthesizeFundDescription(result);
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch profile description for ${yahooSymbol}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Build a one-line description for a fund/ETF from the structured
+   * quoteSummary modules. Returns null when not enough is available to say
+   * anything useful.
+   */
+  private synthesizeFundDescription(
+    result: Record<string, any>,
+  ): string | null {
+    const name: string | undefined =
+      result.quoteType?.longName || result.quoteType?.shortName;
+    const family: string | undefined = result.fundProfile?.family;
+    const topHoldings = result.topHoldings ?? {};
+
+    // Asset-class split (positions are fractions, e.g. bondPosition.raw=0.994).
+    const positions: string[] = (
+      [
+        { label: "stocks", weight: topHoldings.stockPosition?.raw },
+        { label: "bonds", weight: topHoldings.bondPosition?.raw },
+        { label: "cash", weight: topHoldings.cashPosition?.raw },
+        { label: "other", weight: topHoldings.otherPosition?.raw },
+        { label: "preferred", weight: topHoldings.preferredPosition?.raw },
+        { label: "convertible", weight: topHoldings.convertiblePosition?.raw },
+      ] as Array<{ label: string; weight: number }>
+    )
+      .filter((p) => typeof p.weight === "number" && p.weight > 0.005)
+      .sort((a, b) => b.weight - a.weight)
+      .map((p) => `~${Math.round(p.weight * 100)}% ${p.label}`);
+
+    const ter: number | undefined =
+      result.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio?.raw;
+    const yieldVal: number | undefined = result.summaryDetail?.yield?.raw;
+
+    const parts: string[] = [];
+    const lead = [name, family ? `(${family})` : null]
+      .filter(Boolean)
+      .join(" ");
+    if (lead) parts.push(`${lead}.`);
+    if (positions.length > 0) parts.push(`${positions.join(", ")}.`);
+
+    const metrics: string[] = [];
+    if (typeof ter === "number" && ter > 0) {
+      metrics.push(`TER ${(ter * 100).toFixed(2)}%`);
+    }
+    if (typeof yieldVal === "number" && yieldVal > 0) {
+      metrics.push(`yield ${(yieldVal * 100).toFixed(2)}%`);
+    }
+    if (metrics.length > 0) parts.push(`${metrics.join(", ")}.`);
+
+    const description = parts.join(" ").trim();
+    return description.length > 0 ? description : null;
   }
 }

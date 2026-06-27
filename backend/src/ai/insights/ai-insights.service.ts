@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { tr } from "../../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
 import { Repository, LessThan } from "typeorm";
@@ -10,6 +11,7 @@ import {
 } from "../entities/ai-insight.entity";
 import { AiService } from "../ai.service";
 import { AiUsageService } from "../ai-usage.service";
+import { mapWithConcurrency } from "../../common/concurrency.util";
 import {
   InsightsAggregatorService,
   SpendingAggregates,
@@ -22,7 +24,10 @@ import { AiInsightResponse, InsightsListResponse } from "./dto/ai-insights.dto";
 const INSIGHT_EXPIRY_DAYS = 7;
 const MAX_INSIGHTS_PER_USER = 50;
 const MIN_GENERATION_INTERVAL_HOURS = 12;
-const CRON_BATCH_SIZE = 50;
+// Number of users whose insights are generated concurrently in the daily cron.
+// Each generation makes LLM calls, so keep this modest to respect provider
+// rate limits and cost while still being faster than fully sequential.
+const INSIGHT_GENERATION_CONCURRENCY = 5;
 
 interface RawInsight {
   type: string;
@@ -103,7 +108,9 @@ export class AiInsightsService {
     });
 
     if (!insight) {
-      throw new NotFoundException("Insight not found");
+      throw new NotFoundException(
+        tr("errors.ai.insightNotFound", "Insight not found"),
+      );
     }
 
     await this.insightRepo.update({ id: insightId }, { isDismissed: true });
@@ -244,10 +251,10 @@ export class AiInsightsService {
 
     const userIds = await this.getActiveUserIds();
 
-    for (let offset = 0; offset < userIds.length; offset += CRON_BATCH_SIZE) {
-      const batch = userIds.slice(offset, offset + CRON_BATCH_SIZE);
-
-      for (const userId of batch) {
+    await mapWithConcurrency(
+      userIds,
+      INSIGHT_GENERATION_CONCURRENCY,
+      async (userId) => {
         try {
           await this.generateInsights(userId);
         } catch (error) {
@@ -257,8 +264,8 @@ export class AiInsightsService {
             `Failed to generate insights for user ${userId}: ${message}`,
           );
         }
-      }
-    }
+      },
+    );
 
     this.logger.log(
       `Daily insight generation complete for ${userIds.length} users`,

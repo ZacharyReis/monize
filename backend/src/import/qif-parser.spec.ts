@@ -2124,3 +2124,196 @@ T-50.00
     });
   });
 });
+
+describe("parseQif - field edge cases", () => {
+  it("truncates over-long field values to the column limit", () => {
+    const longPayee = "A".repeat(300);
+    const qif = `!Type:Bank\nD01/15/2026\nT-50.00\nP${longPayee}\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    // PAYEE limit is 255
+    expect(result.transactions[0].payee).toHaveLength(255);
+  });
+
+  it("keeps the !Type account type when the !Account T type is unknown", () => {
+    const qif = `!Account\nNMy Account\nTWeirdType\n^\n!Type:Bank\nD01/15/2026\nT-50.00\nPStore\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.accountType).toBe("CHEQUING");
+  });
+
+  it("falls back to zero for an unparseable amount", () => {
+    const qif = `!Type:Bank\nD01/15/2026\nTnot-a-number\nPStore\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].amount).toBe(0);
+  });
+
+  it("leaves cleared and reconciled false for an unrecognised C value", () => {
+    const qif = `!Type:Bank\nD01/15/2026\nT-50.00\nPStore\nC?\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].cleared).toBe(false);
+    expect(result.transactions[0].reconciled).toBe(false);
+  });
+
+  it("ignores split memo (E) and split amount ($) with no active split", () => {
+    const qif = `!Type:Bank\nD01/15/2026\nT-50.00\nPStore\nEorphan memo\n$-10.00\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    const tx = result.transactions[0];
+    expect(tx.splits).toHaveLength(0);
+    expect(tx.amount).toBe(-50);
+  });
+
+  it("does not register an empty security symbol", () => {
+    const qif = `!Type:Invst\nD01/15/2026\nNBuy\nY\nI10.00\nQ5\nT-50.00\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].security).toBe("");
+    expect(result.securities).toHaveLength(0);
+  });
+
+  it("treats a StkSplit ratio with a zero denominator as zero quantity", () => {
+    const qif = `!Type:Invst\nD01/15/2026\nNStkSplit\nQ2:0\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].quantity).toBe(0);
+  });
+
+  it("treats a non-numeric StkSplit quantity as zero", () => {
+    const qif = `!Type:Invst\nD01/15/2026\nNStkSplit\nQabc\n^\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].quantity).toBe(0);
+  });
+
+  it("disambiguates an ISO date format using a later unambiguous day-first date", () => {
+    // First date is ambiguous; a later YYYY-DD-MM date (day 15 > 12) resolves it.
+    const qif = `!Type:Bank\nD2026-05-06\nT-10.00\n^\nD2026-15-03\nT-20.00\n^\n`;
+    const result = parseQif(qif);
+    expect(result.detectedDateFormat).toBe("YYYY-DD-MM");
+  });
+
+  it("disambiguates an ISO date format using a later unambiguous month-first date", () => {
+    const qif = `!Type:Bank\nD2026-05-06\nT-10.00\n^\nD2026-03-15\nT-20.00\n^\n`;
+    const result = parseQif(qif);
+    expect(result.detectedDateFormat).toBe("YYYY-MM-DD");
+  });
+
+  it("decodes a StkSplit quantity when the file ends without a separator", () => {
+    const qif = `!Type:Invst\nD01/15/2026\nNStkSplit\nYAAPL\nQ20\n`;
+    const result = parseQif(qif, "MM/DD/YYYY");
+    expect(result.transactions[0].quantity).toBe(2);
+  });
+});
+
+describe("parseQifFull - field edge cases", () => {
+  it("parses account description, credit limit, and an unknown account type", () => {
+    const qif = `!Account
+NMy Asset Account
+Toth a
+DAsset description
+L5000.00
+^
+!Type:Foo
+D01/15/2026
+T-50.00
+PStore
+^
+`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    const block = result.accountBlocks[0];
+    // Unknown !Type falls back to the pending account type from the !Account section
+    expect(block.accountType).toBe("ASSET");
+    expect(block.description).toBe("Asset description");
+    expect(block.creditLimit).toBe(5000);
+  });
+
+  it("uppercases an unknown !Account T type as the pending type", () => {
+    const qif = `!Account
+NMystery
+TGizmo
+^
+!Type:Foo
+D01/15/2026
+T-50.00
+^
+`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].accountType).toBe("GIZMO");
+  });
+
+  it("skips !Type:Security/Prices/Budget sections", () => {
+    const qif = `!Type:Security
+NApple Inc
+SAAPL
+^
+!Type:Prices
+"AAPL",150.00,"01/15/2026"
+^
+!Type:Budget
+NMonthly
+^
+!Account
+NChecking
+TBank
+^
+!Type:Bank
+D01/15/2026
+T-50.00
+PStore
+^
+`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks).toHaveLength(1);
+    expect(result.accountBlocks[0].transactions).toHaveLength(1);
+  });
+
+  it("records lowercase reconciled status (Cx)", () => {
+    const qif = `!Account\nNChecking\nTBank\n^\n!Type:Bank\nD01/15/2026\nT-50.00\nPStore\nCx\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].transactions[0].reconciled).toBe(true);
+  });
+
+  it("ignores split memo (E) and amount ($) with no active split", () => {
+    const qif = `!Account\nNChecking\nTBank\n^\n!Type:Bank\nD01/15/2026\nT-50.00\nPStore\nEorphan\n$-10.00\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].transactions[0].splits).toHaveLength(0);
+  });
+
+  it("does not register an empty security symbol", () => {
+    const qif = `!Account\nNBrokerage\nTInvst\n^\n!Type:Invst\nD01/15/2026\nNBuy\nY\nI10.00\nQ5\nT-50.00\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].securities).toHaveLength(0);
+  });
+
+  it("decodes a StkSplit quantity at the record separator", () => {
+    // Q20 with StkSplit action decodes to ratio 2.0
+    const qif = `!Account\nNBrokerage\nTInvst\n^\n!Type:Invst\nD01/15/2026\nNStkSplit\nYAAPL\nQ20\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].transactions[0].quantity).toBe(2);
+  });
+
+  it("decodes a StkSplit quantity when the block ends without a separator", () => {
+    // No trailing ^ -- finalizeBlock must re-interpret the StkSplit Q field
+    const qif = `!Account\nNBrokerage\nTInvst\n^\n!Type:Invst\nD01/15/2026\nNStkSplit\nYAAPL\nQ20\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.accountBlocks[0].transactions[0].quantity).toBe(2);
+  });
+
+  it("pushes a pending split when the block ends without a separator", () => {
+    const qif = `!Account\nNChecking\nTBank\n^\n!Type:Bank\nD01/15/2026\nT-100.00\nPStore\nSFood\n$-100.00\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    const tx = result.accountBlocks[0].transactions[0];
+    expect(tx.splits).toHaveLength(1);
+    expect(tx.splits[0].category).toBe("Food");
+  });
+
+  it("saves the previous category when a new N arrives without a separator", () => {
+    const qif = `!Type:Cat\nNFood\nE\nNUtilities\nE\n^\n!Account\nNChecking\nTBank\n^\n!Type:Bank\nD01/15/2026\nT-50.00\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.categoryDefs.map((c) => c.name)).toEqual([
+      "Food",
+      "Utilities",
+    ]);
+  });
+
+  it("saves the previous tag when a new N arrives without a separator", () => {
+    const qif = `!Type:Tag\nNVacation\nDTravel\nNBusiness\n^\n!Account\nNChecking\nTBank\n^\n!Type:Bank\nD01/15/2026\nT-50.00\n^\n`;
+    const result = parseQifFull(qif, "MM/DD/YYYY");
+    expect(result.tagDefs.map((t) => t.name)).toEqual(["Vacation", "Business"]);
+  });
+});

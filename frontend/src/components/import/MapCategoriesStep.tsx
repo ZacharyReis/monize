@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { CategoryMappingRow } from '@/components/import/CategoryMappingRow';
 import { CategoryMapping } from '@/lib/import';
@@ -33,6 +34,7 @@ export function MapCategoriesStep({
   shouldShowMapAccounts,
   setStep,
 }: MapCategoriesStepProps) {
+  const t = useTranslations('import');
   const isFullyMapped = (m: CategoryMapping) =>
     m.categoryId || (m.isLoanCategory && (m.loanAccountId || (m.createNewLoan && m.newLoanAmount !== undefined)));
   const unmatchedCategories = categoryMappings.filter((m) => !isFullyMapped(m));
@@ -46,24 +48,23 @@ export function MapCategoriesStep({
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Map Categories
+          {t('mapCategories.heading')}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          The following categories were found in your QIF file. Map them to existing
-          categories or create new ones.
+          {t('mapCategories.description')}
         </p>
 
         {/* Summary */}
         <div className="flex flex-wrap gap-4 mb-4 text-sm">
           <span className="text-amber-600 dark:text-amber-400">
-            {unmatchedCategories.length} need attention
+            {t('mapCategories.needAttention', { count: unmatchedCategories.length })}
           </span>
           <span className="text-green-600 dark:text-green-400">
-            {matchedCategoriesOnly.length} matched to categories
+            {t('mapCategories.matchedCategories', { count: matchedCategoriesOnly.length })}
           </span>
           {matchedLoansOnly.length > 0 && (
             <span className="text-blue-600 dark:text-blue-400">
-              {matchedLoansOnly.length} matched to loans
+              {t('mapCategories.matchedLoans', { count: matchedLoansOnly.length })}
             </span>
           )}
         </div>
@@ -96,7 +97,7 @@ export function MapCategoriesStep({
           {matchedLoansOnly.length > 0 && (
             <details className="group" open>
               <summary className="cursor-pointer text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 py-2">
-                <span className="ml-1">Show {matchedLoansOnly.length} auto-matched to loan accounts</span>
+                <span className="ml-1">{t('mapCategories.showMatchedLoans', { count: matchedLoansOnly.length })}</span>
               </summary>
               <div className="space-y-2 mt-2">
                 {matchedLoansOnly.map((mapping) => {
@@ -128,7 +129,7 @@ export function MapCategoriesStep({
           {matchedCategoriesOnly.length > 0 && (
             <details className="group">
               <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 py-2">
-                <span className="ml-1">Show {matchedCategoriesOnly.length} auto-matched to categories</span>
+                <span className="ml-1">{t('mapCategories.showMatchedCategories', { count: matchedCategoriesOnly.length })}</span>
               </summary>
               <div className="space-y-2 mt-2">
                 {matchedCategoriesOnly.map((mapping) => {
@@ -161,7 +162,7 @@ export function MapCategoriesStep({
             variant="outline"
             onClick={() => setStep('selectAccount')}
           >
-            Back
+            {t('navigation.back')}
           </Button>
           <Button
             onClick={() => {
@@ -174,7 +175,7 @@ export function MapCategoriesStep({
               }
             }}
           >
-            Next
+            {t('navigation.next')}
           </Button>
         </div>
       </div>

@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@/test/render";
+import { render, screen, waitFor, fireEvent, act } from "@/test/render";
 import { SpendingAnomaliesReport } from "./SpendingAnomaliesReport";
+
+const mockExportToPdf = vi.fn();
+vi.mock("@/lib/pdf-export", () => ({
+  exportToPdf: (...args: any[]) => mockExportToPdf(...args),
+}));
+
+vi.mock("@/components/ui/ExportDropdown", () => ({
+  ExportDropdown: ({ onExportPdf }: any) => (
+    <button data-testid="export-pdf" onClick={onExportPdf}>
+      PDF
+    </button>
+  ),
+}));
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -143,12 +156,13 @@ describe("SpendingAnomaliesReport", () => {
     });
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetSpendingAnomalies.mockRejectedValue(new Error("Network error"));
     render(<SpendingAnomaliesReport />);
     await waitFor(() => {
-      expect(screen.getByText("High Priority")).toBeInTheDocument();
+      expect(screen.getByText(/failed to load report data/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("navigates to transactions with search on transaction anomaly click", async () => {
@@ -172,6 +186,78 @@ describe("SpendingAnomaliesReport", () => {
     });
     fireEvent.click(screen.getByText("Large purchase"));
     expect(mockPush).toHaveBeenCalledWith("/transactions?search=Store%20X");
+  });
+
+  it("changes the sensitivity threshold and refetches", async () => {
+    mockGetSpendingAnomalies.mockResolvedValue({
+      anomalies: [],
+      counts: { high: 0, medium: 0, low: 0 },
+    });
+    render(<SpendingAnomaliesReport />);
+    await waitFor(() => {
+      expect(screen.getByText("Sensitivity:")).toBeInTheDocument();
+    });
+    const select = screen.getByRole("combobox");
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "3" } });
+    });
+    await waitFor(() => {
+      expect(mockGetSpendingAnomalies).toHaveBeenLastCalledWith(3);
+    });
+  });
+
+  it("exports a PDF covering each anomaly type label", async () => {
+    mockGetSpendingAnomalies.mockResolvedValue({
+      anomalies: [
+        {
+          title: "Large purchase",
+          description: "Unusually large",
+          severity: "high",
+          type: "large_transaction",
+          amount: 500,
+          transactionId: "tx-1",
+          payeeName: "Store X",
+        },
+        {
+          title: "Dining spike",
+          description: "Spending increased",
+          severity: "medium",
+          type: "category_spike",
+          categoryId: "cat-1",
+          currentPeriodAmount: 500,
+          previousPeriodAmount: 200,
+        },
+        {
+          title: "New payee",
+          description: "First time",
+          severity: "low",
+          type: "unusual_payee",
+          amount: 75,
+          transactionId: "tx-2",
+          payeeName: "Store Y",
+        },
+      ],
+      counts: { high: 1, medium: 1, low: 1 },
+    });
+    render(<SpendingAnomaliesReport />);
+    await waitFor(() => {
+      expect(screen.getByTestId("export-pdf")).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("export-pdf"));
+    });
+    await waitFor(() => {
+      expect(mockExportToPdf).toHaveBeenCalledTimes(1);
+    });
+    const arg = mockExportToPdf.mock.calls[0][0];
+    expect(arg.title).toBe("Spending Anomalies");
+    expect(arg.filename).toBe("spending-anomalies");
+    const typeColumn = arg.tableData.rows.map((r: string[]) => r[0]);
+    expect(typeColumn).toEqual([
+      "Large Transaction",
+      "Category Spike",
+      "Unusual Payee",
+    ]);
   });
 
   it("navigates to transactions with categoryId on category spike click", async () => {

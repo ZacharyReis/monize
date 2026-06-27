@@ -722,3 +722,370 @@ describe("PortfolioCalculationService.calculateCapitalGainsByDay", () => {
     expect(result).toEqual([]);
   });
 });
+
+describe("PortfolioCalculationService.primeLiveRates", () => {
+  let service: PortfolioCalculationService;
+  let holdingsRepo: { createQueryBuilder: jest.Mock };
+  let exchangeRateService: { getLiveRate: jest.Mock };
+  let rawCurrencies: Array<{ currency: string | null }>;
+
+  const makeQueryBuilder = () => ({
+    innerJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue(rawCurrencies),
+  });
+
+  beforeEach(async () => {
+    rawCurrencies = [];
+    holdingsRepo = {
+      createQueryBuilder: jest.fn(() => makeQueryBuilder()),
+    };
+    exchangeRateService = { getLiveRate: jest.fn() };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PortfolioCalculationService,
+        { provide: getRepositoryToken(Holding), useValue: holdingsRepo },
+        { provide: getRepositoryToken(SecurityPrice), useValue: {} },
+        { provide: getRepositoryToken(InvestmentTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: ExchangeRateService, useValue: exchangeRateService },
+      ],
+    }).compile();
+    service = module.get(PortfolioCalculationService);
+  });
+
+  const account = (currencyCode: string) =>
+    ({ id: "a", currencyCode }) as Account;
+
+  it("primes the cache with live rates for account and holding currencies", async () => {
+    rawCurrencies = [{ currency: "EUR" }, { currency: "GBP" }];
+    exchangeRateService.getLiveRate.mockImplementation(
+      async (from: string) =>
+        ({ USD: 1.37, EUR: 1.48, GBP: 1.72 })[from] ?? null,
+    );
+    const rateCache = new Map<string, number>();
+
+    await service.primeLiveRates(
+      rateCache,
+      [account("USD")],
+      ["acct-1"],
+      "CAD",
+    );
+
+    expect(rateCache.get("USD->CAD")).toBe(1.37);
+    expect(rateCache.get("EUR->CAD")).toBe(1.48);
+    expect(rateCache.get("GBP->CAD")).toBe(1.72);
+  });
+
+  it("skips the default currency and de-duplicates currencies", async () => {
+    rawCurrencies = [{ currency: "USD" }, { currency: "CAD" }];
+    exchangeRateService.getLiveRate.mockResolvedValue(1.37);
+    const rateCache = new Map<string, number>();
+
+    await service.primeLiveRates(
+      rateCache,
+      [account("USD"), account("CAD")],
+      ["acct-1"],
+      "CAD",
+    );
+
+    // CAD is the default currency, so it is never fetched or cached
+    expect(rateCache.has("CAD->CAD")).toBe(false);
+    expect(exchangeRateService.getLiveRate).toHaveBeenCalledTimes(1);
+    expect(exchangeRateService.getLiveRate).toHaveBeenCalledWith("USD", "CAD");
+  });
+
+  it("leaves the cache unset for a currency when no live rate is available", async () => {
+    rawCurrencies = [];
+    exchangeRateService.getLiveRate.mockResolvedValue(null);
+    const rateCache = new Map<string, number>();
+
+    await service.primeLiveRates(rateCache, [account("USD")], [], "CAD");
+
+    expect(rateCache.has("USD->CAD")).toBe(false);
+  });
+
+  it("does not query holdings when there are no holdings accounts", async () => {
+    exchangeRateService.getLiveRate.mockResolvedValue(1.37);
+    const rateCache = new Map<string, number>();
+
+    await service.primeLiveRates(rateCache, [account("USD")], [], "CAD");
+
+    expect(holdingsRepo.createQueryBuilder).not.toHaveBeenCalled();
+    expect(rateCache.get("USD->CAD")).toBe(1.37);
+  });
+});
+
+describe("PortfolioCalculationService daily rate index", () => {
+  let service: PortfolioCalculationService;
+  let exchangeRateService: { getRateHistory: jest.Mock };
+
+  const rate = (
+    fromCurrency: string,
+    toCurrency: string,
+    r: number,
+    rateDate: string,
+  ) => ({ fromCurrency, toCurrency, rate: r, rateDate });
+
+  beforeEach(async () => {
+    exchangeRateService = { getRateHistory: jest.fn().mockResolvedValue([]) };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PortfolioCalculationService,
+        { provide: getRepositoryToken(Holding), useValue: {} },
+        { provide: getRepositoryToken(SecurityPrice), useValue: {} },
+        { provide: getRepositoryToken(InvestmentTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: ExchangeRateService, useValue: exchangeRateService },
+      ],
+    }).compile();
+    service = module.get(PortfolioCalculationService);
+  });
+
+  describe("buildDailyRateIndex", () => {
+    it("returns an empty index and skips the query when no foreign currencies", async () => {
+      const index = await service.buildDailyRateIndex(
+        ["CAD"],
+        "CAD",
+        "2026-05-01",
+        "2026-06-04",
+      );
+
+      expect(index.size).toBe(0);
+      expect(exchangeRateService.getRateHistory).not.toHaveBeenCalled();
+    });
+
+    it("keeps only pairs involving the default and a requested currency", async () => {
+      exchangeRateService.getRateHistory.mockResolvedValue([
+        rate("USD", "CAD", 1.3, "2026-06-02"),
+        rate("CAD", "USD", 0.74, "2026-06-02"), // reverse direction kept
+        rate("EUR", "GBP", 0.85, "2026-06-02"), // unrelated pair dropped
+        rate("USD", "EUR", 0.92, "2026-06-02"), // not involving default dropped
+      ]);
+
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      expect([...index.keys()].sort()).toEqual(["CAD->USD", "USD->CAD"]);
+      expect(exchangeRateService.getRateHistory).toHaveBeenCalledWith(
+        "2026-05-20",
+        "2026-06-04",
+      );
+    });
+
+    it("normalizes Date and numeric-string rate values and sorts by date", async () => {
+      exchangeRateService.getRateHistory.mockResolvedValue([
+        rate("USD", "CAD", "1.50" as unknown as number, "2026-06-03"),
+        rate("USD", "CAD", "1.40" as unknown as number, "2026-06-01"),
+        {
+          fromCurrency: "USD",
+          toCurrency: "CAD",
+          rate: 1.45,
+          rateDate: new Date("2026-06-02T00:00:00.000Z"),
+        },
+      ]);
+
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      expect(index.get("USD->CAD")).toEqual([
+        { date: "2026-06-01", rate: 1.4 },
+        { date: "2026-06-02", rate: 1.45 },
+        { date: "2026-06-03", rate: 1.5 },
+      ]);
+    });
+  });
+
+  describe("resolveDailyRate", () => {
+    it("returns the most recent direct rate at or before the date", async () => {
+      exchangeRateService.getRateHistory.mockResolvedValue([
+        rate("USD", "CAD", 1.4, "2026-06-01"),
+        rate("USD", "CAD", 1.5, "2026-06-03"),
+      ]);
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      // On 2026-06-02 the most recent rate at or before is the 06-01 close.
+      expect(service.resolveDailyRate(index, "USD", "CAD", "2026-06-02")).toBe(
+        1.4,
+      );
+      // On 2026-06-03 the same-day close applies.
+      expect(service.resolveDailyRate(index, "USD", "CAD", "2026-06-03")).toBe(
+        1.5,
+      );
+    });
+
+    it("falls back to the earliest known rate when the date precedes all history", async () => {
+      exchangeRateService.getRateHistory.mockResolvedValue([
+        rate("USD", "CAD", 1.4, "2026-06-01"),
+      ]);
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      expect(service.resolveDailyRate(index, "USD", "CAD", "2026-05-15")).toBe(
+        1.4,
+      );
+    });
+
+    it("inverts the reverse pair when only that direction is stored", async () => {
+      exchangeRateService.getRateHistory.mockResolvedValue([
+        rate("CAD", "USD", 0.5, "2026-06-01"),
+      ]);
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      // 1 USD -> CAD via the reciprocal of the stored CAD->USD rate.
+      expect(service.resolveDailyRate(index, "USD", "CAD", "2026-06-02")).toBe(
+        2,
+      );
+    });
+
+    it("returns undefined when the pair is absent in both directions", async () => {
+      const index = await service.buildDailyRateIndex(
+        ["USD"],
+        "CAD",
+        "2026-05-20",
+        "2026-06-04",
+      );
+
+      expect(
+        service.resolveDailyRate(index, "USD", "CAD", "2026-06-02"),
+      ).toBeUndefined();
+    });
+  });
+});
+
+describe("PortfolioCalculationService.buildAllocationByTag", () => {
+  let service: PortfolioCalculationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PortfolioCalculationService,
+        { provide: getRepositoryToken(Holding), useValue: {} },
+        { provide: getRepositoryToken(SecurityPrice), useValue: {} },
+        { provide: getRepositoryToken(InvestmentTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: ExchangeRateService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(PortfolioCalculationService);
+  });
+
+  const securityItem = (symbol: string, value: number) => ({
+    name: symbol,
+    symbol,
+    type: "security" as const,
+    value,
+    percentage: 0,
+    currencyCode: "CAD",
+  });
+
+  it("counts a multi-tagged holding in full under each tag (overlapping exposure)", () => {
+    const items = [securityItem("VWCE", 100), securityItem("SMH", 50)];
+    const tags = new Map([
+      [
+        "VWCE",
+        [{ id: "t-aw", name: "All-World", color: "#111111" }],
+      ],
+      [
+        "SMH",
+        [
+          { id: "t-aw", name: "All-World", color: "#111111" },
+          { id: "t-ai", name: "AI", color: null },
+        ],
+      ],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, 0, 150, "CAD");
+
+    const allWorld = result.find((r) => r.name === "All-World");
+    const ai = result.find((r) => r.name === "AI");
+    // VWCE (100) + SMH (50) both touch All-World => 150 (100% of portfolio)
+    expect(allWorld?.value).toBe(150);
+    expect(allWorld?.percentage).toBe(100);
+    // SMH (50) touches AI => 50 (33.33%)
+    expect(ai?.value).toBe(50);
+    // Overlap means tag percentages sum to more than 100%
+    const tagPct = result
+      .filter((r) => r.type === "tag")
+      .reduce((s, r) => s + r.percentage, 0);
+    expect(tagPct).toBeGreaterThan(100);
+  });
+
+  it("uses the tag's own colour when set, else a palette colour", () => {
+    const items = [securityItem("VWCE", 100), securityItem("SMH", 100)];
+    const tags = new Map([
+      ["VWCE", [{ id: "t-aw", name: "All-World", color: "#abcdef" }]],
+      ["SMH", [{ id: "t-ai", name: "AI", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, 0, 200, "CAD");
+
+    expect(result.find((r) => r.name === "All-World")?.color).toBe("#abcdef");
+    expect(result.find((r) => r.name === "AI")?.color).toMatch(/^#/);
+  });
+
+  it("buckets untagged holdings and cash as explicit slices", () => {
+    const items = [securityItem("VWCE", 100), securityItem("XYZ", 40)];
+    const tags = new Map([
+      ["VWCE", [{ id: "t-aw", name: "All-World", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, 60, 200, "CAD");
+
+    const cash = result.find((r) => r.type === "cash");
+    const untagged = result.find((r) => r.type === "untagged");
+    expect(cash?.value).toBe(60);
+    expect(cash?.percentage).toBe(30);
+    expect(untagged?.name).toBe("Untagged");
+    expect(untagged?.value).toBe(40);
+  });
+
+  it("omits cash and untagged slices when there is nothing to show", () => {
+    const items = [securityItem("VWCE", 100)];
+    const tags = new Map([
+      ["VWCE", [{ id: "t-aw", name: "All-World", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, 0, 100, "CAD");
+
+    expect(result.some((r) => r.type === "cash")).toBe(false);
+    expect(result.some((r) => r.type === "untagged")).toBe(false);
+    expect(result).toHaveLength(1);
+  });
+
+  it("ignores zero/negative-value securities", () => {
+    const items = [securityItem("VWCE", 0), securityItem("SMH", 100)];
+    const tags = new Map([
+      ["VWCE", [{ id: "t-aw", name: "All-World", color: null }]],
+      ["SMH", [{ id: "t-ai", name: "AI", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, 0, 100, "CAD");
+
+    expect(result.some((r) => r.name === "All-World")).toBe(false);
+    expect(result.find((r) => r.name === "AI")?.value).toBe(100);
+  });
+});

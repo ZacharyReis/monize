@@ -11,6 +11,9 @@ vi.mock('@/lib/format', () => ({
   getDecimalPlacesForCurrency: vi.fn(() => 2),
   formatAmount: vi.fn((v: number | undefined | null) => (v === undefined || v === null || isNaN(v)) ? '' : (Math.round(v * 100) / 100).toFixed(2)),
   roundToDecimals: vi.fn((v: number) => v),
+  gainLossColor: vi.fn((v: number) =>
+    v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+  ),
 }));
 
 describe('BudgetWizardCategories', () => {

@@ -1,47 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { builtInReportsApi } from '@/lib/built-in-reports';
-import { DuplicateTransactionsResponse, DuplicateGroup, DuplicateTransactionItem } from '@/types/built-in-reports';
+import { DuplicateGroup, DuplicateTransactionItem } from '@/types/built-in-reports';
 import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useDateRange } from '@/hooks/useDateRange';
 import { DateRangeSelector } from '@/components/ui/DateRangeSelector';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { exportToCsv } from '@/lib/csv-export';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('DuplicateTransactionReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
+import { useTranslations } from 'next-intl';
 
 export function DuplicateTransactionReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
-  const [reportData, setReportData] = useState<DuplicateTransactionsResponse | null>(null);
   const { dateRange, setDateRange, resolvedRange } = useDateRange({ defaultRange: '3m', alignment: 'day' });
-  const [isLoading, setIsLoading] = useState(true);
   const [sensitivity, setSensitivity] = useState<'high' | 'medium' | 'low'>('medium');
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const { start, end } = resolvedRange;
-        const data = await builtInReportsApi.getDuplicateTransactions({
-          startDate: start,
-          endDate: end,
-          sensitivity,
-        });
-        setReportData(data);
-      } catch (error) {
-        logger.error('Failed to load data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [resolvedRange, sensitivity]);
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
+
+  const { data: reportData, isLoading, error, reload } = useReportData(
+    () =>
+      builtInReportsApi.getDuplicateTransactions({
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        sensitivity,
+      }),
+    [rangeStart, rangeEnd, sensitivity],
+  );
 
   const handleTransactionClick = (tx: DuplicateTransactionItem) => {
     router.push(`/transactions?search=${encodeURIComponent(tx.payeeName || '')}`);
@@ -70,12 +63,16 @@ export function DuplicateTransactionReport() {
     }
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -92,7 +89,7 @@ export function DuplicateTransactionReport() {
   const duplicateGroups = reportData?.groups || [];
 
   const getExportData = () => {
-    const headers = ['Date', 'Payee', 'Description', 'Account', 'Amount', 'Confidence', 'Reason'];
+    const headers = [t('duplicateTransactions.colDate'), t('duplicateTransactions.colPayee'), t('duplicateTransactions.colDescription'), t('duplicateTransactions.colAccount'), t('duplicateTransactions.colAmount'), t('duplicateTransactions.colConfidence'), t('duplicateTransactions.colReason')];
     const rows: (string | number)[][] = [];
     for (const group of duplicateGroups) {
       for (const tx of group.transactions) {
@@ -119,13 +116,13 @@ export function DuplicateTransactionReport() {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const { headers, rows } = getExportData();
     await exportToPdf({
-      title: 'Duplicate Transaction Report',
-      subtitle: `${summary.totalGroups} groups found | Potential impact: ${formatCurrency(summary.potentialSavings)}`,
+      title: t('duplicateTransactions.pdfTitle'),
+      subtitle: `${summary.totalGroups} ${t('duplicateTransactions.groupsFound')} | ${t('duplicateTransactions.potentialImpact')}: ${formatCurrency(summary.potentialSavings)}`,
       summaryCards: [
-        { label: 'Potential Duplicates', value: String(summary.totalGroups), color: '#ea580c' },
-        { label: 'High Confidence', value: String(summary.highCount), color: '#dc2626' },
-        { label: 'Medium Confidence', value: String(summary.mediumCount), color: '#ea580c' },
-        { label: 'Potential Impact', value: formatCurrency(summary.potentialSavings), color: '#111827' },
+        { label: t('duplicateTransactions.potentialDuplicates'), value: String(summary.totalGroups), color: '#ea580c' },
+        { label: t('duplicateTransactions.highConfidence'), value: String(summary.highCount), color: '#dc2626' },
+        { label: t('duplicateTransactions.mediumConfidence'), value: String(summary.mediumCount), color: '#ea580c' },
+        { label: t('duplicateTransactions.potentialImpact'), value: formatCurrency(summary.potentialSavings), color: '#111827' },
       ],
       tableData: { headers, rows },
       filename: 'duplicate-transactions',
@@ -137,26 +134,26 @@ export function DuplicateTransactionReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Potential Duplicates</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('duplicateTransactions.potentialDuplicates')}</div>
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
             {summary.totalGroups}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">groups found</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('duplicateTransactions.groupsFound')}</div>
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-          <div className="text-sm text-red-600 dark:text-red-400">High Confidence</div>
+          <div className="text-sm text-red-600 dark:text-red-400">{t('duplicateTransactions.highConfidence')}</div>
           <div className="text-xl font-bold text-red-700 dark:text-red-300">
             {summary.highCount}
           </div>
         </div>
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
-          <div className="text-sm text-orange-600 dark:text-orange-400">Medium Confidence</div>
+          <div className="text-sm text-orange-600 dark:text-orange-400">{t('duplicateTransactions.mediumConfidence')}</div>
           <div className="text-xl font-bold text-orange-700 dark:text-orange-300">
             {summary.mediumCount}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Potential Impact</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('duplicateTransactions.potentialImpact')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {formatCurrency(summary.potentialSavings)}
           </div>
@@ -173,15 +170,15 @@ export function DuplicateTransactionReport() {
           />
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Sensitivity:</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{t('duplicateTransactions.sensitivityLabel')}</span>
               <select
                 value={sensitivity}
                 onChange={(e) => setSensitivity(e.target.value as 'high' | 'medium' | 'low')}
                 className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
               >
-                <option value="high">High (±3 days)</option>
-                <option value="medium">Medium (±1 day)</option>
-                <option value="low">Low (same day only)</option>
+                <option value="high">{t('duplicateTransactions.sensitivityHigh')}</option>
+                <option value="medium">{t('duplicateTransactions.sensitivityMedium')}</option>
+                <option value="low">{t('duplicateTransactions.sensitivityLow')}</option>
               </select>
             </div>
             <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} disabled={duplicateGroups.length === 0} />
@@ -197,7 +194,7 @@ export function DuplicateTransactionReport() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-gray-500 dark:text-gray-400">
-              No potential duplicate transactions found. Your records look clean!
+              {t('duplicateTransactions.empty')}
             </p>
           </div>
         </div>
@@ -213,14 +210,14 @@ export function DuplicateTransactionReport() {
                 <div className="px-4 py-3 flex items-center justify-between border-b border-inherit">
                   <div className="flex items-center gap-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles.badge}`}>
-                      {group.confidence} confidence
+                      {t('duplicateTransactions.confidence', { level: group.confidence })}
                     </span>
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       {group.reason}
                     </span>
                   </div>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {group.transactions.length} transactions
+                    {t('duplicateTransactions.transactionCount', { count: group.transactions.length })}
                   </span>
                 </div>
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -236,7 +233,7 @@ export function DuplicateTransactionReport() {
                             {format(parseLocalDate(tx.transactionDate), 'MMM d, yyyy')}
                           </span>
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {tx.payeeName || 'Unknown'}
+                            {tx.payeeName || t('duplicateTransactions.unknownPayee')}
                           </span>
                         </div>
                         {tx.description && (
@@ -245,13 +242,11 @@ export function DuplicateTransactionReport() {
                           </div>
                         )}
                         <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                          {tx.accountName || 'Unknown account'}
+                          {tx.accountName || t('duplicateTransactions.unknownAccount')}
                         </div>
                       </div>
                       <div className={`text-sm font-medium ${
-                        tx.amount >= 0
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400'
+                        gainLossColor(tx.amount)
                       }`}>
                         {formatCurrency(tx.amount)}
                       </div>
@@ -271,14 +266,14 @@ export function DuplicateTransactionReport() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="text-sm text-blue-700 dark:text-blue-300">
-            <p className="font-medium">How duplicates are detected:</p>
+            <p className="font-medium">{t('duplicateTransactions.howDetectedTitle')}</p>
             <ul className="mt-1 list-disc list-inside space-y-0.5">
-              <li>High: Same date, amount, and payee</li>
-              <li>Medium: Same date and amount, or same payee and amount within a few days</li>
-              <li>Low: Same amount within the date range</li>
+              <li>{t('duplicateTransactions.howDetectedHigh')}</li>
+              <li>{t('duplicateTransactions.howDetectedMedium')}</li>
+              <li>{t('duplicateTransactions.howDetectedLow')}</li>
             </ul>
             <p className="mt-2">
-              Click a transaction to view it in the transactions page where you can delete duplicates.
+              {t('duplicateTransactions.howDetectedNote')}
             </p>
           </div>
         </div>

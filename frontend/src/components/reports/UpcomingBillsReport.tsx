@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
 import {
   format,
@@ -23,9 +25,8 @@ import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { exportToCsv } from '@/lib/csv-export';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('UpcomingBillsReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 
 interface CalendarDay {
   date: Date;
@@ -42,30 +43,22 @@ interface UpcomingBill {
 }
 
 export function UpcomingBillsReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
-  const [scheduledTransactions, setScheduledTransactions] = useState<ScheduledTransaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewType, setViewType] = useState<'calendar' | 'list'>('calendar');
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await scheduledTransactionsApi.getAll();
-        // Filter to active, non-transfer transactions
-        setScheduledTransactions(
-          data.filter((st) => st.isActive && !st.isTransfer)
-        );
-      } catch (error) {
-        logger.error('Failed to load scheduled transactions:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const { data: response, isLoading, error, reload } = useReportData(
+    () => scheduledTransactionsApi.getAll(),
+    [],
+  );
+
+  // Filter to active, non-transfer transactions.
+  const scheduledTransactions = useMemo(
+    () => (response ?? []).filter((st) => st.isActive && !st.isTransfer),
+    [response],
+  );
 
   // Generate upcoming occurrences for each scheduled transaction
   const getNextOccurrences = (st: ScheduledTransaction, monthsAhead: number = 3): Date[] => {
@@ -194,14 +187,21 @@ export function UpcomingBillsReport() {
   };
 
   const getExportData = () => {
-    const headers = ['Bill Name', 'Due Date', 'Amount', 'Frequency', 'Account', 'Status'];
+    const headers = [
+      t('upcomingBills.csvColBillName'),
+      t('upcomingBills.csvColDueDate'),
+      t('upcomingBills.csvColAmount'),
+      t('upcomingBills.csvColFrequency'),
+      t('upcomingBills.csvColAccount'),
+      t('upcomingBills.csvColStatus'),
+    ];
     const rows: (string | number)[][] = upcomingBills.map((bill) => [
       bill.scheduledTransaction.name,
       format(bill.dueDate, 'yyyy-MM-dd'),
       bill.amount,
       bill.scheduledTransaction.frequency,
       bill.scheduledTransaction.account?.name || '',
-      bill.isOverdue ? 'Overdue' : bill.scheduledTransaction.autoPost ? 'Auto' : 'Manual',
+      bill.isOverdue ? t('upcomingBills.csvStatusOverdue') : bill.scheduledTransaction.autoPost ? t('upcomingBills.csvStatusAuto') : t('upcomingBills.csvStatusManual'),
     ]);
     return { headers, rows };
   };
@@ -215,25 +215,29 @@ export function UpcomingBillsReport() {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const { headers, rows } = getExportData();
     const pdfCards = [
-      { label: 'Active Bills', value: String(scheduledTransactions.length), color: '#111827' },
-      ...(summary.overdueCount > 0 ? [{ label: 'Overdue', value: String(summary.overdueCount), color: '#dc2626' }] : []),
-      { label: 'This Month', value: `${summary.thisMonthCount} (${formatCurrency(summary.thisMonthTotal)})`, color: '#2563eb' },
+      { label: t('upcomingBills.pdfActiveBills'), value: String(scheduledTransactions.length), color: '#111827' },
+      ...(summary.overdueCount > 0 ? [{ label: t('upcomingBills.pdfOverdue'), value: String(summary.overdueCount), color: '#dc2626' }] : []),
+      { label: t('upcomingBills.pdfThisMonth'), value: `${summary.thisMonthCount} (${formatCurrency(summary.thisMonthTotal)})`, color: '#2563eb' },
     ];
     await exportToPdf({
-      title: 'Upcoming Bills Report',
-      subtitle: `${format(currentMonth, 'MMMM yyyy')} | ${scheduledTransactions.length} active bills`,
+      title: t('upcomingBills.pdfTitle'),
+      subtitle: t('upcomingBills.pdfSubtitle', { month: format(currentMonth, 'MMMM yyyy'), count: scheduledTransactions.length }),
       summaryCards: pdfCards,
       tableData: { headers, rows },
       filename: 'upcoming-bills',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -244,14 +248,14 @@ export function UpcomingBillsReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Active Bills</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('upcomingBills.activeBills')}</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {scheduledTransactions.length}
           </div>
         </div>
         {summary.overdueCount > 0 && (
           <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-            <div className="text-sm text-red-600 dark:text-red-400">Overdue</div>
+            <div className="text-sm text-red-600 dark:text-red-400">{t('upcomingBills.overdue')}</div>
             <div className="text-xl font-bold text-red-700 dark:text-red-300">
               {summary.overdueCount}
             </div>
@@ -261,7 +265,7 @@ export function UpcomingBillsReport() {
           </div>
         )}
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <div className="text-sm text-blue-600 dark:text-blue-400">This Month</div>
+          <div className="text-sm text-blue-600 dark:text-blue-400">{t('upcomingBills.thisMonth')}</div>
           <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
             {summary.thisMonthCount}
           </div>
@@ -298,7 +302,7 @@ export function UpcomingBillsReport() {
               onClick={() => setCurrentMonth(new Date())}
               className="ml-2 px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md"
             >
-              Today
+              {t('upcomingBills.todayButton')}
             </button>
           </div>
           <div className="flex items-center gap-3">
@@ -311,7 +315,7 @@ export function UpcomingBillsReport() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                Calendar
+                {t('upcomingBills.calendarView')}
               </button>
               <button
                 onClick={() => setViewType('list')}
@@ -321,7 +325,7 @@ export function UpcomingBillsReport() {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                List
+                {t('upcomingBills.listView')}
               </button>
             </div>
             <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} disabled={upcomingBills.length === 0} />
@@ -332,14 +336,14 @@ export function UpcomingBillsReport() {
       {scheduledTransactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No scheduled bills found. Add scheduled transactions to see them in this calendar.
+            {t('upcomingBills.noBills')}
           </p>
         </div>
       ) : viewType === 'calendar' ? (
         /* Calendar View */
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="grid grid-cols-7">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            {([t('upcomingBills.dayLabels.sun'), t('upcomingBills.dayLabels.mon'), t('upcomingBills.dayLabels.tue'), t('upcomingBills.dayLabels.wed'), t('upcomingBills.dayLabels.thu'), t('upcomingBills.dayLabels.fri'), t('upcomingBills.dayLabels.sat')]).map((day) => (
               <div
                 key={day}
                 className="px-2 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700"
@@ -381,7 +385,7 @@ export function UpcomingBillsReport() {
                             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                             : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         } hover:opacity-80`}
-                        title={`${bill.name}${bill.autoPost ? ' (Auto)' : ' (Manual)'}`}
+                        title={bill.autoPost ? t('upcomingBills.calendarAutoTitle', { name: bill.name }) : t('upcomingBills.calendarManualTitle', { name: bill.name })}
                       >
                         {!bill.autoPost && (
                           <svg className="h-3 w-3 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -394,7 +398,7 @@ export function UpcomingBillsReport() {
                   })}
                   {day.bills.length > 3 && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
-                      +{day.bills.length - 3} more
+                      {t('upcomingBills.moreItems', { count: day.bills.length - 3 })}
                     </div>
                   )}
                 </div>
@@ -425,21 +429,21 @@ export function UpcomingBillsReport() {
                     </span>
                     {bill.isOverdue && (
                       <span className="px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400 text-xs rounded">
-                        Overdue
+                        {t('upcomingBills.overdueLabel')}
                       </span>
                     )}
                     {bill.scheduledTransaction.autoPost ? (
-                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 text-xs rounded" title="Auto-posts when due">
-                        Auto
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 text-xs rounded" title={t('upcomingBills.autoPostsTitle')}>
+                        {t('upcomingBills.autoLabel')}
                       </span>
                     ) : (
-                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 text-xs rounded font-medium" title="Requires manual posting">
-                        Manual
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 text-xs rounded font-medium" title={t('upcomingBills.manualPostTitle')}>
+                        {t('upcomingBills.manualLabel')}
                       </span>
                     )}
                   </div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {bill.scheduledTransaction.payee?.name || bill.scheduledTransaction.payeeName || 'No payee'}
+                    {bill.scheduledTransaction.payee?.name || bill.scheduledTransaction.payeeName || t('upcomingBills.noPayee')}
                   </div>
                 </div>
                 <div className="text-right">

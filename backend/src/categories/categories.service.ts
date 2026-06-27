@@ -3,8 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull, DataSource } from "typeorm";
+import { Repository, IsNull, DataSource, EntityManager } from "typeorm";
 import { Category } from "./entities/category.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
@@ -14,6 +15,7 @@ import { ScheduledTransactionSplit } from "../scheduled-transactions/entities/sc
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { ActionHistoryService } from "../action-history/action-history.service";
+import { toCountMap } from "../common/count-map.util";
 import {
   DEFAULT_INCOME_CATEGORIES,
   DEFAULT_EXPENSE_CATEGORIES,
@@ -71,6 +73,8 @@ export class CategoriesService {
         isSystem: saved.isSystem,
       },
       description: `Created category "${saved.name}"`,
+      descriptionKey: "createdCategory",
+      descriptionParams: { name: saved.name },
     });
     return saved;
   }
@@ -150,14 +154,8 @@ export class CategoriesService {
         .getRawMany(),
     ]);
 
-    const countMap = new Map<string, number>();
-    for (const row of directCounts) {
-      countMap.set(row.categoryId, parseInt(row.count || "0", 10));
-    }
-    for (const row of splitCounts) {
-      const existing = countMap.get(row.categoryId) || 0;
-      countMap.set(row.categoryId, existing + parseInt(row.count || "0", 10));
-    }
+    const countMap = toCountMap(directCounts, { keyField: "categoryId" });
+    toCountMap(splitCounts, { keyField: "categoryId", into: countMap });
 
     const categoriesWithCounts = categories.map((category) => ({
       ...category,
@@ -301,7 +299,11 @@ export class CategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.categories.notFound", `Category with ID ${id} not found`, {
+          id,
+        }),
+      );
     }
 
     let effectiveColor = category.color;
@@ -340,12 +342,22 @@ export class CategoriesService {
     };
 
     if (category.isSystem) {
-      throw new BadRequestException("Cannot modify system categories");
+      throw new BadRequestException(
+        tr(
+          "errors.categories.cannotModifySystem",
+          "Cannot modify system categories",
+        ),
+      );
     }
 
     if (updateCategoryDto.parentId) {
       if (updateCategoryDto.parentId === id) {
-        throw new BadRequestException("Category cannot be its own parent");
+        throw new BadRequestException(
+          tr(
+            "errors.categories.selfParent",
+            "Category cannot be its own parent",
+          ),
+        );
       }
       await this.findOne(userId, updateCategoryDto.parentId);
 
@@ -360,7 +372,12 @@ export class CategoriesService {
       const visited = new Set<string>([id]);
       while (current) {
         if (visited.has(current)) {
-          throw new BadRequestException("Circular parent reference detected");
+          throw new BadRequestException(
+            tr(
+              "errors.categories.circularParent",
+              "Circular parent reference detected",
+            ),
+          );
         }
         visited.add(current);
         current = categoryMap.get(current) ?? null;
@@ -387,15 +404,38 @@ export class CategoriesService {
       category.isIncome = updateCategoryDto.isIncome;
     }
 
-    const saved = await this.categoriesRepository.save(category);
+    // Save the category and cascade any type change to all descendant
+    // subcategories atomically, so a partial failure cannot leave children
+    // with a type that disagrees with their parent.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    let saved: Category;
+    try {
+      // Pass the explicit entity target: findOne returns a plain object
+      // (spread with effectiveColor), not a Category instance, so the
+      // single-arg form would throw CannotDetermineEntityError.
+      saved = await queryRunner.manager.save(Category, category);
 
-    // Cascade type change to all descendant subcategories
-    if (
-      !category.parentId &&
-      updateCategoryDto.isIncome !== undefined &&
-      updateCategoryDto.isIncome !== beforeData.isIncome
-    ) {
-      await this.updateDescendantTypes(userId, id, saved.isIncome);
+      if (
+        !category.parentId &&
+        updateCategoryDto.isIncome !== undefined &&
+        updateCategoryDto.isIncome !== beforeData.isIncome
+      ) {
+        await this.updateDescendantTypes(
+          userId,
+          id,
+          saved.isIncome,
+          queryRunner.manager,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
     this.actionHistoryService.record(userId, {
       entityType: "category",
@@ -411,6 +451,8 @@ export class CategoriesService {
         parentId: saved.parentId,
       },
       description: `Updated category "${saved.name}"`,
+      descriptionKey: "updatedCategory",
+      descriptionParams: { name: saved.name },
     });
     return saved;
   }
@@ -419,8 +461,9 @@ export class CategoriesService {
     userId: string,
     parentId: string,
     isIncome: boolean,
+    manager: EntityManager,
   ): Promise<void> {
-    const children = await this.categoriesRepository.find({
+    const children = await manager.find(Category, {
       where: { userId, parentId },
       select: ["id"],
     });
@@ -430,11 +473,8 @@ export class CategoriesService {
     }
 
     for (const child of children) {
-      await this.categoriesRepository.update(
-        { id: child.id, userId },
-        { isIncome },
-      );
-      await this.updateDescendantTypes(userId, child.id, isIncome);
+      await manager.update(Category, { id: child.id, userId }, { isIncome });
+      await this.updateDescendantTypes(userId, child.id, isIncome, manager);
     }
   }
 
@@ -442,7 +482,12 @@ export class CategoriesService {
     const category = await this.findOne(userId, id);
 
     if (category.isSystem) {
-      throw new BadRequestException("Cannot delete system categories");
+      throw new BadRequestException(
+        tr(
+          "errors.categories.cannotDeleteSystem",
+          "Cannot delete system categories",
+        ),
+      );
     }
 
     const childCount = await this.categoriesRepository.count({
@@ -451,7 +496,10 @@ export class CategoriesService {
 
     if (childCount > 0) {
       throw new BadRequestException(
-        "Cannot delete category with subcategories. Delete or reassign subcategories first.",
+        tr(
+          "errors.categories.hasSubcategories",
+          "Cannot delete category with subcategories. Delete or reassign subcategories first.",
+        ),
       );
     }
 
@@ -459,14 +507,13 @@ export class CategoriesService {
     const transactionCount = await this.getTransactionCount(userId, id);
     if (transactionCount > 0) {
       throw new BadRequestException(
-        `Cannot delete category with ${transactionCount} referencing transaction(s). Reassign transactions first.`,
+        tr(
+          "errors.categories.hasTransactions",
+          `Cannot delete category with ${transactionCount} referencing transaction(s). Reassign transactions first.`,
+          { count: transactionCount },
+        ),
       );
     }
-
-    await this.payeesRepository.update(
-      { userId, defaultCategoryId: id },
-      { defaultCategoryId: null },
-    );
 
     const beforeData = {
       id: category.id,
@@ -478,13 +525,38 @@ export class CategoriesService {
       parentId: category.parentId,
       isSystem: category.isSystem,
     };
-    await this.categoriesRepository.remove(category);
+
+    // Clear the default-category reference on any payees and delete the
+    // category atomically, so a failure cannot leave payees pointing at a
+    // category that no longer exists.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.manager.update(
+        Payee,
+        { userId, defaultCategoryId: id },
+        { defaultCategoryId: null },
+      );
+      // Explicit entity target: `category` here is a plain object from
+      // findOne (spread with effectiveColor), not a Category instance.
+      await queryRunner.manager.remove(Category, category);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
     this.actionHistoryService.record(userId, {
       entityType: "category",
       entityId: id,
       action: "delete",
       beforeData,
       description: `Deleted category "${beforeData.name}"`,
+      descriptionKey: "deletedCategory",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -694,7 +766,10 @@ export class CategoriesService {
 
     if (existingCount > 0) {
       throw new BadRequestException(
-        "Cannot import defaults: user already has categories. Delete existing categories first or start fresh.",
+        tr(
+          "errors.categories.alreadyHasCategories",
+          "Cannot import defaults: user already has categories. Delete existing categories first or start fresh.",
+        ),
       );
     }
 

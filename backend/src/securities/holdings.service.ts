@@ -5,8 +5,14 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
+import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
+import { todayInTimezone, formatDateYMDLocal } from "../common/date-utils";
+import { sumMoney } from "../common/round.util";
+import { getUsersByEffectiveTimezone } from "../common/users-by-timezone.util";
 import {
   Repository,
   In,
@@ -29,6 +35,8 @@ import { SecuritiesService } from "./securities.service";
 
 @Injectable()
 export class HoldingsService {
+  private readonly logger = new Logger(HoldingsService.name);
+
   constructor(
     @InjectRepository(Holding)
     private holdingsRepository: Repository<Holding>,
@@ -66,7 +74,13 @@ export class HoldingsService {
       .getOne();
 
     if (!holding) {
-      throw new NotFoundException(`Holding with ID ${id} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.securities.holdingNotFound",
+          `Holding with ID ${id} not found`,
+          { id },
+        ),
+      );
     }
 
     return holding;
@@ -233,8 +247,13 @@ export class HoldingsService {
       // validateHoldingsHistory afterward so oversells at any historical
       // date are still caught.
       if (!allowNegative && newQuantity < -0.00000001) {
+        const reduceBy = Math.abs(quantityChange);
         throw new BadRequestException(
-          `Insufficient shares: cannot reduce by ${Math.abs(quantityChange)}, only ${currentQuantity} held`,
+          tr(
+            "errors.securities.insufficientShares",
+            `Insufficient shares: cannot reduce by ${reduceBy}, only ${currentQuantity} held`,
+            { reduceBy, currentQuantity },
+          ),
         );
       }
 
@@ -281,7 +300,12 @@ export class HoldingsService {
     queryRunner?: QueryRunner,
   ): Promise<Holding | null> {
     if (!ratio || ratio <= 0) {
-      throw new BadRequestException("Split ratio must be greater than zero");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.splitRatioMustBePositive",
+          "Split ratio must be greater than zero",
+        ),
+      );
     }
 
     const repo = queryRunner
@@ -315,7 +339,12 @@ export class HoldingsService {
     queryRunner?: QueryRunner,
   ): Promise<Holding | null> {
     if (!ratio || ratio <= 0) {
-      throw new BadRequestException("Split ratio must be greater than zero");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.splitRatioMustBePositive",
+          "Split ratio must be greater than zero",
+        ),
+      );
     }
     return this.applySplit(accountId, securityId, 1 / ratio, queryRunner);
   }
@@ -347,7 +376,10 @@ export class HoldingsService {
     if (!holding) {
       if (quantityChange < 0) {
         throw new NotFoundException(
-          "Cannot remove shares from a non-existent holding",
+          tr(
+            "errors.securities.cannotRemoveSharesNoHolding",
+            "Cannot remove shares from a non-existent holding",
+          ),
         );
       }
       holding = repo.create({
@@ -369,9 +401,8 @@ export class HoldingsService {
     const summary = {
       totalHoldings: holdings.length,
       totalQuantity: holdings.reduce((sum, h) => sum + Number(h.quantity), 0),
-      totalCostBasis: holdings.reduce(
-        (sum, h) => sum + Number(h.quantity) * Number(h.averageCost || 0),
-        0,
+      totalCostBasis: sumMoney(
+        holdings.map((h) => Number(h.quantity) * Number(h.averageCost || 0)),
       ),
       holdings: holdings.map((h) => ({
         id: h.id,
@@ -392,7 +423,10 @@ export class HoldingsService {
     // Only allow deletion if quantity is zero
     if (Math.abs(Number(holding.quantity)) >= 0.0001) {
       throw new ForbiddenException(
-        "Cannot delete holding with non-zero quantity",
+        tr(
+          "errors.securities.cannotDeleteNonZeroHolding",
+          "Cannot delete holding with non-zero quantity",
+        ),
       );
     }
 
@@ -511,8 +545,11 @@ export class HoldingsService {
       if (next < -0.00000001) {
         const symbol = tx.security?.symbol || "this security";
         throw new BadRequestException(
-          `This change would cause holdings of ${symbol} to go negative on ${tx.transactionDate}. ` +
-            `A ${tx.action} transaction on that date would reduce the balance below zero.`,
+          tr(
+            "errors.securities.holdingsWouldGoNegative",
+            `This change would cause holdings of ${symbol} to go negative on ${tx.transactionDate}. A ${tx.action} transaction on that date would reduce the balance below zero.`,
+            { symbol, transactionDate: tx.transactionDate, action: tx.action },
+          ),
         );
       }
 
@@ -521,53 +558,21 @@ export class HoldingsService {
   }
 
   /**
-   * Rebuild all holdings from existing investment transactions.
-   * This recalculates all holdings based on transaction history,
-   * useful for fixing data after imports that didn't create holdings.
-   * Wrapped in a QueryRunner transaction for atomicity.
+   * Server-local "today" as YYYY-MM-DD. Used as the default holdings cutoff;
+   * callers that need a timezone-correct cutoff pass it explicitly.
    */
-  async rebuildFromTransactions(userId: string): Promise<{
-    holdingsCreated: number;
-    holdingsUpdated: number;
-    holdingsDeleted: number;
-  }> {
-    // M14: Get all investment accounts (brokerage + standalone) for the user
-    const investmentAccounts = await this.accountsRepository.find({
-      where: {
-        userId,
-        accountType: AccountType.INVESTMENT,
-      },
-    });
+  private serverToday(): string {
+    return formatDateYMDLocal(new Date());
+  }
 
-    // Include brokerage accounts and standalone investment accounts (null subType)
-    const eligibleAccounts = investmentAccounts.filter(
-      (a) =>
-        a.accountSubType === AccountSubType.INVESTMENT_BROKERAGE ||
-        !a.accountSubType,
-    );
-
-    if (eligibleAccounts.length === 0) {
-      return { holdingsCreated: 0, holdingsUpdated: 0, holdingsDeleted: 0 };
-    }
-
-    const brokerageAccountIds = eligibleAccounts.map((a) => a.id);
-
-    // Get all investment transactions for these accounts up to today, ordered by date
-    // Future-dated transactions are excluded so they don't affect current holdings
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const transactions = await this.investmentTransactionsRepository.find({
-      where: {
-        userId,
-        accountId: In(brokerageAccountIds),
-        transactionDate: LessThanOrEqual(today),
-      },
-      order: {
-        transactionDate: "ASC",
-        createdAt: "ASC",
-      },
-    });
-
+  /**
+   * Fold a chronologically-ordered list of investment transactions into a
+   * holdings map (accountId -> securityId -> { quantity, totalCost }). Shared by
+   * every rebuild path so the share-count and cost-basis math stays identical.
+   */
+  private computeHoldingsMap(
+    transactions: InvestmentTransaction[],
+  ): Map<string, Map<string, { quantity: number; totalCost: number }>> {
     // Actions that affect holdings
     const holdingsActions = [
       InvestmentAction.BUY,
@@ -586,8 +591,6 @@ export class HoldingsService {
       InvestmentAction.REMOVE_SHARES,
     ];
 
-    // Rebuild holdings from transactions
-    // Map: accountId -> securityId -> { quantity, totalCost }
     const holdingsMap = new Map<
       string,
       Map<string, { quantity: number; totalCost: number }>
@@ -654,6 +657,151 @@ export class HoldingsService {
       }
     }
 
+    return holdingsMap;
+  }
+
+  /**
+   * Rebuild holdings for a specific set of accounts from their transaction
+   * history, operating within the caller's open transaction.
+   *
+   * Unlike `rebuildFromTransactions` (which opens its own transaction and
+   * rebuilds every eligible account), this participates in an existing
+   * QueryRunner so the rebuild commits or rolls back atomically with the
+   * operation that triggered it. Callers that must not silently leave stale or
+   * misattributed holdings (e.g. a security-transfer edit, where the
+   * incremental reverse/re-apply can misattribute average cost across a zero
+   * crossing) use this instead of a best-effort post-commit rebuild.
+   */
+  async rebuildAccountsFromTransactions(
+    userId: string,
+    accountIds: string[],
+    queryRunner: QueryRunner,
+    asOfDate?: string,
+  ): Promise<void> {
+    if (accountIds.length === 0) return;
+
+    // Only brokerage / standalone investment accounts track holdings; the cash
+    // sleeve of an investment account is excluded everywhere else, so it must be
+    // excluded here too or its rows would be deleted but never rebuilt.
+    const accounts = await queryRunner.manager.find(Account, {
+      where: {
+        id: In(accountIds),
+        userId,
+        accountType: AccountType.INVESTMENT,
+      },
+    });
+    const eligibleIds = accounts
+      .filter(
+        (a) =>
+          a.accountSubType === AccountSubType.INVESTMENT_BROKERAGE ||
+          !a.accountSubType,
+      )
+      .map((a) => a.id);
+    if (eligibleIds.length === 0) return;
+
+    const cutoff = asOfDate ?? this.serverToday();
+    const transactions = await queryRunner.manager.find(InvestmentTransaction, {
+      where: {
+        userId,
+        accountId: In(eligibleIds),
+        transactionDate: LessThanOrEqual(cutoff),
+      },
+      order: {
+        transactionDate: "ASC",
+        createdAt: "ASC",
+      },
+    });
+
+    const holdingsMap = this.computeHoldingsMap(transactions);
+
+    // Delete + recreate holdings for these accounts only.
+    const existing = await queryRunner.manager.find(Holding, {
+      where: { accountId: In(eligibleIds) },
+    });
+    if (existing.length > 0) {
+      await queryRunner.manager.remove(existing);
+    }
+
+    const holdingsRepo = queryRunner.manager.getRepository(Holding);
+    const holdingsToCreate: Holding[] = [];
+    for (const [accountId, securities] of holdingsMap) {
+      for (const [securityId, data] of securities) {
+        if (Math.abs(data.quantity) > 0.00000001) {
+          const avgCost =
+            data.quantity > 0 ? data.totalCost / data.quantity : 0;
+          holdingsToCreate.push(
+            holdingsRepo.create({
+              accountId,
+              securityId,
+              quantity: data.quantity,
+              averageCost: avgCost,
+            }),
+          );
+        }
+      }
+    }
+    if (holdingsToCreate.length > 0) {
+      await holdingsRepo.save(holdingsToCreate);
+    }
+  }
+
+  /**
+   * Rebuild all holdings from existing investment transactions.
+   * This recalculates all holdings based on transaction history,
+   * useful for fixing data after imports that didn't create holdings.
+   * Wrapped in a QueryRunner transaction for atomicity.
+   */
+  async rebuildFromTransactions(
+    userId: string,
+    asOfDate?: string,
+  ): Promise<{
+    holdingsCreated: number;
+    holdingsUpdated: number;
+    holdingsDeleted: number;
+  }> {
+    // M14: Get all investment accounts (brokerage + standalone) for the user
+    const investmentAccounts = await this.accountsRepository.find({
+      where: {
+        userId,
+        accountType: AccountType.INVESTMENT,
+      },
+    });
+
+    // Include brokerage accounts and standalone investment accounts (null subType)
+    const eligibleAccounts = investmentAccounts.filter(
+      (a) =>
+        a.accountSubType === AccountSubType.INVESTMENT_BROKERAGE ||
+        !a.accountSubType,
+    );
+
+    if (eligibleAccounts.length === 0) {
+      return { holdingsCreated: 0, holdingsUpdated: 0, holdingsDeleted: 0 };
+    }
+
+    const brokerageAccountIds = eligibleAccounts.map((a) => a.id);
+
+    // Get all investment transactions for these accounts up to the cutoff date,
+    // ordered by date. Future-dated transactions are excluded so they don't
+    // affect current holdings. Callers materializing matured transactions (the
+    // hourly cron) pass the user's timezone-correct "today" so a transfer dated
+    // today in a timezone ahead of the server isn't wrongly treated as future.
+    const cutoff = asOfDate ?? this.serverToday();
+    const transactions = await this.investmentTransactionsRepository.find({
+      where: {
+        userId,
+        accountId: In(brokerageAccountIds),
+        transactionDate: LessThanOrEqual(cutoff),
+      },
+      order: {
+        transactionDate: "ASC",
+        createdAt: "ASC",
+      },
+    });
+
+    // Rebuild holdings from transactions
+    // Map: accountId -> securityId -> { quantity, totalCost }
+    const holdingsMap = this.computeHoldingsMap(transactions);
+
     // Wrap delete-all + rebuild in a transaction for atomicity
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -710,6 +858,58 @@ export class HoldingsService {
       holdingsUpdated: 0, // We deleted and recreated, so no updates
       holdingsDeleted,
     };
+  }
+
+  /**
+   * Apply matured future-dated investment transactions to holdings.
+   *
+   * Future-dated investment transactions skip the holdings update at creation
+   * time. The hourly cash-balance cron rolls cash forward when their date
+   * arrives, but it never touches holdings -- and a security transfer has no
+   * cash side at all, so without this nothing would ever move the shares.
+   * Once per hour we rebuild holdings for any user with an investment
+   * transaction dated "today" (per their timezone). The rebuild is idempotent,
+   * so re-running it for users who also traded normally today is harmless.
+   */
+  @Cron("30 * * * *")
+  async applyMaturedInvestmentHoldings(): Promise<void> {
+    try {
+      const userIdsByTz = await getUsersByEffectiveTimezone(this.dataSource);
+      if (userIdsByTz.size === 0) return;
+
+      let rebuilt = 0;
+      for (const [tz, userIds] of userIdsByTz) {
+        const today = todayInTimezone(tz);
+        if (!today) continue;
+
+        const maturedRows: { user_id: string }[] = await this.dataSource.query(
+          `SELECT DISTINCT user_id
+             FROM investment_transactions
+             WHERE user_id = ANY($1)
+               AND transaction_date = $2`,
+          [userIds, today],
+        );
+
+        for (const { user_id } of maturedRows) {
+          // Pass the user's timezone-correct today as the cutoff so the rebuild
+          // includes the transaction that just matured -- without it the rebuild
+          // would re-filter against the server's local date and could exclude a
+          // transfer dated today in a timezone ahead of the server.
+          await this.rebuildFromTransactions(user_id, today);
+          rebuilt += 1;
+        }
+      }
+
+      if (rebuilt > 0) {
+        this.logger.log(
+          `Rebuilt holdings for ${rebuilt} user(s) with matured investment transactions`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to apply matured investment holdings: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**

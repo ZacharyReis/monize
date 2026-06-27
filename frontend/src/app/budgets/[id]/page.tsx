@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -56,6 +57,8 @@ function computeHealthScore(summary: BudgetSummary): number {
 }
 
 function BudgetDetailContent() {
+  const t = useTranslations('budgets');
+  const tc = useTranslations('common');
   const params = useParams();
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
@@ -101,13 +104,13 @@ function BudgetDetailContent() {
       setDailySpending(dailyData);
       setTrendData(trend);
     } catch (err) {
-      const message = getErrorMessage(err, 'Failed to load budget');
+      const message = getErrorMessage(err, t('pages.detail.toasts.loadFailed'));
       setError(message);
       toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  }, [budgetId]);
+  }, [budgetId, t]);
 
   useEffect(() => {
     loadData();
@@ -135,7 +138,7 @@ function BudgetDetailContent() {
         const periodDetail = await budgetsApi.getPeriodDetail(budgetId, periodId);
         setSelectedPeriod(periodDetail);
       } catch (err) {
-        const message = getErrorMessage(err, 'Failed to load period');
+        const message = getErrorMessage(err, t('pages.detail.toasts.periodFailed'));
         toast.error(message);
         setSelectedPeriodId(null);
         setSelectedPeriod(null);
@@ -143,16 +146,16 @@ function BudgetDetailContent() {
         setIsPeriodLoading(false);
       }
     },
-    [budgetId, periods],
+    [budgetId, periods, t],
   );
 
   const handleDelete = async () => {
     try {
       await budgetsApi.delete(budgetId);
-      toast.success('Budget deleted');
+      toast.success(t('pages.detail.toasts.deleted'));
       router.push('/budgets');
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to delete budget'));
+      toast.error(getErrorMessage(err, t('pages.detail.toasts.deleteFailed')));
       setShowDeleteConfirm(false);
     }
   };
@@ -199,10 +202,10 @@ function BudgetDetailContent() {
         <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-12 text-center">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              {error || 'Budget not found'}
+              {error || t('pages.detail.notFound')}
             </h3>
             <Button onClick={() => router.push('/budgets')}>
-              Back to Budgets
+              {t('pages.detail.backToBudgets')}
             </Button>
           </div>
         </main>
@@ -231,16 +234,16 @@ function BudgetDetailContent() {
                 variant="outline"
                 onClick={() => router.push(`/budgets/${budgetId}/edit`)}
               >
-                Edit
+                {tc('edit')}
               </Button>
               <Button
                 variant="danger"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                Delete
+                {tc('delete')}
               </Button>
               <Button variant="outline" onClick={() => router.push('/budgets')}>
-                Back
+                {t('pages.detail.backToBudgets')}
               </Button>
             </div>
           }
@@ -266,10 +269,10 @@ function BudgetDetailContent() {
         )}
         <ConfirmDialog
           isOpen={showDeleteConfirm}
-          title="Delete Budget"
-          message={`Are you sure you want to delete "${summary.budget.name}"? This will remove all budget data including periods and alerts. This action cannot be undone.`}
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          title={t('pages.detail.delete.title')}
+          message={t('pages.detail.delete.message', { name: summary.budget.name })}
+          confirmLabel={t('pages.detail.delete.confirm')}
+          cancelLabel={tc('cancel')}
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}

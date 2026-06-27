@@ -1,0 +1,20 @@
+{
+  "title": "Dostęp awaryjny",
+  "missingToken": "Brak tokenu dostępu awaryjnego.",
+  "previewError": "Ten link dostępu awaryjnego jest nieprawidłowy, wygasł lub został już użyty.",
+  "linkInvalid": "Link nie jest już ważny.",
+  "backToSignIn": "Powrót do logowania",
+  "ownerFallback": "właściciel konta",
+  "ownerFirstNameFallback": "właściciel",
+  "intro": "Cześć {contactName}, zostałeś wyznaczony jako kontakt awaryjny na koncie Monize użytkownika <b>{ownerName}</b>.",
+  "introDetail": "Ustawienie hasła tutaj zaloguje Cię jako posiadacza konta i da Ci pełny dostęp do konta. Istniejące sesje zostaną unieważnione, a poprzednie dane logowania zastąpione.",
+  "messageHeading": "Wiadomość od {name}",
+  "newPasswordLabel": "Nowe hasło",
+  "confirmPasswordLabel": "Potwierdź hasło",
+  "submit": "Przejmij dostęp awaryjny",
+  "toasts": {
+    "success": "Masz teraz dostęp do konta użytkownika {name}.",
+    "failed": "Nie udało się dokończyć przejęcia dostępu awaryjnego. Link mógł wygasnąć lub został już użyty."
+  },
+  "passwordsNoMatch": "Hasła nie są zgodne"
+}

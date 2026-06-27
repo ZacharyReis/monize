@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes.css";
 
 /* Custom theme extensions */
 @theme {
@@ -26,10 +27,59 @@
 
   /* Font family */
   --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Fade/slide-in for an incoming chart card, used when a page swaps between
+     chart types (e.g. Balance History -> Account Balances) so the change
+     doesn't pop abruptly. Pair with motion-reduce:animate-none. */
+  --animate-chart-in: chart-in 300ms ease-out;
+
+  @keyframes chart-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* One-shot amber flash for a deep-linked list row (e.g. the AI chat "View
+     transaction / payees / ..." link). Fades the row background and an inset
+     ring out to transparent so the highlight gently disappears instead of
+     blinking off. Colours come from the theme vars below so it adapts to dark
+     mode; pair the utility with motion-reduce:animate-none. */
+  --animate-highlight-flash: highlight-flash 4.5s ease-out;
+
+  @keyframes highlight-flash {
+    /* Hold the full highlight for the first ~55% (~2.5s) so it is still solid
+       once the page has rendered and scrolled the row into view, then fade the
+       background and inset ring out over the remainder. */
+    0%,
+    55% {
+      background-color: var(--highlight-flash-bg);
+      box-shadow: inset 0 0 0 2px var(--highlight-flash-ring);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: inset 0 0 0 2px transparent;
+    }
+  }
 }
 
 /* Dark mode variant */
 @variant dark (&:where(.dark, .dark *));
+
+/* Flash colours (amber-50 / amber-400 in light, amber-900@30% / amber-500 in
+   dark) for the highlight-flash animation above. */
+:root {
+  --highlight-flash-bg: #fffbeb;
+  --highlight-flash-ring: #fbbf24;
+}
+.dark {
+  --highlight-flash-bg: rgb(120 53 15 / 0.3);
+  --highlight-flash-ring: #f59e0b;
+}
 
 /* Base styles -- extend background behind display cutouts */
 html {
@@ -52,17 +102,54 @@ body {
   @apply bg-gray-900 text-gray-100;
 }
 
+/* Tabular figures across the whole app so numeric values (balances, amounts,
+   prices, quantities, percentages) align with fixed-width digits wherever they
+   appear -- tables, cards, grid/flex widgets, inputs. This is purely a
+   glyph-width change for digits; non-numeric text is unaffected. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Category badge colour variables for light/dark mode */
 :root {
-  --category-bg-base: #e5e7eb;
-  --category-text-base: #6b7280;
+  --category-bg-base: var(--color-gray-200);
+  --category-text-base: var(--color-gray-500);
   --category-text-mix: #000;
 }
 
 .dark {
-  --category-bg-base: #374151;
-  --category-text-base: #9ca3af;
+  --category-bg-base: var(--color-gray-700);
+  --category-text-base: var(--color-gray-400);
   --category-text-mix: #fff;
+}
+
+/* Chart colour tokens. Recharts components reference these as
+   `var(--chart-*)` strings (see src/lib/chart-colors.ts) so charts follow
+   both the colour theme and light/dark mode without any JS recomputation.
+   Grid, axis, and primary derive from the gray/blue ramps and therefore
+   re-theme automatically; the rest have per-theme overrides in themes.css. */
+:root {
+  --chart-primary: var(--color-blue-500);
+  --chart-grid: var(--color-gray-200);
+  --chart-axis: var(--color-gray-500);
+  --chart-income: #10b981;
+  --chart-expense: #ef4444;
+  --chart-warning: #f59e0b;
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --chart-6: #ec4899;
+  --chart-7: #06b6d4;
+  --chart-8: #84cc16;
+  --chart-9: #f97316;
+  --chart-10: #6366f1;
+}
+
+.dark {
+  --chart-grid: var(--color-gray-700);
+  --chart-axis: var(--color-gray-400);
 }
 
 /* Form element styling (replaces @tailwindcss/forms) */
@@ -78,7 +165,7 @@ textarea,
 select {
   @apply w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 text-base font-sans;
   appearance: none;
-  background-color: #fff;
+  background-color: var(--color-white);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -93,17 +180,17 @@ select {
 [type='time'],
 [type='week'] {
   @apply w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 text-base font-sans;
-  background-color: #fff;
+  background-color: var(--color-white);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
 /* Placeholder colors */
 ::placeholder {
-  color: rgb(156 163 175); /* gray-400 */
+  color: var(--color-gray-400);
 }
 
 .dark ::placeholder {
-  color: rgb(156 163 175); /* gray-400 */
+  color: var(--color-gray-400);
 }
 
 [type='text']:focus,
@@ -140,7 +227,7 @@ select:focus {
 .dark textarea,
 .dark select {
   @apply border-gray-600 text-gray-100;
-  background-color: rgb(31 41 55); /* gray-800 to match MultiSelect */
+  background-color: var(--color-gray-800); /* matches MultiSelect */
 }
 
 /* Select dropdown arrow for dark mode */
@@ -176,12 +263,12 @@ select {
 .dark [type='checkbox'],
 .dark [type='radio'] {
   @apply border-gray-600;
-  background-color: rgb(31 41 55); /* gray-800 */
+  background-color: var(--color-gray-800);
 }
 
 /* Date input styling - empty date inputs should match placeholder color */
 .date-empty {
-  color: rgb(156 163 175) !important; /* gray-400 - matches placeholder */
+  color: var(--color-gray-400) !important; /* matches placeholder */
 }
 
 /* Select placeholder color - applied when no option is selected. The selectors
@@ -189,7 +276,7 @@ select {
    `.dark select { text-gray-100 }` rule above. */
 select.select-placeholder,
 .dark select.select-placeholder {
-  color: rgb(156 163 175); /* gray-400 - matches MultiSelect placeholder */
+  color: var(--color-gray-400); /* matches MultiSelect placeholder */
 }
 
 /* Calendar picker indicator for dark mode */

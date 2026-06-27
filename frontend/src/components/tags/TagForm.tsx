@@ -1,6 +1,7 @@
 'use client';
 
 import { MutableRefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { useForm, useWatch } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,13 +13,13 @@ import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
 import { FormActions } from '@/components/ui/FormActions';
 import { Tag } from '@/types/tag';
 
-const tagSchema = z.object({
-  name: z.string().min(1, 'Tag name is required').max(100),
+const buildTagSchema = (t: (key: string) => string) => z.object({
+  name: z.string().min(1, t('validation.nameRequired')).max(100),
   color: z.string().optional(),
   icon: z.string().optional(),
 });
 
-type TagFormData = z.infer<typeof tagSchema>;
+type TagFormData = z.infer<ReturnType<typeof buildTagSchema>>;
 
 interface TagFormProps {
   tag?: Tag | null;
@@ -28,19 +29,24 @@ interface TagFormProps {
   submitRef?: MutableRefObject<(() => void) | null>;
 }
 
-const colourPalette = [
-  { value: '#ef4444', label: 'Red' },
-  { value: '#f97316', label: 'Orange' },
-  { value: '#eab308', label: 'Yellow' },
-  { value: '#22c55e', label: 'Green' },
-  { value: '#14b8a6', label: 'Teal' },
-  { value: '#3b82f6', label: 'Blue' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#ec4899', label: 'Pink' },
-  { value: '#6b7280', label: 'Grey' },
-];
+const colourPaletteValues = [
+  { value: '#ef4444', labelKey: 'form.colours.red' },
+  { value: '#f97316', labelKey: 'form.colours.orange' },
+  { value: '#eab308', labelKey: 'form.colours.yellow' },
+  { value: '#22c55e', labelKey: 'form.colours.green' },
+  { value: '#14b8a6', labelKey: 'form.colours.teal' },
+  { value: '#3b82f6', labelKey: 'form.colours.blue' },
+  { value: '#8b5cf6', labelKey: 'form.colours.purple' },
+  { value: '#ec4899', labelKey: 'form.colours.pink' },
+  { value: '#6b7280', labelKey: 'form.colours.grey' },
+] as const;
 
 export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: TagFormProps) {
+  const t = useTranslations('tags');
+  const colourPalette = colourPaletteValues.map((opt) => ({
+    value: opt.value,
+    label: t(opt.labelKey),
+  }));
   const {
     register,
     handleSubmit,
@@ -48,7 +54,7 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
     setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<TagFormData>({
-    resolver: zodResolver(tagSchema),
+    resolver: zodResolver(buildTagSchema(t)),
     defaultValues: tag
       ? {
           name: tag.name,
@@ -72,7 +78,7 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input
-        label="Tag Name"
+        label={t('form.nameLabel')}
         error={errors.name?.message}
         {...register('name')}
       />
@@ -80,7 +86,7 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <input type="hidden" {...register('color')} />
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colour</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('form.colourLabel')}</label>
           {/* Mobile: dropdown select */}
           <div className="md:hidden">
             <div className="flex items-center gap-2">
@@ -97,7 +103,7 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
                 onChange={(e) => setValue('color', e.target.value, { shouldDirty: true })}
                 className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 text-sm"
               >
-                <option value="">No colour</option>
+                <option value="">{t('form.noColour')}</option>
                 {colourPalette.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -114,7 +120,7 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
                   ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
-              title="No colour"
+              title={t('form.noColour')}
             >
               {!watchedColor && (
                 <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -142,14 +148,14 @@ export function TagForm({ tag, onSubmit, onCancel, onDirtyChange, submitRef }: T
         <div>
           <input type="hidden" {...register('icon')} />
           <IconPicker
-            label="Icon"
+            label={t('form.iconLabel')}
             value={watchedIcon || null}
             onChange={(icon) => setValue('icon', icon, { shouldDirty: true })}
           />
         </div>
       </div>
 
-      <FormActions onCancel={onCancel} submitLabel={tag ? 'Update Tag' : 'Create Tag'} isSubmitting={isSubmitting} />
+      <FormActions onCancel={onCancel} submitLabel={tag ? t('form.submitUpdate') : t('form.submitCreate')} isSubmitting={isSubmitting} />
     </form>
   );
 }

@@ -13,6 +13,8 @@ import type {
   InsightsListResponse,
   InsightType,
   InsightSeverity,
+  ConfirmActionResponse,
+  AttachmentPayload,
 } from '@/types/ai';
 
 export const aiApi = {
@@ -64,10 +66,15 @@ export const aiApi = {
   query: async (
     query: string,
     conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    attachments?: AttachmentPayload[],
   ): Promise<QueryResult> => {
     const response = await apiClient.post<QueryResult>(
       '/ai/query',
-      { query, conversationHistory },
+      {
+        query,
+        conversationHistory,
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      },
       { timeout: 120000 },
     );
     return response.data;
@@ -77,8 +84,25 @@ export const aiApi = {
     query: string,
     callbacks: StreamCallbacks,
     conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    opts?: { relay?: boolean },
+    attachments?: AttachmentPayload[],
   ): AbortController => {
     const controller = new AbortController();
+
+    // Relay mode routes the prompt to the user's own MCP agent (their
+    // subscription) instead of a server-side LLM provider. Same SSE event
+    // shape, different endpoint.
+    const relay = opts?.relay ?? false;
+    const path = relay
+      ? '/api/v1/ai/relay/query/stream'
+      : '/api/v1/ai/query/stream';
+    // Attachments flow to both paths. On the relay path the backend stores them
+    // and exposes each to the agent as a monize-attachment:// MCP resource.
+    const body = {
+      query,
+      conversationHistory,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
+    };
 
     // Open the stream. Re-read the CSRF cookie each call so a retry after
     // token refresh picks up the rotated value. js-cookie URL-decodes the
@@ -87,13 +111,13 @@ export const aiApi = {
     // backend's timing-safe comparison.
     const openStream = (): Promise<Response> => {
       const csrfToken = Cookies.get('csrf_token') || '';
-      return fetch('/api/v1/ai/query/stream', {
+      return fetch(path, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
         },
-        body: JSON.stringify({ query, conversationHistory }),
+        body: JSON.stringify(body),
         credentials: 'include',
         signal: controller.signal,
       });
@@ -170,6 +194,44 @@ export const aiApi = {
     })();
 
     return controller;
+  },
+
+  // Confirm a human-in-the-loop write action the assistant proposed. Uses the
+  // axios client so CSRF + 401-refresh are handled by the interceptors.
+  confirmAction: async (body: {
+    actionId: string;
+    signature: string;
+    descriptor: Record<string, unknown>;
+  }): Promise<ConfirmActionResponse> => {
+    const response = await apiClient.post<ConfirmActionResponse>(
+      '/ai/actions/confirm',
+      body,
+    );
+    return response.data;
+  },
+
+  // Reverse MCP relay: pick up a late answer the agent posted after the SSE
+  // stream already errored/closed. Returns null text when nothing is buffered
+  // (expired, never arrived, or already picked up).
+  getRelayResponse: async (
+    promptId: string,
+  ): Promise<{ text: string | null }> => {
+    const response = await apiClient.get<{ text: string | null }>(
+      `/ai/relay/response/${promptId}`,
+    );
+    return response.data;
+  },
+
+  // Reverse MCP relay: tunnel status for the chat indicator.
+  getRelayStatus: async (): Promise<{
+    state: 'offline' | 'listening' | 'busy';
+    queued: number;
+  }> => {
+    const response = await apiClient.get<{
+      state: 'offline' | 'listening' | 'busy';
+      queued: number;
+    }>('/ai/relay/status');
+    return response.data;
   },
 
   // Spending Insights

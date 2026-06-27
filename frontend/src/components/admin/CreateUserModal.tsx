@@ -1,6 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -8,10 +12,44 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { adminApi, CreateUserResponse } from '@/lib/admin';
-import { passwordSchema, PASSWORD_REQUIREMENTS_TEXT } from '@/lib/zod-helpers';
+import { buildPasswordSchema, buildEmailSchema } from '@/lib/zod-helpers';
 import { getErrorMessage } from '@/lib/errors';
 
 type CredentialMethod = 'invite' | 'password' | 'temporary';
+
+// The password field is only validated when the "password" credential method
+// is chosen; for invite/temporary it is left blank. A superRefine keeps the
+// shared password rules without forcing a password for the other methods.
+// `t` is the `admin` translator, `tc` the `common` one (email + password rules).
+const buildCreateUserSchema = (
+  t: (key: string) => string,
+  tc: (key: string) => string,
+) =>
+  z
+    .object({
+      email: buildEmailSchema(tc),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      role: z.enum(['user', 'admin']),
+      method: z.enum(['invite', 'password', 'temporary']),
+      password: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.method === 'password') {
+        const result = buildPasswordSchema(tc).safeParse(data.password ?? '');
+        if (!result.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['password'],
+            message:
+              result.error.issues[0]?.message ??
+              t('createUserModal.validation.invalidPassword'),
+          });
+        }
+      }
+    });
+
+type CreateUserFormData = z.infer<ReturnType<typeof buildCreateUserSchema>>;
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -26,64 +64,61 @@ export function CreateUserModal({
   onClose,
   onCreated,
 }: CreateUserModalProps) {
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState<'admin' | 'user'>('user');
-  const [method, setMethod] = useState<CredentialMethod>(
-    smtpConfigured ? 'invite' : 'password',
-  );
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const t = useTranslations('admin');
+  const tc = useTranslations('common');
+  const defaultMethod: CredentialMethod = smtpConfigured ? 'invite' : 'password';
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateUserFormData>({
+    resolver: zodResolver(buildCreateUserSchema(t, tc)),
+    defaultValues: {
+      email: '',
+      firstName: '',
+      lastName: '',
+      role: 'user',
+      method: defaultMethod,
+      password: '',
+    },
+  });
+
+  const method = useWatch({ control, name: 'method' });
 
   // Reset the form to its initial state whenever the modal transitions open.
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
     if (isOpen) {
-      setEmail('');
-      setFirstName('');
-      setLastName('');
-      setRole('user');
-      setMethod(smtpConfigured ? 'invite' : 'password');
-      setPassword('');
+      reset({
+        email: '',
+        firstName: '',
+        lastName: '',
+        role: 'user',
+        method: defaultMethod,
+        password: '',
+      });
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
-
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      toast.error('Email is required.');
-      return;
-    }
-
-    if (method === 'password') {
-      const parsed = passwordSchema.safeParse(password);
-      if (!parsed.success) {
-        toast.error(parsed.error.issues[0]?.message ?? 'Invalid password.');
-        return;
-      }
-    }
-
-    setSubmitting(true);
+  const onSubmit = async (data: CreateUserFormData) => {
     try {
       const result = await adminApi.createUser({
-        email: trimmedEmail,
-        firstName: firstName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
-        role,
-        password: method === 'password' ? password : undefined,
-        sendInvite: method === 'invite',
+        email: data.email.trim(),
+        firstName: data.firstName?.trim() || undefined,
+        lastName: data.lastName?.trim() || undefined,
+        role: data.role,
+        password: data.method === 'password' ? data.password : undefined,
+        sendInvite: data.method === 'invite',
       });
       onCreated(result);
       onClose();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to create user'));
-    } finally {
-      setSubmitting(false);
+      toast.error(getErrorMessage(err, t('createUserModal.toasts.createFailed')));
     }
   };
 
@@ -92,55 +127,51 @@ export function CreateUserModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="lg" pushHistory>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit(onSubmit)}>
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            Add User
+            {t('createUserModal.title')}
           </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Create a new account. You can email an invite, set a password
-            yourself, or generate a temporary one to share.
+            {t('createUserModal.description')}
           </p>
         </div>
 
         <div className="px-6 py-4 space-y-4">
           <Input
             type="email"
-            label="Email"
+            label={t('createUserModal.emailLabel')}
             required
-            placeholder="user@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('createUserModal.emailPlaceholder')}
+            error={errors.email?.message}
+            {...register('email')}
           />
 
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="First name (optional)"
-              placeholder="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              label={t('createUserModal.firstNameLabel')}
+              placeholder={t('createUserModal.firstNamePlaceholder')}
+              {...register('firstName')}
             />
             <Input
-              label="Last name (optional)"
-              placeholder="Last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              label={t('createUserModal.lastNameLabel')}
+              placeholder={t('createUserModal.lastNamePlaceholder')}
+              {...register('lastName')}
             />
           </div>
 
           <Select
-            label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as 'admin' | 'user')}
+            label={t('createUserModal.roleLabel')}
             options={[
-              { value: 'user', label: 'User' },
-              { value: 'admin', label: 'Admin' },
+              { value: 'user', label: t('createUserModal.roleUser') },
+              { value: 'admin', label: t('createUserModal.roleAdmin') },
             ]}
+            {...register('role')}
           />
 
           <fieldset className="space-y-2">
             <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Credentials
+              {t('createUserModal.credentialsLegend')}
             </legend>
 
             <label className="flex items-start gap-2 cursor-pointer">
@@ -150,13 +181,13 @@ export function CreateUserModal({
                 className="mt-1"
                 checked={method === 'invite'}
                 disabled={!smtpConfigured}
-                onChange={() => setMethod('invite')}
+                onChange={() => setValue('method', 'invite')}
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Send an email invite to set a password
+                {t('createUserModal.inviteLabel')}
                 {!smtpConfigured && (
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
-                    Requires SMTP to be configured.
+                    {t('createUserModal.inviteSmtpNote')}
                   </span>
                 )}
               </span>
@@ -168,10 +199,10 @@ export function CreateUserModal({
                 name="credential-method"
                 className="mt-1"
                 checked={method === 'password'}
-                onChange={() => setMethod('password')}
+                onChange={() => setValue('method', 'password')}
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Set a password now
+                {t('createUserModal.setPasswordLabel')}
               </span>
             </label>
 
@@ -181,13 +212,12 @@ export function CreateUserModal({
                 name="credential-method"
                 className="mt-1"
                 checked={method === 'temporary'}
-                onChange={() => setMethod('temporary')}
+                onChange={() => setValue('method', 'temporary')}
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Generate a temporary password
+                {t('createUserModal.tempPasswordLabel')}
                 <span className="block text-xs text-gray-500 dark:text-gray-400">
-                  Shown once after creation. The user must change it on first
-                  login.
+                  {t('createUserModal.tempPasswordNote')}
                 </span>
               </span>
             </label>
@@ -196,18 +226,23 @@ export function CreateUserModal({
           {method === 'password' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Password
+                {t('createUserModal.passwordFieldLabel')}
               </label>
               <PasswordInput
                 required
-                placeholder="Set a password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('createUserModal.passwordPlaceholder')}
                 className={inputClass}
+                {...register('password')}
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {PASSWORD_REQUIREMENTS_TEXT}
-              </p>
+              {errors.password?.message ? (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {errors.password.message}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {tc('passwordRequirements')}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -217,12 +252,12 @@ export function CreateUserModal({
             type="button"
             variant="outline"
             onClick={onClose}
-            disabled={submitting}
+            disabled={isSubmitting}
           >
-            Cancel
+            {tc('cancel')}
           </Button>
-          <Button type="submit" isLoading={submitting}>
-            Create User
+          <Button type="submit" isLoading={isSubmitting}>
+            {t('createUserModal.createButton')}
           </Button>
         </div>
       </form>

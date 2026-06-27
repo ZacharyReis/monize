@@ -36,7 +36,7 @@ export class FinancialContextBuilder {
     const today = new Date().toISOString().substring(0, 10);
 
     // LLM06-F1: Only include account names and types, not balances.
-    // Balances are available through the get_account_balances tool.
+    // Balances are available through the list_accounts tool.
     const accountList = accounts
       .map(
         (a) =>
@@ -52,7 +52,7 @@ TODAY'S DATE: ${today}
 USER'S DEFAULT CURRENCY: ${currency}
 
 <USER_DATA>
-USER'S ACCOUNTS (use get_account_balances tool for balance details):
+USER'S ACCOUNTS (use list_accounts tool for balance details):
 ${accountList || "(No accounts configured)"}
 
 USER'S CATEGORIES:

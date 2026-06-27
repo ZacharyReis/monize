@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { Category } from "../categories/entities/category.entity";
 import { ReportCurrencyService } from "./report-currency.service";
+import { roundMoney, sumMoney, toMoneyNumber } from "../common/round.util";
 import {
   YearOverYearResponse,
   YearData,
@@ -87,21 +88,20 @@ export class ComparisonReportsService {
       if (yearData) {
         const monthData = yearData.months[row.month - 1];
         const income = this.currencyService.convertAmount(
-          parseFloat(row.income) || 0,
+          toMoneyNumber(row.income),
           row.currency_code,
           defaultCurrency,
           rateMap,
         );
         const expenses = this.currencyService.convertAmount(
-          parseFloat(row.expenses) || 0,
+          toMoneyNumber(row.expenses),
           row.currency_code,
           defaultCurrency,
           rateMap,
         );
-        monthData.income += Math.round(income * 100) / 100;
-        monthData.expenses += Math.round(expenses * 100) / 100;
-        monthData.savings =
-          Math.round((monthData.income - monthData.expenses) * 100) / 100;
+        monthData.income = roundMoney(monthData.income + income);
+        monthData.expenses = roundMoney(monthData.expenses + expenses);
+        monthData.savings = roundMoney(monthData.income - monthData.expenses);
 
         yearData.totals.income += income;
         yearData.totals.expenses += expenses;
@@ -110,10 +110,9 @@ export class ComparisonReportsService {
     });
 
     yearMap.forEach((yearData) => {
-      yearData.totals.income = Math.round(yearData.totals.income * 100) / 100;
-      yearData.totals.expenses =
-        Math.round(yearData.totals.expenses * 100) / 100;
-      yearData.totals.savings = Math.round(yearData.totals.savings * 100) / 100;
+      yearData.totals.income = roundMoney(yearData.totals.income);
+      yearData.totals.expenses = roundMoney(yearData.totals.expenses);
+      yearData.totals.savings = roundMoney(yearData.totals.savings);
     });
 
     return {
@@ -189,7 +188,7 @@ export class ComparisonReportsService {
 
     rawResults.forEach((row) => {
       const total = this.currencyService.convertAmount(
-        parseFloat(row.total) || 0,
+        toMoneyNumber(row.total),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -223,23 +222,21 @@ export class ComparisonReportsService {
       }
     });
 
-    const weekendTotal = Math.round((dayTotals[0] + dayTotals[6]) * 100) / 100;
-    const weekdayTotal =
-      Math.round(
-        (dayTotals[1] +
-          dayTotals[2] +
-          dayTotals[3] +
-          dayTotals[4] +
-          dayTotals[5]) *
-          100,
-      ) / 100;
+    const weekendTotal = sumMoney([dayTotals[0], dayTotals[6]]);
+    const weekdayTotal = sumMoney([
+      dayTotals[1],
+      dayTotals[2],
+      dayTotals[3],
+      dayTotals[4],
+      dayTotals[5],
+    ]);
     const weekendCount = dayCounts[0] + dayCounts[6];
     const weekdayCount =
       dayCounts[1] + dayCounts[2] + dayCounts[3] + dayCounts[4] + dayCounts[5];
 
     const byDay: DaySpending[] = dayTotals.map((total, index) => ({
       dayOfWeek: index,
-      total: Math.round(total * 100) / 100,
+      total: roundMoney(total),
       count: dayCounts[index],
     }));
 
@@ -254,8 +251,8 @@ export class ComparisonReportsService {
         return {
           categoryId: catId === "uncategorized" ? null : catId,
           categoryName: weekend?.name || weekday?.name || "Unknown",
-          weekendTotal: Math.round((weekend?.total || 0) * 100) / 100,
-          weekdayTotal: Math.round((weekday?.total || 0) * 100) / 100,
+          weekendTotal: roundMoney(weekend?.total || 0),
+          weekdayTotal: roundMoney(weekday?.total || 0),
         };
       })
       .sort(

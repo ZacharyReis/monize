@@ -12,6 +12,8 @@ npm run type-check         # tsc --noEmit
 npm run test               # Vitest (single run)
 npm run test:watch         # Vitest (watch mode)
 npm run test:cov           # Coverage report (91% lines, 90% stmts, 87% funcs, 85% branches)
+npm run i18n:pseudo        # Regenerate the xx pseudo-locale from en
+npm run i18n:check         # Verify the pseudo-locale is up to date (CI gate)
 ```
 
 ## Layout
@@ -62,6 +64,10 @@ This is Next.js middleware (NOT the deprecated middleware pattern from this proj
 
 Supporting hooks: `useFormSubmitRef` (expose submit via ref), `useFormDirtyNotify` (track dirty state). Forms use react-hook-form + Zod.
 
+## Internationalization (i18n)
+
+All user-facing strings go through `next-intl` -- no hardcoded literals. Read them with `useTranslations('namespace')`; catalogs live in `src/i18n/messages/{locale}/{namespace}.json` (locales `de`, `en`, `en-US`, `en-CA`, `en-GB`, `es`, `fr`, `hi`, `id`, `it`, `ja`, `ko`, `nl`, `pl`, `pt`, `pt-BR`, `ru`, `tr`, `uk`, `vi`, `zh-CN`, `zh-TW`, `xx`; the `en-*` locales are lean regional variants holding only the strings that differ from `en`; register new namespaces in `src/i18n/messages.ts`). Use `t.rich` for embedded markup and `t.raw` for template strings. Adding or changing a string means updating every locale -- the parity test `src/i18n/messages.parity.test.ts` fails otherwise -- then regenerating the pseudo-locale with `npm run i18n:pseudo`. The language is a user preference (`LanguageSelector` in Settings -> Preferences). Full contributor flow: `src/i18n/messages/README.md`.
+
 ## React Testing (act() Pattern)
 
 Components with async `useEffect` (API calls on mount) MUST use this pattern to avoid act() warnings:
@@ -103,7 +109,9 @@ Never use synchronous `act(() => {...})` for calls that trigger async side-effec
 
 ## Theme
 
-`ThemeContext` provides `theme` (light/dark/system), `resolvedTheme`, and `setTheme()`. Persisted to localStorage; applies `dark` class to `<html>` (Tailwind dark mode strategy); listens for system preference changes via `matchMedia`. Custom theme variables in `globals.css` `@theme` block; dark variant `@variant dark (&:where(.dark, .dark *))`.
+`ThemeContext` provides `theme` (light/dark/system), `resolvedTheme`, and `setTheme()`, plus `colorTheme`/`setColorTheme()` for the colour palette (`src/lib/color-themes.ts`). Both persisted to localStorage; applies `dark` class (Tailwind dark mode strategy) and a `data-theme` attribute (`default` = no attribute) to `<html>`; listens for system preference changes via `matchMedia`. Custom theme variables in `globals.css` `@theme` block; dark variant `@variant dark (&:where(.dark, .dark *))`.
+
+Colour themes are pure CSS variable overrides in `src/app/themes.css` (`html[data-theme="..."]` redefines the gray/blue ramps etc. -- Tailwind v4 utilities compile to `var(--color-*)` so no component changes are needed). Chart colours go through `src/lib/chart-colors.ts`, which exposes `var(--chart-*)` strings for Recharts props; never hardcode hex colours in charts, and never theme user-chosen entity colours (tags, categories, payees).
 
 ## Security Notes
 

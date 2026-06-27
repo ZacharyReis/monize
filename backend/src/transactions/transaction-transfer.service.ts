@@ -9,17 +9,76 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner } from "typeorm";
 import { Transaction, TransactionStatus } from "./entities/transaction.entity";
 import { TransactionSplit } from "./entities/transaction-split.entity";
+import { Category } from "../categories/entities/category.entity";
 import { CreateTransferDto } from "./dto/create-transfer.dto";
 import { UpdateTransferDto } from "./dto/update-transfer.dto";
 import { AccountsService } from "../accounts/accounts.service";
+import { PayeesService } from "../payees/payees.service";
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { isTransactionInFuture } from "../common/date-utils";
 import { ActionHistoryService } from "../action-history/action-history.service";
 import { formatCurrency } from "../common/format-currency.util";
+import { roundMoney } from "../common/round.util";
+import { stripHtml } from "../common/sanitization.util";
+import { tr } from "../i18n/translate";
 
 export interface TransferResult {
   fromTransaction: Transaction;
   toTransaction: Transaction;
+}
+
+/**
+ * Resolved, sanitized preview of a transfer the assistant proposes to create.
+ * Carries the resulting state of both legs (resolved account ids/names, derived
+ * currencies, and the computed destination amount) so the signed descriptor can
+ * reproduce it on confirm. Shared by the AI Assistant tool executor and the MCP
+ * tool via the transaction-tool prep service.
+ */
+export interface CreateTransferPreview {
+  fromAccountId: string;
+  fromAccountName: string;
+  fromCurrencyCode: string;
+  toAccountId: string;
+  toAccountName: string;
+  toCurrencyCode: string;
+  amount: number;
+  toAmount: number;
+  exchangeRate: number;
+  transactionDate: string;
+  description: string | null;
+  /** Existing payee the custom label resolved to, or null to record free text. */
+  payeeId: string | null;
+  payeeName: string | null;
+  /** True when the custom label matched an existing payee. */
+  payeeMatched: boolean;
+  /** True when approving will create a new payee from an unmatched label. */
+  payeeWillBeCreated: boolean;
+  /** Spending category applied to both legs on create (null = none). */
+  categoryId: string | null;
+  categoryName: string | null;
+}
+
+/** Resolved, sanitized preview of an edit the assistant proposes to a transfer. */
+export interface UpdateTransferPreview {
+  transactionId: string;
+  fromAccountId: string;
+  fromAccountName: string;
+  fromCurrencyCode: string;
+  toAccountId: string;
+  toAccountName: string;
+  toCurrencyCode: string;
+  amount: number;
+  toAmount: number;
+  exchangeRate: number;
+  transactionDate: string;
+  description: string | null;
+  payeeId: string | null;
+  payeeName: string | null;
+  payeeMatched: boolean;
+  payeeWillBeCreated: boolean;
+  /** Spending category applied to both legs after the edit (null = none). */
+  categoryId: string | null;
+  categoryName: string | null;
 }
 
 @Injectable()
@@ -31,8 +90,11 @@ export class TransactionTransferService {
     private transactionsRepository: Repository<Transaction>,
     @InjectRepository(TransactionSplit)
     private splitsRepository: Repository<TransactionSplit>,
+    @InjectRepository(Category)
+    private categoriesRepository: Repository<Category>,
     @Inject(forwardRef(() => AccountsService))
     private accountsService: AccountsService,
+    private payeesService: PayeesService,
     @Inject(forwardRef(() => NetWorthService))
     private netWorthService: NetWorthService,
     private dataSource: DataSource,
@@ -41,6 +103,26 @@ export class TransactionTransferService {
 
   private triggerNetWorthRecalc(accountId: string, userId: string): void {
     this.netWorthService.triggerDebouncedRecalc(accountId, userId);
+  }
+
+  /**
+   * Ensure a category belongs to the user before it is stored on a transfer
+   * leg. Mirrors the check in transactions.service.create(). A null/undefined
+   * id is allowed (no category / clearing it).
+   */
+  private async assertCategoryOwned(
+    userId: string,
+    categoryId: string | null | undefined,
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.categoriesRepository.findOne({
+      where: { id: categoryId, userId },
+    });
+    if (!category) {
+      throw new BadRequestException(
+        tr("errors.transactions.categoryNotFound", "Category not found"),
+      );
+    }
   }
 
   async createTransfer(
@@ -62,17 +144,28 @@ export class TransactionTransferService {
       payeeName: customPayeeName,
       referenceNumber,
       status = TransactionStatus.UNRECONCILED,
+      categoryId,
     } = createTransferDto;
 
     if (fromAccountId === toAccountId) {
       throw new BadRequestException(
-        "Source and destination accounts must be different",
+        tr(
+          "errors.transactions.transferSameAccount",
+          "Source and destination accounts must be different",
+        ),
       );
     }
 
     if (amount < 0) {
-      throw new BadRequestException("Transfer amount must not be negative");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.transferAmountNegative",
+          "Transfer amount must not be negative",
+        ),
+      );
     }
+
+    await this.assertCategoryOwned(userId, categoryId);
 
     const fromAccount = await this.accountsService.findOne(
       userId,
@@ -82,8 +175,8 @@ export class TransactionTransferService {
 
     const toAmount =
       explicitToAmount !== undefined
-        ? Math.round(explicitToAmount * 10000) / 10000
-        : Math.round(amount * exchangeRate * 10000) / 10000;
+        ? roundMoney(explicitToAmount)
+        : roundMoney(amount * exchangeRate);
     const destinationCurrency = toCurrencyCode || fromCurrencyCode;
 
     const fromPayeeName = customPayeeName || `Transfer to ${toAccount.name}`;
@@ -110,6 +203,7 @@ export class TransactionTransferService {
         isTransfer: true,
         payeeId: payeeId || null,
         payeeName: fromPayeeName,
+        categoryId: categoryId || null,
       });
 
       const toTransaction = queryRunner.manager.create(Transaction, {
@@ -125,6 +219,7 @@ export class TransactionTransferService {
         isTransfer: true,
         payeeId: payeeId || null,
         payeeName: toPayeeName,
+        categoryId: categoryId || null,
       });
 
       const savedFromTransaction =
@@ -190,6 +285,12 @@ export class TransactionTransferService {
         toAccountId,
       },
       description: `Created transfer ${formatCurrency(amount, fromCurrencyCode)} from ${fromAccount.name} to ${toAccount.name}`,
+      descriptionKey: "createdTransfer",
+      descriptionParams: {
+        amount: formatCurrency(amount, fromCurrencyCode),
+        from: fromAccount.name,
+        to: toAccount.name,
+      },
     });
 
     return result;
@@ -208,9 +309,270 @@ export class TransactionTransferService {
 
     try {
       return await findOne(userId, transaction.linkedTransactionId);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Failed to load linked transaction ${transaction.linkedTransactionId}: ${err instanceof Error ? err.message : err}`,
+      );
       return null;
     }
+  }
+
+  /**
+   * Detect whether a loaded transaction is a transfer leg. Usable by the prep
+   * service to route an update/delete to the transfer-aware flow.
+   */
+  isTransfer(transaction: Transaction): boolean {
+    return transaction.isTransfer === true;
+  }
+
+  /**
+   * Validate and resolve a proposed transfer WITHOUT persisting it. Resolves the
+   * from/to accounts (by id), derives their currencies, computes the destination
+   * amount from an explicit toAmount or the exchange rate (via roundMoney), and
+   * sanitizes the description. Mirrors the resulting state createTransfer writes.
+   */
+  async previewCreateTransfer(
+    userId: string,
+    input: {
+      fromAccountId: string;
+      toAccountId: string;
+      amount: number;
+      transactionDate: string;
+      exchangeRate?: number;
+      toAmount?: number;
+      description?: string;
+      payeeName?: string;
+      /** Auto-create a payee for an unmatched custom label. Defaults to true. */
+      createPayeeIfMissing?: boolean;
+      /** Spending category id applied to both legs (null/undefined = none). */
+      categoryId?: string | null;
+    },
+  ): Promise<CreateTransferPreview> {
+    if (input.fromAccountId === input.toAccountId) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.transferSameAccount",
+          "Source and destination accounts must be different",
+        ),
+      );
+    }
+    if (input.amount < 0) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.transferAmountNegative",
+          "Transfer amount must not be negative",
+        ),
+      );
+    }
+
+    const fromAccount = await this.accountsService.findOne(
+      userId,
+      input.fromAccountId,
+    );
+    const toAccount = await this.accountsService.findOne(
+      userId,
+      input.toAccountId,
+    );
+
+    const exchangeRate = input.exchangeRate ?? 1;
+    const toAmount =
+      input.toAmount !== undefined
+        ? roundMoney(input.toAmount)
+        : roundMoney(input.amount * exchangeRate);
+
+    // Resolve the custom label to an existing payee exactly like a normal cash
+    // transaction (previewCreate): on a match link the payee and adopt its
+    // canonical name; an unmatched name becomes a new payee on confirm unless
+    // the caller opted out. Transfers have no category, so the matched payee's
+    // default category is deliberately NOT inherited (a transfer's optional
+    // spending category is set explicitly by the caller).
+    const inputPayeeName = stripHtml(input.payeeName) || null;
+    let payeeId: string | null = null;
+    let payeeName: string | null = inputPayeeName;
+    let payeeMatched = false;
+    if (inputPayeeName) {
+      const payee = await this.payeesService.resolveByName(
+        userId,
+        inputPayeeName,
+      );
+      if (payee) {
+        payeeId = payee.id;
+        payeeMatched = true;
+        payeeName = payee.name;
+      }
+    }
+    const payeeWillBeCreated =
+      !!payeeName && !payeeMatched && input.createPayeeIfMissing !== false;
+
+    // Resolve an optional spending category to apply to both legs, validating
+    // ownership so the confirm step re-applies the same id (mirrors
+    // previewUpdateTransfer and the standard create path).
+    let categoryId: string | null = null;
+    let categoryName: string | null = null;
+    if (input.categoryId) {
+      const category = await this.categoriesRepository.findOne({
+        where: { id: input.categoryId, userId },
+      });
+      if (!category) {
+        throw new BadRequestException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
+      }
+      categoryId = category.id;
+      categoryName = category.name;
+    }
+
+    return {
+      fromAccountId: fromAccount.id,
+      fromAccountName: fromAccount.name,
+      fromCurrencyCode: fromAccount.currencyCode,
+      toAccountId: toAccount.id,
+      toAccountName: toAccount.name,
+      toCurrencyCode: toAccount.currencyCode,
+      amount: roundMoney(input.amount),
+      toAmount,
+      exchangeRate,
+      transactionDate: input.transactionDate,
+      description: stripHtml(input.description) || null,
+      payeeId,
+      payeeName,
+      payeeMatched,
+      payeeWillBeCreated,
+      categoryId,
+      categoryName,
+    };
+  }
+
+  /**
+   * Validate and resolve a proposed edit to an existing transfer WITHOUT
+   * persisting it. Loads the transaction (requiring it to be a transfer),
+   * determines the canonical from/to legs (the from leg has the negative
+   * amount, mirroring updateTransfer), and returns the resulting state.
+   */
+  async previewUpdateTransfer(
+    userId: string,
+    transactionId: string,
+    input: {
+      amount?: number;
+      transactionDate?: string;
+      description?: string;
+      payeeName?: string;
+      /** Auto-create a payee for an unmatched custom label. Defaults to true. */
+      createPayeeIfMissing?: boolean;
+      /**
+       * Resolved spending category id to apply to both legs. Undefined keeps the
+       * existing category; null clears it; a string sets it (ownership checked).
+       */
+      categoryId?: string | null;
+    },
+    findOne: (userId: string, id: string) => Promise<Transaction>,
+  ): Promise<UpdateTransferPreview> {
+    const transaction = await findOne(userId, transactionId);
+
+    if (!transaction.isTransfer || !transaction.linkedTransactionId) {
+      throw new BadRequestException(
+        tr("errors.transactions.notATransfer", "Transaction is not a transfer"),
+      );
+    }
+
+    const linkedTransaction = await findOne(
+      userId,
+      transaction.linkedTransactionId,
+    );
+
+    const isFromTransaction = Number(transaction.amount) < 0;
+    const fromTransaction = isFromTransaction ? transaction : linkedTransaction;
+    const toTransaction = isFromTransaction ? linkedTransaction : transaction;
+
+    const oldFromAmount = Math.abs(Number(fromTransaction.amount));
+    const oldToAmount = Number(toTransaction.amount);
+    const exchangeRate = Number(toTransaction.exchangeRate) || 1;
+
+    const newAmount =
+      input.amount !== undefined ? roundMoney(input.amount) : oldFromAmount;
+    // When only the amount changes, scale the destination leg by the stored
+    // exchange rate; when nothing money-related changes, keep the stored toAmount.
+    const newToAmount =
+      input.amount !== undefined
+        ? roundMoney(newAmount * exchangeRate)
+        : roundMoney(oldToAmount);
+
+    const newDate = input.transactionDate ?? fromTransaction.transactionDate;
+    const description =
+      input.description !== undefined
+        ? stripHtml(input.description) || null
+        : (fromTransaction.description ?? null);
+
+    // Re-resolve the payee only when a new label is provided, mirroring
+    // previewUpdate for a normal transaction. When the label is unchanged, keep
+    // the canonical from-leg payee link untouched (matched, no new creation).
+    let payeeId: string | null = fromTransaction.payeeId ?? null;
+    let payeeName: string | null = fromTransaction.payeeName ?? null;
+    let payeeMatched = true;
+    let payeeWillBeCreated = false;
+    if (input.payeeName !== undefined) {
+      const inputPayeeName = stripHtml(input.payeeName) || null;
+      payeeId = null;
+      payeeName = inputPayeeName;
+      payeeMatched = false;
+      if (inputPayeeName) {
+        const payee = await this.payeesService.resolveByName(
+          userId,
+          inputPayeeName,
+        );
+        if (payee) {
+          payeeId = payee.id;
+          payeeMatched = true;
+          payeeName = payee.name;
+        }
+      }
+      payeeWillBeCreated =
+        !!payeeName && !payeeMatched && input.createPayeeIfMissing !== false;
+    }
+
+    // Category: validate ownership of a changed category; otherwise keep the
+    // transfer's existing (from-leg) category. Mirrors previewUpdate so the
+    // confirm step re-applies the resolved id to both legs.
+    let categoryId: string | null = fromTransaction.categoryId ?? null;
+    let categoryName: string | null = fromTransaction.category?.name ?? null;
+    if (input.categoryId !== undefined) {
+      if (input.categoryId) {
+        const category = await this.categoriesRepository.findOne({
+          where: { id: input.categoryId, userId },
+        });
+        if (!category) {
+          throw new BadRequestException(
+            tr("errors.transactions.categoryNotFound", "Category not found"),
+          );
+        }
+        categoryId = category.id;
+        categoryName = category.name;
+      } else {
+        categoryId = null;
+        categoryName = null;
+      }
+    }
+
+    return {
+      transactionId,
+      fromAccountId: fromTransaction.accountId,
+      fromAccountName: fromTransaction.account?.name ?? "",
+      fromCurrencyCode: fromTransaction.currencyCode,
+      toAccountId: toTransaction.accountId,
+      toAccountName: toTransaction.account?.name ?? "",
+      toCurrencyCode: toTransaction.currencyCode,
+      amount: newAmount,
+      toAmount: newToAmount,
+      exchangeRate,
+      transactionDate: newDate,
+      description,
+      payeeId,
+      payeeName,
+      payeeMatched,
+      payeeWillBeCreated,
+      categoryId,
+      categoryName,
+    };
   }
 
   async removeTransfer(
@@ -221,7 +583,9 @@ export class TransactionTransferService {
     const transaction = await findOne(userId, transactionId);
 
     if (!transaction.isTransfer) {
-      throw new BadRequestException("Transaction is not a transfer");
+      throw new BadRequestException(
+        tr("errors.transactions.notATransfer", "Transaction is not a transfer"),
+      );
     }
 
     const parentSplit = await this.splitsRepository.findOne({
@@ -406,7 +770,9 @@ export class TransactionTransferService {
     const transaction = await findOne(userId, transactionId);
 
     if (!transaction.isTransfer || !transaction.linkedTransactionId) {
-      throw new BadRequestException("Transaction is not a transfer");
+      throw new BadRequestException(
+        tr("errors.transactions.notATransfer", "Transaction is not a transfer"),
+      );
     }
 
     const linkedTransaction = await findOne(
@@ -428,7 +794,10 @@ export class TransactionTransferService {
 
     if (newFromAccountId === newToAccountId) {
       throw new BadRequestException(
-        "Source and destination accounts must be different",
+        tr(
+          "errors.transactions.transferSameAccount",
+          "Source and destination accounts must be different",
+        ),
       );
     }
 
@@ -456,8 +825,8 @@ export class TransactionTransferService {
       updateDto.exchangeRate ?? toTransaction.exchangeRate;
     const newToAmount =
       updateDto.toAmount !== undefined
-        ? Math.round(updateDto.toAmount * 10000) / 10000
-        : Math.round(newAmount * newExchangeRate * 10000) / 10000;
+        ? roundMoney(updateDto.toAmount)
+        : roundMoney(newAmount * newExchangeRate);
 
     const accountsOrAmountsChanged =
       updateDto.fromAccountId ||
@@ -472,6 +841,8 @@ export class TransactionTransferService {
     const newIsFuture = isTransactionInFuture(newDate);
     const dateChanged = oldDate !== newDate;
     const anyFuture = oldIsFuture || newIsFuture;
+
+    await this.assertCategoryOwned(userId, updateDto.categoryId);
 
     const fromUpdateData = this.buildFromUpdateData(
       updateDto,
@@ -616,6 +987,8 @@ export class TransactionTransferService {
     if (updateDto.referenceNumber !== undefined)
       data.referenceNumber = updateDto.referenceNumber ?? null;
     if (updateDto.status !== undefined) data.status = updateDto.status;
+    if (updateDto.categoryId !== undefined)
+      data.categoryId = updateDto.categoryId || null;
     if (updateDto.fromCurrencyCode)
       data.currencyCode = updateDto.fromCurrencyCode;
     if (updateDto.payeeId !== undefined)
@@ -682,6 +1055,8 @@ export class TransactionTransferService {
     if (updateDto.referenceNumber !== undefined)
       data.referenceNumber = updateDto.referenceNumber ?? null;
     if (updateDto.status !== undefined) data.status = updateDto.status;
+    if (updateDto.categoryId !== undefined)
+      data.categoryId = updateDto.categoryId || null;
     if (updateDto.toCurrencyCode) data.currencyCode = updateDto.toCurrencyCode;
     if (updateDto.exchangeRate) data.exchangeRate = updateDto.exchangeRate;
     if (updateDto.payeeId !== undefined)

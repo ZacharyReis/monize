@@ -1,0 +1,117 @@
+{
+  "page": {
+    "title": "Devises",
+    "subtitle": "Gérez les devises utilisées dans vos comptes et titres",
+    "refreshRates": "Actualiser les taux",
+    "refreshing": "Actualisation...",
+    "newCurrency": "+ Nouvelle devise",
+    "searchPlaceholder": "Rechercher par code ou nom...",
+    "statusAll": "Toutes ({count})",
+    "statusActive": "Actives ({count})",
+    "statusInactive": "Inactives ({count})",
+    "modalTitleEdit": "Modifier la devise",
+    "modalTitleNew": "Nouvelle devise",
+    "loading": "Chargement des devises...",
+    "count": "{count, plural, one {# devise} other {# devises}}",
+    "toasts": {
+      "loadFailed": "Échec du chargement des devises",
+      "updated": "Devise mise à jour avec succès",
+      "created": "Devise créée avec succès",
+      "updateFailed": "Échec de la mise à jour de la devise",
+      "createFailed": "Échec de la création de la devise",
+      "deactivated": "Devise désactivée",
+      "activated": "Devise activée",
+      "statusFailed": "Échec de la mise à jour du statut de la devise",
+      "ratesRefreshed": "Taux de change actualisés : {updated} paires mises à jour",
+      "ratesRefreshedWithFailed": "Taux de change actualisés : {updated} mis à jour, {failed} échoués",
+      "ratesFailed": "Échec de l'actualisation des taux de change"
+    },
+    "summary": {
+      "totalCurrencies": "Total des devises",
+      "active": "Actives",
+      "inactive": "Inactives"
+    }
+  },
+  "list": {
+    "columns": {
+      "code": "Code",
+      "name": "Nom",
+      "symbol": "Symbole",
+      "decimals": "Décimales",
+      "usage": "Utilisation",
+      "rate": "Taux ({currency})",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense",
+      "toggle": "Modifier la densité des lignes"
+    },
+    "defaultBadge": "Par défaut",
+    "statusBadge": {
+      "active": "Active",
+      "activeShort": "Act",
+      "inactive": "Inactive",
+      "inactiveShort": "Ina"
+    },
+    "actions": {
+      "edit": "Modifier",
+      "deactivate": "Désactiver",
+      "activate": "Activer"
+    },
+    "contextMenu": {
+      "editCurrency": "Modifier la devise",
+      "deactivate": "Désactiver",
+      "activate": "Activer",
+      "deleteCurrency": "Supprimer la devise"
+    },
+    "usageTooltip": "{accounts} compte(s), {securities} titre(s)",
+    "usageAccounts": "{count, plural, one {# cpt} other {# cpts}}",
+    "usageSecurities": "{count, plural, one {# titre} other {# titres}}",
+    "empty": {
+      "title": "Aucune devise",
+      "subtitle": "Commencez par ajouter une devise."
+    },
+    "deleteConfirm": {
+      "title": "Supprimer « {code} » ?",
+      "message": "Cette devise sera définitivement supprimée. Cela n'est possible que si la devise n'est pas utilisée par des comptes ou des titres.",
+      "confirmLabel": "Supprimer",
+      "cancelLabel": "Annuler"
+    },
+    "toasts": {
+      "deleted": "Devise supprimée avec succès",
+      "deleteFailed": "Échec de la suppression de la devise. Elle est peut-être utilisée."
+    }
+  },
+  "form": {
+    "codeLabel": "Code de la devise",
+    "codePlaceholder": "ex. USD, EUR, GBP",
+    "nameLabel": "Nom",
+    "namePlaceholderCreate": "ex. Dollar canadien, Ringgit malaisien (utilisé aussi pour la recherche)",
+    "namePlaceholderEdit": "ex. Dollar canadien",
+    "symbolLabel": "Symbole",
+    "symbolPlaceholder": "ex. $, €, £, ¥",
+    "decimalPlacesLabel": "Nombre de décimales",
+    "lookupButton": "Rechercher",
+    "lookingUp": "Recherche en cours...",
+    "clearButton": "Effacer",
+    "clearTitle": "Effacer tous les champs",
+    "submitCreate": "Créer la devise",
+    "submitUpdate": "Mettre à jour la devise",
+    "toasts": {
+      "lookupTooShort": "Saisissez un code ou un nom de devise (au moins 2 caractères) pour effectuer une recherche",
+      "found": "Trouvé : {details}",
+      "notFound": "Aucune devise trouvée pour « {query} »",
+      "lookupFailed": "Échec de la recherche - veuillez réessayer"
+    }
+  },
+  "validation": {
+    "codeLength": "Le code de devise doit comporter exactement 3 caractères",
+    "nameRequired": "Le nom est obligatoire",
+    "nameMax": "Le nom ne doit pas dépasser 100 caractères",
+    "symbolRequired": "Le symbole est obligatoire",
+    "symbolMax": "Le symbole ne doit pas dépasser 10 caractères"
+  }
+}

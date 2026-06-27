@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { tr } from "../../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { AiService } from "../ai.service";
@@ -65,13 +66,19 @@ export class AiForecastService {
         `Failed to compute forecast aggregates for user ${userId}: ${message}`,
       );
       throw new BadRequestException(
-        "Failed to gather financial data for forecasting. Please try again.",
+        tr(
+          "errors.ai.forecastDataGatherFailed",
+          "Failed to gather financial data for forecasting. Please try again.",
+        ),
       );
     }
 
     if (aggregates.monthlyHistory.length < 2) {
       throw new BadRequestException(
-        "Insufficient transaction history for forecasting. At least 2 months of data are required.",
+        tr(
+          "errors.ai.forecastInsufficientHistory",
+          "Insufficient transaction history for forecasting. At least 2 months of data are required.",
+        ),
       );
     }
 
@@ -106,7 +113,10 @@ export class AiForecastService {
         `Failed to generate AI forecast for user ${userId}: ${message}`,
       );
       throw new BadRequestException(
-        "Failed to generate forecast. Please try again.",
+        tr(
+          "errors.ai.forecastGenerateFailed",
+          "Failed to generate forecast. Please try again.",
+        ),
       );
     }
   }
@@ -126,7 +136,10 @@ export class AiForecastService {
 
     if (recentLog) {
       throw new BadRequestException(
-        "A forecast was recently generated. Please try again later.",
+        tr(
+          "errors.ai.forecastRateLimited",
+          "A forecast was recently generated. Please try again later.",
+        ),
       );
     }
   }
@@ -211,7 +224,10 @@ export class AiForecastService {
     if (!jsonMatch) {
       this.logger.warn("AI forecast response did not contain a JSON object");
       throw new BadRequestException(
-        "Failed to generate forecast. Please try again.",
+        tr(
+          "errors.ai.forecastGenerateFailed",
+          "Failed to generate forecast. Please try again.",
+        ),
       );
     }
 
@@ -234,7 +250,10 @@ export class AiForecastService {
       const message = error instanceof Error ? error.message : "Unknown error";
       this.logger.warn(`Failed to parse AI forecast response: ${message}`);
       throw new BadRequestException(
-        "Failed to generate forecast. Please try again.",
+        tr(
+          "errors.ai.forecastGenerateFailed",
+          "Failed to generate forecast. Please try again.",
+        ),
       );
     }
   }

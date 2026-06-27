@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { builtInReportsApi } from '@/lib/built-in-reports';
-import { UncategorizedTransactionsResponse, UncategorizedTransactionItem } from '@/types/built-in-reports';
+import { UncategorizedTransactionItem } from '@/types/built-in-reports';
 import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useDateRange } from '@/hooks/useDateRange';
@@ -13,44 +16,35 @@ import { exportToCsv } from '@/lib/csv-export';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('UncategorizedTransactionsReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 
 type SortField = 'date' | 'amount' | 'payee' | 'account';
 
 export function UncategorizedTransactionsReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
-  const [reportData, setReportData] = useState<UncategorizedTransactionsResponse | null>(null);
   const { dateRange, setDateRange, resolvedRange, isValid } = useDateRange({ defaultRange: '3m', alignment: 'day' });
-  const [isLoading, setIsLoading] = useState(true);
   const { sortField, sortDirection, handleSort } = useSortableTable<SortField>(
     'reports.uncategorized-transactions.sort',
     { field: 'date', direction: 'desc' },
   );
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
-  useEffect(() => {
-    if (!isValid) return;
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const { start, end } = resolvedRange;
-        const data = await builtInReportsApi.getUncategorizedTransactions({
-          startDate: start || undefined,
-          endDate: end,
-          limit: 500,
-        });
-        setReportData(data);
-      } catch (error) {
-        logger.error('Failed to load data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [resolvedRange, isValid]);
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
+
+  const { data: reportData, isLoading, error, reload } = useReportData(
+    () =>
+      isValid
+        ? builtInReportsApi.getUncategorizedTransactions({
+            startDate: rangeStart || undefined,
+            endDate: rangeEnd,
+            limit: 500,
+          })
+        : Promise.resolve(null),
+    [isValid, rangeStart, rangeEnd],
+  );
 
   const filteredAndSortedTransactions = useMemo(() => {
     if (!reportData) return [];
@@ -97,12 +91,18 @@ export function UncategorizedTransactionsReport() {
   };
 
   const getExportData = () => {
-    const headers = ['Date', 'Payee', 'Description', 'Account', 'Amount'];
+    const headers = [
+      t('uncategorizedTransactions.csvColDate'),
+      t('uncategorizedTransactions.csvColPayee'),
+      t('uncategorizedTransactions.csvColDescription'),
+      t('uncategorizedTransactions.csvColAccount'),
+      t('uncategorizedTransactions.csvColAmount'),
+    ];
     const rows = filteredAndSortedTransactions.map((tx) => [
       format(parseLocalDate(tx.transactionDate), 'yyyy-MM-dd'),
-      tx.payeeName || 'Unknown',
+      tx.payeeName || t('uncategorizedTransactions.unknownPayee'),
       tx.description || '',
-      tx.accountName || 'Unknown',
+      tx.accountName || t('uncategorizedTransactions.unknownAccount'),
       tx.amount,
     ]);
     return { headers, rows };
@@ -117,19 +117,23 @@ export function UncategorizedTransactionsReport() {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const { headers, rows } = getExportData();
     await exportToPdf({
-      title: 'Uncategorized Transactions',
-      subtitle: `${filteredAndSortedTransactions.length} transactions`,
+      title: t('uncategorizedTransactions.pdfTitle'),
+      subtitle: t('uncategorizedTransactions.pdfSubtitle', { count: filteredAndSortedTransactions.length }),
       tableData: { headers, rows },
       filename: 'uncategorized-transactions',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -148,13 +152,13 @@ export function UncategorizedTransactionsReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Uncategorized</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('uncategorizedTransactions.totalUncategorized')}</div>
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
             {summary.totalCount}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Uncategorized Expenses</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('uncategorizedTransactions.uncategorizedExpenses')}</div>
           <div className="text-xl font-bold text-red-600 dark:text-red-400">
             {summary.expenseCount}
           </div>
@@ -163,7 +167,7 @@ export function UncategorizedTransactionsReport() {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Uncategorized Income</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('uncategorizedTransactions.uncategorizedIncome')}</div>
           <div className="text-xl font-bold text-green-600 dark:text-green-400">
             {summary.incomeCount}
           </div>
@@ -172,12 +176,12 @@ export function UncategorizedTransactionsReport() {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Showing</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('uncategorizedTransactions.showing')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {filteredAndSortedTransactions.length}
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            transactions
+            {t('uncategorizedTransactions.transactions')}
           </div>
         </div>
       </div>
@@ -199,7 +203,7 @@ export function UncategorizedTransactionsReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              All
+              {t('uncategorizedTransactions.filterAll')}
             </button>
             <button
               onClick={() => setFilterType('expense')}
@@ -209,7 +213,7 @@ export function UncategorizedTransactionsReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Expenses
+              {t('uncategorizedTransactions.filterExpenses')}
             </button>
             <button
               onClick={() => setFilterType('income')}
@@ -219,7 +223,7 @@ export function UncategorizedTransactionsReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Income
+              {t('uncategorizedTransactions.filterIncome')}
             </button>
           </div>
         </div>
@@ -233,7 +237,7 @@ export function UncategorizedTransactionsReport() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-gray-500 dark:text-gray-400">
-              All transactions are categorized. Great job!
+              {t('uncategorizedTransactions.allCategorized')}
             </p>
           </div>
         </div>
@@ -242,10 +246,10 @@ export function UncategorizedTransactionsReport() {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Uncategorized Transactions
+                {t('uncategorizedTransactions.tableTitle')}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Click a transaction to view it in the transactions page
+                {t('uncategorizedTransactions.tableSubtitle')}
               </p>
             </div>
             <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} />
@@ -261,7 +265,7 @@ export function UncategorizedTransactionsReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Date
+                    {t('uncategorizedTransactions.colDate')}
                   </SortableHeader>
                   <SortableHeader<SortField>
                     field="payee"
@@ -270,7 +274,7 @@ export function UncategorizedTransactionsReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Payee / Description
+                    {t('uncategorizedTransactions.colPayeeDescription')}
                   </SortableHeader>
                   <SortableHeader<SortField>
                     field="account"
@@ -279,7 +283,7 @@ export function UncategorizedTransactionsReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Account
+                    {t('uncategorizedTransactions.colAccount')}
                   </SortableHeader>
                   <SortableHeader<SortField>
                     field="amount"
@@ -289,7 +293,7 @@ export function UncategorizedTransactionsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Amount
+                    {t('uncategorizedTransactions.colAmount')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -305,7 +309,7 @@ export function UncategorizedTransactionsReport() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="font-medium text-gray-900 dark:text-gray-100">
-                        {tx.payeeName || 'Unknown'}
+                        {tx.payeeName || t('uncategorizedTransactions.unknownPayee')}
                       </div>
                       {tx.description && (
                         <div className="text-gray-500 dark:text-gray-400 truncate max-w-xs">
@@ -314,12 +318,10 @@ export function UncategorizedTransactionsReport() {
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {tx.accountName || 'Unknown'}
+                      {tx.accountName || t('uncategorizedTransactions.unknownAccount')}
                     </td>
                     <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${
-                      tx.amount >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
+                      gainLossColor(tx.amount)
                     }`}>
                       {formatCurrency(tx.amount)}
                     </td>
@@ -331,7 +333,7 @@ export function UncategorizedTransactionsReport() {
           {filteredAndSortedTransactions.length > 100 && (
             <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Showing first 100 of {filteredAndSortedTransactions.length} transactions
+                {t('uncategorizedTransactions.showingFirst', { count: filteredAndSortedTransactions.length })}
               </p>
             </div>
           )}

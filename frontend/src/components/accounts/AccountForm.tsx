@@ -1,15 +1,21 @@
 'use client';
 
-import { useForm, useWatch, Resolver } from 'react-hook-form';
+import { useForm, useWatch, Resolver, Controller } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect, useMemo, MutableRefObject } from 'react';
 import { Input } from '@/components/ui/Input';
+import { Combobox } from '@/components/ui/Combobox';
+import { Modal } from '@/components/ui/Modal';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { Select } from '@/components/ui/Select';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
+import { InstitutionForm } from '@/components/institutions/InstitutionForm';
+import { institutionsApi } from '@/lib/institutions';
+import { Institution } from '@/types/institution';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 import { Account, PaymentFrequency } from '@/types/account';
@@ -30,6 +36,7 @@ import { LoanPaymentSetupDialog } from './LoanPaymentSetupDialog';
 
 import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { FormActions } from '@/components/ui/FormActions';
 
 const logger = createLogger('AccountForm');
@@ -46,11 +53,18 @@ const optionalNumberWithRange = (min: number, max: number) =>
     z.number().min(min).max(max).optional()
   );
 
+// Treats the empty-string placeholder from an unselected <Select> as undefined so
+// the optional enum accepts it instead of surfacing a raw "Invalid option:
+// expected one of ..." Zod message (see issue #785). Required-ness is enforced
+// per account type in the superRefine below with localized messages.
+const emptyToUndefined = (val: unknown) =>
+  val === '' || val === undefined ? undefined : val;
+
 const paymentFrequencies = ['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 const mortgagePaymentFrequencies = ['MONTHLY', 'SEMI_MONTHLY', 'BIWEEKLY', 'ACCELERATED_BIWEEKLY', 'WEEKLY', 'ACCELERATED_WEEKLY'] as const;
 
-const accountSchema = z.object({
-  name: z.string().min(1, 'Account name is required').max(255),
+const buildAccountSchema = (t: (key: string) => string, isEditing: boolean) => z.object({
+  name: z.string().min(1, t('validation.nameRequired')).max(255),
   accountType: z.enum([
     'CHEQUING',
     'SAVINGS',
@@ -63,13 +77,13 @@ const accountSchema = z.object({
     'ASSET',
     'OTHER',
   ]),
-  currencyCode: z.string().length(3, 'Currency code must be 3 characters'),
+  currencyCode: z.string().length(3, t('validation.currencyCodeLength')),
   openingBalance: optionalNumber,
   creditLimit: optionalNumber,
   interestRate: optionalNumberWithRange(0, 100),
   description: z.string().optional(),
   accountNumber: z.string().optional(),
-  institution: z.string().optional(),
+  institutionId: z.string().optional(),
   isFavourite: z.boolean().optional(),
   excludeFromNetWorth: z.boolean().optional(),
   createInvestmentPair: z.boolean().optional(),
@@ -78,7 +92,7 @@ const accountSchema = z.object({
   statementSettlementDay: optionalNumberWithRange(1, 31),
   // Loan-specific fields
   paymentAmount: optionalNumber,
-  paymentFrequency: z.enum(paymentFrequencies).optional(),
+  paymentFrequency: z.preprocess(emptyToUndefined, z.enum(paymentFrequencies).optional()),
   paymentStartDate: z.string().optional(),
   sourceAccountId: z.string().optional(),
   interestCategoryId: z.string().optional(),
@@ -90,10 +104,47 @@ const accountSchema = z.object({
   isVariableRate: z.boolean().optional(),
   termMonths: optionalNumber,
   amortizationMonths: optionalNumber,
-  mortgagePaymentFrequency: z.enum(mortgagePaymentFrequencies).optional(),
+  mortgagePaymentFrequency: z.preprocess(emptyToUndefined, z.enum(mortgagePaymentFrequencies).optional()),
+}).superRefine((data, ctx) => {
+  // Loan and mortgage payment setup is only collected when creating the account
+  // (the payment fields are hidden while editing), so only enforce these on
+  // create. The backend rejects the same gaps, but validating here gives clean,
+  // localized, inline errors instead of a generic API toast -- and stops the
+  // silent fall-through that would otherwise create a payment-less account.
+  if (isEditing) return;
+
+  const requireField = (
+    condition: boolean,
+    path: keyof typeof data,
+    messageKey: string,
+  ) => {
+    if (condition) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [path],
+        message: t(messageKey),
+      });
+    }
+  };
+
+  if (data.accountType === 'MORTGAGE') {
+    requireField(!data.institutionId, 'institutionId', 'validation.institutionRequired');
+    requireField(data.interestRate === undefined, 'interestRate', 'validation.interestRateRequired');
+    requireField(!data.mortgagePaymentFrequency, 'mortgagePaymentFrequency', 'validation.paymentFrequencyRequired');
+    requireField(!data.paymentStartDate, 'paymentStartDate', 'validation.paymentStartDateRequired');
+    requireField(!data.sourceAccountId, 'sourceAccountId', 'validation.paymentAccountRequired');
+    requireField(!data.amortizationMonths, 'amortizationMonths', 'validation.amortizationRequired');
+  } else if (data.accountType === 'LOAN') {
+    requireField(!data.institutionId, 'institutionId', 'validation.institutionRequired');
+    requireField(data.interestRate === undefined, 'interestRate', 'validation.interestRateRequired');
+    requireField(!data.paymentAmount, 'paymentAmount', 'validation.paymentAmountRequired');
+    requireField(!data.paymentFrequency, 'paymentFrequency', 'validation.paymentFrequencyRequired');
+    requireField(!data.paymentStartDate, 'paymentStartDate', 'validation.paymentStartDateRequired');
+    requireField(!data.sourceAccountId, 'sourceAccountId', 'validation.paymentAccountRequired');
+  }
 });
 
-type AccountFormData = z.infer<typeof accountSchema>;
+type AccountFormData = z.infer<ReturnType<typeof buildAccountSchema>>;
 
 interface AccountFormProps {
   account?: Account;
@@ -103,22 +154,22 @@ interface AccountFormProps {
   submitRef?: MutableRefObject<(() => void) | null>;
 }
 
-const accountTypeOptions = [
-  { value: 'CHEQUING', label: 'Chequing' },
-  { value: 'SAVINGS', label: 'Savings' },
-  { value: 'CREDIT_CARD', label: 'Credit Card' },
-  { value: 'INVESTMENT', label: 'Investment' },
-  { value: 'LOAN', label: 'Loan' },
-  { value: 'LINE_OF_CREDIT', label: 'Line of Credit' },
-  { value: 'MORTGAGE', label: 'Mortgage' },
-  { value: 'ASSET', label: 'Asset' },
-  { value: 'CASH', label: 'Cash' },
-  { value: 'OTHER', label: 'Other' },
-];
-
-
 export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submitRef }: AccountFormProps) {
+  const t = useTranslations('accounts');
   const router = useRouter();
+
+  const accountTypeOptions = [
+    { value: 'CHEQUING', label: t('form.accountTypeOptions.chequing') },
+    { value: 'SAVINGS', label: t('form.accountTypeOptions.savings') },
+    { value: 'CREDIT_CARD', label: t('form.accountTypeOptions.creditCard') },
+    { value: 'INVESTMENT', label: t('form.accountTypeOptions.investment') },
+    { value: 'LOAN', label: t('form.accountTypeOptions.loan') },
+    { value: 'LINE_OF_CREDIT', label: t('form.accountTypeOptions.lineOfCredit') },
+    { value: 'MORTGAGE', label: t('form.accountTypeOptions.mortgage') },
+    { value: 'ASSET', label: t('form.accountTypeOptions.asset') },
+    { value: 'CASH', label: t('form.accountTypeOptions.cash') },
+    { value: 'OTHER', label: t('form.accountTypeOptions.other') },
+  ];
   const { formatCurrency } = useNumberFormat();
   const { defaultCurrency } = useExchangeRates();
   const [currencies, setCurrencies] = useState<CurrencyInfo[]>([]);
@@ -133,6 +184,14 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
   const [selectedInterestCategoryId, setSelectedInterestCategoryId] = useState<string>(account?.interestCategoryId || '');
   const [showLoanSetupDialog, setShowLoanSetupDialog] = useState(false);
   const [hasScheduledPayment, setHasScheduledPayment] = useState(!!account?.scheduledTransactionId);
+  // Currency becomes locked once the account has any transactions so existing
+  // balances are not silently re-denominated. Stays unlocked while loading.
+  const [isCurrencyLocked, setIsCurrencyLocked] = useState(false);
+  // Financial institution selection + inline create.
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState<string>(account?.institutionId || '');
+  const [showInstitutionModal, setShowInstitutionModal] = useState(false);
+  const [pendingInstitutionName, setPendingInstitutionName] = useState('');
 
   const {
     register,
@@ -142,7 +201,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
     getValues,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<AccountFormData>({
-    resolver: zodResolver(accountSchema) as Resolver<AccountFormData>,
+    resolver: zodResolver(buildAccountSchema(t, !!account)) as Resolver<AccountFormData>,
     defaultValues: account
       ? {
           name: account.name,
@@ -159,7 +218,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           interestRate: account.interestRate || undefined,
           description: account.description || undefined,
           accountNumber: account.accountNumber || undefined,
-          institution: account.institution || undefined,
+          institutionId: account.institutionId || undefined,
           isFavourite: account.isFavourite || false,
           excludeFromNetWorth: account.excludeFromNetWorth || false,
           statementDueDay: account.statementDueDay || undefined,
@@ -233,6 +292,67 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
   useEffect(() => {
     exchangeRatesApi.getCurrencies().then(setCurrencies).catch(() => {});
   }, []);
+
+  // Load financial institutions for the selector
+  useEffect(() => {
+    institutionsApi.getAll().then(setInstitutions).catch(() => {});
+  }, []);
+
+  const institutionOptions = useMemo(
+    () => institutions.map((i) => ({ value: i.id, label: i.name, subtitle: i.website })),
+    [institutions],
+  );
+
+  const accountInstitutionId = account?.institutionId;
+  const initialInstitutionName = useMemo(() => {
+    if (!accountInstitutionId) return '';
+    return institutions.find((i) => i.id === accountInstitutionId)?.name || '';
+  }, [accountInstitutionId, institutions]);
+
+  const handleInstitutionChange = (value: string) => {
+    setSelectedInstitutionId(value);
+    setValue('institutionId', value || undefined, { shouldDirty: true });
+  };
+
+  const handleInstitutionCreate = (name: string) => {
+    setPendingInstitutionName(name);
+    setShowInstitutionModal(true);
+  };
+
+  const handleInstitutionCreated = async (data: {
+    name: string;
+    website: string;
+    country?: string;
+  }) => {
+    try {
+      const created = await institutionsApi.create(data);
+      setInstitutions((prev) => [created, ...prev]);
+      setSelectedInstitutionId(created.id);
+      setValue('institutionId', created.id, { shouldDirty: true });
+      setShowInstitutionModal(false);
+      toast.success(t('toasts.institutionCreated', { name: created.name }));
+    } catch (error) {
+      toast.error(getErrorMessage(error, t('toasts.institutionCreateFailed')));
+      throw error;
+    }
+  };
+
+  // For existing accounts, check whether any transactions exist. The backend
+  // rejects currency changes once transactions are present; mirror that in the
+  // UI by locking the field with an explanatory tooltip.
+  useEffect(() => {
+    if (!account?.id) return;
+    accountsApi
+      .canDelete(account.id)
+      .then(({ transactionCount, investmentTransactionCount }) => {
+        setIsCurrencyLocked(
+          transactionCount > 0 || investmentTransactionCount > 0,
+        );
+      })
+      .catch((error) => {
+        logger.error('Failed to load account transaction count:', error);
+      });
+  }, [account?.id]);
 
   // Re-sync the currency select value after options load.
   // react-hook-form's register sets the select value on mount, but if options
@@ -411,26 +531,26 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
       setValue('assetCategoryId', newCategory.id, { shouldDirty: true, shouldValidate: true });
 
       if (parentId && parentName) {
-        toast.success(`Category "${parentName}: ${categoryName}" created`);
+        toast.success(t('toasts.categoryCreatedNested', { parent: parentName, name: categoryName }));
       } else {
-        toast.success(`Category "${categoryName}" created`);
+        toast.success(t('toasts.categoryCreated', { name: categoryName }));
       }
     } catch (error) {
       logger.error('Failed to create category:', error);
-      toast.error(getErrorMessage(error, 'Failed to create category'));
+      toast.error(getErrorMessage(error, t('toasts.categoryCreateFailed')));
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input
-        label="Account Name"
+        label={t('form.accountName')}
         error={errors.name?.message}
         {...register('name')}
       />
 
       <Select
-        label="Account Type"
+        label={t('form.accountType')}
         options={accountTypeOptions}
         error={errors.accountType?.message}
         {...register('accountType')}
@@ -447,27 +567,40 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           />
           <label htmlFor="createInvestmentPair" className="flex-1">
             <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Create as Cash + Brokerage pair (recommended)
+              {t('form.investmentPairTitle')}
             </span>
             <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Creates two linked accounts: a Cash account for transfers in/out and a
-              Brokerage account for investment transactions. This is the recommended
-              structure for tracking investments.
+              {t('form.investmentPairDescription')}
             </span>
           </label>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-4">
-        <Select
-          label="Currency"
-          options={currencyOptions}
-          error={errors.currencyCode?.message}
-          {...register('currencyCode')}
-        />
+        <div>
+          <div className="flex items-center mb-1">
+            <label
+              htmlFor="select-currency"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {t('form.currency')}
+            </label>
+            {isCurrencyLocked && (
+              <InfoTooltip text={t('form.currencyLocked')} />
+            )}
+          </div>
+          <Select
+            id="select-currency"
+            options={currencyOptions}
+            error={errors.currencyCode?.message}
+            disabled={isCurrencyLocked}
+            className={isCurrencyLocked ? 'opacity-60' : undefined}
+            {...register('currencyCode')}
+          />
+        </div>
 
         <CurrencyInput
-          label={isLoanAccount ? 'Loan Amount' : isMortgageAccount ? 'Mortgage Amount' : 'Opening Balance'}
+          label={isLoanAccount ? t('form.loanAmount') : isMortgageAccount ? t('form.mortgageAmount') : t('form.openingBalance')}
           prefix={currencySymbol}
           value={watchedOpeningBalance}
           onChange={(value) => setValue('openingBalance', value, { shouldValidate: true })}
@@ -478,15 +611,23 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          label="Account Number (optional)"
+          label={t('form.accountNumber')}
           error={errors.accountNumber?.message}
           {...register('accountNumber')}
         />
 
-        <Input
-          label={isLoanAccount || isMortgageAccount ? 'Lender/Institution (required)' : 'Institution (optional)'}
-          error={errors.institution?.message}
-          {...register('institution')}
+        <Combobox
+          label={(isLoanAccount || isMortgageAccount) ? t('form.institutionRequired') : t('form.institution')}
+          placeholder={t('form.institutionPlaceholder')}
+          options={institutionOptions}
+          value={selectedInstitutionId}
+          initialDisplayValue={initialInstitutionName}
+          onChange={handleInstitutionChange}
+          onCreateNew={handleInstitutionCreate}
+          allowCustomValue
+          usePortal
+          alwaysShowSubtitle
+          error={errors.institutionId?.message}
         />
       </div>
 
@@ -495,7 +636,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
         <div className="grid grid-cols-2 gap-4">
           {!isLoanAccount && !isMortgageAccount && (
             <CurrencyInput
-              label="Credit Limit (optional)"
+              label={t('form.creditLimit')}
               prefix={currencySymbol}
               value={watchedCreditLimit}
               onChange={(value) => setValue('creditLimit', value, { shouldValidate: true })}
@@ -505,7 +646,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           )}
 
           <Input
-            label={(isLoanAccount || isMortgageAccount) ? 'Interest Rate % (required)' : 'Interest Rate % (optional)'}
+            label={(isLoanAccount || isMortgageAccount) ? t('form.interestRateRequired') : t('form.interestRateOptional')}
             type="number"
             step="0.01"
             error={errors.interestRate?.message}
@@ -519,14 +660,14 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
       {/* Credit card statement date fields */}
       {isCreditCardAccount && (
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Statement Dates (optional)</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.statementDates')}</h4>
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Due Date (day of month)"
+              label={t('form.statementDueDay')}
               type="number"
               min={1}
               max={31}
-              placeholder="e.g. 15"
+              placeholder={t('form.statementDueDayPlaceholder')}
               error={errors.statementDueDay?.message}
               {...register('statementDueDay', { valueAsNumber: true })}
             />
@@ -534,15 +675,15 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
             <div>
               <div className="flex items-center mb-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Settlement Date (day of month)
+                  {t('form.statementSettlementDay')}
                 </label>
-                <InfoTooltip text="The settlement date (also called the closing date) is the last day of the billing cycle. Transactions posted on or before this day will appear on the current statement." />
+                <InfoTooltip text={t('form.statementSettlementDayTooltip')} align="right" />
               </div>
               <input
                 type="number"
                 min={1}
                 max={31}
-                placeholder="e.g. 25"
+                placeholder={t('form.statementSettlementDayPlaceholder')}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 {...register('statementSettlementDay', { valueAsNumber: true })}
               />
@@ -602,14 +743,14 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
         (isLoanAccount || isMortgageAccount) && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
           <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
-            This account does not have scheduled payments configured.
+            {t('form.noScheduledPayments')}
           </p>
           <button
             type="button"
             onClick={() => setShowLoanSetupDialog(true)}
             className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Set Up Recurring Payments
+            {t('form.setUpRecurringPayments')}
           </button>
         </div>
       )}
@@ -649,7 +790,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
       )}
 
       <Input
-        label="Description (optional)"
+        label={t('form.description')}
         error={errors.description?.message}
         {...register('description')}
       />
@@ -661,7 +802,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           type="button"
           onClick={toggleFavourite}
           className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title={watchedIsFavourite ? 'Remove from favourites' : 'Add to favourites'}
+          title={watchedIsFavourite ? t('form.removeFromFavourites') : t('form.addToFavourites')}
         >
           <svg
             className={`w-5 h-5 transition-colors ${
@@ -681,23 +822,29 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
             />
           </svg>
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            {watchedIsFavourite ? 'Favourite' : 'Add to favourites'}
+            {watchedIsFavourite ? t('form.favourite') : t('form.addToFavourites')}
           </span>
         </button>
         )}
         {/* Hidden input for form registration */}
         <input type="hidden" {...register('isFavourite')} />
 
-        <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            {...register('excludeFromNetWorth')}
+        <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600">
+          <Controller
+            name="excludeFromNetWorth"
+            control={control}
+            render={({ field }) => (
+              <ToggleSwitch
+                checked={!!field.value}
+                onChange={field.onChange}
+                label={t('form.excludeFromNetWorth')}
+              />
+            )}
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            Exclude from Net Worth
+            {t('form.excludeFromNetWorth')}
           </span>
-        </label>
+        </div>
 
         {/* Import/Export buttons - only shown when editing */}
         {account && (
@@ -706,7 +853,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
               type="button"
               onClick={handleImportQif}
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              title="Import transactions from QIF file"
+              title={t('form.importTitle')}
             >
               <svg
                 className="w-5 h-5 text-gray-500 dark:text-gray-400"
@@ -721,13 +868,13 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                 />
               </svg>
-              <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">Import</span>
+              <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">{t('form.importLabel')}</span>
             </button>
             <button
               type="button"
               onClick={() => setShowExportModal(true)}
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              title="Export account transactions"
+              title={t('form.exportTitle')}
             >
               <svg
                 className="w-5 h-5 text-gray-500 dark:text-gray-400"
@@ -742,13 +889,13 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
                   d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                 />
               </svg>
-              <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">Export</span>
+              <span className="hidden sm:inline text-sm text-gray-700 dark:text-gray-300">{t('form.exportLabel')}</span>
             </button>
           </div>
         )}
       </div>
 
-      <FormActions onCancel={onCancel} submitLabel={account ? 'Update Account' : 'Create Account'} isSubmitting={isSubmitting} />
+      <FormActions onCancel={onCancel} submitLabel={account ? t('form.updateAccount') : t('form.createAccount')} isSubmitting={isSubmitting} />
 
       {account && (
         <AccountExportModal
@@ -758,6 +905,24 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           accountName={account.name}
         />
       )}
+
+      {/* Inline create-institution modal (stacked on top of the account form) */}
+      <Modal
+        isOpen={showInstitutionModal}
+        onClose={() => setShowInstitutionModal(false)}
+        maxWidth="lg"
+        className="p-6"
+        pushHistory
+      >
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          {t('form.newInstitutionTitle')}
+        </h2>
+        <InstitutionForm
+          initialName={pendingInstitutionName}
+          onSubmit={handleInstitutionCreated}
+          onCancel={() => setShowInstitutionModal(false)}
+        />
+      </Modal>
     </form>
   );
 }

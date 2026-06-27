@@ -19,14 +19,14 @@ export class CreatePatDto {
   name: string;
 
   @ApiPropertyOptional({
-    description: "Comma-separated scopes: read, write, reports",
+    description: "Comma-separated scopes: read, write",
     default: "read",
   })
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  @Matches(/^(read|write|reports)(,(read|write|reports))*$/, {
-    message: "Scopes must be comma-separated values of: read, write, reports",
+  @Matches(/^(read|write)(,(read|write))*$/, {
+    message: "Scopes must be comma-separated values of: read, write",
   })
   scopes?: string;
 

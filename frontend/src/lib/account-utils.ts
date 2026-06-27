@@ -49,7 +49,8 @@ export function buildAccountDropdownOptions(
 }
 
 /** Format an account type enum to a human-readable label. */
-export const formatAccountType = (type: AccountType): string => {
+export const formatAccountType = (type: AccountType, t?: (key: string) => string): string => {
+  if (t) return t(`accountTypes.${type}`);
   const labels: Record<AccountType, string> = {
     CHEQUING: 'Chequing',
     SAVINGS: 'Savings',
@@ -65,9 +66,73 @@ export const formatAccountType = (type: AccountType): string => {
   return labels[type] || type;
 };
 
+/** Character used to mask the hidden portion of an account number. */
+const ACCOUNT_MASK_CHAR = '•'; // bullet (•)
+
+/**
+ * Mask an account number for display so only an identifying window stays
+ * visible. Credit cards keep their first four and last four digits (the
+ * standard PAN-truncation pattern, e.g. "4111 •••• •••• 1234"); every other
+ * account type keeps only the last four. Separators such as spaces and dashes
+ * are preserved for readability and are not counted toward the revealed
+ * window. When the number is too short to reveal that window without exposing
+ * all of it, every digit is masked.
+ */
+export function maskAccountNumber(value: string, isCreditCard: boolean): string {
+  const chars = [...value.trim()];
+  const isSignificant = (c: string) => /[a-z0-9]/i.test(c);
+  const length = chars.filter(isSignificant).length;
+
+  const lead = isCreditCard ? 4 : 0;
+  const tail = 4;
+  // Only reveal the lead/tail windows when at least one significant character
+  // stays masked; otherwise the whole number would be exposed.
+  const revealWindows = length > lead + tail;
+
+  return chars
+    .map((char, index) => {
+      if (!isSignificant(char)) return char;
+      // Position of this character among the significant (alphanumeric) ones.
+      const order = chars.slice(0, index).filter(isSignificant).length;
+      const visible = revealWindows && (order < lead || order >= length - tail);
+      return visible ? char : ACCOUNT_MASK_CHAR;
+    })
+    .join('');
+}
+
 /** Check if an account is an investment brokerage sub-type. */
 export const isInvestmentBrokerageAccount = (account: Account): boolean => {
   return account.accountSubType === 'INVESTMENT_BROKERAGE';
+};
+
+/**
+ * Whether the account is the cash half of a linked investment pair. The cash
+ * half is a sub-account of its brokerage partner, so callers that present a
+ * pair as a single entity drop it in favour of the brokerage (main) account.
+ */
+export const isInvestmentCashHalf = (account: Account): boolean => {
+  return (
+    account.accountSubType === 'INVESTMENT_CASH' &&
+    account.linkedAccountId !== null
+  );
+};
+
+/**
+ * The main account name, with any " - Brokerage"/" - Cash" suffix stripped.
+ *
+ * Investment pair names are generated server-side with a localized suffix, so
+ * callers should pass the user's translated "Brokerage"/"Cash" words via
+ * `localizedSuffixes` to strip them too. The English words are always stripped
+ * as well so accounts created before localization (or in English) still match.
+ */
+export const getMainAccountName = (
+  name: string,
+  localizedSuffixes: string[] = [],
+): string => {
+  const suffixes = [...new Set(['Brokerage', 'Cash', ...localizedSuffixes])]
+    .filter(Boolean)
+    .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return name.replace(new RegExp(` - (${suffixes.join('|')})$`), '');
 };
 
 /**
@@ -103,25 +168,28 @@ export function buildAccountFilterLabel(
   selectedIds: string[],
   availableAccounts: { id: string; name: string }[],
   getDisplayName: (account: { id: string; name: string }) => string = (a) => a.name,
+  t?: (key: string, values?: Record<string, string>) => string,
 ): string {
+  const allAccounts = () => (t ? t('accountFilter.allAccounts') : 'All Accounts');
   if (availableAccounts.length === 0 || selectedIds.length === 0) {
-    return 'All Accounts';
+    return allAccounts();
   }
 
   const selectedSet = new Set(selectedIds);
   const selected = availableAccounts.filter((a) => selectedSet.has(a.id));
 
   if (selected.length === 0) {
-    return 'All Accounts';
+    return allAccounts();
   }
 
   if (selected.length === availableAccounts.length) {
-    return 'All Accounts';
+    return allAccounts();
   }
 
   if (selected.length > availableAccounts.length / 2) {
     const unselected = availableAccounts.filter((a) => !selectedSet.has(a.id));
-    return `All but ${unselected.map(getDisplayName).join(', ')}`;
+    const names = unselected.map(getDisplayName).join(', ');
+    return t ? t('accountFilter.allBut', { names }) : `All but ${names}`;
   }
 
   return selected.map(getDisplayName).join(', ');

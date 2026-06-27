@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { UseFormRegister, UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { DateInput } from '@/components/ui/DateInput';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
@@ -15,14 +16,6 @@ import { createLogger } from '@/lib/logger';
 import { useDateFormat } from '@/hooks/useDateFormat';
 
 const logger = createLogger('LoanFields');
-
-const paymentFrequencyOptions = [
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'BIWEEKLY', label: 'Every 2 Weeks' },
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'QUARTERLY', label: 'Quarterly' },
-  { value: 'YEARLY', label: 'Yearly' },
-];
 
 interface LoanFieldsProps {
   currencySymbol: string;
@@ -59,7 +52,16 @@ export function LoanFields({
   selectedInterestCategoryId,
   handleInterestCategoryChange,
 }: LoanFieldsProps) {
+  const t = useTranslations('accounts');
   const { formatDate } = useDateFormat();
+
+  const paymentFrequencyOptions = [
+    { value: 'WEEKLY', label: t('loanFields.frequencyOptions.weekly') },
+    { value: 'BIWEEKLY', label: t('loanFields.frequencyOptions.biweekly') },
+    { value: 'MONTHLY', label: t('loanFields.frequencyOptions.monthly') },
+    { value: 'QUARTERLY', label: t('loanFields.frequencyOptions.quarterly') },
+    { value: 'YEARLY', label: t('loanFields.frequencyOptions.yearly') },
+  ];
   const [amortizationPreview, setAmortizationPreview] = useState<AmortizationPreview | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -117,12 +119,12 @@ export function LoanFields({
   return (
     <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
       <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-        Loan Payment Details
+        {t('loanFields.title')}
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
         <CurrencyInput
-          label="Payment Amount (required)"
+          label={t('loanFields.paymentAmount')}
           prefix={currencySymbol}
           value={paymentAmount}
           onChange={(value) => setValue('paymentAmount', value, { shouldValidate: true })}
@@ -131,9 +133,9 @@ export function LoanFields({
         />
 
         <Select
-          label="Payment Frequency (required)"
+          label={t('loanFields.paymentFrequency')}
           options={[
-            { value: '', label: 'Select frequency...' },
+            { value: '', label: t('loanFields.selectFrequency') },
             ...paymentFrequencyOptions,
           ]}
           error={errors.paymentFrequency?.message as string | undefined}
@@ -143,16 +145,16 @@ export function LoanFields({
 
       <div className="grid grid-cols-2 gap-4">
         <DateInput
-          label="First Payment Date (required)"
+          label={t('loanFields.firstPaymentDate')}
           error={errors.paymentStartDate?.message as string | undefined}
           onDateChange={(date) => setValue('paymentStartDate', date, { shouldDirty: true, shouldValidate: true })}
           {...register('paymentStartDate')}
         />
 
         <Select
-          label="Payment From Account (required)"
+          label={t('loanFields.paymentFromAccount')}
           options={[
-            { value: '', label: 'Select account...' },
+            { value: '', label: t('loanFields.selectAccount') },
             ...buildAccountDropdownOptions(
               accounts,
               () => true,
@@ -165,8 +167,8 @@ export function LoanFields({
       </div>
 
       <Combobox
-        label="Interest Category"
-        placeholder="Select category..."
+        label={t('loanFields.interestCategory')}
+        placeholder={t('loanFields.selectCategory')}
         options={interestCategoryOptions}
         value={selectedInterestCategoryId}
         initialDisplayValue={initialInterestCategoryName}
@@ -177,29 +179,29 @@ export function LoanFields({
       {amortizationPreview && (
         <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-            Payment Preview (First Payment)
+            {t('loanFields.previewTitle')}
           </h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Principal:</span>{' '}
+              <span className="text-gray-500 dark:text-gray-400">{t('loanFields.previewPrincipal')}</span>{' '}
               <span className="font-medium">{formatCurrency(amortizationPreview.principalPayment, watchedCurrency)}</span>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Interest:</span>{' '}
+              <span className="text-gray-500 dark:text-gray-400">{t('loanFields.previewInterest')}</span>{' '}
               <span className="font-medium">{formatCurrency(amortizationPreview.interestPayment, watchedCurrency)}</span>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Total Payments:</span>{' '}
+              <span className="text-gray-500 dark:text-gray-400">{t('loanFields.previewTotalPayments')}</span>{' '}
               <span className="font-medium">
-                {amortizationPreview.totalPayments > 0 ? amortizationPreview.totalPayments : 'N/A'}
+                {amortizationPreview.totalPayments > 0 ? amortizationPreview.totalPayments : t('loanFields.previewNA')}
               </span>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Est. Payoff:</span>{' '}
+              <span className="text-gray-500 dark:text-gray-400">{t('loanFields.previewEstPayoff')}</span>{' '}
               <span className="font-medium">
                 {amortizationPreview.totalPayments > 0
                   ? formatDate(new Date(amortizationPreview.endDate))
-                  : 'N/A'}
+                  : t('loanFields.previewNA')}
               </span>
             </div>
           </div>
@@ -207,7 +209,7 @@ export function LoanFields({
       )}
       {isLoadingPreview && (
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          Calculating preview...
+          {t('loanFields.calculatingPreview')}
         </div>
       )}
     </div>

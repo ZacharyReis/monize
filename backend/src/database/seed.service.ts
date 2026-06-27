@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import * as bcrypt from "bcryptjs";
@@ -6,6 +6,8 @@ import { User } from "../users/entities/user.entity";
 
 @Injectable()
 export class SeedService {
+  private readonly logger = new Logger(SeedService.name);
+
   constructor(
     private dataSource: DataSource,
     @InjectRepository(User)
@@ -13,7 +15,7 @@ export class SeedService {
   ) {}
 
   async seedAll(): Promise<void> {
-    console.log("🌱 Starting database seeding...\n");
+    this.logger.log("Starting database seeding");
 
     await this.seedCurrencies();
     const userId = await this.seedDemoUser();
@@ -21,11 +23,11 @@ export class SeedService {
     const accountIds = await this.seedAccounts(userId);
     await this.seedTransactions(userId, accountIds);
 
-    console.log("\n✅ Database seeding completed successfully!");
+    this.logger.log("Database seeding completed successfully");
   }
 
   private async seedCurrencies(): Promise<void> {
-    console.log("💱 Seeding currencies...");
+    this.logger.log("Seeding currencies");
 
     const currencies = [
       { code: "USD", name: "US Dollar", symbol: "$", decimals: 2 },
@@ -72,11 +74,11 @@ export class SeedService {
       );
     }
 
-    console.log(`   ✓ Seeded ${currencies.length} currencies`);
+    this.logger.log(`Seeded ${currencies.length} currencies`);
   }
 
   private async seedDemoUser(): Promise<string> {
-    console.log("\n👤 Seeding demo user...");
+    this.logger.log("Seeding demo user");
 
     const email = "demo@monize.com";
     const password = "Demo123!";
@@ -88,23 +90,23 @@ export class SeedService {
     );
 
     if (existingUser.length > 0) {
-      console.log("   ✓ Demo user already exists");
+      this.logger.log("Demo user already exists");
       return existingUser[0].id;
     }
 
     const result = await this.dataSource.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, auth_provider, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (email, password_hash, first_name, last_name, auth_provider, is_active, email_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [email, hashedPassword, "Demo", "User", "local", true],
+      [email, hashedPassword, "Demo", "User", "local", true, true],
     );
 
-    console.log(`   ✓ Created demo user: ${email}`);
+    this.logger.log(`Created demo user: ${email}`);
     return result[0].id;
   }
 
   private async seedCategories(userId: string): Promise<void> {
-    console.log("\n📁 Seeding categories...");
+    this.logger.log("Seeding categories");
 
     // Income categories
     const incomeCategories = [
@@ -241,15 +243,15 @@ export class SeedService {
       }
     }
 
-    console.log(
-      `   ✓ Seeded ${categoryCount} categories (including subcategories)`,
+    this.logger.log(
+      `Seeded ${categoryCount} categories (including subcategories)`,
     );
   }
 
   private async seedAccounts(
     userId: string,
   ): Promise<{ [key: string]: string }> {
-    console.log("\n💳 Seeding accounts...");
+    this.logger.log("Seeding accounts");
 
     const accounts = [
       {
@@ -322,7 +324,7 @@ export class SeedService {
       accountIds[acc.type] = result[0].id;
     }
 
-    console.log(`   ✓ Seeded ${accounts.length} accounts`);
+    this.logger.log(`Seeded ${accounts.length} accounts`);
     return accountIds;
   }
 
@@ -330,7 +332,7 @@ export class SeedService {
     userId: string,
     accountIds: { [key: string]: string },
   ): Promise<void> {
-    console.log("\n💸 Seeding transactions...");
+    this.logger.log("Seeding transactions");
 
     const transactions = [
       // Income transactions
@@ -463,6 +465,6 @@ export class SeedService {
       );
     }
 
-    console.log(`   ✓ Seeded ${transactions.length} transactions`);
+    this.logger.log(`Seeded ${transactions.length} transactions`);
   }
 }

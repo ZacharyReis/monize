@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "Facturas y depósitos",
+    "subtitle": "Gestiona tus transacciones recurrentes y pagos planificados",
+    "newButton": "+ Nueva planificación",
+    "summaryActiveBills": "Facturas activas",
+    "summaryActiveDeposits": "Depósitos activos",
+    "summaryMonthlyNet": "Neto mensual",
+    "summaryDueNow": "Vence ahora",
+    "loadingText": "Cargando transacciones planificadas...",
+    "chartUnavailable": "Gráfico temporalmente no disponible"
+  },
+  "viewTabs": {
+    "list": "Lista",
+    "calendar": "Calendario",
+    "filterAll": "Todas ({count})",
+    "filterBills": "Facturas ({count})",
+    "filterDeposits": "Depósitos ({count})",
+    "todayButton": "Hoy"
+  },
+  "form": {
+    "titleNew": "Nueva transacción planificada",
+    "titleEdit": "Editar transacción planificada"
+  },
+  "overrideConfirm": {
+    "title": "Se encontraron modificaciones existentes",
+    "message": "Esta transacción planificada tiene {count, plural, one {# ocurrencia individual} other {# ocurrencias individuales}} con modificaciones personalizadas.",
+    "question": "¿Qué quieres hacer con estas modificaciones al actualizar la plantilla base?",
+    "keepButton": "Conservar modificaciones",
+    "deleteButton": "Eliminar todas las modificaciones"
+  },
+  "forecast": {
+    "title": "Pronóstico de flujo de caja",
+    "scheduledCount": "{count, plural, one {# transacción planificada} other {# transacciones planificadas}} en el pronóstico",
+    "tooltipTransactions": "Transacciones:",
+    "tooltipMore": "+{count} más",
+    "noData": "No hay datos para mostrar",
+    "noAccounts": "No se encontraron cuentas",
+    "noScheduled": "Sin transacciones planificadas",
+    "noMatchingAccount": "Selecciona una cuenta con transacciones planificadas",
+    "noUpcoming": "No hay transacciones próximas en este período - mostrando saldo actual",
+    "summaryStarting": "Inicial",
+    "summaryEnding": "Final",
+    "summaryLowest": "Más bajo",
+    "summaryMinBalance": "Saldo mínimo",
+    "allAccounts": "Todas las cuentas"
+  },
+  "calendar": {
+    "days": {
+      "sun": "Dom",
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mié",
+      "thu": "Jue",
+      "fri": "Vie",
+      "sat": "Sáb"
+    },
+    "more": "+{count} más"
+  },
+  "toasts": {
+    "overridesDeleted": "Modificaciones eliminadas",
+    "notFound": "Transacción planificada no encontrada",
+    "loadFailed": "Error al cargar las transacciones planificadas",
+    "overridesDeleteFailed": "Error al eliminar las modificaciones"
+  }
+}

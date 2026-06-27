@@ -8,8 +8,13 @@ import {
   AiToolResponse,
   AiToolStreamChunk,
   AiMessage,
+  AiContentBlock,
   ModelVerificationResult,
 } from "./ai-provider.interface";
+import {
+  isContentBlocks,
+  unsupportedAttachmentNote,
+} from "./content-blocks.util";
 import { randomUUID } from "crypto";
 import { longRunningFetch } from "./long-running-fetch";
 import { validateUrlBasicSafety } from "../validators/safe-url.validator";
@@ -44,6 +49,24 @@ export class OllamaModelDoesNotSupportToolsError extends Error {
         `follow instructions poorly; prefer 8B+ parameter models.`,
     );
     this.name = "OllamaModelDoesNotSupportToolsError";
+    this.model = model;
+  }
+}
+
+/**
+ * Thrown when Ollama rejects a request because the loaded model can't accept
+ * image input (e.g. a text-only model receiving an attached image/PDF). Like
+ * the tools error, retrying is pointless — the user must remove the attachment
+ * or switch to a vision-capable model. This is a typed marker; the user-facing
+ * copy is produced by the query service (internationalised), which only needs
+ * the `model` here for logging.
+ */
+export class OllamaModelDoesNotSupportImagesError extends Error {
+  readonly model: string;
+
+  constructor(model: string) {
+    super(`The Ollama model "${model}" does not support image input.`);
+    this.name = "OllamaModelDoesNotSupportImagesError";
     this.model = model;
   }
 }
@@ -437,6 +460,9 @@ export class OllamaProvider implements AiProvider {
         if (this.isModelDoesNotSupportToolsBody(bodyText)) {
           throw new OllamaModelDoesNotSupportToolsError(this.modelId);
         }
+        if (this.isModelDoesNotSupportImagesBody(bodyText)) {
+          throw new OllamaModelDoesNotSupportImagesError(this.modelId);
+        }
         throw new Error(
           `Ollama request failed: ${response.status} ${response.statusText}`,
         );
@@ -567,6 +593,26 @@ export class OllamaProvider implements AiProvider {
   }
 
   /**
+   * Ollama returns 400 with `{"error":"this model does not support image
+   * input"}` when a text-only model is sent an image. Match the stable
+   * substring so we can convert it into a typed, actionable error. Matches both
+   * parsed-JSON and raw-text bodies defensively.
+   */
+  private isModelDoesNotSupportImagesBody(bodyText: string): boolean {
+    if (!bodyText) return false;
+    if (/does not support image/i.test(bodyText)) return true;
+    try {
+      const parsed = JSON.parse(bodyText) as { error?: unknown };
+      return (
+        typeof parsed.error === "string" &&
+        /does not support image/i.test(parsed.error)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Best-effort body read for diagnostic logging on non-OK responses.
    * Defensive against responses that lack a usable .text() (e.g. test mocks)
    * or whose body has already been consumed.
@@ -580,6 +626,37 @@ export class OllamaProvider implements AiProvider {
     }
   }
 
+  /**
+   * Build an Ollama user message from a turn's content. Plain strings pass
+   * through unchanged. Multimodal blocks are split: image base64 strings go
+   * into Ollama's `images` array (vision models only), text/csv blocks become
+   * `content`, and a PDF `document` block degrades to a text note since Ollama
+   * has no document-input path.
+   */
+  private userMessageForOllama(
+    content: string | AiContentBlock[],
+  ): Record<string, unknown> {
+    if (!isContentBlocks(content)) {
+      return { role: "user", content };
+    }
+    const texts: string[] = [];
+    const images: string[] = [];
+    for (const block of content) {
+      if (block.type === "image") {
+        images.push(block.data);
+      } else if (block.type === "document") {
+        texts.push(unsupportedAttachmentNote("PDF", block.filename, this.name));
+      } else {
+        texts.push(block.text);
+      }
+    }
+    return {
+      role: "user",
+      content: texts.join("\n\n"),
+      ...(images.length > 0 && { images }),
+    };
+  }
+
   private toOllamaMessages(
     messages: AiMessage[],
     systemPrompt: string,
@@ -590,7 +667,7 @@ export class OllamaProvider implements AiProvider {
 
     for (const msg of messages) {
       if (msg.role === "user") {
-        result.push({ role: "user", content: msg.content });
+        result.push(this.userMessageForOllama(msg.content));
       } else if (msg.role === "assistant") {
         // Ollama Cloud (and stricter backends) validate that tool-result
         // messages reference a tool_call_id produced earlier in the same

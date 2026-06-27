@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { FilterGroup, FilterCondition, FilterField } from '@/types/custom-report';
 import { Account } from '@/types/account';
 import { Category } from '@/types/category';
@@ -17,17 +18,19 @@ interface FilterBuilderProps {
   tags: Tag[];
 }
 
-const FIELD_OPTIONS: { value: FilterField; label: string }[] = [
-  { value: 'account', label: 'Account' },
-  { value: 'category', label: 'Category' },
-  { value: 'payee', label: 'Payee' },
-  { value: 'tag', label: 'Tag' },
-  { value: 'text', label: 'Text' },
-];
-
 const ENTITY_FIELDS: FilterField[] = ['account', 'category', 'payee', 'tag'];
 
 export function FilterBuilder({ value, onChange, accounts, categories, payees, tags }: FilterBuilderProps) {
+  const t = useTranslations('reports');
+
+  const FIELD_OPTIONS: { value: FilterField; label: string }[] = [
+    { value: 'account', label: t('filterBuilder.fieldAccount') },
+    { value: 'category', label: t('filterBuilder.fieldCategory') },
+    { value: 'payee', label: t('filterBuilder.fieldPayee') },
+    { value: 'tag', label: t('filterBuilder.fieldTag') },
+    { value: 'text', label: t('filterBuilder.fieldText') },
+  ];
+
   const accountOptions: MultiSelectOption[] = useMemo(() =>
     [...accounts]
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -37,8 +40,8 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
 
   const categoryOptions: MultiSelectOption[] = useMemo(() => {
     const specialOptions: MultiSelectOption[] = [
-      { value: 'uncategorized', label: 'Uncategorized' },
-      { value: 'transfer', label: 'Transfers' },
+      { value: 'uncategorized', label: t('filterBuilder.categoryUncategorized') },
+      { value: 'transfer', label: t('filterBuilder.categoryTransfers') },
     ];
     const buildOptions = (parentId: string | null = null): MultiSelectOption[] => {
       return categories
@@ -55,7 +58,8 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
         });
     };
     return [...specialOptions, ...buildOptions()];
-  }, [categories]);
+   
+  }, [categories, t]);
 
   const payeeOptions: MultiSelectOption[] = useMemo(() =>
     [...payees]
@@ -142,7 +146,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
     return (
       <div className="text-center py-6">
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-          No filters — all transactions included
+          {t('filterBuilder.noFilters')}
         </p>
         <button
           type="button"
@@ -152,7 +156,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Add filter group
+          {t('filterBuilder.addFilterGroup')}
         </button>
       </div>
     );
@@ -172,13 +176,13 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
           <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 relative">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Match any
+                {t('filterBuilder.matchAny')}
               </span>
               <button
                 type="button"
                 onClick={() => removeGroup(gi)}
                 className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                title="Remove group"
+                title={t('filterBuilder.removeGroup')}
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -215,7 +219,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
                         type="text"
                         value={condition.value as string}
                         onChange={(e) => updateCondition(gi, ci, { value: e.target.value })}
-                        placeholder="Search text..."
+                        placeholder={t('filterBuilder.searchTextPlaceholder')}
                         className="min-w-0 rounded-md border border-gray-300 shadow-sm px-2 py-1.5 text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                       />
                     ) : (
@@ -231,7 +235,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
                       type="button"
                       onClick={() => removeCondition(gi, ci)}
                       className="flex-shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors mt-0.5"
-                      title="Remove condition"
+                      title={t('filterBuilder.removeCondition')}
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -249,7 +253,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add OR condition
+              {t('filterBuilder.addOrCondition')}
             </button>
           </div>
         </div>
@@ -263,7 +267,7 @@ export function FilterBuilder({ value, onChange, accounts, categories, payees, t
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-        Add AND group
+        {t('filterBuilder.addAndGroup')}
       </button>
     </div>
   );

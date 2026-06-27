@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { exportToCsv } from '@/lib/csv-export';
 
@@ -41,6 +42,7 @@ function deriveTableName(
 }
 
 export function AssistantTable({ children }: AssistantTableProps) {
+  const t = useTranslations('ai');
   const wrapperRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -58,7 +60,7 @@ export function AssistantTable({ children }: AssistantTableProps) {
     );
 
     if (headers.length === 0 && rows.length === 0) {
-      toast.error('No table data to export');
+      toast.error(t('table.noDataError'));
       return;
     }
 
@@ -75,8 +77,8 @@ export function AssistantTable({ children }: AssistantTableProps) {
           type="button"
           onClick={handleDownload}
           className="p-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
-          title="Download table as CSV"
-          aria-label="Download table as CSV"
+          title={t('table.downloadTitle')}
+          aria-label={t('table.downloadAriaLabel')}
         >
           <svg
             className="h-4 w-4"

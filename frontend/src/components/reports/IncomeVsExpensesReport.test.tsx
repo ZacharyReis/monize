@@ -166,12 +166,13 @@ describe("IncomeVsExpensesReport", () => {
     expect(screen.getByText("Savings Rate")).toBeInTheDocument();
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetIncomeVsExpenses.mockRejectedValue(new Error("Network error"));
     render(<IncomeVsExpensesReport />);
     await waitFor(() => {
-      expect(screen.getByText("No data for this period.")).toBeInTheDocument();
+      expect(screen.getByText(/failed to load report data/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("renders bar chart with monthly data", async () => {

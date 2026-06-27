@@ -11,6 +11,35 @@ export const passwordSchema = z
   .regex(/(?=.*\d)/, 'Must contain a number')
   .regex(/(?=.*[^A-Za-z\d\s])/, 'Must contain a special character');
 
+/** Shared email validation used by the auth forms (login, register, forgot password). */
+export const emailSchema = z
+  .string()
+  .email('Please enter a valid email address');
+
+/** Translator-aware variants for forms that surface validation messages. */
+export const buildPasswordSchema = (t: (key: string) => string) => z
+  .string()
+  .min(12, t('passwordValidation.min'))
+  .max(100, t('passwordValidation.max'))
+  .regex(/(?=.*[a-z])/, t('passwordValidation.lowercase'))
+  .regex(/(?=.*[A-Z])/, t('passwordValidation.uppercase'))
+  .regex(/(?=.*\d)/, t('passwordValidation.number'))
+  .regex(/(?=.*[^A-Za-z\d\s])/, t('passwordValidation.special'));
+
+export const buildEmailSchema = (t: (key: string) => string) => z
+  .string()
+  .email(t('emailInvalid'));
+
+/**
+ * Shared 6-digit TOTP code field validation (2FA setup, 2FA verify, step-up
+ * auth). `t` is the `common` namespace translator -- the messages live under
+ * `common.codeValidation`.
+ */
+export const buildTotpCodeSchema = (t: (key: string) => string) => z
+  .string()
+  .length(6, t('codeValidation.length'))
+  .regex(/^\d{6}$/, t('codeValidation.digits'));
+
 export const PASSWORD_REQUIREMENTS_TEXT =
   'Password must be at least 12 characters and contain an uppercase letter, a lowercase letter, a number, and a special character.';
 

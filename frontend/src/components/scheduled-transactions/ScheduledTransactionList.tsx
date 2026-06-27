@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useRef, memo, type JSX } from 'react';
+import { useState, memo, type JSX } from 'react';
+import { useTranslations } from 'next-intl';
 import { isPast, isToday, addDays, isBefore } from 'date-fns';
 import toast from 'react-hot-toast';
-import { ScheduledTransaction, FREQUENCY_LABELS } from '@/types/scheduled-transaction';
+import { ScheduledTransaction } from '@/types/scheduled-transaction';
 import { scheduledTransactionsApi } from '@/lib/scheduled-transactions';
 import { parseLocalDate } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
@@ -11,6 +12,82 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { computeInvestmentCashImpact } from '@/lib/investmentCashImpact';
 import { InvestmentAction } from '@/types/investment';
+import { useLongPress, type LongPressRowHandlers } from '@/hooks/useLongPress';
+import { RowActions } from '@/components/ui/row-actions/RowActions';
+import { RowActionSheet } from '@/components/ui/row-actions/RowActionSheet';
+import type { RowAction } from '@/components/ui/row-actions/rowAction';
+
+interface ScheduledActionLabels {
+  post: string;
+  skip: string;
+  editOccurrence: string;
+  editSchedule: string;
+  delete: string;
+}
+
+interface ScheduledActionHandlers {
+  onPost?: (transaction: ScheduledTransaction) => void;
+  onOpenConfirm: (action: 'post' | 'skip' | 'delete', transaction: ScheduledTransaction) => void;
+  onEdit?: (transaction: ScheduledTransaction) => void;
+  onEditOccurrence?: (transaction: ScheduledTransaction) => void;
+}
+
+/**
+ * Builds the standard row actions for a scheduled transaction. Shared by the
+ * desktop `RowActions` cell and the mobile `RowActionSheet`.
+ */
+function buildScheduledActions(
+  transaction: ScheduledTransaction,
+  isProcessing: boolean,
+  labels: ScheduledActionLabels,
+  handlers: ScheduledActionHandlers,
+): RowAction[] {
+  return [
+    {
+      key: 'post',
+      label: labels.post,
+      icon: 'post',
+      tone: 'success',
+      disabled: isProcessing,
+      onClick: () => (handlers.onPost ? handlers.onPost(transaction) : handlers.onOpenConfirm('post', transaction)),
+      hidden: !transaction.isActive,
+    },
+    {
+      key: 'skip',
+      label: labels.skip,
+      icon: 'skip',
+      tone: 'warning',
+      disabled: isProcessing,
+      onClick: () => handlers.onOpenConfirm('skip', transaction),
+      hidden: !transaction.isActive || transaction.frequency === 'ONCE',
+    },
+    {
+      key: 'editOccurrence',
+      label: labels.editOccurrence,
+      icon: 'schedule',
+      tone: 'accent',
+      onClick: () => handlers.onEditOccurrence?.(transaction),
+      hidden: !handlers.onEditOccurrence || !transaction.isActive,
+    },
+    {
+      key: 'editSchedule',
+      label: labels.editSchedule,
+      icon: 'edit',
+      tone: 'primary',
+      onClick: () => handlers.onEdit?.(transaction),
+      hidden: !handlers.onEdit,
+    },
+    {
+      key: 'delete',
+      label: labels.delete,
+      icon: 'delete',
+      tone: 'delete',
+      destructive: true,
+      disabled: isProcessing,
+      onClick: () => handlers.onOpenConfirm('delete', transaction),
+    },
+  ];
+}
 
 /**
  * Cash impact of a scheduled transaction occurrence, taking nextOverride into
@@ -53,7 +130,6 @@ function scheduledOccurrenceAmount(
   return Number(transaction.amount);
 }
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Modal } from '@/components/ui/Modal';
 
 type ConfirmAction = 'post' | 'skip' | 'delete';
 
@@ -69,11 +145,7 @@ interface ScheduledTransactionRowProps {
   formatDate: (date: string) => string;
   formatAmount: (amount: number | null | undefined, currencyCode?: string) => JSX.Element;
   getDueDateStatus: (nextDueDate: string | undefined | null) => { label: string; className: string } | null;
-  onRowClick: (transaction: ScheduledTransaction) => void;
-  onLongPressStart: (transaction: ScheduledTransaction) => void;
-  onLongPressStartTouch: (transaction: ScheduledTransaction, e: React.TouchEvent) => void;
-  onLongPressEnd: () => void;
-  onTouchMove: (e: React.TouchEvent) => void;
+  getRowHandlers: (transaction: ScheduledTransaction) => LongPressRowHandlers;
   onPost?: (transaction: ScheduledTransaction) => void;
   onOpenConfirm: (action: 'post' | 'skip' | 'delete', transaction: ScheduledTransaction) => void;
   onEdit?: (transaction: ScheduledTransaction) => void;
@@ -87,17 +159,26 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
   formatDate,
   formatAmount,
   getDueDateStatus,
-  onRowClick,
-  onLongPressStart,
-  onLongPressStartTouch,
-  onLongPressEnd,
-  onTouchMove,
+  getRowHandlers,
   onPost,
   onOpenConfirm,
   onEdit,
   onEditOccurrence,
   categoryColorMap,
 }: ScheduledTransactionRowProps) {
+  const t = useTranslations('scheduledTransactions');
+  const actions = buildScheduledActions(
+    transaction,
+    isProcessing,
+    {
+      post: t('list.contextMenu.postTransaction'),
+      skip: t('list.contextMenu.skipOccurrence'),
+      editOccurrence: t('list.contextMenu.editOccurrence'),
+      editSchedule: t('list.contextMenu.editSchedule'),
+      delete: t('list.contextMenu.delete'),
+    },
+    { onPost, onOpenConfirm, onEdit, onEditOccurrence },
+  );
   const categoryColor = transaction.category
     ? (categoryColorMap?.get(transaction.category.id) ?? transaction.category.color)
     : null;
@@ -107,15 +188,8 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
 
   return (
     <tr
-      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer select-none ${!transaction.isActive ? 'opacity-50' : ''} ${dueDateStatus?.label === 'Overdue' ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-gray-900'}`}
-      onClick={() => onRowClick(transaction)}
-      onMouseDown={() => onLongPressStart(transaction)}
-      onMouseUp={onLongPressEnd}
-      onMouseLeave={onLongPressEnd}
-      onTouchStart={(e) => onLongPressStartTouch(transaction, e)}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onLongPressEnd}
-      onTouchCancel={onLongPressEnd}
+      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer select-none ${!transaction.isActive ? 'opacity-50' : ''} ${dueDateStatus?.label === t('list.dueDateStatus.overdue') ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-gray-900'}`}
+      {...getRowHandlers(transaction)}
     >
       {/* Name / Payee */}
       <td className="px-4 py-3">
@@ -127,7 +201,7 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
         <div className="sm:hidden mt-0.5">
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {effectiveDueDate ? formatDate(effectiveDueDate) : '\u2014'}
-            {' \u00b7 '}{FREQUENCY_LABELS[transaction.frequency]}
+            {' \u00b7 '}{t(`frequency.${transaction.frequency}`)}
           </div>
           {dueDateStatus && (
             <span className={`inline-flex text-xs font-medium rounded-full px-1.5 py-0.5 mt-0.5 ${dueDateStatus.className}`}>
@@ -207,7 +281,7 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
                 <span className="text-xs text-gray-400 dark:text-gray-500 line-through">
                   {formatAmount(baseAmount, transaction.currencyCode)}
                 </span>
-                <span title="Modified for next occurrence">
+                <span title={t('list.modifiedAmountTitle')}>
                   {formatAmount(overrideAmount, transaction.currencyCode)}
                 </span>
               </div>
@@ -244,16 +318,16 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
           )}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {FREQUENCY_LABELS[transaction.frequency]}
+          {t(`frequency.${transaction.frequency}`)}
           {transaction.occurrencesRemaining !== null && (
-            <span className="ml-1">{'\u00b7'} {transaction.occurrencesRemaining} left</span>
+            <span className="ml-1">{'\u00b7'} {t('list.occurrencesRemaining', { count: transaction.occurrencesRemaining })}</span>
           )}
           {transaction.overrideCount !== undefined && transaction.overrideCount > 0 && (
             <span
               className="ml-1.5 inline-flex text-xs font-medium rounded-full px-1.5 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-              title={`${transaction.overrideCount} upcoming occurrence${transaction.overrideCount !== 1 ? 's' : ''} modified`}
+              title={t('list.modifiedTitle', { count: transaction.overrideCount })}
             >
-              {transaction.overrideCount} modified
+              {t('list.modifiedBadge', { count: transaction.overrideCount })}
             </span>
           )}
         </div>
@@ -264,9 +338,9 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
         {transaction.autoPost ? (
           <span
             className="inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-            title="Auto-posts when due"
+            title={t('list.autoPostTitle')}
           >
-            On
+            {t('list.autoPostBadge')}
           </span>
         ) : (
           <span className="text-xs text-gray-400 dark:text-gray-500">{'\u2014'}</span>
@@ -274,67 +348,8 @@ const ScheduledTransactionRow = memo(function ScheduledTransactionRow({
       </td>
 
       {/* Actions */}
-      <td className={`px-4 py-3 whitespace-nowrap text-right hidden min-[480px]:table-cell sticky right-0 ${dueDateStatus?.label === 'Overdue' ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`} onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-end items-center space-x-1">
-          {transaction.isActive && (
-            <>
-              <button
-                onClick={() => onPost ? onPost(transaction) : onOpenConfirm('post', transaction)}
-                disabled={isProcessing}
-                className="p-1 text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/50 rounded disabled:opacity-50"
-                title="Post transaction"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              {transaction.frequency !== 'ONCE' && (
-                <button
-                  onClick={() => onOpenConfirm('skip', transaction)}
-                  disabled={isProcessing}
-                  className="p-1 text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/50 rounded disabled:opacity-50"
-                  title="Skip this occurrence"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-            </>
-          )}
-          {onEditOccurrence && transaction.isActive && (
-            <button
-              onClick={() => onEditOccurrence(transaction)}
-              className="p-1 text-purple-600 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/50 rounded"
-              title="Edit occurrence"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </button>
-          )}
-          {onEdit && (
-            <button
-              onClick={() => onEdit(transaction)}
-              className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded"
-              title="Edit schedule"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-          )}
-          <button
-            onClick={() => onOpenConfirm('delete', transaction)}
-            disabled={isProcessing}
-            className="p-1 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/50 rounded disabled:opacity-50"
-            title="Delete"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
+      <td className={`px-4 py-3 whitespace-nowrap text-right hidden min-[480px]:table-cell sticky right-0 ${dueDateStatus?.label === t('list.dueDateStatus.overdue') ? 'bg-red-50 dark:bg-red-900/10' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`} onClick={(e) => e.stopPropagation()}>
+        <RowActions actions={actions} density="compact" />
       </td>
     </tr>
   );
@@ -357,6 +372,7 @@ export function ScheduledTransactionList({
   onRefresh,
   categoryColorMap,
 }: ScheduledTransactionListProps) {
+  const t = useTranslations('scheduledTransactions');
   const { formatDate } = useDateFormat();
   const { formatCurrency } = useNumberFormat();
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -366,53 +382,13 @@ export function ScheduledTransactionList({
     transaction: null,
   });
 
-  // Long-press handling for context menu on mobile
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const longPressTriggered = useRef(false);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const LONG_PRESS_MOVE_THRESHOLD = 10;
+  // Long-press opens a per-row action sheet on mobile (and via right-click).
   const [contextTransaction, setContextTransaction] = useState<ScheduledTransaction | null>(null);
 
-  const handleLongPressStart = useCallback((transaction: ScheduledTransaction, e?: React.TouchEvent) => {
-    if (e?.touches?.[0]) {
-      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else {
-      touchStartPos.current = null;
-    }
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setContextTransaction(transaction);
-    }, 750);
-  }, []);
-
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    touchStartPos.current = null;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartPos.current && longPressTimer.current && e.touches?.[0]) {
-      const deltaX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
-      const deltaY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-      if (deltaX > LONG_PRESS_MOVE_THRESHOLD || deltaY > LONG_PRESS_MOVE_THRESHOLD) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-        touchStartPos.current = null;
-      }
-    }
-  }, []);
-
-  const handleRowClick = useCallback((transaction: ScheduledTransaction) => {
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
-      return;
-    }
-    onEdit?.(transaction);
-  }, [onEdit]);
+  const { getRowHandlers } = useLongPress<ScheduledTransaction>({
+    onLongPress: setContextTransaction,
+    onClick: (transaction) => onEdit?.(transaction),
+  });
 
   const openConfirm = (action: ConfirmAction, transaction: ScheduledTransaction) => {
     setConfirmState({ isOpen: true, action, transaction });
@@ -433,23 +409,23 @@ export function ScheduledTransactionList({
       switch (action) {
         case 'post':
           await scheduledTransactionsApi.post(transaction.id);
-          toast.success('Transaction posted');
+          toast.success(t('list.toasts.posted'));
           break;
         case 'skip':
           await scheduledTransactionsApi.skip(transaction.id);
-          toast.success('Occurrence skipped');
+          toast.success(t('list.toasts.skipped'));
           break;
         case 'delete':
           await scheduledTransactionsApi.delete(transaction.id);
-          toast.success('Scheduled transaction deleted');
+          toast.success(t('list.toasts.deleted'));
           break;
       }
       onRefresh?.();
     } catch (error) {
       const messages = {
-        post: 'Failed to post transaction',
-        skip: 'Failed to skip occurrence',
-        delete: 'Failed to delete',
+        post: t('list.toasts.postFailed'),
+        skip: t('list.toasts.skipFailed'),
+        delete: t('list.toasts.deleteFailed'),
       };
       toast.error(getErrorMessage(error, messages[action]));
     } finally {
@@ -466,23 +442,23 @@ export function ScheduledTransactionList({
     switch (action) {
       case 'post':
         return {
-          title: 'Post Transaction',
-          message: `Post "${transaction.name}" and record it in your ${transaction.account?.name || 'account'}?`,
-          confirmLabel: 'Post',
+          title: t('list.confirmPost.title'),
+          message: t('list.confirmPost.message', { name: transaction.name, account: transaction.account?.name || 'account' }),
+          confirmLabel: t('list.confirmPost.confirmLabel'),
           variant: 'info' as const,
         };
       case 'skip':
         return {
-          title: 'Skip Occurrence',
-          message: `Skip this occurrence of "${transaction.name}" and advance to the next due date?`,
-          confirmLabel: 'Skip',
+          title: t('list.confirmSkip.title'),
+          message: t('list.confirmSkip.message', { name: transaction.name }),
+          confirmLabel: t('list.confirmSkip.confirmLabel'),
           variant: 'warning' as const,
         };
       case 'delete':
         return {
-          title: 'Delete Scheduled Transaction',
-          message: `Are you sure you want to delete "${transaction.name}"? This cannot be undone.`,
-          confirmLabel: 'Delete',
+          title: t('list.confirmDelete.title'),
+          message: t('list.confirmDelete.message', { name: transaction.name }),
+          confirmLabel: t('list.confirmDelete.confirmLabel'),
           variant: 'danger' as const,
         };
     }
@@ -516,13 +492,13 @@ export function ScheduledTransactionList({
       today.setHours(0, 0, 0, 0);
 
       if (isPast(date) && !isToday(date)) {
-        return { label: 'Overdue', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' };
+        return { label: t('list.dueDateStatus.overdue'), className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' };
       }
       if (isToday(date)) {
-        return { label: 'Due Today', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
+        return { label: t('list.dueDateStatus.dueToday'), className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
       }
       if (isBefore(date, addDays(today, 7))) {
-        return { label: 'Due Soon', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' };
+        return { label: t('list.dueDateStatus.dueSoon'), className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' };
       }
       return null;
     } catch {
@@ -546,9 +522,9 @@ export function ScheduledTransactionList({
             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No scheduled transactions</h3>
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{t('list.empty.title')}</h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Get started by creating a bill or deposit schedule.
+          {t('list.empty.subtitle')}
         </p>
       </div>
     );
@@ -560,25 +536,25 @@ export function ScheduledTransactionList({
         <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Name / Payee
+              {t('list.columns.namePayee')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">
-              Account
+              {t('list.columns.account')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">
-              Category
+              {t('list.columns.category')}
             </th>
             <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Amount
+              {t('list.columns.amount')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">
-              Schedule
+              {t('list.columns.schedule')}
             </th>
             <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">
-              Auto
+              {t('list.columns.auto')}
             </th>
             <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden min-[480px]:table-cell sticky right-0 bg-gray-50 dark:bg-gray-800">
-              Actions
+              {t('list.columns.actions')}
             </th>
           </tr>
         </thead>
@@ -591,11 +567,7 @@ export function ScheduledTransactionList({
               formatDate={formatDate}
               formatAmount={formatAmount}
               getDueDateStatus={getDueDateStatus}
-              onRowClick={handleRowClick}
-              onLongPressStart={handleLongPressStart}
-              onLongPressStartTouch={handleLongPressStart}
-              onLongPressEnd={handleLongPressEnd}
-              onTouchMove={handleTouchMove}
+              getRowHandlers={getRowHandlers}
               onPost={onPost}
               onOpenConfirm={openConfirm}
               onEdit={onEdit}
@@ -606,77 +578,29 @@ export function ScheduledTransactionList({
         </tbody>
       </table>
 
-      {/* Long-press Context Menu */}
-      <Modal isOpen={!!contextTransaction} onClose={() => setContextTransaction(null)} maxWidth="sm" className="p-0">
-        {contextTransaction && (
-          <div>
-            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{contextTransaction.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {FREQUENCY_LABELS[contextTransaction.frequency]}
-                {!contextTransaction.isActive ? ' — Inactive' : ''}
-              </p>
-            </div>
-            <div className="py-2">
-              {contextTransaction.isActive && (
-                <>
-                  <button
-                    onClick={() => { const t = contextTransaction; setContextTransaction(null); onPost ? onPost(t) : openConfirm('post', t); }}
-                    className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                  >
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Post Transaction
-                  </button>
-                  {contextTransaction.frequency !== 'ONCE' && (
-                    <button
-                      onClick={() => { const t = contextTransaction; setContextTransaction(null); openConfirm('skip', t); }}
-                      className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                    >
-                      <svg className="w-5 h-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                      </svg>
-                      Skip Occurrence
-                    </button>
-                  )}
-                  {onEditOccurrence && (
-                    <button
-                      onClick={() => { const t = contextTransaction; setContextTransaction(null); onEditOccurrence(t); }}
-                      className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                    >
-                      <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Edit Occurrence
-                    </button>
-                  )}
-                </>
-              )}
-              {onEdit && (
-                <button
-                  onClick={() => { const t = contextTransaction; setContextTransaction(null); onEdit(t); }}
-                  className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                >
-                  <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit Schedule
-                </button>
-              )}
-              <button
-                onClick={() => { const t = contextTransaction; setContextTransaction(null); openConfirm('delete', t); }}
-                className="w-full text-left px-5 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* Long-press action sheet */}
+      <RowActionSheet
+        isOpen={!!contextTransaction}
+        title={contextTransaction?.name ?? ''}
+        subtitle={contextTransaction
+          ? `${t(`frequency.${contextTransaction.frequency}`)}${!contextTransaction.isActive ? t('list.inactiveSuffix') : ''}`
+          : undefined}
+        actions={contextTransaction
+          ? buildScheduledActions(
+              contextTransaction,
+              actionInProgress === contextTransaction.id,
+              {
+                post: t('list.contextMenu.postTransaction'),
+                skip: t('list.contextMenu.skipOccurrence'),
+                editOccurrence: t('list.contextMenu.editOccurrence'),
+                editSchedule: t('list.contextMenu.editSchedule'),
+                delete: t('list.contextMenu.delete'),
+              },
+              { onPost, onOpenConfirm: openConfirm, onEdit, onEditOccurrence },
+            )
+          : []}
+        onClose={() => setContextTransaction(null)}
+      />
 
       <ConfirmDialog
         isOpen={confirmState.isOpen}

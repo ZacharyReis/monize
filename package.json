@@ -1,0 +1,14 @@
+{
+  "name": "monize-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workspace-level tooling for monize (husky, lint-staged). Backend and frontend each have their own package.json.",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0"
+  }
+}

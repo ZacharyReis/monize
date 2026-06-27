@@ -10,10 +10,7 @@ describe("McpAccountsTools", () => {
 
   beforeEach(() => {
     accountsService = {
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      getSummary: jest.fn(),
-      getLlmBalances: jest.fn(),
+      getLlmAccounts: jest.fn(),
     };
 
     tool = new McpAccountsTools(accountsService as any);
@@ -28,39 +25,69 @@ describe("McpAccountsTools", () => {
     tool.register(server as any, resolve);
   });
 
-  it("should register 4 tools", () => {
-    expect(server.registerTool).toHaveBeenCalledTimes(4);
+  it("should register 1 tool", () => {
+    expect(server.registerTool).toHaveBeenCalledTimes(1);
+    expect(server.registerTool).toHaveBeenCalledWith(
+      "list_accounts",
+      expect.objectContaining({ title: "List accounts" }),
+      expect.any(Function),
+    );
   });
 
-  describe("get_account_balances", () => {
-    it("delegates to accountsService.getLlmBalances (service applies 'open' default)", async () => {
+  describe("list_accounts", () => {
+    it("passes all filter args through to the service", async () => {
       resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.getLlmBalances.mockResolvedValue({
-        accounts: [],
+      accountsService.getLlmAccounts.mockResolvedValue({
+        accounts: [
+          {
+            id: "a1",
+            name: "Checking",
+            type: "CHEQUING",
+            subType: null,
+            balance: 100,
+            currentBalance: 100,
+            creditLimit: null,
+            interestRate: null,
+            currency: "USD",
+            isClosed: false,
+            excludeFromNetWorth: false,
+            institutionName: null,
+            accountNumber: null,
+          },
+        ],
         totalAssets: 1000,
         totalLiabilities: 0,
         netWorth: 1000,
         totalAccounts: 1,
       });
 
-      const result = await handlers["get_account_balances"](
-        { accountNames: ["Checking"] },
+      const result = await handlers["list_accounts"](
+        {
+          accountNames: ["Checking"],
+          accountIds: ["11111111-1111-1111-1111-111111111111"],
+          nameQuery: "chec",
+          status: "all",
+          accountTypes: ["CHEQUING", "SAVINGS"],
+        },
         { sessionId: "s1" },
       );
 
-      expect(accountsService.getLlmBalances).toHaveBeenCalledWith(
-        "u1",
-        ["Checking"],
-        undefined,
-        undefined,
-      );
+      expect(accountsService.getLlmAccounts).toHaveBeenCalledWith("u1", {
+        accountNames: ["Checking"],
+        accountIds: ["11111111-1111-1111-1111-111111111111"],
+        nameQuery: "chec",
+        status: "all",
+        accountTypes: ["CHEQUING", "SAVINGS"],
+      });
+      expect(result.isError).toBeUndefined();
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.netWorth).toBe(1000);
+      expect(parsed.accounts[0].id).toBe("a1");
     });
 
-    it("passes status and accountTypes filters through", async () => {
+    it("delegates with undefined filters when none provided (service applies 'open' default)", async () => {
       resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.getLlmBalances.mockResolvedValue({
+      accountsService.getLlmAccounts.mockResolvedValue({
         accounts: [],
         totalAssets: 0,
         totalLiabilities: 0,
@@ -68,177 +95,37 @@ describe("McpAccountsTools", () => {
         totalAccounts: 0,
       });
 
-      await handlers["get_account_balances"](
-        { status: "closed", accountTypes: ["CHEQUING", "SAVINGS"] },
-        { sessionId: "s1" },
-      );
+      await handlers["list_accounts"]({}, { sessionId: "s1" });
 
-      expect(accountsService.getLlmBalances).toHaveBeenCalledWith(
-        "u1",
-        undefined,
-        "closed",
-        ["CHEQUING", "SAVINGS"],
-      );
+      expect(accountsService.getLlmAccounts).toHaveBeenCalledWith("u1", {
+        accountNames: undefined,
+        accountIds: undefined,
+        nameQuery: undefined,
+        status: undefined,
+        accountTypes: undefined,
+      });
     });
-  });
 
-  describe("get_accounts", () => {
-    it("should return error when no user context", async () => {
+    it("returns error when no user context", async () => {
       resolve.mockReturnValue(undefined);
-      const result = await handlers["get_accounts"]({}, { sessionId: "s1" });
+      const result = await handlers["list_accounts"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
     });
 
-    it("should require read scope", async () => {
+    it("requires read scope", async () => {
       resolve.mockReturnValue({ userId: "u1", scopes: "write" });
-      const result = await handlers["get_accounts"]({}, { sessionId: "s1" });
+      const result = await handlers["list_accounts"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("read");
     });
 
-    it("should return accounts on success", async () => {
+    it("returns a safe error when the service throws", async () => {
       resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.findAll.mockResolvedValue([
-        { id: "a1", name: "Checking" },
-      ]);
+      accountsService.getLlmAccounts.mockRejectedValue(new Error("DB fail"));
 
-      const result = await handlers["get_accounts"]({}, { sessionId: "s1" });
-      expect(result.isError).toBeUndefined();
-      expect(accountsService.findAll).toHaveBeenCalledWith("u1", false);
-      expect(JSON.parse(result.content[0].text)).toEqual([
-        { id: "a1", name: "Checking" },
-      ]);
-    });
-
-    it("should pass includeInactive flag", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.findAll.mockResolvedValue([]);
-
-      await handlers["get_accounts"](
-        { includeInactive: true },
-        { sessionId: "s1" },
-      );
-      expect(accountsService.findAll).toHaveBeenCalledWith("u1", true);
-    });
-
-    it("should handle service errors", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.findAll.mockRejectedValue(new Error("DB error"));
-
-      const result = await handlers["get_accounts"]({}, { sessionId: "s1" });
+      const result = await handlers["list_accounts"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("An error occurred");
-    });
-  });
-
-  describe("get_account_balance", () => {
-    it("should return account details on success", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.findOne.mockResolvedValue({
-        id: "a1",
-        name: "Checking",
-        accountType: "checking",
-        currentBalance: 1000,
-        creditLimit: null,
-        currencyCode: "USD",
-      });
-
-      const result = await handlers["get_account_balance"](
-        { accountId: "a1" },
-        { sessionId: "s1" },
-      );
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.id).toBe("a1");
-      expect(parsed.currentBalance).toBe(1000);
-    });
-
-    it("should handle not found errors", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.findOne.mockRejectedValue(new Error("Not found"));
-
-      const result = await handlers["get_account_balance"](
-        { accountId: "bad" },
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-  });
-
-  describe("get_account_summary", () => {
-    it("should return summary on success", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.getSummary.mockResolvedValue({
-        totalAssets: 5000,
-        totalLiabilities: 1000,
-        netWorth: 4000,
-      });
-
-      const result = await handlers["get_account_summary"](
-        {},
-        { sessionId: "s1" },
-      );
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.netWorth).toBe(4000);
-    });
-
-    it("returns an error result when the service throws", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.getSummary.mockRejectedValue(new Error("DB fail"));
-
-      const result = await handlers["get_account_summary"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-
-    it("returns an error result when no user context is present", async () => {
-      resolve.mockReturnValue(undefined);
-      const result = await handlers["get_account_summary"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-
-    it("returns an error result when scope is insufficient", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "write_only" } as any);
-      const result = await handlers["get_account_summary"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-  });
-
-  describe("get_account_balances error paths", () => {
-    it("returns error when no user context", async () => {
-      resolve.mockReturnValue(undefined);
-      const result = await handlers["get_account_balances"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-
-    it("returns error on insufficient scope", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "write_only" } as any);
-      const result = await handlers["get_account_balances"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
-    });
-
-    it("returns error when service throws", async () => {
-      resolve.mockReturnValue({ userId: "u1", scopes: "read" });
-      accountsService.getLlmBalances.mockRejectedValue(new Error("DB fail"));
-
-      const result = await handlers["get_account_balances"](
-        {},
-        { sessionId: "s1" },
-      );
-      expect(result.isError).toBe(true);
     });
   });
 });

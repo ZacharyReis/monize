@@ -1,59 +1,91 @@
-import { test, expect } from '@playwright/test';
-import { registerUser } from '../helpers/auth';
+import { test, expect } from '../fixtures';
+import { createAccount } from '../helpers/factories';
+import { uniqueId } from '../helpers/api';
 
+// Full CRUD matrix for Accounts. Preconditions seeded via the API; behaviour
+// driven through the UI and re-checked after reload to prove persistence.
+// Account rows navigate on body click, so we only interact with the action
+// buttons (their cell stops click propagation).
 test.describe('Accounts', () => {
-  test.beforeEach(async ({ page }) => {
-    await registerUser(page);
+  test('creates an account through the UI', async ({ authedPage: page }) => {
+    const name = `E2E Chequing ${uniqueId()}`;
+
+    await page.goto('/accounts');
+    await page.getByRole('button', { name: /new account/i }).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(/account name/i).fill(name);
+    await dialog.getByLabel(/account type/i).selectOption({ label: 'Chequing' });
+    await dialog.getByRole('button', { name: /create account/i }).click();
+
+    await expect(page.locator('tr', { hasText: name })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('tr', { hasText: name })).toBeVisible();
   });
 
-  test('can navigate to accounts page', async ({ page }) => {
+  test('lists accounts seeded via the API', async ({ authedPage: page, api }) => {
+    const chequing = await createAccount(api, {
+      name: `Chequing ${uniqueId()}`,
+      accountType: 'CHEQUING',
+    });
+    const savings = await createAccount(api, {
+      name: `Savings ${uniqueId()}`,
+      accountType: 'SAVINGS',
+    });
+
     await page.goto('/accounts');
 
-    // Should show the accounts page
-    await expect(page.locator('body')).toContainText(/account/i);
+    await expect(page.locator('tr', { hasText: chequing.name })).toBeVisible();
+    await expect(page.locator('tr', { hasText: savings.name })).toBeVisible();
   });
 
-  test('can create a new checking account', async ({ page }) => {
+  test('edits an account through the UI', async ({ authedPage: page, api }) => {
+    const account = await createAccount(api, { name: `Edit Me ${uniqueId()}` });
+    const newName = `Edited ${uniqueId()}`;
+
     await page.goto('/accounts');
+    await page
+      .locator('tr', { hasText: account.name })
+      .getByRole('button', { name: 'Edit', exact: true })
+      .click();
 
-    const newAccountButton = page.getByRole('button', { name: /new account|add account/i });
-    if (await newAccountButton.isVisible()) {
-      await newAccountButton.click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(/account name/i).fill(newName);
+    await dialog.getByRole('button', { name: /update account/i }).click();
 
-      // Fill in account details
-      await page.getByLabel(/name/i).first().fill('E2E Checking Account');
-
-      // Look for opening balance field
-      const balanceField = page.getByLabel(/opening balance|balance/i).first();
-      if (await balanceField.isVisible()) {
-        await balanceField.fill('1000');
-      }
-
-      // Submit the form
-      await page.getByRole('button', { name: /save|create/i }).click();
-
-      // Wait and verify the account appears
-      await page.waitForTimeout(2000);
-      await expect(page.locator('body')).toContainText('E2E Checking Account');
-    }
+    await expect(page.locator('tr', { hasText: newName })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('tr', { hasText: newName })).toBeVisible();
+    await expect(page.locator('tr', { hasText: account.name })).toHaveCount(0);
   });
 
-  test('shows account list', async ({ page }) => {
-    // Create an account first
+  test('deletes an unused account through the UI', async ({ authedPage: page, api }) => {
+    // A zero-balance account with no transactions is permanently deletable.
+    const account = await createAccount(api, { name: `Delete Me ${uniqueId()}` });
+
     await page.goto('/accounts');
+    await page
+      .locator('tr', { hasText: account.name })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
 
-    const newAccountButton = page.getByRole('button', { name: /new account|add account/i });
-    if (await newAccountButton.isVisible()) {
-      await newAccountButton.click();
-      await page.getByLabel(/name/i).first().fill('Test Account');
-      await page.getByRole('button', { name: /save|create/i }).click();
-      await page.waitForTimeout(2000);
-    }
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: /delete account/i })
+      .click();
 
-    // Navigate back to accounts
+    await expect(page.locator('tr', { hasText: account.name })).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('tr', { hasText: account.name })).toHaveCount(0);
+  });
+
+  test('rejects an empty account name', async ({ authedPage: page }) => {
     await page.goto('/accounts');
+    await page.getByRole('button', { name: /new account/i }).first().click();
 
-    // Should see the account in the list
-    await expect(page.locator('body')).toContainText(/account/i);
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: /create account/i }).click();
+
+    await expect(dialog.getByText(/account name is required/i)).toBeVisible();
   });
 });

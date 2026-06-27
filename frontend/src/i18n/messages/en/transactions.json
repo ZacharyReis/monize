@@ -1,0 +1,432 @@
+{
+  "accountWidget": {
+    "currentBalance": "Current Balance",
+    "nextPayment": "Next Payment",
+    "viewBills": "View in Bills & Deposits",
+    "type": "Type",
+    "accountNumber": "Account Number",
+    "currency": "Currency",
+    "creditLimit": "Credit Limit",
+    "interestRate": "Interest Rate",
+    "statementSettlement": "Settlement Day",
+    "statementSettlementTooltip": "The last day of the billing cycle. Transactions posted on or before this day appear on the current statement.",
+    "statementDue": "Payment Due",
+    "closed": "Closed",
+    "editAria": "Edit account settings",
+    "collapseAria": "Hide account info",
+    "showAccountNumber": "Show account number",
+    "hideAccountNumber": "Hide account number",
+    "show": "Show account info"
+  },
+  "page": {
+    "title": "Transactions",
+    "subtitle": "Manage your income and expenses",
+    "newButton": "+ New Transaction",
+    "editModal": {
+      "editTitle": "Edit Transaction",
+      "duplicateTitle": "Duplicate Transaction",
+      "newTitle": "New Transaction",
+      "scheduleTitle": "Schedule as Recurring",
+      "editPayeeTitle": "Edit Payee"
+    },
+    "loading": "Loading transactions...",
+    "totalCount": "{count, plural, one {# transaction} other {# transactions}}",
+    "bulkDelete": {
+      "title": "Delete Transactions",
+      "message": "Are you sure you want to delete {count, plural, one {# transaction} other {# transactions}}? This will also delete any linked transfer counterparts. This action cannot be undone."
+    },
+    "toasts": {
+      "scheduledCreated": "Scheduled transaction created",
+      "investmentLinked": "This transaction is linked to an investment. Opening in Investments page."
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "No transactions",
+      "body": "Get started by creating a new transaction."
+    },
+    "header": {
+      "date": "Date",
+      "account": "Account",
+      "payee": "Payee",
+      "category": "Category",
+      "description": "Description",
+      "refNumber": "Ref #",
+      "tags": "Tags",
+      "amount": "Amount",
+      "balance": "Balance",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "today": "Today",
+    "export": {
+      "button": "Export",
+      "exporting": "Exporting...",
+      "title": "Export transactions to CSV",
+      "success": "{count, plural, one {Exported # transaction} other {Exported # transactions}}",
+      "noData": "No transactions to export",
+      "error": "Failed to export transactions"
+    },
+    "density": {
+      "title": "Toggle row density",
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense"
+    },
+    "delete": {
+      "transferTitle": "Delete Transfer",
+      "transactionTitle": "Delete Transaction",
+      "transferMessage": "Are you sure you want to delete this transfer? Both linked transactions will be deleted.",
+      "transactionMessage": "Are you sure you want to delete this transaction? This action cannot be undone.",
+      "success": "Transaction deleted",
+      "transferSuccess": "Transfer deleted",
+      "error": "Failed to delete transaction"
+    },
+    "status": {
+      "voidError": "Edit the transaction to change its status from Void",
+      "changed": "Status changed to {status}",
+      "updateError": "Failed to update status",
+      "unreconciled": "Unreconciled",
+      "cleared": "Cleared",
+      "reconciled": "Reconciled",
+      "void": "Void",
+      "unreconciledDense": "U",
+      "clearedDense": "C",
+      "reconciledDense": "R",
+      "voidDense": "V",
+      "pendingDense": "○",
+      "pending": "Pending",
+      "cycleTitle": "Click to cycle status"
+    },
+    "row": {
+      "editPayeeTitle": "Edit payee: {name}",
+      "ref": "Ref: {number}",
+      "investmentLabel": "Investment",
+      "linkedInvestmentTitle": "View in Investments",
+      "filterByDate": "Filter by date \"{date}\"",
+      "filterByAccount": "Filter by \"{name}\"",
+      "filterByPayee": "Filter by \"{name}\"",
+      "filterByCategory": "Filter by {name}",
+      "filterByTag": "Filter by tag {name}",
+      "transfer": "Transfer",
+      "transferTitle": "Transfer {direction} {name}",
+      "split": "Split",
+      "uncategorized": "Uncategorized",
+      "splitMore": "+{count} more",
+      "filteredAmountTitle": "Filtered amount (full transaction: {amount})",
+      "viewButton": "View",
+      "editButton": "Edit",
+      "deleteButton": "Delete"
+    },
+    "itemNamePlural": "transactions"
+  },
+  "row": {
+    "copyOptions": {
+      "title": "Copy options",
+      "duplicateTitle": "Duplicate transaction",
+      "copy": "Copy",
+      "duplicate": "Duplicate",
+      "scheduleRecurring": "Schedule as Recurring"
+    }
+  },
+  "actionSheet": {
+    "defaultTitle": "Transaction",
+    "filterByDate": "Filter by date \"{date}\"",
+    "filterByAccount": "Filter by \"{name}\"",
+    "filterByPayee": "Filter by \"{name}\"",
+    "filterByCategory": "Filter by \"{name}\"",
+    "filterByTag": "Filter by tag \"{name}\"",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "scheduleRecurring": "Schedule as Recurring",
+    "delete": "Delete"
+  },
+  "filter": {
+    "favourites": "Favourites:",
+    "panel": {
+      "title": "Filters",
+      "clear": "Clear",
+      "hide": "Hide",
+      "show": "Show"
+    },
+    "accounts": {
+      "label": "Show accounts:",
+      "all": "All",
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "fields": {
+      "accounts": "Accounts",
+      "payees": "Payees",
+      "categories": "Categories",
+      "tags": "Tags",
+      "timePeriod": "Time Period",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "amountFrom": "Amount From",
+      "amountTo": "Amount To",
+      "status": "Status",
+      "search": "Search"
+    },
+    "placeholders": {
+      "accounts": "All accounts",
+      "payees": "All payees",
+      "categories": "All categories",
+      "tags": "All tags",
+      "statuses": "All statuses",
+      "amountMin": "Min",
+      "amountMax": "Max",
+      "search": "Search payee, category, amount, tag, description, reference #..."
+    },
+    "chips": {
+      "removeAccount": "Remove {name} filter",
+      "removePayee": "Remove {name} filter",
+      "removeCategory": "Remove {name} filter",
+      "removeTag": "Remove {name} filter",
+      "removeDate": "Remove date filter",
+      "removeAmount": "Remove amount filter",
+      "removeSearch": "Remove search filter",
+      "dateFrom": "From {date}",
+      "dateUntil": "Until {date}",
+      "amountFrom": "From {amount}",
+      "amountUpTo": "Up to {amount}"
+    },
+    "bulkUpdate": "Bulk Update",
+    "cancelBulk": "Cancel Bulk",
+    "statusLabels": {
+      "unreconciled": "Unreconciled",
+      "cleared": "Cleared",
+      "reconciled": "Reconciled",
+      "void": "Void"
+    },
+    "periods": {
+      "select": "Select period...",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "lastWeek": "Last Week",
+      "monthToDate": "Month to Date",
+      "lastMonth": "Last Month",
+      "yearToDate": "Year to Date",
+      "lastYear": "Last Year",
+      "custom": "Custom"
+    }
+  },
+  "bulk": {
+    "banner": {
+      "selected": "{count, plural, one {# transaction selected} other {# transactions selected}}",
+      "selectAllMatching": "Select all {count} matching transactions",
+      "allMatching": "(all matching transactions)",
+      "clearSelection": "Clear selection",
+      "bulkUpdate": "Bulk Update"
+    },
+    "modal": {
+      "title": "Bulk Update Transactions",
+      "subtitle": "Update {count, plural, one {# selected transaction} other {# selected transactions}}. Toggle the fields you want to change.",
+      "submitLabel": "Update {count, plural, one {# Transaction} other {# Transactions}}",
+      "payee": "Payee",
+      "category": "Category",
+      "description": "Description",
+      "status": "Status",
+      "tags": "Tags",
+      "payeePlaceholder": "Select or type payee name...",
+      "categoryPlaceholder": "Select category...",
+      "descriptionPlaceholder": "Enter description (leave empty to clear)",
+      "tagsPlaceholder": "Select tags (leave empty to clear all)...",
+      "statusOptions": {
+        "pending": "Pending",
+        "cleared": "Cleared",
+        "void": "Void"
+      },
+      "notes": {
+        "transfer": "Transfer transactions will have their linked counterpart updated as well.",
+        "split": "Split transactions will be skipped for category changes."
+      }
+    }
+  },
+  "form": {
+    "modeTransaction": "Transaction",
+    "modeSplit": "Split",
+    "modeTransfer": "Transfer",
+    "transferBadge": "Transfer",
+    "isLinkedTransfer": "This is a linked transfer transaction",
+    "fields": {
+      "account": "Account",
+      "date": "Date",
+      "createDate": "Create Date",
+      "payee": "Payee",
+      "category": "Category",
+      "amount": "Amount",
+      "totalAmount": "Total Amount",
+      "referenceNumber": "Reference Number",
+      "description": "Description",
+      "status": "Status",
+      "tags": "Tags",
+      "fromAccount": "From Account",
+      "toAccount": "To Account",
+      "transferAmount": "Transfer Amount",
+      "transferAmountWithCurrency": "Transfer Amount ({currency})",
+      "amountReceived": "Amount Received ({currency})",
+      "payeeOptional": "Payee (Optional)",
+      "categoryOptional": "Category (Optional)"
+    },
+    "placeholders": {
+      "selectAccount": "Select account...",
+      "selectDestinationAccount": "Select destination account...",
+      "selectOrTypePayee": "Select or type payee name...",
+      "selectOrCreateCategory": "Select or create category...",
+      "referenceNumber": "Cheque #, confirmation #...",
+      "optionalDescription": "Optional description...",
+      "selectTags": "Select tags...",
+      "createNewTag": "Create new tag..."
+    },
+    "splitSection": {
+      "title": "Split Transaction",
+      "cancelSplit": "Cancel Split"
+    },
+    "statusOptions": {
+      "unreconciled": "Unreconciled",
+      "cleared": "Cleared",
+      "reconciled": "Reconciled",
+      "void": "Void"
+    },
+    "submitCreate": "Create {mode}",
+    "submitUpdate": "Update {mode}",
+    "modeLabel": {
+      "transfer": "Transfer",
+      "transaction": "Transaction"
+    },
+    "transferAmountNote": "Amount must be positive for transfers",
+    "transferCategoryNote": "Optional. The transfer still won't count as income or expense, but this category lets it appear in the monthly category breakdown (e.g. monthly investment contributions).",
+    "amountReceivedNote": "Amount received after currency conversion",
+    "splitTransaction": "Split Transaction",
+    "newTagTitle": "New Tag",
+    "toasts": {
+      "transferCreated": "Transfer created",
+      "transferUpdated": "Transfer updated",
+      "transactionCreated": "Transaction created",
+      "transactionUpdated": "Transaction updated",
+      "saveFailed": "Failed to save transaction",
+      "loadFailed": "Failed to load form data",
+      "splitsNotEqual": "Splits total ({splitTotal}) must equal transaction amount ({txAmount})",
+      "destinationRequired": "Please select a destination account",
+      "sameAccount": "Source and destination accounts must be different",
+      "negativeTransfer": "Transfer amount must not be negative",
+      "payeeCreated": "Payee \"{name}\" created",
+      "payeeCreateFailed": "Failed to create payee",
+      "payeeReactivated": "Payee \"{name}\" reactivated",
+      "payeeReactivateFailed": "Failed to reactivate payee",
+      "categoryCreated": "Category \"{name}\" created",
+      "categoryCreateFailed": "Failed to create category",
+      "tagCreated": "Tag \"{name}\" created"
+    },
+    "ariaHistory": "Show recent transactions",
+    "ariaHistoryForPayee": "Show recent transactions for this payee",
+    "historyTitle": "Quick fill from a recent transaction"
+  },
+  "splitEditor": {
+    "header": "Split Details",
+    "distributeProportionally": "Distribute Proportionally",
+    "distributeProportionallyTitle": "Distribute the remaining amount proportionally based on each split's amount",
+    "distributeEvenly": "Distribute Evenly",
+    "addSplit": "Add Split",
+    "removeMinimum": "Minimum 2 splits required",
+    "removeSplit": "Remove split",
+    "removeAndConvert": "Remove split and convert to a regular transaction",
+    "convertConfirm": {
+      "title": "Convert to a regular transaction?",
+      "message": "Removing this split will convert this back into a regular transaction using the remaining split's category.",
+      "confirm": "Convert"
+    },
+    "noUnassigned": "No unassigned amount",
+    "addRemaining": "Add remaining to this split",
+    "total": "Total",
+    "balanced": "Balanced",
+    "remaining": "Remaining: {symbol}{amount}",
+    "needAmount": "Need {symbol}{amount} (remaining: {symbol}{remaining})",
+    "setTotal": "Set total to {symbol}{amount}",
+    "splitLabel": "Split {number}",
+    "columns": {
+      "type": "Type",
+      "categoryAccount": "Category / Account",
+      "category": "Category",
+      "amount": "Amount",
+      "memo": "Memo",
+      "tags": "Tags"
+    },
+    "splitTypes": {
+      "category": "Category",
+      "transfer": "Transfer",
+      "investment": "Investment"
+    },
+    "selectCategory": "Select category...",
+    "selectAccount": "Select account...",
+    "memoPlaceholder": "Optional memo",
+    "mobileMemoPlaceholder": "Memo",
+    "tagsPlaceholder": "Tags..."
+  },
+  "recentPopover": {
+    "recentForPayee": "Recent for {name}",
+    "recentTransactions": "Recent transactions",
+    "loading": "Loading...",
+    "noRecent": "No recent transactions.",
+    "noRecentForPayee": "No recent transactions for this payee.",
+    "noPayee": "(no payee)",
+    "uncategorized": "(uncategorized)"
+  },
+  "investmentSplit": {
+    "ariaAction": "Investment action",
+    "ariaSecurity": "Security",
+    "selectSecurity": "Select security...",
+    "quantityPlaceholder": "Quantity",
+    "pricePlaceholder": "Price",
+    "commissionPlaceholder": "Commission",
+    "amountPlaceholder": "Amount ({currency})"
+  },
+  "charts": {
+    "balanceHistory": {
+      "title": "Balance History",
+      "noData": "No balance data available",
+      "starting": "Starting",
+      "current": "Current",
+      "ending": "Ending",
+      "lowest": "Lowest",
+      "minBalance": "Min Balance"
+    },
+    "monthlyTotals": {
+      "title": "Monthly Totals",
+      "noData": "No transaction data available",
+      "monthlyAvg": "Monthly Avg",
+      "total": "Total",
+      "transactions": "Transactions",
+      "tooltip": "{count, plural, one {# transaction} other {# transactions}}"
+    },
+    "accountBalances": {
+      "title": "Account Balances",
+      "noData": "No account balance data available",
+      "average": "Average",
+      "total": "Total",
+      "accounts": "Accounts",
+      "scaleLabel": "Y-axis scale",
+      "auto": "Auto",
+      "linear": "Linear",
+      "log": "Log",
+      "autoTitle": "Auto ({scale})",
+      "scaleTitle": "{label} scale"
+    }
+  },
+  "toasts": {
+    "payeeUpdated": "Payee updated successfully",
+    "deleted": "{count, plural, one {# transaction deleted} other {# transactions deleted}}",
+    "noneToExport": "No transactions to export",
+    "exported": "{count, plural, one {Exported # transaction} other {Exported # transactions}}",
+    "loadFormDataFailed": "Failed to load form data",
+    "loadFailed": "Failed to load transactions",
+    "loadPayeeFailed": "Failed to load payee details",
+    "payeeUpdateFailed": "Failed to update payee",
+    "exportFailed": "Failed to export transactions"
+  },
+  "validation": {
+    "dateRequired": "Date is required"
+  }
+}

@@ -1,5 +1,5 @@
 import { OpenAiProvider } from "./openai.provider";
-import type { AiToolStreamChunk } from "./ai-provider.interface";
+import type { AiToolStreamChunk, AiMessage } from "./ai-provider.interface";
 
 const mockCreate = jest.fn();
 const mockListModels = jest.fn().mockResolvedValue({ data: [] });
@@ -43,6 +43,36 @@ describe("OpenAiProvider", () => {
     expect(provider.name).toBe("openai");
     expect(provider.supportsStreaming).toBe(true);
     expect(provider.supportsToolUse).toBe(true);
+  });
+
+  it("maps images to image_url parts and degrades PDFs to a note", async () => {
+    const messages: AiMessage[] = [
+      {
+        role: "user",
+        content: [
+          { type: "image", mediaType: "image/jpeg", data: "/9j/4AA" },
+          {
+            type: "document",
+            mediaType: "application/pdf",
+            data: "JVBER",
+            filename: "b.pdf",
+          },
+          { type: "text", text: "hi" },
+        ],
+      },
+    ];
+
+    await provider.completeWithTools({ systemPrompt: "sys", messages }, []);
+
+    // messages[0] is the system prompt; messages[1] is the user turn.
+    const userContent = mockCreate.mock.calls[0][0].messages[1].content;
+    expect(userContent[0]).toEqual({
+      type: "image_url",
+      image_url: { url: "data:image/jpeg;base64,/9j/4AA" },
+    });
+    expect(userContent[1].type).toBe("text");
+    expect(userContent[1].text).toContain("cannot read PDF");
+    expect(userContent[2]).toEqual({ type: "text", text: "hi" });
   });
 
   it("constructs the SDK client with the long-running fetch wrapper", () => {

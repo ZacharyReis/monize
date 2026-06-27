@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 import {
   BarChart,
   Bar,
@@ -11,6 +16,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format } from 'date-fns';
+import { chartColors } from '@/lib/chart-colors';
 import { investmentsApi } from '@/lib/investments';
 import { RealizedGainEntry } from '@/types/investment';
 import { Account } from '@/types/account';
@@ -20,6 +26,8 @@ import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useDateRange } from '@/hooks/useDateRange';
 import { DateRangeSelector } from '@/components/ui/DateRangeSelector';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
 import { exportToCsv } from '@/lib/csv-export';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
@@ -41,7 +49,7 @@ function CustomTooltip({ active, payload, fmtValue }: {
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
       <p className="font-medium text-gray-900 dark:text-gray-100">{data.payload.symbol}</p>
-      <p className={`text-sm ${value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+      <p className={`text-sm ${gainLossColor(value)}`}>
         {value >= 0 ? '+' : ''}{fmtValue(value)}
       </p>
     </div>
@@ -58,14 +66,14 @@ interface SecurityGain {
 }
 
 export function RealizedGainsReport() {
+  const t = useTranslations('reports');
   const { formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
   const { defaultCurrency, convertToDefault } = useExchangeRates();
-  const [entries, setEntries] = useState<RealizedGainEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const { dateRange, setDateRange, resolvedRange, isValid } = useDateRange({ defaultRange: '1y', alignment: 'month' });
-  const [isLoading, setIsLoading] = useState(true);
   const [viewType, setViewType] = useState<'chart' | 'table'>('chart');
+  const isSingleAccount = selectedAccountIds.length === 1;
   const securityGainsSort = useSortableTable<SecurityGainsSortField>(
     'reports.realized-gains.securities.sort',
     { field: 'realizedGain', direction: 'desc' },
@@ -75,16 +83,19 @@ export function RealizedGainsReport() {
     { field: 'date', direction: 'desc' },
   );
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = isSingleAccount
+    ? accounts.find((a) => a.id === selectedAccountIds[0])
+    : undefined;
   const displayCurrency = selectedAccount?.currencyCode || defaultCurrency;
   const isForeign = displayCurrency !== defaultCurrency;
 
   // Backend returns each figure in the holding account's currency. Convert to
-  // the default currency when viewing All Accounts; otherwise pass through.
+  // the default currency when viewing All Accounts or several accounts;
+  // otherwise (a single account) pass through in its native currency.
   const toDisplay = useCallback((amount: number, accountCurrencyCode: string | null): number => {
-    if (selectedAccountId) return amount;
+    if (isSingleAccount) return amount;
     return convertToDefault(amount, accountCurrencyCode || defaultCurrency);
-  }, [selectedAccountId, defaultCurrency, convertToDefault]);
+  }, [isSingleAccount, defaultCurrency, convertToDefault]);
 
   const fmtValue = useCallback((value: number): string => {
     if (isForeign) {
@@ -100,26 +111,23 @@ export function RealizedGainsReport() {
       .catch((error) => logger.error('Failed to load accounts:', error));
   }, []);
 
-  useEffect(() => {
-    if (!isValid) return;
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const { start, end } = resolvedRange;
-        const data = await investmentsApi.getRealizedGains({
-          accountIds: selectedAccountId || undefined,
-          startDate: start || undefined,
-          endDate: end,
-        });
-        setEntries(data);
-      } catch (error) {
-        logger.error('Failed to load realized gains:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [selectedAccountId, resolvedRange, isValid]);
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
+
+  // `reload` (a stable callback) is wired to the RefreshPricesButton so a
+  // manual price refresh re-fetches.
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      isValid
+        ? investmentsApi.getRealizedGains({
+            accountIds: selectedAccountIds.length > 0 ? selectedAccountIds.join(',') : undefined,
+            startDate: rangeStart || undefined,
+            endDate: rangeEnd,
+          })
+        : Promise.resolve(null),
+    [selectedAccountIds, rangeStart, rangeEnd, isValid],
+  );
+
+  const entries = useMemo<RealizedGainEntry[]>(() => response ?? [], [response]);
 
   const securityGains = useMemo((): SecurityGain[] => {
     const map = new Map<string, SecurityGain>();
@@ -228,7 +236,7 @@ export function RealizedGainsReport() {
   }, [entries, sellTransactionsSort.sortField, sellTransactionsSort.sortDirection, toDisplay]);
 
   const getExportData = useCallback(() => {
-    const headers = ['Security', 'Date Sold', 'Quantity', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Return %'];
+    const headers = [t('realizedGains.csvColSecurity'), t('realizedGains.csvColDateSold'), t('realizedGains.csvColQuantity'), t('realizedGains.csvColProceeds'), t('realizedGains.csvColCostBasis'), t('realizedGains.csvColGainLoss'), t('realizedGains.csvColReturn')];
     const rows: (string | number)[][] = sortedEntries.map((entry) => {
       const proceeds = toDisplay(entry.proceeds, entry.accountCurrencyCode);
       const costBasis = toDisplay(entry.costBasis, entry.accountCurrencyCode);
@@ -245,7 +253,7 @@ export function RealizedGainsReport() {
       ];
     });
     return { headers, rows };
-  }, [sortedEntries, toDisplay]);
+  }, [sortedEntries, toDisplay, t]);
 
   const handleExportCsv = useCallback(() => {
     const { headers, rows } = getExportData();
@@ -255,26 +263,31 @@ export function RealizedGainsReport() {
   const handleExportPdf = useCallback(async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const { headers, rows } = getExportData();
-    const totalRow: (string | number)[] = ['Total', '', '', totals.totalProceeds, totals.totalCostBasis, totals.totalGain, ''];
+    const totalRow: (string | number)[] = [t('realizedGains.total'), '', '', totals.totalProceeds, totals.totalCostBasis, totals.totalGain, ''];
     await exportToPdf({
-      title: 'Realized Gains Report',
-      subtitle: `${securityGains.length} securities | Net gain: ${fmtValue(totals.totalGain)}`,
+      title: t('realizedGains.pdfTitle'),
+      subtitle: t('realizedGains.pdfSubtitle', { count: securityGains.length, gain: fmtValue(totals.totalGain) }),
       summaryCards: [
-        { label: 'Total Proceeds', value: fmtValue(totals.totalProceeds), color: '#111827' },
-        { label: 'Cost Basis', value: fmtValue(totals.totalCostBasis), color: '#111827' },
-        { label: 'Realized Gain/Loss', value: `${totals.totalGain >= 0 ? '+' : ''}${fmtValue(totals.totalGain)}`, color: totals.totalGain >= 0 ? '#16a34a' : '#dc2626' },
+        { label: t('realizedGains.totalProceeds'), value: fmtValue(totals.totalProceeds), color: '#111827' },
+        { label: t('realizedGains.costBasis'), value: fmtValue(totals.totalCostBasis), color: '#111827' },
+        { label: t('realizedGains.realizedGainLoss'), value: `${totals.totalGain >= 0 ? '+' : ''}${fmtValue(totals.totalGain)}`, color: totals.totalGain >= 0 ? '#16a34a' : '#dc2626' },
       ],
       tableData: { headers, rows, totalRow },
       filename: 'realized-gains',
     });
-  }, [getExportData, securityGains.length, fmtValue, totals]);
+   
+  }, [getExportData, securityGains.length, fmtValue, totals, t]);
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && !response) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -285,25 +298,25 @@ export function RealizedGainsReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Proceeds</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('realizedGains.totalProceeds')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {fmtValue(totals.totalProceeds)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Cost Basis</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('realizedGains.costBasis')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {fmtValue(totals.totalCostBasis)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Realized Gain/Loss</div>
-          <div className={`text-xl font-bold ${totals.totalGain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('realizedGains.realizedGainLoss')}</div>
+          <div className={`text-xl font-bold ${gainLossColor(totals.totalGain)}`}>
             {totals.totalGain >= 0 ? '+' : ''}{fmtValue(totals.totalGain)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Securities Sold</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('realizedGains.securitiesSold')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {securityGains.length}
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
@@ -318,30 +331,21 @@ export function RealizedGainsReport() {
       {/* Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-3 items-center">
-          <select
-            value={selectedAccountId}
-            onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="max-w-48 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
-          >
-            <option value="">All Accounts</option>
-            {accounts
-              .filter((a) => a.accountSubType !== 'INVESTMENT_BROKERAGE')
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name.replace(/ - (Brokerage|Cash)$/, '')}
-                </option>
-              ))}
-          </select>
+          <ReportAccountMultiSelect
+            accounts={accounts}
+            value={selectedAccountIds}
+            onChange={setSelectedAccountIds}
+          />
           <DateRangeSelector
             ranges={['6m', '1y', '2y', 'all']}
             value={dateRange}
             onChange={setDateRange}
           />
           <div className="ml-auto shrink-0 flex gap-2 items-center">
+            <RefreshPricesButton onRefreshComplete={reload} />
             <button
               onClick={() => setViewType('chart')}
-              title="Chart"
+              title={t('realizedGains.viewChart')}
               className={`p-2 rounded-md transition-colors ${
                 viewType === 'chart'
                   ? 'bg-blue-600 text-white'
@@ -354,7 +358,7 @@ export function RealizedGainsReport() {
             </button>
             <button
               onClick={() => setViewType('table')}
-              title="Table"
+              title={t('realizedGains.viewTable')}
               className={`p-2 rounded-md transition-colors ${
                 viewType === 'table'
                   ? 'bg-blue-600 text-white'
@@ -373,30 +377,30 @@ export function RealizedGainsReport() {
       {entries.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No sell transactions found for this period.
+            {t('realizedGains.noTransactions')}
           </p>
         </div>
       ) : viewType === 'chart' ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Realized Gains by Security
+            {t('realizedGains.bySecurityTitle')}
           </h3>
           {chartData.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-              No gains or losses to display.
+              {t('realizedGains.noGainsLosses')}
             </p>
           ) : (
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                   <XAxis type="number" tickFormatter={formatCurrencyAxis} />
                   <YAxis type="category" dataKey="symbol" width={60} tick={{ fontSize: 12 }} />
                   <Tooltip content={<CustomTooltip fmtValue={fmtValue} />} />
                   <Bar
                     dataKey="gain"
-                    name="Realized Gain"
-                    fill="#22c55e"
+                    name={t('realizedGains.realizedGainLoss')}
+                    fill={chartColors.income}
                     radius={[0, 4, 4, 0]}
                   />
                 </BarChart>
@@ -408,7 +412,7 @@ export function RealizedGainsReport() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Realized Gains Detail
+              {t('realizedGains.detailTitle')}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -422,7 +426,7 @@ export function RealizedGainsReport() {
                     onSort={securityGainsSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Security
+                    {t('realizedGains.colSecurity')}
                   </SortableHeader>
                   <SortableHeader<SecurityGainsSortField>
                     field="transactionCount"
@@ -432,7 +436,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Trades
+                    {t('realizedGains.colTrades')}
                   </SortableHeader>
                   <SortableHeader<SecurityGainsSortField>
                     field="totalProceeds"
@@ -442,7 +446,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Proceeds
+                    {t('realizedGains.colProceeds')}
                   </SortableHeader>
                   <SortableHeader<SecurityGainsSortField>
                     field="totalCostBasis"
@@ -452,7 +456,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Cost Basis
+                    {t('realizedGains.colCostBasis')}
                   </SortableHeader>
                   <SortableHeader<SecurityGainsSortField>
                     field="realizedGain"
@@ -462,7 +466,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Gain/Loss
+                    {t('realizedGains.colGainLoss')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -486,7 +490,7 @@ export function RealizedGainsReport() {
                     <td className="px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">
                       {fmtValue(sg.totalCostBasis)}
                     </td>
-                    <td className={`px-4 py-3 text-right text-sm font-medium ${sg.realizedGain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <td className={`px-4 py-3 text-right text-sm font-medium ${gainLossColor(sg.realizedGain)}`}>
                       {sg.realizedGain >= 0 ? '+' : ''}{fmtValue(sg.realizedGain)}
                     </td>
                   </tr>
@@ -495,7 +499,7 @@ export function RealizedGainsReport() {
               <tfoot className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
                   <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
-                    Total
+                    {t('realizedGains.total')}
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {totals.totalTransactions}
@@ -506,7 +510,7 @@ export function RealizedGainsReport() {
                   <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {fmtValue(totals.totalCostBasis)}
                   </td>
-                  <td className={`px-4 py-3 text-right text-sm font-bold ${totals.totalGain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <td className={`px-4 py-3 text-right text-sm font-bold ${gainLossColor(totals.totalGain)}`}>
                     {totals.totalGain >= 0 ? '+' : ''}{fmtValue(totals.totalGain)}
                   </td>
                 </tr>
@@ -521,7 +525,7 @@ export function RealizedGainsReport() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Sell Transactions ({entries.length})
+              {t('realizedGains.sellTransactions', { count: entries.length })}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -535,7 +539,7 @@ export function RealizedGainsReport() {
                     onSort={sellTransactionsSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Date
+                    {t('realizedGains.colDate')}
                   </SortableHeader>
                   <SortableHeader<SellTransactionsSortField>
                     field="symbol"
@@ -544,7 +548,7 @@ export function RealizedGainsReport() {
                     onSort={sellTransactionsSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Security
+                    {t('realizedGains.colSecurity')}
                   </SortableHeader>
                   <SortableHeader<SellTransactionsSortField>
                     field="quantity"
@@ -554,7 +558,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Shares
+                    {t('realizedGains.colShares')}
                   </SortableHeader>
                   <SortableHeader<SellTransactionsSortField>
                     field="price"
@@ -564,7 +568,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Price
+                    {t('realizedGains.colPrice')}
                   </SortableHeader>
                   <SortableHeader<SellTransactionsSortField>
                     field="proceeds"
@@ -574,7 +578,7 @@ export function RealizedGainsReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Proceeds
+                    {t('realizedGains.colProceeds')}
                   </SortableHeader>
                 </tr>
               </thead>

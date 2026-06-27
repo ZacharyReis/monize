@@ -5,6 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { tr } from "../../i18n/translate";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as crypto from "crypto";
@@ -47,7 +48,9 @@ export class CsrfGuard implements CanActivate {
     const headerToken = request.headers?.["x-csrf-token"];
 
     if (!cookieToken || !headerToken) {
-      throw new ForbiddenException("Missing CSRF token");
+      throw new ForbiddenException(
+        tr("errors.common.csrfMissing", "Missing CSRF token"),
+      );
     }
 
     // Timing-safe comparison to prevent timing attacks
@@ -59,11 +62,15 @@ export class CsrfGuard implements CanActivate {
         cookieBuf.length !== headerBuf.length ||
         !crypto.timingSafeEqual(cookieBuf, headerBuf)
       ) {
-        throw new ForbiddenException("Invalid CSRF token");
+        throw new ForbiddenException(
+          tr("errors.common.csrfInvalid", "Invalid CSRF token"),
+        );
       }
     } catch (error) {
       if (error instanceof ForbiddenException) throw error;
-      throw new ForbiddenException("Invalid CSRF token");
+      throw new ForbiddenException(
+        tr("errors.common.csrfInvalid", "Invalid CSRF token"),
+      );
     }
 
     // Verify HMAC session binding by extracting the user ID directly from the
@@ -75,7 +82,9 @@ export class CsrfGuard implements CanActivate {
       const sessionId = this.extractSessionId(request);
       if (sessionId) {
         if (!verifyCsrfToken(headerToken, sessionId, this.csrfKey)) {
-          throw new ForbiddenException("Invalid CSRF token");
+          throw new ForbiddenException(
+            tr("errors.common.csrfInvalid", "Invalid CSRF token"),
+          );
         }
       }
     }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -65,6 +66,8 @@ export function SelectAccountStep({
   shouldShowMapAccounts,
   setStep,
 }: SelectAccountStepProps) {
+  const t = useTranslations('import');
+  const tc = useTranslations('common');
   const getCompatibleAccountOptions = (isInvestment: boolean) => {
     return buildAccountDropdownOptions(
       accounts,
@@ -83,34 +86,34 @@ export function SelectAccountStep({
       <div className="max-w-xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Select Destination Account
+            {t('selectAccount.headingSingle')}
           </h2>
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>File:</strong> {fileName}
+              <strong>{t('selectAccount.fileLabel')}</strong> {fileName}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>Transactions:</strong> {parsedData.transactionCount}
+              <strong>{t('selectAccount.transactionsLabel')}</strong> {parsedData.transactionCount}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>Date Range:</strong> {parsedData.dateRange.start} to {parsedData.dateRange.end}
+              <strong>{t('selectAccount.dateRangeLabel')}</strong> {parsedData.dateRange.start} to {parsedData.dateRange.end}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>Detected Type:</strong> {parsedData.accountType}
+              <strong>{t('selectAccount.detectedTypeLabel')}</strong> {parsedData.accountType}
             </p>
           </div>
 
           {isQifInvestment && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                This file contains investment transactions. Only brokerage accounts are shown.
+                {t('selectAccount.investmentFileNotice')}
               </p>
             </div>
           )}
 
           {compatibleAccountOptions.length > 0 && (
             <Select
-              label="Import into account"
+              label={t('selectAccount.importIntoAccount')}
               options={compatibleAccountOptions}
               value={selectedAccountId}
               onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -128,25 +131,25 @@ export function SelectAccountStep({
               }}
               className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
             >
-              + Create new account
+              {t('selectAccount.createNewAccount')}
             </button>
           ) : creatingForFileIndex === 0 && (
             <div className="mt-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Create New Account</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('selectAccount.createNewAccountTitle')}</p>
               <Input
-                label="Account name"
+                label={t('selectAccount.accountNameLabel')}
                 value={newAccountName}
                 onChange={(e) => setNewAccountName(e.target.value)}
-                placeholder="e.g. My Chequing"
+                placeholder={t('selectAccount.accountNamePlaceholder')}
               />
               <Select
-                label="Account type"
+                label={t('selectAccount.accountTypeLabel')}
                 options={accountTypeOptions}
                 value={newAccountType}
                 onChange={(e) => setNewAccountType(e.target.value)}
               />
               <Select
-                label="Currency"
+                label={t('selectAccount.currencyLabel')}
                 options={currencyOptions}
                 value={newAccountCurrency}
                 onChange={(e) => setNewAccountCurrency(e.target.value)}
@@ -157,14 +160,14 @@ export function SelectAccountStep({
                   onClick={() => handleCreateAccount(0)}
                   disabled={isCreatingAccount || !newAccountName.trim()}
                 >
-                  {isCreatingAccount ? 'Creating...' : 'Create'}
+                  {isCreatingAccount ? t('selectAccount.creating') : t('selectAccount.create')}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => { setShowCreateAccount(false); setCreatingForFileIndex(-1); setNewAccountName(''); }}
                 >
-                  Cancel
+                  {tc('cancel')}
                 </Button>
               </div>
             </div>
@@ -172,7 +175,7 @@ export function SelectAccountStep({
 
           <div className="flex justify-between mt-6">
             <Button variant="outline" onClick={() => setStep('upload')}>
-              Back
+              {t('navigation.back')}
             </Button>
             <Button
               onClick={() => {
@@ -188,7 +191,7 @@ export function SelectAccountStep({
               }}
               disabled={!selectedAccountId}
             >
-              Next
+              {t('navigation.next')}
             </Button>
           </div>
         </div>
@@ -200,10 +203,10 @@ export function SelectAccountStep({
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Select Destination Accounts
+          {t('selectAccount.headingBulk')}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Verify or change the destination account for each file. Files have been automatically matched based on filename.
+          {t('selectAccount.descriptionBulk')}
         </p>
 
         <div className="space-y-4 max-h-[32rem] overflow-y-auto">
@@ -227,8 +230,8 @@ export function SelectAccountStep({
                       {fileData.fileName}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {fileData.parsedData.transactionCount} transactions
-                      {isInvestment && ' (Investment)'}
+                      {t('selectAccount.transactionCount', { count: fileData.parsedData.transactionCount, plural: fileData.parsedData.transactionCount !== 1 ? 's' : '' })}
+                      {isInvestment && ` ${t('selectAccount.investmentLabel')}`}
                     </p>
                   </div>
                   <div className="sm:w-80">
@@ -248,34 +251,34 @@ export function SelectAccountStep({
                         }}
                         className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                       >
-                        + Create new
+                        {t('selectAccount.createNew')}
                       </button>
                     ) : (
                       <div className="mt-2 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
                         <Input
-                          label="Account name"
+                          label={t('selectAccount.accountNameLabel')}
                           value={newAccountName}
                           onChange={(e) => setNewAccountName(e.target.value)}
-                          placeholder="e.g. My Chequing"
+                          placeholder={t('selectAccount.accountNamePlaceholder')}
                         />
                         <Select
-                          label="Account type"
+                          label={t('selectAccount.accountTypeLabel')}
                           options={accountTypeOptions}
                           value={newAccountType}
                           onChange={(e) => setNewAccountType(e.target.value)}
                         />
                         <Select
-                          label="Currency"
+                          label={t('selectAccount.currencyLabel')}
                           options={currencyOptions}
                           value={newAccountCurrency}
                           onChange={(e) => setNewAccountCurrency(e.target.value)}
                         />
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => handleCreateAccount(index)} disabled={isCreatingAccount || !newAccountName.trim()}>
-                            {isCreatingAccount ? 'Creating...' : 'Create'}
+                            {isCreatingAccount ? t('selectAccount.creating') : t('selectAccount.create')}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => { setCreatingForFileIndex(-1); setShowCreateAccount(false); setNewAccountName(''); }}>
-                            Cancel
+                            {tc('cancel')}
                           </Button>
                         </div>
                       </div>
@@ -288,13 +291,13 @@ export function SelectAccountStep({
         </div>
 
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-          <strong>Total:</strong> {importFiles.length} files,{' '}
-          {importFiles.reduce((sum, f) => sum + f.parsedData.transactionCount, 0)} transactions
+          <strong>{t('selectAccount.total')}</strong> {t('selectAccount.filesCount', { count: importFiles.length })}{' '}
+          {t('selectAccount.totalTransactionCount', { count: importFiles.reduce((sum, f) => sum + f.parsedData.transactionCount, 0) })}
         </div>
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => setStep('upload')}>
-            Back
+            {t('navigation.back')}
           </Button>
           <Button
             onClick={() => {
@@ -310,7 +313,7 @@ export function SelectAccountStep({
             }}
             disabled={!allFilesHaveAccounts}
           >
-            Next
+            {t('navigation.next')}
           </Button>
         </div>
       </div>

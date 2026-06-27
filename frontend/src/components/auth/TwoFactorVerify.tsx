@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,19 +11,20 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { authApi } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
+import { buildTotpCodeSchema } from '@/lib/zod-helpers';
 import { User } from '@/types/auth';
 
-const totpSchema = z.object({
-  code: z.string().length(6, 'Code must be exactly 6 digits').regex(/^\d{6}$/, 'Code must be 6 digits'),
+const buildTotpSchema = (tc: (key: string) => string) => z.object({
+  code: buildTotpCodeSchema(tc),
   rememberDevice: z.boolean(),
 });
 
-const backupCodeSchema = z.object({
-  code: z.string().regex(/^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$/, 'Backup code must be in XXXX-XXXX format'),
+const buildBackupCodeSchema = (t: (key: string) => string) => z.object({
+  code: z.string().regex(/^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$/, t('validation.backupFormat')),
   rememberDevice: z.boolean(),
 });
 
-type VerifyFormData = z.infer<typeof totpSchema>;
+type VerifyFormData = z.infer<ReturnType<typeof buildTotpSchema>>;
 
 interface TwoFactorVerifyProps {
   tempToken: string;
@@ -31,6 +33,8 @@ interface TwoFactorVerifyProps {
 }
 
 export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVerifyProps) {
+  const t = useTranslations('auth.twoFactorVerify');
+  const tc = useTranslations('common');
   const [isLoading, setIsLoading] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
 
@@ -41,7 +45,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
     watch,
     reset,
   } = useForm<VerifyFormData>({
-    resolver: zodResolver(useBackupCode ? backupCodeSchema : totpSchema),
+    resolver: zodResolver(useBackupCode ? buildBackupCodeSchema(t) : buildTotpSchema(tc)),
     defaultValues: {
       code: '',
       rememberDevice: false,
@@ -71,7 +75,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
         onVerified(response.user);
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Invalid verification code'));
+      toast.error(getErrorMessage(error, t('invalidCode')));
       setValue('code', '');
     } finally {
       setIsLoading(false);
@@ -87,19 +91,19 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Two-Factor Authentication
+          {t('title')}
         </h3>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           {useBackupCode
-            ? 'Enter one of your backup codes.'
-            : 'Enter the 6-digit code from your authenticator app.'}
+            ? t('promptBackup')
+            : t('promptTotp')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {useBackupCode ? (
           <Input
-            label="Backup Code"
+            label={t('backupLabel')}
             type="text"
             autoComplete="off"
             maxLength={9}
@@ -114,7 +118,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
           />
         ) : (
           <Input
-            label="Verification Code"
+            label={t('codeLabel')}
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -137,7 +141,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
           />
           <span className="text-sm text-gray-600 dark:text-gray-400">
-            Don&apos;t ask again on this browser for 30 days
+            {t('rememberDevice')}
           </span>
         </label>
 
@@ -149,7 +153,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
           disabled={!isCodeValid}
           className="w-full"
         >
-          Verify
+          {t('verify')}
         </Button>
 
         <button
@@ -157,7 +161,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
           onClick={handleToggleMode}
           className="w-full text-center text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
         >
-          {useBackupCode ? 'Use authenticator code instead' : 'Use a backup code instead'}
+          {useBackupCode ? t('useAuthenticator') : t('useBackup')}
         </button>
 
         <button
@@ -165,7 +169,7 @@ export function TwoFactorVerify({ tempToken, onVerified, onCancel }: TwoFactorVe
           onClick={onCancel}
           className="w-full text-center text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
         >
-          Back to login
+          {t('backToLogin')}
         </button>
       </form>
     </div>

@@ -1,0 +1,136 @@
+{
+  "page": {
+    "welcomePrefix": "Bienvenue",
+    "welcomeWithName": "Bienvenue, {name} !",
+    "subtitle": "Voici votre aperçu financier"
+  },
+  "favouriteAccounts": {
+    "title": "Comptes favoris",
+    "empty": "Aucun compte favori pour l'instant. Marquez des comptes comme favoris pour les voir ici.",
+    "reorder": "Réorganiser",
+    "done": "Terminé",
+    "moveUp": "Déplacer vers le haut",
+    "moveDown": "Déplacer vers le bas",
+    "marketValue": "Valeur de marché",
+    "due": "Échéance : {ordinal}",
+    "dueTooltip": "Le jour de chaque mois où votre paiement de carte de crédit est dû",
+    "settlement": "Règlement : {ordinal}",
+    "settlementTooltip": "Le dernier jour du cycle de facturation. Les transactions enregistrées ce jour ou avant apparaissent sur le relevé en cours."
+  },
+  "upcomingBills": {
+    "title": "Factures et dépôts à venir",
+    "empty": "Aucune facture, aucun dépôt ou virement en retard ou à venir dans les fenêtres de rappel.",
+    "perReminderSettings": "Selon les paramètres de rappel",
+    "postTransaction": "Enregistrer cette transaction",
+    "manual": "Manuel",
+    "manualTitle": "Nécessite un enregistrement manuel",
+    "negativeBalanceWarning": "Cette transaction fera passer le solde du compte en dessous de zéro",
+    "viewAll": "Voir toutes les factures et dépôts",
+    "totalDue": "Total dû",
+    "totalIncoming": "Total entrant",
+    "moreItems": "+{count} de plus",
+    "overdue": "En retard",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "daysUntil": "{count} jours",
+    "typeBadge": {
+      "bill": "Facture",
+      "deposit": "Dépôt",
+      "transfer": "Virement"
+    }
+  },
+  "gettingStarted": {
+    "title": "Démarrage",
+    "subtitle": "Configurez votre compte en quelques étapes rapides",
+    "dismiss": "Ignorer",
+    "steps": {
+      "settings": {
+        "title": "Vérifier vos paramètres",
+        "description": "Définissez votre devise, format de date et thème"
+      },
+      "categories": {
+        "title": "Configurer les catégories",
+        "description": "Créez des catégories ou importez un ensemble par défaut"
+      },
+      "account": {
+        "title": "Ajouter votre premier compte",
+        "description": "Créez un compte bancaire pour commencer le suivi"
+      },
+      "import": {
+        "title": "Importer depuis QIF",
+        "description": "Importez des comptes et transactions depuis des fichiers QIF"
+      }
+    }
+  },
+  "budgetStatus": {
+    "title": "État du budget",
+    "noBudget": "Aucun budget actif trouvé. Créez un budget pour suivre vos dépenses.",
+    "createBudget": "Créer un budget",
+    "viewFullBudget": "Voir le budget complet",
+    "daysLeft": "{count} jours restants",
+    "safeToSpend": "Montant disponible aujourd'hui",
+    "topCategories": "Principales catégories"
+  },
+  "insights": {
+    "title": "Analyse des dépenses",
+    "empty": "Aucune analyse disponible. Rendez-vous sur la page Analyses pour générer votre première analyse.",
+    "goToInsights": "Accéder aux analyses",
+    "viewAll": "Voir toutes les analyses",
+    "activeCount": "{count} actif(s)"
+  },
+  "topMovers": {
+    "title": "Plus fortes variations",
+    "empty": {
+      "noInvestments": "Ajoutez des comptes d'investissement pour suivre les variations quotidiennes.",
+      "noPrices": "Aucune variation de cours disponible pour l'instant.",
+      "noGainers": "Aucun gagnant aujourd'hui.",
+      "noLosers": "Aucun perdant aujourd'hui."
+    },
+    "dailyChange": "Variation quotidienne",
+    "refreshPrices": "Actualiser les cours",
+    "viewPortfolio": "Voir le portefeuille",
+    "filter": {
+      "all": "Tous",
+      "gainers": "Gagnants",
+      "losers": "Perdants"
+    }
+  },
+  "favouriteSecurities": {
+    "title": "Titres favoris",
+    "empty": "Aucun titre favori pour l'instant. Rendez-vous sur la <securitiesLink>page Titres</securitiesLink> et mettez en favori les titres que vous souhaitez suivre ici.",
+    "noPriceYet": "Aucun cours pour l'instant",
+    "dailyChange": "Variation quotidienne",
+    "refreshPrices": "Actualiser les cours",
+    "manage": "Gérer les titres"
+  },
+  "netWorth": {
+    "title": "Valeur nette",
+    "empty": "Aucune donnée de valeur nette disponible pour l'instant.",
+    "past12Months": "12 derniers mois",
+    "viewReport": "Voir le rapport complet"
+  },
+  "assetsVsLiabilities": {
+    "title": "Actifs et passifs",
+    "empty": "Aucune donnée de valeur nette disponible pour l'instant.",
+    "current": "Actuel",
+    "netWorthLabel": "Valeur nette",
+    "assets": "Actifs",
+    "liabilities": "Passifs"
+  },
+  "expensesPieChart": {
+    "title": "Dépenses par catégorie",
+    "empty": "Aucune donnée de dépenses pour cette période.",
+    "past30Days": "30 derniers jours",
+    "total": "Total",
+    "uncategorized": "Non catégorisé",
+    "other": "Autre"
+  },
+  "incomeExpenses": {
+    "title": "Revenus et dépenses",
+    "last5Weeks": "5 dernières semaines",
+    "weekOf": "Semaine du {date}",
+    "income": "Revenus",
+    "expenses": "Dépenses",
+    "net": "Net"
+  }
+}

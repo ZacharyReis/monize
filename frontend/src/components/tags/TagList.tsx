@@ -1,13 +1,32 @@
 'use client';
 
 import { useState, useMemo, useCallback, memo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Tag } from '@/types/tag';
-import { Button } from '@/components/ui/Button';
 import { getIconComponent } from '@/components/ui/IconPicker';
 import { useTableDensity, nextDensity, type DensityLevel } from '@/hooks/useTableDensity';
 import { SortIcon } from '@/components/ui/SortIcon';
+import { useLongPress, type LongPressRowHandlers } from '@/hooks/useLongPress';
+import { RowActions } from '@/components/ui/row-actions/RowActions';
+import { RowActionSheet } from '@/components/ui/row-actions/RowActionSheet';
+import type { RowAction } from '@/components/ui/row-actions/rowAction';
 
 export type { DensityLevel } from '@/hooks/useTableDensity';
+
+/**
+ * Builds the standard row actions for a tag. Shared by the desktop `RowActions`
+ * cell and the mobile `RowActionSheet`.
+ */
+function buildTagActions(
+  tag: Tag,
+  labels: { edit: string; delete: string },
+  handlers: { onEdit: (tag: Tag) => void; onDeleteClick: (tag: Tag) => void },
+): RowAction[] {
+  return [
+    { key: 'edit', label: labels.edit, icon: 'edit', tone: 'primary', onClick: () => handlers.onEdit(tag) },
+    { key: 'delete', label: labels.delete, icon: 'delete', tone: 'delete', destructive: true, onClick: () => handlers.onDeleteClick(tag) },
+  ];
+}
 
 export type SortField = 'name' | 'createdAt';
 export type SortDirection = 'asc' | 'desc';
@@ -21,6 +40,7 @@ interface TagRowProps {
   onDeleteClick: (tag: Tag) => void;
   onTagClick?: (tag: Tag) => void;
   index: number;
+  getRowHandlers: (tag: Tag) => LongPressRowHandlers;
 }
 
 const TagRow = memo(function TagRow({
@@ -32,22 +52,23 @@ const TagRow = memo(function TagRow({
   onDeleteClick,
   onTagClick,
   index,
+  getRowHandlers,
 }: TagRowProps) {
-  const handleEdit = useCallback(() => {
-    onEdit(tag);
-  }, [onEdit, tag]);
-
-  const handleDelete = useCallback(() => {
-    onDeleteClick(tag);
-  }, [onDeleteClick, tag]);
+  const tc = useTranslations('common');
 
   const handleTagClick = useCallback(() => {
     onTagClick?.(tag);
   }, [onTagClick, tag]);
 
+  const actions = useMemo(
+    () => buildTagActions(tag, { edit: tc('actions.edit'), delete: tc('actions.delete') }, { onEdit, onDeleteClick }),
+    [tag, tc, onEdit, onDeleteClick],
+  );
+
   return (
     <tr
-      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'}`}
+      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer select-none ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'}`}
+      {...getRowHandlers(tag)}
     >
       <td className={`${cellPadding} whitespace-nowrap`}>
         <div className="flex items-center">
@@ -59,7 +80,7 @@ const TagRow = memo(function TagRow({
           )}
           {onTagClick ? (
             <button
-              onClick={handleTagClick}
+              onClick={(e) => { e.stopPropagation(); handleTagClick(); }}
               className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
             >
               {tag.name}
@@ -83,23 +104,8 @@ const TagRow = memo(function TagRow({
       <td className={`${cellPadding} whitespace-nowrap text-right text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell`}>
         {transactionCount}
       </td>
-      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleEdit}
-          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-2"
-        >
-          {density === 'dense' ? '✎' : 'Edit'}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDelete}
-          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-        >
-          {density === 'dense' ? '✕' : 'Delete'}
-        </Button>
+      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium hidden min-[480px]:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`}>
+        <RowActions actions={actions} density={density} />
       </td>
     </tr>
   );
@@ -130,6 +136,9 @@ export function TagList({
   sortDirection: propSortDirection,
   onSort,
 }: TagListProps) {
+  const t = useTranslations('tags');
+  const tc = useTranslations('common');
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; tag: Tag | null }>({ open: false, tag: null });
   const [localDensity, setLocalDensity] = useState<DensityLevel>('normal');
   const [localSortField, setLocalSortField] = useState<SortField>('name');
   const [localSortDirection, setLocalSortDirection] = useState<SortDirection>('asc');
@@ -166,6 +175,11 @@ export function TagList({
     onDelete(tag);
   }, [onDelete]);
 
+  const { getRowHandlers } = useLongPress<Tag>({
+    onLongPress: (tag) => setActionSheet({ open: true, tag }),
+    onClick: onEdit,
+  });
+
   const sortedTags = useMemo(() => {
     return [...tags].sort((a, b) => {
       let comparison = 0;
@@ -194,8 +208,8 @@ export function TagList({
             d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
           />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No tags found</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">No tags match your current search.</p>
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{t('list.empty.title')}</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('list.empty.body')}</p>
       </div>
     );
   }
@@ -207,12 +221,12 @@ export function TagList({
         <button
           onClick={cycleDensity}
           className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          title="Toggle row density"
+          title={t('list.density.title')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {density === 'normal' ? 'Normal' : density === 'compact' ? 'Compact' : 'Dense'}
+          {density === 'normal' ? t('list.density.normal') : density === 'compact' ? t('list.density.compact') : t('list.density.dense')}
         </button>
       </div>
       <div className="overflow-x-auto">
@@ -223,18 +237,18 @@ export function TagList({
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
                 onClick={() => handleSort('name')}
               >
-                Name<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.header.name')}<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}
               >
-                Icon
+                {t('list.header.icon')}
               </th>
               <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
-                Transactions
+                {t('list.header.transactions')}
               </th>
-              <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sticky right-0 bg-gray-50 dark:bg-gray-800`}>
-                Actions
+              <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden min-[480px]:table-cell sticky right-0 bg-gray-50 dark:bg-gray-800`}>
+                {t('list.header.actions')}
               </th>
             </tr>
           </thead>
@@ -250,11 +264,21 @@ export function TagList({
                 onDeleteClick={handleDeleteClick}
                 onTagClick={onTagClick}
                 index={index}
+                getRowHandlers={getRowHandlers}
               />
             ))}
           </tbody>
         </table>
       </div>
+
+      <RowActionSheet
+        isOpen={actionSheet.open}
+        title={actionSheet.tag?.name ?? ''}
+        actions={actionSheet.tag
+          ? buildTagActions(actionSheet.tag, { edit: tc('actions.edit'), delete: tc('actions.delete') }, { onEdit, onDeleteClick: handleDeleteClick })
+          : []}
+        onClose={() => setActionSheet({ open: false, tag: null })}
+      />
     </div>
   );
 }

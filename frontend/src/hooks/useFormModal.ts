@@ -7,7 +7,7 @@ interface UnsavedChangesDialogState {
   onCancel: () => void;
 }
 
-interface UseFormModalReturn<T> {
+export interface UseFormModalReturn<T> {
   /** Whether the form modal is currently open */
   showForm: boolean;
   /** The item being edited, or undefined for new item */

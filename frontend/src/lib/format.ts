@@ -16,7 +16,12 @@ export function getCurrencySymbol(currencyCode: string): string {
 
 /**
  * Format a number as currency with the specified currency code.
- * Uses Intl.NumberFormat currency-native decimal places (e.g., JPY=0, USD=2, BHD=3).
+ *
+ * **Prefer `useNumberFormat()` for any user-facing render.** This pure
+ * helper hardcodes the `en-US` locale and falls back to USD, so it ignores
+ * the user's `numberFormat` / `defaultCurrency` preferences. Use it only
+ * in non-React contexts (e.g., CSV exports, unit tests) where a hook is
+ * unavailable.
  */
 export function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
@@ -92,6 +97,84 @@ export function roundToCents(value: number): number {
 }
 
 /**
+ * Pick how many fraction digits to show so a tiny non-zero value doesn't
+ * collapse to "0.00". When the value already shows a non-zero figure at the
+ * currency's natural precision (baseDigits), baseDigits is returned unchanged.
+ * Otherwise the precision is expanded to reveal `significantDigits` significant
+ * figures (e.g. 0.000342 -> 6 digits), capped at maxDigits.
+ *
+ * Used for sub-penny securities (e.g. LSE pennies quoted around 0.000318 GBP)
+ * where rounding the price or daily change to 2 places would read as zero.
+ */
+export function adaptiveFractionDigits(
+  value: number,
+  baseDigits = 2,
+  maxDigits = 6,
+  significantDigits = 3,
+): number {
+  if (!isFinite(value) || value === 0) return baseDigits;
+  const abs = Math.abs(value);
+  // Already non-zero at the natural precision: leave it alone.
+  if (roundToDecimals(abs, baseDigits) !== 0) return baseDigits;
+  // floor(log10(abs)) is the exponent of the first significant digit
+  // (negative for sub-1 values), e.g. 0.000342 -> -4.
+  const firstSignificantExp = Math.floor(Math.log10(abs));
+  const digits = -firstSignificantExp + (significantDigits - 1);
+  // Cap at maxDigits, but never return fewer than the requested base precision
+  // (guards a caller passing baseDigits > maxDigits).
+  return Math.max(baseDigits, Math.min(maxDigits, digits));
+}
+
+interface FormatSignedPercentOptions {
+  /** Number of decimal places to show (default 2). */
+  decimals?: number;
+  /**
+   * When true the value is already a percentage (e.g. 12.5 = 12.5%) and is
+   * used as-is. When false the value is a fraction (e.g. 0.125 = 12.5%) and is
+   * multiplied by 100. Defaults to true since most call sites already work in
+   * percentage units.
+   */
+  alreadyPercent?: boolean;
+}
+
+/**
+ * Format a percentage with an explicit leading sign (e.g. "+12.50%",
+ * "-3.40%", "0.00%"). Replaces the repeated
+ * `${v >= 0 ? '+' : ''}${v.toFixed(n)}%` idiom across the report components.
+ *
+ * The magnitude is rendered with the user-locale-agnostic `en-US` grouping so
+ * it matches the surrounding `toFixed` output it replaces. A leading "+" is
+ * added for values >= 0; negatives keep their intrinsic minus sign. NaN and
+ * non-finite inputs render as a sign-less "0.00%" so a broken datum never
+ * shows "NaN%".
+ */
+export function formatSignedPercent(
+  value: number,
+  options: FormatSignedPercentOptions = {},
+): string {
+  const { decimals = 2, alreadyPercent = true } = options;
+  const pct = alreadyPercent ? value : value * 100;
+  if (!isFinite(pct)) {
+    return `${(0).toFixed(decimals)}%`;
+  }
+  const rounded = roundToDecimals(pct, decimals);
+  const sign = rounded >= 0 ? '+' : '';
+  return `${sign}${rounded.toFixed(decimals)}%`;
+}
+
+/**
+ * Tailwind text-colour classes for a gain/loss value: green when >= 0, red
+ * when negative. Replaces the repeated
+ * `value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'`
+ * ternary across the investment/report components.
+ */
+export function gainLossColor(value: number): string {
+  return value >= 0
+    ? 'text-green-600 dark:text-green-400'
+    : 'text-red-600 dark:text-red-400';
+}
+
+/**
  * Format a number to the specified decimal places for display in inputs.
  * Defaults to 2 decimal places.
  */
@@ -100,6 +183,27 @@ export function formatAmount(value: number | undefined | null, decimalPlaces: nu
     return '';
   }
   return roundToDecimals(value, decimalPlaces).toFixed(decimalPlaces);
+}
+
+/**
+ * Format a share quantity at full precision (up to 8 decimal places) with
+ * trailing zeros trimmed. Unlike the rounded quantity formatter, this keeps
+ * tiny residual positions visible (e.g. 0.0003), which is essential for
+ * tracking down errant share counts.
+ */
+export function formatShareQuantity(value: number | undefined | null): string {
+  if (value === undefined || value === null || isNaN(value)) {
+    return '0';
+  }
+  const fixed = value.toFixed(8);
+  // Trim trailing zeros and a dangling decimal point.
+  const trimmed = fixed.replace(/\.?0+$/, '');
+  // Map empty (all zeros) and negative zero (a tiny negative residue that
+  // rounds to zero, e.g. -4e-15) to a clean "0".
+  if (trimmed === '' || trimmed === '-0') {
+    return '0';
+  }
+  return trimmed;
 }
 
 /**

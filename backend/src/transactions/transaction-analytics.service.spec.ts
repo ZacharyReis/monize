@@ -40,8 +40,10 @@ describe("TransactionAnalyticsService", () => {
       leftJoin: jest.fn().mockReturnValue(mockQueryBuilder),
       groupBy: jest.fn().mockReturnValue(mockQueryBuilder),
       addGroupBy: jest.fn().mockReturnValue(mockQueryBuilder),
+      having: jest.fn().mockReturnValue(mockQueryBuilder),
       orderBy: jest.fn().mockReturnValue(mockQueryBuilder),
       setParameter: jest.fn().mockReturnValue(mockQueryBuilder),
+      setParameters: jest.fn().mockReturnValue(mockQueryBuilder),
       getRawMany: jest.fn().mockResolvedValue([]),
     });
 
@@ -1075,14 +1077,14 @@ describe("TransactionAnalyticsService", () => {
       ]);
     });
 
-    it("rounds totals to two decimal places", async () => {
+    it("rounds totals to storage precision (four decimal places)", async () => {
       mockQueryBuilder.getRawMany.mockResolvedValue([
         { month: "2025-01", total: "-123.456", count: "3" },
       ]);
 
       const result = await service.getMonthlyTotals(userId);
 
-      expect(result[0].total).toBe(-123.46);
+      expect(result[0].total).toBe(-123.456);
     });
 
     it("handles null values in raw query results", async () => {
@@ -1571,7 +1573,11 @@ describe("TransactionAnalyticsService", () => {
 
     it("returns empty result for empty input", async () => {
       const result = await service.resolveLlmCategoryIds(userId, []);
-      expect(result).toEqual({ categoryIds: [], unresolved: [] });
+      expect(result).toEqual({
+        categoryIds: [],
+        unresolved: [],
+        suggestions: [],
+      });
     });
 
     it("matches an exact category name and expands to descendants", async () => {
@@ -1639,6 +1645,17 @@ describe("TransactionAnalyticsService", () => {
       ]);
       expect(result.categoryIds).toEqual([]);
       expect(result.unresolved).toEqual(["Bogus", "AlsoBogus"]);
+    });
+
+    it("suggests the closest valid name for a near-miss", async () => {
+      const result = await service.resolveLlmCategoryIds(userId, ["Grocries"]);
+      expect(result.unresolved).toEqual(["Grocries"]);
+      expect(result.suggestions).toContain("Groceries");
+    });
+
+    it("returns no suggestions when every name resolves", async () => {
+      const result = await service.resolveLlmCategoryIds(userId, ["Food"]);
+      expect(result.suggestions).toEqual([]);
     });
   });
 
@@ -1736,6 +1753,247 @@ describe("TransactionAnalyticsService", () => {
     });
   });
 
+  describe("getLlmListTransactions", () => {
+    it("returns totals and groupedBy 'none' without a breakdown when groupBy is omitted", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          currencyCode: "USD",
+          totalIncome: "1000",
+          totalExpenses: "200",
+          transactionCount: "5",
+        },
+      ]);
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+      });
+
+      expect(result.totalIncome).toBe(1000);
+      expect(result.totalExpenses).toBe(200);
+      expect(result.netCashFlow).toBe(800);
+      expect(result.transactionCount).toBe(5);
+      expect(result.groupedBy).toBe("none");
+      expect(result.breakdown).toBeUndefined();
+      expect(result.transfers).toBeUndefined();
+      expect(result.byCurrency).toBeUndefined();
+    });
+
+    it("does not compute a breakdown when groupBy is explicitly 'none'", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "none",
+      });
+
+      expect(result.groupedBy).toBe("none");
+      expect(result.breakdown).toBeUndefined();
+      // Only the summary query runs, not a second breakdown query.
+      expect(transactionsRepository.createQueryBuilder).toHaveBeenCalledTimes(
+        1,
+      );
+    });
+
+    it("includes a breakdown when groupBy is a real grouping", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([
+          {
+            currencyCode: "USD",
+            totalIncome: "1000",
+            totalExpenses: "200",
+            transactionCount: "5",
+          },
+        ])
+        .mockResolvedValueOnce([{ label: "Food", total: "150", count: "10" }]);
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "category",
+      });
+
+      expect(result.groupedBy).toBe("category");
+      expect(result.breakdown).toBeDefined();
+    });
+
+    it("includes the transfer rollup when transfersOnly is true", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([]) // summary
+        .mockResolvedValueOnce([
+          {
+            accountName: "Savings",
+            currencyCode: "USD",
+            inbound: "1500",
+            outbound: "0",
+            count: "3",
+          },
+        ]); // transfers
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        transfersOnly: true,
+      });
+
+      expect(result.transfers).toBeDefined();
+      expect(result.transfers?.totalInbound).toBe(1500);
+      expect(result.transfers?.accounts).toHaveLength(1);
+    });
+
+    it("omits the transfer rollup when transfersOnly is false", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        transfersOnly: false,
+      });
+
+      expect(result.transfers).toBeUndefined();
+    });
+
+    it("computes both a breakdown and the transfer rollup together", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([]) // summary
+        .mockResolvedValueOnce([{ label: "Food", total: "100", count: "5" }]) // breakdown
+        .mockResolvedValueOnce([]); // transfers
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "category",
+        transfersOnly: true,
+      });
+
+      expect(result.breakdown).toBeDefined();
+      expect(result.transfers).toBeDefined();
+    });
+
+    it("exposes byCurrency when multiple currencies are present", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          currencyCode: "USD",
+          totalIncome: "1000",
+          totalExpenses: "200",
+          transactionCount: "5",
+        },
+        {
+          currencyCode: "EUR",
+          totalIncome: "500",
+          totalExpenses: "100",
+          transactionCount: "3",
+        },
+      ]);
+
+      const result = await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+      });
+
+      expect(result.byCurrency).toBeDefined();
+      expect(Object.keys(result.byCurrency || {})).toEqual(
+        expect.arrayContaining(["USD", "EUR"]),
+      );
+    });
+
+    it("forwards payee, amount, and search filters to the summary query", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        payeeIds: ["payee-1"],
+        minAmount: -100,
+        maxAmount: -10,
+        searchText: "coffee",
+      });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.payeeId IN (:...payeeIds)",
+        { payeeIds: ["payee-1"] },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.amount >= :amountFrom",
+        { amountFrom: -100 },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.amount <= :amountTo",
+        { amountTo: -10 },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        buildTransactionSearchClause({
+          transaction: "transaction",
+          splits: "splits",
+        }),
+        { search: "%coffee%" },
+      );
+    });
+
+    it("forwards payee/amount filters into the grouped breakdown query", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([]) // summary
+        .mockResolvedValueOnce([]); // breakdown
+
+      await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "month",
+        payeeIds: ["payee-1"],
+        minAmount: -200,
+        maxAmount: -5,
+      });
+
+      const calls = (mockQueryBuilder.andWhere.mock.calls as any[][]).map(
+        (c) => c[0],
+      );
+      expect(calls).toContain("t.payeeId IN (:...payeeIds)");
+      expect(
+        calls.some((c) => typeof c === "string" && c.includes(":minAmount")),
+      ).toBe(true);
+      expect(
+        calls.some((c) => typeof c === "string" && c.includes(":maxAmount")),
+      ).toBe(true);
+    });
+
+    it("applies the expenses direction to the breakdown query", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "category",
+        direction: "expenses",
+      });
+
+      const calls = (mockQueryBuilder.andWhere.mock.calls as any[][])
+        .map((c) => c[0])
+        .join(" | ");
+      expect(calls).toMatch(/< 0/);
+    });
+
+    it("applies the income direction to the breakdown query", async () => {
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      await service.getLlmListTransactions(userId, {
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        groupBy: "category",
+        direction: "income",
+      });
+
+      const calls = (mockQueryBuilder.andWhere.mock.calls as any[][])
+        .map((c) => c[0])
+        .join(" | ");
+      expect(calls).toMatch(/> 0/);
+    });
+  });
+
   describe("getLlmGroupedBreakdown (via getLlmQueryTransactions)", () => {
     async function runWithGroupBy(groupBy: string, rows: any[]) {
       mockQueryBuilder.getRawMany
@@ -1830,135 +2088,6 @@ describe("TransactionAnalyticsService", () => {
         .map((c) => c[0])
         .join(" | ");
       expect(calls).toMatch(/> 0/);
-    });
-  });
-
-  describe("getLlmSpendingByCategory", () => {
-    it("returns empty result when there are no rows", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([]);
-
-      const result = await service.getLlmSpendingByCategory(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-      );
-
-      expect(result.categories).toEqual([]);
-      expect(result.totalSpending).toBe(0);
-    });
-
-    it("computes percentages for each category and total spending", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { category: "Food", total: "300", count: "15" },
-        { category: "Travel", total: "100", count: "2" },
-      ]);
-
-      const result = await service.getLlmSpendingByCategory(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-      );
-
-      expect(result.totalSpending).toBe(400);
-      expect(result.categories[0].percentage).toBe(75);
-      expect(result.categories[1].percentage).toBe(25);
-    });
-
-    it("limits to topN when provided", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { category: "Food", total: "200", count: "5" },
-        { category: "Travel", total: "100", count: "2" },
-        { category: "Other", total: "50", count: "1" },
-      ]);
-
-      const result = await service.getLlmSpendingByCategory(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-        2,
-      );
-
-      expect(result.categories).toHaveLength(2);
-    });
-
-    it("ignores topN when not greater than zero", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { category: "Food", total: "100", count: "5" },
-      ]);
-
-      const result = await service.getLlmSpendingByCategory(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-        0,
-      );
-
-      expect(result.categories).toHaveLength(1);
-    });
-
-    it("returns 0% percentages when total spending is 0", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { category: "Food", total: "0", count: "1" },
-      ]);
-
-      const result = await service.getLlmSpendingByCategory(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-      );
-
-      expect(result.categories[0].percentage).toBe(0);
-    });
-  });
-
-  describe("getLlmIncomeSummary", () => {
-    it("groups by category by default", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { label: "Salary", total: "5000", count: "1" },
-      ]);
-
-      const result = await service.getLlmIncomeSummary(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-      );
-
-      expect(result.groupedBy).toBe("category");
-      expect(result.items[0].label).toBe("Salary");
-      expect(result.totalIncome).toBe(5000);
-    });
-
-    it("groups by month when requested", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { label: "2026-01", total: "5000", count: "1" },
-      ]);
-
-      const result = await service.getLlmIncomeSummary(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-        "month",
-      );
-
-      expect(result.groupedBy).toBe("month");
-    });
-
-    it("groups by payee with aggregation threshold applied", async () => {
-      mockQueryBuilder.getRawMany.mockResolvedValue([
-        { label: "Employer", total: "5000", count: "5" },
-        { label: "Side gig", total: "200", count: "1" },
-      ]);
-
-      const result = await service.getLlmIncomeSummary(
-        userId,
-        "2026-01-01",
-        "2026-01-31",
-        "payee",
-      );
-
-      const labels = result.items.map((i) => i.label);
-      expect(labels).toContain("Employer");
-      expect(labels).toContain("Other (aggregated)");
     });
   });
 
@@ -2078,6 +2207,106 @@ describe("TransactionAnalyticsService", () => {
         (c) => typeof c === "string" && /[<>] 0/.test(c),
       );
       expect(directionCalls).toHaveLength(0);
+    });
+  });
+
+  describe("getRecurringCharges", () => {
+    const start = "2025-01-01";
+    const end = "2025-12-31";
+
+    it("detects a recurring charge with consistent monthly timing", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          payeeName: "Netflix",
+          categoryName: "Entertainment",
+          amounts: [15.99, 15.99, 15.99, 17.99],
+          dates: ["2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01"],
+          txnCount: "4",
+        },
+      ]);
+
+      const result = await service.getRecurringCharges(userId, start, end);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].payeeName).toBe("Netflix");
+      expect(result[0].frequency).toBe("monthly");
+      expect(result[0].currentAmount).toBe(17.99);
+      expect(result[0].previousAmount).toBe(15.99);
+      expect(result[0].categoryName).toBe("Entertainment");
+    });
+
+    it("treats a single repeated amount as both current and previous", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          payeeName: "Service",
+          categoryName: "Utilities",
+          amounts: [29.99, 29.99, 29.99],
+          dates: ["2025-10-15", "2025-11-15", "2025-12-15"],
+          txnCount: "3",
+        },
+      ]);
+
+      const result = await service.getRecurringCharges(userId, start, end);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].currentAmount).toBe(29.99);
+      expect(result[0].previousAmount).toBe(29.99);
+    });
+
+    it("filters out charges with irregular timing", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          payeeName: "Random Store",
+          categoryName: "Shopping",
+          amounts: [50, 20, 150],
+          dates: ["2025-08-10", "2025-09-25", "2025-12-01"],
+          txnCount: "3",
+        },
+      ]);
+
+      const result = await service.getRecurringCharges(userId, start, end);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("excludes investment-linked cash debits from the query", async () => {
+      await service.getRecurringCharges(userId, start, end);
+
+      const andWhereClauses = (
+        mockQueryBuilder.andWhere.mock.calls as any[][]
+      ).map((c) => c[0] as string);
+      expect(andWhereClauses).toContain(
+        "NOT EXISTS (SELECT 1 FROM investment_transactions it WHERE it.transaction_id = t.id)",
+      );
+      expect(andWhereClauses).toContain("t.status != 'VOID'");
+      expect(andWhereClauses).toContain("t.isTransfer = false");
+      expect(andWhereClauses).toContain("t.parentTransactionId IS NULL");
+    });
+
+    it("selects a bare category name by default", async () => {
+      await service.getRecurringCharges(userId, start, end);
+
+      const addSelectClauses = (
+        mockQueryBuilder.addSelect.mock.calls as any[][]
+      ).map((c) => c[0] as string);
+      expect(addSelectClauses).toContain("cat.name");
+      expect(mockQueryBuilder.setParameters).toHaveBeenCalledWith({});
+    });
+
+    it("substitutes an uncategorized label when requested", async () => {
+      await service.getRecurringCharges(userId, start, end, {
+        uncategorizedLabel: "Uncategorized",
+      });
+
+      const addSelectClauses = (
+        mockQueryBuilder.addSelect.mock.calls as any[][]
+      ).map((c) => c[0] as string);
+      expect(addSelectClauses).toContain(
+        "COALESCE(cat.name, :uncategorizedLabel)",
+      );
+      expect(mockQueryBuilder.setParameters).toHaveBeenCalledWith({
+        uncategorizedLabel: "Uncategorized",
+      });
     });
   });
 });

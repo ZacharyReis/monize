@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
 import { BillReminderService } from "./bill-reminder.service";
 import { EmailService } from "./email.service";
 import { ScheduledTransaction } from "../scheduled-transactions/entities/scheduled-transaction.entity";
@@ -55,6 +56,13 @@ describe("BillReminderService", () => {
         },
         { provide: EmailService, useValue: emailService },
         { provide: ConfigService, useValue: configService },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: (key: string, opts?: { defaultValue?: string }) =>
+              opts?.defaultValue ?? key,
+          },
+        },
       ],
     }).compile();
 

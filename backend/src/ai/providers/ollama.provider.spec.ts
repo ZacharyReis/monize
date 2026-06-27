@@ -1,5 +1,8 @@
 import type { AiToolStreamChunk } from "./ai-provider.interface";
-import { OllamaModelDoesNotSupportToolsError } from "./ollama.provider";
+import {
+  OllamaModelDoesNotSupportToolsError,
+  OllamaModelDoesNotSupportImagesError,
+} from "./ollama.provider";
 
 // Mock the long-running-fetch helper so tests can keep using `global.fetch`.
 // In production, longRunningFetch calls undici.fetch directly with our
@@ -33,6 +36,59 @@ describe("OllamaProvider", () => {
     expect(provider.name).toBe("ollama");
     expect(provider.supportsStreaming).toBe(true);
     expect(provider.supportsToolUse).toBe(true);
+  });
+
+  it("puts image data in images[] and degrades PDFs in content", async () => {
+    const enc = new TextEncoder();
+    let i = 0;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: () =>
+            i++ === 0
+              ? Promise.resolve({
+                  value: enc.encode(
+                    '{"message":{"role":"assistant","content":"ok"},"done":true,"prompt_eval_count":1,"eval_count":1}\n',
+                  ),
+                  done: false,
+                })
+              : Promise.resolve({ value: undefined, done: true }),
+          releaseLock: jest.fn(),
+        }),
+      },
+    });
+
+    await provider.completeWithTools(
+      {
+        systemPrompt: "sys",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image", mediaType: "image/png", data: "iVBOR" },
+              {
+                type: "document",
+                mediaType: "application/pdf",
+                data: "JVBER",
+                filename: "c.pdf",
+              },
+              { type: "text", text: "read it" },
+            ],
+          },
+        ],
+      },
+      [],
+    );
+
+    const body = JSON.parse(
+      (global.fetch as jest.Mock).mock.calls[0][1].body as string,
+    );
+    // messages[0] is the system prompt; messages[1] is the user turn.
+    const userMsg = body.messages[1];
+    expect(userMsg.images).toEqual(["iVBOR"]);
+    expect(userMsg.content).toContain("read it");
+    expect(userMsg.content).toContain("cannot read PDF");
   });
 
   describe("constructor baseUrl validation", () => {
@@ -599,6 +655,34 @@ describe("OllamaProvider", () => {
           }
         })(),
       ).rejects.toBeInstanceOf(OllamaModelDoesNotSupportToolsError);
+    });
+
+    it("throws a typed error when Ollama reports the model does not support image input", async () => {
+      // Ollama returns 400 with this body when a text-only model receives an
+      // attached image.
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        text: () =>
+          Promise.resolve(
+            '{"error":"this model does not support image input (ref: 7386e687)"}',
+          ),
+      });
+
+      const gen = provider.streamWithTools(
+        { systemPrompt: "test", messages: [{ role: "user", content: "hi" }] },
+        tools,
+      );
+
+      await expect(
+        (async () => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          for await (const _chunk of gen) {
+            // consume
+          }
+        })(),
+      ).rejects.toBeInstanceOf(OllamaModelDoesNotSupportImagesError);
     });
 
     it("includes the model id and remediation advice in the tool-unsupported error", async () => {

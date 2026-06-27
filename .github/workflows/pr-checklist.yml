@@ -1,0 +1,129 @@
+name: PR Checklist
+
+# Enforces the propose-first workflow from CONTRIBUTING.md. Every PR to main
+# must:
+#   1. Keep the template checklist with every box ticked.
+#   2. Link a discussion or issue that a maintainer has marked
+#      `approved-to-build`.
+# Make this a required status check in the `main` branch protection rule so PRs
+# can't merge until it passes. (It already is — see the protection settings.)
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main]
+  # Also trigger on direct pushes to main so the required status check is
+  # satisfied for commits the CI release job pushes (e.g. the version-bump).
+  # The job auto-passes for push events -- there is no PR body to inspect.
+  push:
+    branches: [main]
+
+# Read-only: the job inspects the PR body and reads labels on the linked
+# discussion/issue. It never writes.
+permissions:
+  contents: read
+  issues: read
+  discussions: read
+  pull-requests: read
+
+concurrency:
+  # pull_request.number is empty for push events; fall back to the ref.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checklist:
+    name: Verify PR checklist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify checklist and maintainer approval
+        # PR_BODY is passed via env (never interpolated into the script) to
+        # avoid template injection. See CWE-94. gh is preinstalled on the
+        # runner; GH_TOKEN authenticates its API calls.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          APPROVAL_LABEL: approved-to-build
+        run: |
+          set -uo pipefail
+
+          # Direct pushes to main (e.g. the CI version-bump commit) are not
+          # pull requests, so there is no checklist to verify. Auto-pass.
+          if [ "${EVENT_NAME:-}" = "push" ]; then
+            echo "Direct push to main; no PR checklist to verify."
+            exit 0
+          fi
+
+          # Maintainers' own PRs bypass the propose-first checklist gate.
+          # author_association is set by GitHub and cannot be spoofed by outside
+          # contributors (theirs is CONTRIBUTOR or NONE), so the gate still
+          # applies to fork/community PRs while maintainers skip it automatically.
+          case "${AUTHOR_ASSOCIATION:-}" in
+            OWNER | MEMBER | COLLABORATOR)
+              echo "PR author is a maintainer ($AUTHOR_ASSOCIATION); skipping checklist enforcement."
+              exit 0
+              ;;
+          esac
+
+          if [ -z "${PR_BODY:-}" ]; then
+            echo "::error::PR description is empty. Use the pull request template and fill it in."
+            exit 1
+          fi
+
+          fail=0
+
+          # 1. Every checklist item must be ticked: no remaining "- [ ]".
+          unchecked=$(printf '%s' "$PR_BODY" | grep -cE '^[[:space:]]*-[[:space:]]*\[[[:space:]]\]' || true)
+          if [ "${unchecked:-0}" -gt 0 ]; then
+            echo "::error::$unchecked checklist item(s) are still unchecked. Tick every box in the PR template."
+            fail=1
+          fi
+
+          # 2. Collect referenced discussion and issue numbers from the body.
+          disc_nums=$(printf '%s' "$PR_BODY" | grep -oiE 'discussions/[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
+          issue_nums=$(printf '%s' "$PR_BODY" | grep -oiE '(issues/[0-9]+|#[0-9]+)' | grep -oE '[0-9]+' | sort -u || true)
+
+          if [ -z "$disc_nums" ] && [ -z "$issue_nums" ]; then
+            echo "::error::No linked discussion or issue found. Link the approved discussion (Approved in: ...) or 'Closes #123'."
+            echo "See CONTRIBUTING.md for the propose-first workflow."
+            exit 1
+          fi
+
+          # 3. At least one linked discussion/issue must carry the approval
+          #    label, applied by a maintainer.
+          approved=0
+
+          for n in $disc_nums; do
+            labels=$(gh api graphql \
+              -f query='query($owner:String!,$repo:String!,$num:Int!){repository(owner:$owner,name:$repo){discussion(number:$num){labels(first:50){nodes{name}}}}}' \
+              -F owner="$OWNER" -F repo="$REPO" -F num="$n" \
+              --jq '.data.repository.discussion.labels.nodes[].name' 2>/dev/null || true)
+            if printf '%s\n' "$labels" | grep -qx "$APPROVAL_LABEL"; then
+              echo "Discussion #$n carries '$APPROVAL_LABEL'."
+              approved=1
+            fi
+          done
+
+          for n in $issue_nums; do
+            labels=$(gh api "repos/$OWNER/$REPO/issues/$n" --jq '.labels[].name' 2>/dev/null || true)
+            if printf '%s\n' "$labels" | grep -qx "$APPROVAL_LABEL"; then
+              echo "Issue #$n carries '$APPROVAL_LABEL'."
+              approved=1
+            fi
+          done
+
+          if [ "$approved" -ne 1 ]; then
+            echo "::error::No linked discussion or issue carries the '$APPROVAL_LABEL' label. A maintainer must approve the proposal before this PR can merge."
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "See CONTRIBUTING.md for the propose-first workflow."
+            exit 1
+          fi
+
+          echo "PR checklist and maintainer approval verified."

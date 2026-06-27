@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@/test/render';
+import { render, screen, fireEvent, act, within } from '@/test/render';
 import { InvestmentTransactionList } from './InvestmentTransactionList';
 
 vi.mock('@/hooks/useDateFormat', () => ({
@@ -9,6 +9,8 @@ vi.mock('@/hooks/useDateFormat', () => ({
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
+    formatQuantity: (n: number) =>
+      new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 }).format(n),
     numberFormat: 'en-US',
   }),
 }));
@@ -519,7 +521,7 @@ describe('InvestmentTransactionList', () => {
       expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
     });
 
-    it('shows edit button label "E" (pencil) in dense mode', () => {
+    it('shows icon-only edit and delete buttons in dense mode', () => {
       const tx = makeTx({ id: 'tx-edit-dense', action: 'BUY' });
       render(
         <InvestmentTransactionList
@@ -530,9 +532,9 @@ describe('InvestmentTransactionList', () => {
           onDelete={vi.fn()}
         />
       );
-      // In dense mode edit shows pencil icon (✎) and delete shows (✕)
-      expect(screen.getByText('✎')).toBeInTheDocument();
-      expect(screen.getByText('✕')).toBeInTheDocument();
+      // In dense mode the actions are icon-only buttons exposed via their labels.
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
     });
 
     it('applies striped background class for odd rows in non-normal density', () => {
@@ -750,7 +752,7 @@ describe('InvestmentTransactionList', () => {
       // Should not throw and timer should be cleared
     });
 
-    it('initiates long-press on touch start and fires delete dialog', async () => {
+    it('opens the action sheet on long press and the delete dialog from it', async () => {
       const onDelete = vi.fn();
       const tx = makeTx();
       render(
@@ -769,6 +771,8 @@ describe('InvestmentTransactionList', () => {
         await new Promise((resolve) => setTimeout(resolve, 800));
       });
 
+      // The long-press opens the shared action sheet; its Delete opens the dialog.
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('Delete'));
       expect(screen.getByText('Delete Transaction')).toBeInTheDocument();
     });
 
@@ -818,6 +822,8 @@ describe('InvestmentTransactionList', () => {
         await new Promise((resolve) => setTimeout(resolve, 800));
       });
 
+      // The action sheet opened (long-press was not cancelled); its Delete opens the dialog.
+      fireEvent.click(within(screen.getByRole('dialog')).getByText('Delete'));
       expect(screen.getByText('Delete Transaction')).toBeInTheDocument();
     });
 

@@ -86,7 +86,8 @@ vi.mock('@/lib/accounts', () => ({
 
 vi.mock('@/lib/transactions', () => ({
   transactionsApi: {
-    getAll: vi.fn().mockResolvedValue({ data: [], pagination: { page: 1, totalPages: 1, total: 0 } }),
+    getAll: vi.fn().mockResolvedValue({ data: [], pagination: { page: 1, totalPages: 1, total: 0, hasMore: false } }),
+    getAllPages: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -106,10 +107,20 @@ vi.mock('@/lib/scheduled-transactions', () => ({
 }));
 
 const mockGetTopMovers = vi.fn().mockResolvedValue([]);
+const mockGetFavouriteSecurities = vi.fn().mockResolvedValue([]);
+const mockGetSecurities = vi.fn().mockResolvedValue([{ id: 'sec-1', symbol: 'AAPL' }]);
+const mockGetPortfolioSummary = vi.fn().mockResolvedValue(null);
 vi.mock('@/lib/investments', () => ({
   investmentsApi: {
     getTopMovers: (...args: any[]) => mockGetTopMovers(...args),
+    getFavouriteSecurities: (...args: any[]) => mockGetFavouriteSecurities(...args),
+    getSecurities: (...args: any[]) => mockGetSecurities(...args),
+    getPortfolioSummary: (...args: any[]) => mockGetPortfolioSummary(...args),
   },
+}));
+
+vi.mock('@/lib/apiCache', () => ({
+  invalidateCache: vi.fn(),
 }));
 
 vi.mock('@/lib/net-worth', () => ({
@@ -149,6 +160,16 @@ vi.mock('@/components/dashboard/NetWorthChart', () => ({
   NetWorthChart: () => <div data-testid="net-worth-chart">NetWorthChart</div>,
 }));
 
+vi.mock('@/components/dashboard/AssetsVsLiabilities', () => ({
+  AssetsVsLiabilities: () => <div data-testid="assets-vs-liabilities">AssetsVsLiabilities</div>,
+}));
+
+vi.mock('@/components/dashboard/FavouriteSecurities', () => ({
+  FavouriteSecurities: ({ securities, isLoading }: any) => (
+    <div data-testid="favourite-securities">{isLoading ? 'loading' : `count-${securities.length}`}</div>
+  ),
+}));
+
 vi.mock('@/components/dashboard/InsightsWidget', () => ({
   InsightsWidget: ({ isLoading }: any) => <div data-testid="insights-widget">{isLoading ? 'loading' : 'loaded'}</div>,
 }));
@@ -176,6 +197,10 @@ describe('DashboardPage', () => {
     vi.clearAllMocks();
     mockGetAccounts.mockResolvedValue([]);
     mockGetScheduled.mockResolvedValue([]);
+    mockGetTopMovers.mockResolvedValue([]);
+    mockGetFavouriteSecurities.mockResolvedValue([]);
+    mockGetSecurities.mockResolvedValue([{ id: 'sec-1', symbol: 'AAPL' }]);
+    mockGetPortfolioSummary.mockResolvedValue(null);
     authState.current.actingAsUserId = null;
     authState.current.delegateSections = null;
   });
@@ -322,5 +347,43 @@ describe('DashboardPage', () => {
     });
     expect(screen.getByTestId('favourite-accounts')).toBeInTheDocument();
     expect(mockGetScheduled).toHaveBeenCalled();
+  });
+
+  it('renders the AssetsVsLiabilities and FavouriteSecurities widgets', async () => {
+    render(<DashboardPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('assets-vs-liabilities')).toBeInTheDocument();
+      expect(screen.getByTestId('favourite-securities')).toBeInTheDocument();
+    });
+  });
+
+  it('passes loaded favourite securities to the widget', async () => {
+    mockGetFavouriteSecurities.mockResolvedValue([
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currencyCode: 'USD', currentPrice: 1, previousPrice: 1, dailyChange: 0, dailyChangePercent: 0 },
+    ]);
+    render(<DashboardPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('favourite-securities')).toHaveTextContent('count-1');
+    });
+  });
+
+  it('hides Top Movers and Favourite Securities when there are no securities', async () => {
+    mockGetSecurities.mockResolvedValue([]);
+    render(<DashboardPage />);
+    await waitFor(() => {
+      // Net worth row still renders, so the dashboard has finished loading.
+      expect(screen.getByTestId('assets-vs-liabilities')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('top-movers')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('favourite-securities')).not.toBeInTheDocument();
+  });
+
+  it('shows Top Movers and Favourite Securities when securities exist', async () => {
+    mockGetSecurities.mockResolvedValue([{ id: 'sec-1', symbol: 'AAPL' }]);
+    render(<DashboardPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('top-movers')).toBeInTheDocument();
+      expect(screen.getByTestId('favourite-securities')).toBeInTheDocument();
+    });
   });
 });

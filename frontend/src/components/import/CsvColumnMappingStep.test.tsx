@@ -621,4 +621,208 @@ describe('CsvColumnMappingStep', () => {
       expect(saved.columnMappings.reconciliationStatus).toBe(5);
     });
   });
+
+  describe('custom date format', () => {
+    it('switches to custom mode and shows a free-text input when "Custom..." is chosen', () => {
+      renderStep({ columnMapping: { ...defaultMapping(), amount: 1 } });
+
+      const dateFormatSelect = screen.getByDisplayValue('MM/DD/YYYY');
+      fireEvent.change(dateFormatSelect, { target: { value: '__custom__' } });
+
+      expect(screen.getByPlaceholderText('e.g. DD.MM.YYYY')).toBeInTheDocument();
+    });
+
+    it('propagates a typed custom date format via onColumnMappingChange', () => {
+      const props = renderStep({ columnMapping: { ...defaultMapping(), amount: 1 } });
+
+      const dateFormatSelect = screen.getByDisplayValue('MM/DD/YYYY');
+      fireEvent.change(dateFormatSelect, { target: { value: '__custom__' } });
+
+      const customInput = screen.getByPlaceholderText('e.g. DD.MM.YYYY');
+      fireEvent.change(customInput, { target: { value: 'DD.MM.YYYY' } });
+
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ dateFormat: 'DD.MM.YYYY' }),
+      );
+    });
+
+    it('treats a non-standard dateFormat in the mapping as custom on mount', () => {
+      // No sampleRows -> autoDetectedFormat is null, so the mapping's
+      // non-standard dateFormat drives the custom-mode detection.
+      renderStep({
+        sampleRows: [],
+        columnMapping: { ...defaultMapping(), amount: 1, dateFormat: 'DD.MM.YYYY' },
+      });
+
+      const customInput = screen.getByPlaceholderText('e.g. DD.MM.YYYY') as HTMLInputElement;
+      expect(customInput.value).toBe('DD.MM.YYYY');
+    });
+
+    it('returns to a standard format and clears custom mode', () => {
+      const props = renderStep({
+        sampleRows: [],
+        columnMapping: { ...defaultMapping(), amount: 1, dateFormat: 'DD.MM.YYYY' },
+      });
+
+      // Currently custom; the select reads as the custom sentinel
+      const dateFormatSelect = screen.getByDisplayValue('Custom...');
+      fireEvent.change(dateFormatSelect, { target: { value: 'MM/DD/YYYY' } });
+
+      // The component reports the standard format to the parent. (Visibility of
+      // the custom input is parent-controlled via columnMapping.dateFormat, which
+      // the mock does not re-render, so we only assert the callback here.)
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ dateFormat: 'MM/DD/YYYY' }),
+      );
+    });
+  });
+
+  describe('sign normal/reverse clearing', () => {
+    it('clears type-column fields when Sign changed to "normal"', () => {
+      const onColumnMappingChange = vi.fn();
+      renderStep({
+        columnMapping: {
+          ...defaultMapping(),
+          amount: 1,
+          reverseSign: true,
+        },
+        onColumnMappingChange,
+      });
+
+      const signSelect = screen.getByDisplayValue('Reverse (positive = withdrawal)');
+      fireEvent.change(signSelect, { target: { value: 'normal' } });
+
+      const callArg = onColumnMappingChange.mock.calls.at(-1)![0];
+      expect(callArg.reverseSign).toBeUndefined();
+      expect(callArg.amountTypeColumn).toBeUndefined();
+    });
+  });
+
+  describe('type-column keyword inputs', () => {
+    it('propagates income keywords', () => {
+      const props = renderStep({
+        columnMapping: { ...defaultMapping(), amount: 1, amountTypeColumn: 2 },
+      });
+      fireEvent.change(screen.getByPlaceholderText('e.g. Income, Deposit'), {
+        target: { value: 'Income, Deposit' },
+      });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ incomeValues: ['Income', 'Deposit'] }),
+      );
+    });
+
+    it('propagates transfer-out keywords', () => {
+      const props = renderStep({
+        columnMapping: { ...defaultMapping(), amount: 1, amountTypeColumn: 2 },
+      });
+      fireEvent.change(screen.getByPlaceholderText('e.g. Transfer-Out'), {
+        target: { value: 'Transfer-Out, TO' },
+      });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ transferOutValues: ['Transfer-Out', 'TO'] }),
+      );
+    });
+
+    it('propagates transfer-in keywords', () => {
+      const props = renderStep({
+        columnMapping: { ...defaultMapping(), amount: 1, amountTypeColumn: 2 },
+      });
+      fireEvent.change(screen.getByPlaceholderText('e.g. Transfer-In'), {
+        target: { value: 'Transfer-In' },
+      });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ transferInValues: ['Transfer-In'] }),
+      );
+    });
+
+    it('sets income keywords to undefined when cleared', () => {
+      const props = renderStep({
+        columnMapping: { ...defaultMapping(), amount: 1, amountTypeColumn: 2, incomeValues: ['Income'] },
+      });
+      const incomeInput = screen.getByPlaceholderText('e.g. Income, Deposit');
+      fireEvent.change(incomeInput, { target: { value: '' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ incomeValues: undefined }),
+      );
+    });
+
+    it('clears transferAccountColumn back to category default when "Use category column" is chosen', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Type', 'Account'],
+        sampleRows: [['2024-01-01', '100.00', 'Expense', 'Savings']],
+        columnMapping: { ...defaultMapping(), amount: 1, amountTypeColumn: 2, transferAccountColumn: 3 },
+      });
+
+      // With transferAccountColumn set, the select shows the column label, not the default
+      const transferAcctSelect = screen.getByDisplayValue('Account (Col 4)');
+      fireEvent.change(transferAcctSelect, { target: { value: '' } });
+
+      const callArg = props.onColumnMappingChange.mock.calls.at(-1)![0];
+      expect(callArg.transferAccountColumn).toBeUndefined();
+    });
+  });
+
+  describe('optional field mapping updates', () => {
+    function labelledSelect(labelText: string) {
+      const label = screen.getByText(labelText);
+      return label.parentElement!.querySelector('select') as HTMLSelectElement;
+    }
+
+    it('maps the Category column', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Cat Col'],
+        sampleRows: [['2024-01-01', '100.00', 'Food']],
+      });
+      fireEvent.change(labelledSelect('Category'), { target: { value: '2' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ category: 2 }),
+      );
+    });
+
+    it('maps the Subcategory column', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Sub Col'],
+        sampleRows: [['2024-01-01', '100.00', 'Dining']],
+      });
+      fireEvent.change(labelledSelect('Subcategory'), { target: { value: '2' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ subcategory: 2 }),
+      );
+    });
+
+    it('maps the Memo column', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Memo Col'],
+        sampleRows: [['2024-01-01', '100.00', 'note']],
+      });
+      fireEvent.change(labelledSelect('Memo'), { target: { value: '2' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ memo: 2 }),
+      );
+    });
+
+    it('maps the Reference Number column', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Ref Col'],
+        sampleRows: [['2024-01-01', '100.00', 'REF1']],
+      });
+      fireEvent.change(labelledSelect('Reference Number'), { target: { value: '2' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ referenceNumber: 2 }),
+      );
+    });
+
+    it('maps the Payee column', () => {
+      const props = renderStep({
+        headers: ['Date', 'Amount', 'Merchant'],
+        sampleRows: [['2024-01-01', '100.00', 'Store']],
+      });
+      const payeeLabels = screen.getAllByText('Payee');
+      const payeeSelect = payeeLabels[payeeLabels.length - 1].parentElement!.querySelector('select') as HTMLSelectElement;
+      fireEvent.change(payeeSelect, { target: { value: '2' } });
+      expect(props.onColumnMappingChange).toHaveBeenCalledWith(
+        expect.objectContaining({ payee: 2 }),
+      );
+    });
+  });
 });

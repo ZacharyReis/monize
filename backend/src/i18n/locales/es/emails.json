@@ -1,0 +1,165 @@
+{
+  "test": {
+    "subject": "Correo de prueba de Monize",
+    "heading": "Correo de prueba de Monize",
+    "greeting": "Hola, {{ name }}:",
+    "body": "Este es un correo de prueba de Monize. Si lo recibiste, tus notificaciones por correo electrónico funcionan correctamente."
+  },
+  "billReminder": {
+    "subjectOne": "Monize: 1 factura próxima requiere atención",
+    "subjectMany": "Monize: {{ count }} facturas próximas requieren atención",
+    "heading": "Recordatorio de facturas próximas",
+    "greeting": "Hola, {{ name }}:",
+    "introOne": "Tienes 1 factura próxima que requiere atención:",
+    "introMany": "Tienes {{ count }} facturas próximas que requieren atención:",
+    "colPayee": "Beneficiario",
+    "colDueDate": "Fecha de vencimiento",
+    "colType": "Tipo",
+    "colAmount": "Cantidad",
+    "typeIncome": "Ingreso",
+    "typeExpense": "Gasto",
+    "button": "Ver Facturas &amp; Depósitos"
+  },
+  "mortgageReminder": {
+    "subject": "Monize: 1 renovación de hipoteca próxima",
+    "subjectPlural": "Monize: {{ count }} renovaciones de hipoteca próximas",
+    "heading": "Recordatorio de renovación de hipoteca",
+    "greeting": "Hola, {{ name }}:",
+    "introOne": "Tienes 1 hipoteca con una renovación de plazo próxima. Comunícate con tu prestamista para analizar las opciones de renovación antes de que finalice el plazo:",
+    "introMany": "Tienes {{ count }} hipotecas con una renovación de plazo próxima. Comunícate con tu prestamista para analizar las opciones de renovación antes de que finalice el plazo:",
+    "colMortgage": "Hipoteca",
+    "colTermEndDate": "Fecha de fin del plazo",
+    "colTimeRemaining": "Tiempo restante",
+    "daysRemainingOne": "1 día",
+    "daysRemainingMany": "{{ count }} días",
+    "button": "Ver cuentas"
+  },
+  "severity": {
+    "critical": "Crítico",
+    "warning": "Advertencia",
+    "success": "Buenas noticias",
+    "info": "Información"
+  },
+  "budgetAlertImmediate": {
+    "subject": "Monize: Alerta - {{ title }}",
+    "subjectPlural": "Monize: {{ count }} alertas requieren atención",
+    "heading": "Alerta",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Tu presupuesto requiere atención:",
+    "colSeverity": "Severidad",
+    "colAlert": "Alerta",
+    "colDetails": "Detalles",
+    "button": "Ver presupuesto"
+  },
+  "budgetWeeklyDigest": {
+    "subject": "Monize: Resumen semanal de tu presupuesto",
+    "heading": "Resumen semanal del presupuesto",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Aquí tienes el resumen semanal de tu presupuesto para: <strong>{{ budgets }}</strong>",
+    "criticalOne": "crítica",
+    "criticalMany": "críticas",
+    "warningOne": "advertencia",
+    "warningMany": "advertencias",
+    "positiveOne": "positiva",
+    "positiveMany": "positivas",
+    "thisWeek": "Esta semana:",
+    "noAlerts": "Sin alertas",
+    "totalAlerts": "Total de alertas: {{ count }}",
+    "topAlertsHeading": "Alertas principales",
+    "andMore": "...y {{ count }} más",
+    "button": "Ver panel del presupuesto"
+  },
+  "budgetMonthlySummary": {
+    "subject": "Monize: Resumen mensual del presupuesto - {{ period }}",
+    "subjectPlural": "Monize: Resumen mensual del presupuesto para {{ count }} presupuestos",
+    "heading": "Resumen mensual del presupuesto",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Aquí tienes el resumen mensual de tu presupuesto del período que acaba de cerrar:",
+    "overBudget": "Presupuesto excedido",
+    "healthScore": "Puntuación de salud:",
+    "labelBudgeted": "Presupuestado",
+    "labelSpent": "Gastado",
+    "labelRemaining": "Restante",
+    "percentUsed": "{{ percent }}% utilizado",
+    "topCategories": "Categorías principales",
+    "button": "Ver panel del presupuesto"
+  },
+  "oidcLink": {
+    "subject": "Monize: Confirmar vinculación de cuenta SSO",
+    "heading": "Vincula tu cuenta SSO",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Alguien intentó iniciar sesión mediante SSO con un correo electrónico que coincide con tu cuenta de Monize existente. Para vincular tu identidad SSO a esta cuenta, haz clic en el botón de abajo:",
+    "button": "Confirmar vinculación de cuenta",
+    "disclaimer": "Si no iniciaste esta solicitud, puedes ignorar este correo con seguridad. El enlace expira en 1 hora."
+  },
+  "accountLocked": {
+    "subject": "Cuenta bloqueada temporalmente",
+    "heading": "Cuenta bloqueada temporalmente",
+    "greeting": "Hola, {{ name }}:",
+    "body1": "Tu cuenta de Monize ha sido bloqueada temporalmente debido a múltiples intentos fallidos de inicio de sesión. Esta es una medida de seguridad para proteger tu cuenta.",
+    "body2": "El bloqueo expirará automáticamente. Si no intentaste iniciar sesión, te recomendamos restablecer tu contraseña de inmediato."
+  },
+  "passwordReset": {
+    "subject": "Restablecimiento de contraseña de Monize",
+    "heading": "Solicitud de restablecimiento de contraseña",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para establecer una nueva contraseña:",
+    "button": "Restablecer contraseña",
+    "disclaimer": "Este enlace expirará en 1 hora. Si no solicitaste un restablecimiento de contraseña, puedes ignorar este correo con seguridad."
+  },
+  "emailVerification": {
+    "subject": "Verifica tu correo electrónico de Monize",
+    "heading": "Verifica tu correo electrónico",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Gracias por registrarte en Monize. Confirma tu correo electrónico para activar tu cuenta e iniciar sesión:",
+    "button": "Verificar correo electrónico",
+    "disclaimer": "Este enlace expirará en 24 horas. Si no creaste una cuenta de Monize, puedes ignorar este correo con seguridad."
+  },
+  "accountInvite": {
+    "subject": "Tu cuenta de Monize está lista",
+    "heading": "Tu cuenta de Monize está lista",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "Un administrador ha creado una cuenta de Monize para ti. Haz clic en el botón de abajo para establecer tu contraseña e iniciar sesión:",
+    "button": "Establece tu contraseña",
+    "disclaimer": "Este enlace expirará en 24 horas. Si no esperabas esto, puedes ignorar este correo con seguridad."
+  },
+  "delegateInvite": {
+    "subject": "Has sido invitado a Monize",
+    "heading": "Has sido invitado a Monize",
+    "greeting": "Hola, {{ name }}:",
+    "intro": "{{ owner }} te ha invitado a acceder a su cuenta de Monize como delegado. Haz clic en el botón de abajo para establecer tu contraseña y comenzar:",
+    "button": "Establece tu contraseña",
+    "disclaimer": "Este enlace expirará en 24 horas. Si no esperabas esta invitación, puedes ignorar este correo con seguridad."
+  },
+  "emergencyAccessReminder": {
+    "subjectOne": "Monize: tu cuenta ha estado inactiva durante 1 día",
+    "subjectMany": "Monize: tu cuenta ha estado inactiva durante {{ daysSinceLogin }} días",
+    "heading": "Recordatorio de acceso de emergencia de Monize",
+    "greeting": "Hola, {{ name }}:",
+    "grantPhraseToday": "hoy",
+    "grantPhraseFutureOne": "en 1 día",
+    "grantPhraseFutureMany": "en {{ count }} días",
+    "bodyOne": "No has iniciado sesión en Monize durante <strong>1 día</strong>. Si permaneces inactivo, tus contactos de emergencia designados obtendrán acceso completo a tu cuenta {{ grantPhrase }}.",
+    "bodyMany": "No has iniciado sesión en Monize durante <strong>{{ daysSinceLogin }} días</strong>. Si permaneces inactivo, tus contactos de emergencia designados obtendrán acceso completo a tu cuenta {{ grantPhrase }}.",
+    "contactsLabel": "Contactos designados:",
+    "button": "Iniciar sesión ahora",
+    "footer": "Iniciar sesión restablece el temporizador. Si ya no quieres esta función activada, puedes desactivarla desde Configuración → Acceso de emergencia."
+  },
+  "emergencyAccessGrant": {
+    "subject": "Se te ha concedido acceso de emergencia a la cuenta de Monize de {{ owner }}",
+    "heading": "Acceso de emergencia concedido",
+    "greeting": "Hola, {{ name }}:",
+    "body": "<strong>{{ owner }}</strong> te designó anteriormente como contacto de emergencia en su cuenta de Monize. Dado que no ha iniciado sesión durante un período prolongado, ahora se te concede acceso completo para hacerte cargo de la cuenta.",
+    "claimIntro": "Para reclamar el acceso, haz clic en el enlace de abajo y establece una nueva contraseña. Iniciarás sesión como titular de la cuenta.",
+    "button": "Reclamar acceso de emergencia",
+    "expiry": "Este enlace es válido hasta el <strong>{{ expiry }}</strong> y solo puede usarse una vez. Si varios contactos recibieron este correo, el primero en reclamar se hará cargo de la cuenta."
+  },
+  "emergencyAccessGrantRevoked": {
+    "subject": "Monize: se concedió acceso de emergencia mientras estabas ausente",
+    "heading": "Se concedió acceso de emergencia mientras estabas ausente",
+    "greeting": "Hola, {{ name }}:",
+    "body1": "Debido a que tu cuenta había estado inactiva, se enviaron enlaces a tus contactos de emergencia designados para hacerse cargo de tu cuenta. Como ahora has vuelto a iniciar sesión, <strong>esos enlaces han sido revocados</strong> y la protección ha sido reactivada.",
+    "body2": "Si esto era esperado, no se requiere ninguna acción. Si no lo esperabas, revisa tu actividad de inicio de sesión y tu configuración de acceso de emergencia.",
+    "button": "Revisar acceso de emergencia"
+  }
+}

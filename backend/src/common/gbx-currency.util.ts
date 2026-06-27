@@ -32,8 +32,10 @@ export function isGbxExchange(exchange: string | null | undefined): boolean {
 
 /**
  * Convert a price from GBX (pence) to GBP (pounds).
- * Rounds to 4 decimal places to match DECIMAL(20,4) storage.
+ * Rounds to 6 decimal places to match NUMERIC(20,6) storage. Sub-penny LSE
+ * shares (e.g. 0.0318 GBX = 0.000318 GBP) need the full 6 places; rounding to
+ * 4 collapsed adjacent days to the same value, zeroing out daily change.
  */
 export function convertGbxToGbp(penceValue: number): number {
-  return Math.round((penceValue / 100) * 10000) / 10000;
+  return Math.round((penceValue / 100) * 1000000) / 1000000;
 }

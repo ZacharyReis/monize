@@ -9,31 +9,31 @@ import { z } from 'zod';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { emergencyAccessApi } from '@/lib/emergency-access';
-import {
-  passwordSchema,
-  PASSWORD_REQUIREMENTS_TEXT,
-} from '@/lib/zod-helpers';
+import { buildPasswordSchema } from '@/lib/zod-helpers';
 import { getErrorMessage } from '@/lib/errors';
 import type { EmergencyAccessClaimPreview } from '@/types/emergency-access';
 
-const schema = z
+const buildSchema = (t: (key: string) => string, tc: (key: string) => string) => z
   .object({
-    newPassword: passwordSchema,
+    newPassword: buildPasswordSchema(tc),
     confirmPassword: z.string(),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {
-    message: 'Passwords do not match',
+    message: t('passwordsNoMatch'),
     path: ['confirmPassword'],
   });
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.infer<ReturnType<typeof buildSchema>>;
 
 function EmergencyClaimForm() {
   const router = useRouter();
+  const t = useTranslations('emergencyAccess');
+  const tc = useTranslations('common');
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const [loadingPreview, setLoadingPreview] = useState(true);
@@ -47,7 +47,7 @@ function EmergencyClaimForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(buildSchema(t, tc)) });
 
   useEffect(() => {
     if (!token) {
@@ -65,7 +65,7 @@ function EmergencyClaimForm() {
         setPreviewError(
           getErrorMessage(
             err,
-            'This emergency access link is invalid, expired, or has already been used.',
+            t('previewError'),
           ),
         );
       })
@@ -75,14 +75,14 @@ function EmergencyClaimForm() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, t]);
 
   if (!token) {
     return (
       <div className="text-center space-y-4">
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            Missing emergency access token.
+            {t('missingToken')}
           </p>
         </div>
       </div>
@@ -102,14 +102,14 @@ function EmergencyClaimForm() {
       <div className="text-center space-y-4">
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-sm text-red-800 dark:text-red-200">
-            {previewError ?? 'Link is no longer valid.'}
+            {previewError ?? t('linkInvalid')}
           </p>
         </div>
         <Link
           href="/login"
           className="inline-block font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
         >
-          Back to sign in
+          {t('backToSignIn')}
         </Link>
       </div>
     );
@@ -117,19 +117,19 @@ function EmergencyClaimForm() {
 
   const ownerName =
     [preview.ownerFirstName, preview.ownerLastName].filter(Boolean).join(' ') ||
-    'the account owner';
+    t('ownerFallback');
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
       await emergencyAccessApi.completeClaim(token, data.newPassword);
-      toast.success(`You now have access to ${ownerName}'s account.`);
+      toast.success(t('toasts.success', { name: ownerName }));
       router.push('/dashboard');
     } catch (err) {
       toast.error(
         getErrorMessage(
           err,
-          'Failed to complete emergency access claim. The link may have expired or already been used.',
+          t('toasts.failed'),
         ),
       );
     } finally {
@@ -141,20 +141,21 @@ function EmergencyClaimForm() {
     <div className="mt-8 space-y-6">
       <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
         <p className="text-sm text-blue-900 dark:text-blue-100">
-          Hi {preview.contactFirstName}, you were designated as an emergency
-          contact on <strong>{ownerName}</strong>&apos;s Monize account.
+          {t.rich('intro', {
+            contactName: preview.contactFirstName,
+            ownerName,
+            b: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
         <p className="text-sm text-blue-900 dark:text-blue-100">
-          Setting a password here will sign you in as the account holder and
-          give you full access to the account. Existing sessions are revoked
-          and the previous credentials are replaced.
+          {t('introDetail')}
         </p>
       </div>
 
       {preview.message && (
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-            Message from {preview.ownerFirstName ?? 'the owner'}
+            {t('messageHeading', { name: preview.ownerFirstName ?? t('ownerFirstNameFallback') })}
           </h3>
           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
             {preview.message}
@@ -165,7 +166,7 @@ function EmergencyClaimForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Input
-            label="New Password"
+            label={t('newPasswordLabel')}
             type="password"
             autoComplete="new-password"
             error={errors.newPassword?.message}
@@ -173,12 +174,12 @@ function EmergencyClaimForm() {
           />
           {!errors.newPassword && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {PASSWORD_REQUIREMENTS_TEXT}
+              {tc('passwordRequirements')}
             </p>
           )}
         </div>
         <Input
-          label="Confirm Password"
+          label={t('confirmPasswordLabel')}
           type="password"
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
@@ -191,7 +192,7 @@ function EmergencyClaimForm() {
           isLoading={submitting}
           className="w-full"
         >
-          Claim emergency access
+          {t('submit')}
         </Button>
       </form>
     </div>
@@ -199,6 +200,8 @@ function EmergencyClaimForm() {
 }
 
 export default function EmergencyClaimPage() {
+  const t = useTranslations('emergencyAccess');
+  const tc = useTranslations('common');
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -212,13 +215,13 @@ export default function EmergencyClaimPage() {
             priority
           />
           <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-            Emergency Access
+            {t('title')}
           </h2>
         </div>
         <Suspense
           fallback={
             <div className="text-center text-gray-500 dark:text-gray-400">
-              Loading...
+              {tc('loading')}
             </div>
           }
         >

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -16,6 +17,7 @@ import { investmentsApi } from '@/lib/investments';
 import { Security, CreateSecurityData, Holding } from '@/types/investment';
 const SecurityForm = dynamic(() => import('@/components/securities/SecurityForm').then(m => m.SecurityForm), { ssr: false });
 const SecurityPriceHistory = dynamic(() => import('@/components/securities/SecurityPriceHistory').then(m => m.SecurityPriceHistory), { ssr: false });
+const SecurityTransactionHistory = dynamic(() => import('@/components/securities/SecurityTransactionHistory').then(m => m.SecurityTransactionHistory), { ssr: false });
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SecurityList, type SecurityHoldings, type SecurityTransactions, type SecuritySortField, type SortDirection } from '@/components/securities/SecurityList';
 import { type DensityLevel } from '@/hooks/useTableDensity';
@@ -25,6 +27,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { useFormModal } from '@/hooks/useFormModal';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import { PAGE_SIZE } from '@/lib/constants';
+import { useHighlightParam } from '@/hooks/useHighlightTarget';
 
 const logger = createLogger('Securities');
 
@@ -37,6 +40,7 @@ export default function SecuritiesPage() {
 }
 
 function SecuritiesContent() {
+  const t = useTranslations('securities');
   const [allSecurities, setAllSecurities] = useState<Security[]>([]);
   const [holdings, setHoldings] = useState<SecurityHoldings>({});
   const [transactionSecurityIds, setTransactionSecurityIds] = useState<SecurityTransactions>(new Set());
@@ -47,6 +51,7 @@ function SecuritiesContent() {
   });
   const { showForm, editingItem: editingSecurity, openCreate, openEdit, close, isEditing, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<Security>();
   const [priceSecurity, setPriceSecurity] = useState<Security | undefined>();
+  const [historySecurity, setHistorySecurity] = useState<Security | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,12 +88,12 @@ function SecuritiesContent() {
 
       setHoldings(holdingsMap);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load securities'));
+      toast.error(getErrorMessage(error, t('page.toasts.loadFailed')));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useOnUndoRedo(loadData);
 
@@ -114,15 +119,15 @@ function SecuritiesContent() {
     try {
       if (editingSecurity) {
         await investmentsApi.updateSecurity(editingSecurity.id, data);
-        toast.success('Security updated successfully');
+        toast.success(t('page.toasts.updated'));
       } else {
         await investmentsApi.createSecurity(data);
-        toast.success('Security created successfully');
+        toast.success(t('page.toasts.created'));
       }
       close();
       loadData();
     } catch (error) {
-      toast.error(getErrorMessage(error, `Failed to ${editingSecurity ? 'update' : 'create'} security`));
+      toast.error(getErrorMessage(error, editingSecurity ? t('page.toasts.updateFailed') : t('page.toasts.createFailed')));
       throw error;
     }
   };
@@ -138,10 +143,10 @@ function SecuritiesContent() {
     setDeleteConfirm({ isOpen: false, security: null });
     try {
       await investmentsApi.deleteSecurity(security.id);
-      toast.success(`Security "${security.symbol}" deleted`);
+      toast.success(t('page.toasts.deleted', { symbol: security.symbol }));
       loadData();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete security'));
+      toast.error(getErrorMessage(error, t('page.toasts.deleteFailed')));
     }
   };
 
@@ -149,18 +154,35 @@ function SecuritiesContent() {
     setDeleteConfirm({ isOpen: false, security: null });
   };
 
+  const handleToggleFavourite = async (security: Security) => {
+    const newValue = !security.isFavourite;
+    // Optimistic, in-place update so the star flips instantly without a reload.
+    setAllSecurities((prev) =>
+      prev.map((s) => (s.id === security.id ? { ...s, isFavourite: newValue } : s)),
+    );
+    try {
+      await investmentsApi.setSecurityFavourite(security.id, newValue);
+    } catch (error) {
+      // Revert on failure.
+      setAllSecurities((prev) =>
+        prev.map((s) => (s.id === security.id ? { ...s, isFavourite: !newValue } : s)),
+      );
+      toast.error(getErrorMessage(error, t('page.toasts.favouriteFailed')));
+    }
+  };
+
   const handleToggleActive = async (security: Security) => {
     try {
       if (security.isActive) {
         await investmentsApi.deactivateSecurity(security.id);
-        toast.success('Security deactivated');
+        toast.success(t('page.toasts.deactivated'));
       } else {
         await investmentsApi.activateSecurity(security.id);
-        toast.success('Security activated');
+        toast.success(t('page.toasts.activated'));
       }
       loadData();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update security status'));
+      toast.error(getErrorMessage(error, t('page.toasts.statusFailed')));
     }
   };
 
@@ -184,6 +206,8 @@ function SecuritiesContent() {
         comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       } else if (sortField === 'type') {
         comparison = (a.securityType || '').localeCompare(b.securityType || '', undefined, { sensitivity: 'base' });
+      } else if (sortField === 'shares') {
+        comparison = (holdings[a.id] || 0) - (holdings[b.id] || 0);
       } else if (sortField === 'exchange') {
         comparison = (a.exchange || '').localeCompare(b.exchange || '', undefined, { sensitivity: 'base' });
       } else if (sortField === 'currency') {
@@ -195,7 +219,7 @@ function SecuritiesContent() {
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredSecurities, sortField, sortDirection]);
+  }, [filteredSecurities, sortField, sortDirection, holdings]);
 
   // Pagination logic
   const totalPages = Math.ceil(sortedSecurities.length / PAGE_SIZE);
@@ -225,6 +249,22 @@ function SecuritiesContent() {
     }
   };
 
+  // Deep link to a specific security (e.g. the AI chat "View securities" link):
+  // jump to the client-side page that contains it once the list has loaded, so
+  // the row can flash and scroll into view. Runs once per arrival.
+  const highlightId = useHighlightParam();
+  const highlightJumpedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightId || highlightJumpedRef.current || sortedSecurities.length === 0) {
+      return;
+    }
+    const index = sortedSecurities.findIndex((s) => s.id === highlightId);
+    if (index >= 0) {
+      highlightJumpedRef.current = true;
+      setCurrentPage(Math.floor(index / PAGE_SIZE) + 1);
+    }
+  }, [highlightId, sortedSecurities]);
+
   const activeCount = allSecurities.filter((s) => s.isActive).length;
   const inactiveCount = allSecurities.filter((s) => !s.isActive).length;
 
@@ -236,24 +276,24 @@ function SecuritiesContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Securities"
-          subtitle="Manage your stocks, ETFs, mutual funds, and other securities"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Investments"
-          actions={<Button onClick={handleCreateNew}>+ New Security</Button>}
+          actions={<Button onClick={handleCreateNew}>{t('page.newSecurity')}</Button>}
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <SummaryCard label="Total Securities" value={allSecurities.length} icon={SummaryIcons.barChart} />
-          <SummaryCard label="Types" value={distinctTypes} icon={SummaryIcons.tag} />
-          <SummaryCard label="Exchanges" value={distinctExchanges} icon={SummaryIcons.list} />
-          <SummaryCard label="Currencies" value={distinctCurrencies} icon={SummaryIcons.money} />
+          <SummaryCard label={t('summary.totalSecurities')} value={allSecurities.length} icon={SummaryIcons.barChart} />
+          <SummaryCard label={t('summary.types')} value={distinctTypes} icon={SummaryIcons.tag} />
+          <SummaryCard label={t('summary.exchanges')} value={distinctExchanges} icon={SummaryIcons.list} />
+          <SummaryCard label={t('summary.currencies')} value={distinctCurrencies} icon={SummaryIcons.money} />
         </div>
 
         {/* Search and Status Filter */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
-            placeholder="Search by symbol or name..."
+            placeholder={t('page.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full sm:max-w-md rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400"
@@ -275,18 +315,18 @@ function SecuritiesContent() {
                   status !== 'all' ? '-ml-px' : ''
                 }`}
               >
-                {status === 'active' ? `Active (${activeCount})` :
-                 status === 'inactive' ? `Inactive (${inactiveCount})` :
-                 `All (${allSecurities.length})`}
+                {status === 'active' ? t('page.statusActive', { count: activeCount }) :
+                 status === 'inactive' ? t('page.statusInactive', { count: inactiveCount }) :
+                 t('page.statusAll', { count: allSecurities.length })}
               </button>
             ))}
           </div>
         </div>
 
         {/* Form Modal */}
-        <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="lg" className="p-6">
+        <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="3xl" className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Security' : 'New Security'}
+            {isEditing ? t('page.modalTitleEdit') : t('page.modalTitleNew')}
           </h2>
           <SecurityForm
             security={editingSecurity}
@@ -308,10 +348,21 @@ function SecuritiesContent() {
           )}
         </Modal>
 
+        {/* Transaction History Modal */}
+        <Modal isOpen={!!historySecurity} onClose={() => setHistorySecurity(undefined)} maxWidth="5xl" className="p-6" pushHistory>
+          {historySecurity && (
+            <SecurityTransactionHistory
+              security={historySecurity}
+              onClose={() => setHistorySecurity(undefined)}
+              onChanged={loadData}
+            />
+          )}
+        </Modal>
+
         {/* Securities List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading securities..." />
+            <LoadingSpinner text={t('page.loading')} />
           ) : (
             <SecurityList
               securities={paginatedSecurities}
@@ -319,13 +370,16 @@ function SecuritiesContent() {
               transactionSecurityIds={transactionSecurityIds}
               onEdit={handleEdit}
               onToggleActive={handleToggleActive}
+              onToggleFavourite={handleToggleFavourite}
               onDelete={handleDeleteClick}
               onViewPrices={setPriceSecurity}
+              onViewHistory={setHistorySecurity}
               density={listDensity}
               onDensityChange={setListDensity}
               sortField={sortField}
               sortDirection={sortDirection}
               onSort={handleSort}
+              highlightId={highlightId}
             />
           )}
         </div>
@@ -347,17 +401,17 @@ function SecuritiesContent() {
         {/* Show total count when only one page */}
         {totalPages <= 1 && sortedSecurities.length > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {sortedSecurities.length} securit{sortedSecurities.length !== 1 ? 'ies' : 'y'}
+            {t('page.count', { count: sortedSecurities.length })}
           </div>
         )}
 
         {/* Delete Confirmation */}
         <ConfirmDialog
           isOpen={deleteConfirm.isOpen}
-          title="Delete Security"
-          message={`Are you sure you want to delete "${deleteConfirm.security?.symbol || ''}"? All price history will also be deleted. This action cannot be undone.`}
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
+          title={t('page.deleteConfirm.title')}
+          message={t('page.deleteConfirm.message', { symbol: deleteConfirm.security?.symbol || '' })}
+          confirmLabel={t('page.deleteConfirm.confirmLabel')}
+          cancelLabel={t('page.deleteConfirm.cancelLabel')}
           variant="danger"
           onConfirm={handleDeleteConfirm}
           onCancel={handleDeleteCancel}

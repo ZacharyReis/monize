@@ -5,6 +5,7 @@ import {
   getDecimalPlacesForCurrency,
   roundToDecimals,
   roundToCents,
+  adaptiveFractionDigits,
   formatAmount,
   formatAmountWithCommas,
   parseAmount,
@@ -13,6 +14,9 @@ import {
   hasCalculatorOperators,
   evaluateExpression,
   formatRelativeTime,
+  formatShareQuantity,
+  formatSignedPercent,
+  gainLossColor,
 } from './format';
 
 describe('getCurrencySymbol', () => {
@@ -202,6 +206,40 @@ describe('formatAmount', () => {
 
   it('formats with 3 decimal places', () => {
     expect(formatAmount(10.5, 3)).toBe('10.500');
+  });
+});
+
+describe('formatShareQuantity', () => {
+  it('formats whole share counts without decimals', () => {
+    expect(formatShareQuantity(100)).toBe('100');
+  });
+
+  it('keeps tiny residual quantities visible', () => {
+    expect(formatShareQuantity(0.0003)).toBe('0.0003');
+    expect(formatShareQuantity(0.00000001)).toBe('0.00000001');
+  });
+
+  it('trims trailing zeros', () => {
+    expect(formatShareQuantity(12.5)).toBe('12.5');
+    expect(formatShareQuantity(12.34)).toBe('12.34');
+  });
+
+  it('handles negatives', () => {
+    expect(formatShareQuantity(-0.5)).toBe('-0.5');
+  });
+
+  it('returns 0 for zero, null, undefined and NaN', () => {
+    expect(formatShareQuantity(0)).toBe('0');
+    expect(formatShareQuantity(null)).toBe('0');
+    expect(formatShareQuantity(undefined)).toBe('0');
+    expect(formatShareQuantity(NaN)).toBe('0');
+  });
+
+  it('normalizes negative zero and tiny negative residues to 0', () => {
+    expect(formatShareQuantity(-0)).toBe('0');
+    // A floating-point residue left after fully zeroing a holding.
+    expect(formatShareQuantity(-4.77e-15)).toBe('0');
+    expect(formatShareQuantity(-0.000000001)).toBe('0');
   });
 });
 
@@ -430,5 +468,82 @@ describe('formatRelativeTime', () => {
     const result = formatRelativeTime(monthAgo);
     // Should not match relative format
     expect(result).not.toMatch(/Just now|m ago|h ago|Yesterday|d ago/);
+  });
+});
+
+describe('adaptiveFractionDigits', () => {
+  it('keeps the base precision for values that show a figure at 2dp', () => {
+    expect(adaptiveFractionDigits(1234.56)).toBe(2);
+    expect(adaptiveFractionDigits(0.01)).toBe(2);
+    expect(adaptiveFractionDigits(0.005)).toBe(2); // rounds to 0.01
+  });
+
+  it('keeps the base precision for zero', () => {
+    expect(adaptiveFractionDigits(0)).toBe(2);
+  });
+
+  it('expands precision for sub-penny values that would read as 0.00', () => {
+    // 0.000318 GBP (0.0318 GBX) -> 6 places reveals the real figure.
+    expect(adaptiveFractionDigits(0.000318)).toBe(6);
+    expect(adaptiveFractionDigits(0.000342)).toBe(6);
+    expect(adaptiveFractionDigits(0.0042)).toBe(5);
+  });
+
+  it('handles negative values by magnitude', () => {
+    expect(adaptiveFractionDigits(-0.000318)).toBe(6);
+  });
+
+  it('caps at maxDigits', () => {
+    expect(adaptiveFractionDigits(0.00000001)).toBe(6);
+    expect(adaptiveFractionDigits(0.00000001, 2, 8)).toBe(8);
+  });
+
+  it('respects a non-2 base precision (e.g. JPY=0)', () => {
+    expect(adaptiveFractionDigits(123, 0)).toBe(0); // already non-zero at 0dp
+    expect(adaptiveFractionDigits(0.4, 0)).toBe(3); // expands to ~3 significant figures
+  });
+});
+
+describe('formatSignedPercent', () => {
+  it('adds a leading + for positive values', () => {
+    expect(formatSignedPercent(12.5)).toBe('+12.50%');
+  });
+
+  it('keeps the minus sign for negative values', () => {
+    expect(formatSignedPercent(-3.4)).toBe('-3.40%');
+  });
+
+  it('treats zero as positive (+0.00%)', () => {
+    expect(formatSignedPercent(0)).toBe('+0.00%');
+  });
+
+  it('honours the decimals option', () => {
+    expect(formatSignedPercent(7.1234, { decimals: 1 })).toBe('+7.1%');
+    expect(formatSignedPercent(7.1, { decimals: 0 })).toBe('+7%');
+  });
+
+  it('multiplies fractions when alreadyPercent is false', () => {
+    expect(formatSignedPercent(0.125, { alreadyPercent: false })).toBe('+12.50%');
+    expect(formatSignedPercent(-0.05, { alreadyPercent: false })).toBe('-5.00%');
+  });
+
+  it('renders a sign-less 0 for non-finite input', () => {
+    expect(formatSignedPercent(NaN)).toBe('0.00%');
+    expect(formatSignedPercent(Infinity)).toBe('0.00%');
+  });
+
+  it('rounds half away from zero before formatting', () => {
+    expect(formatSignedPercent(2.345, { decimals: 2 })).toBe('+2.35%');
+  });
+});
+
+describe('gainLossColor', () => {
+  it('returns green classes for non-negative values', () => {
+    expect(gainLossColor(0)).toBe('text-green-600 dark:text-green-400');
+    expect(gainLossColor(10)).toBe('text-green-600 dark:text-green-400');
+  });
+
+  it('returns red classes for negative values', () => {
+    expect(gainLossColor(-1)).toBe('text-red-600 dark:text-red-400');
   });
 });

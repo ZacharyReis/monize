@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -16,6 +17,7 @@ export default function SharedAccessPage() {
 }
 
 function SharedAccessContent() {
+  const t = useTranslations('settings.sharedAccessPage');
   const isDemoMode = useDemoMode();
 
   return (
@@ -26,22 +28,22 @@ function SharedAccessContent() {
             href="/settings"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
-            &larr; Back to Settings
+            &larr; {t('backLink')}
           </Link>
         </div>
 
         <PageHeader
-          title="Shared Access"
-          subtitle="Grant another person granular access to specific accounts"
+          title={t('title')}
+          subtitle={t('subtitle')}
         />
 
         {isDemoMode ? (
           <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
-              Restricted in Demo Mode
+              {t('demoRestricted.heading')}
             </h2>
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Delegate management is disabled in demo mode.
+              {t('demoRestricted.body')}
             </p>
           </div>
         ) : (

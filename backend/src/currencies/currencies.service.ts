@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { Currency } from "./entities/currency.entity";
@@ -113,7 +114,11 @@ export class CurrenciesService {
       });
       if (existingPref) {
         throw new ConflictException(
-          `Currency "${code}" is already in your list`,
+          tr(
+            "errors.currencies.alreadyInList",
+            `Currency "${code}" is already in your list`,
+            { code },
+          ),
         );
       }
 
@@ -178,7 +183,11 @@ export class CurrenciesService {
       where: { code: code.toUpperCase() },
     });
     if (!currency) {
-      throw new NotFoundException(`Currency "${code}" not found`);
+      throw new NotFoundException(
+        tr("errors.currencies.notFound", `Currency "${code}" not found`, {
+          code,
+        }),
+      );
     }
     return currency;
   }
@@ -192,12 +201,22 @@ export class CurrenciesService {
 
     // System currencies: cannot modify metadata
     if (currency.createdByUserId === null) {
-      throw new ForbiddenException("Cannot modify system currency metadata");
+      throw new ForbiddenException(
+        tr(
+          "errors.currencies.cannotModifySystem",
+          "Cannot modify system currency metadata",
+        ),
+      );
     }
 
     // Non-system currencies: only the creator can modify metadata
     if (currency.createdByUserId !== userId) {
-      throw new ForbiddenException("Cannot modify another user's currency");
+      throw new ForbiddenException(
+        tr(
+          "errors.currencies.cannotModifyOther",
+          "Cannot modify another user's currency",
+        ),
+      );
     }
 
     // Handle isActive separately via preference row
@@ -242,7 +261,11 @@ export class CurrenciesService {
     const inUse = await this.isInUse(userId, upperCode);
     if (inUse) {
       throw new ConflictException(
-        `Currency "${code}" is in use by your accounts, securities, or other records. Deactivate it instead.`,
+        tr(
+          "errors.currencies.inUse",
+          `Currency "${code}" is in use by your accounts, securities, or other records. Deactivate it instead.`,
+          { code },
+        ),
       );
     }
 
@@ -490,8 +513,10 @@ export class CurrenciesService {
           decimalPlaces: metadata.decimalPlaces,
         };
       }
-    } catch {
-      // Yahoo verification failed, still return our metadata
+    } catch (err) {
+      this.logger.debug(
+        `Yahoo verification failed for ${code}, falling back to local metadata: ${err instanceof Error ? err.message : err}`,
+      );
     }
 
     return {

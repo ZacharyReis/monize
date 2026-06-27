@@ -3,6 +3,7 @@
 import { Suspense, lazy, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +14,7 @@ const reportComponents: Record<string, React.LazyExoticComponent<React.Component
   'spending-by-category': lazy(() => import('@/components/reports/SpendingByCategoryReport').then(m => ({ default: m.SpendingByCategoryReport }))),
   'spending-by-payee': lazy(() => import('@/components/reports/SpendingByPayeeReport').then(m => ({ default: m.SpendingByPayeeReport }))),
   'monthly-spending-trend': lazy(() => import('@/components/reports/MonthlySpendingTrendReport').then(m => ({ default: m.MonthlySpendingTrendReport }))),
+  'monthly-category-breakdown': lazy(() => import('@/components/reports/MonthlyCategoryBreakdownReport').then(m => ({ default: m.MonthlyCategoryBreakdownReport }))),
   'income-vs-expenses': lazy(() => import('@/components/reports/IncomeVsExpensesReport').then(m => ({ default: m.IncomeVsExpensesReport }))),
   'income-by-source': lazy(() => import('@/components/reports/IncomeBySourceReport').then(m => ({ default: m.IncomeBySourceReport }))),
   'net-worth': lazy(() => import('@/components/reports/NetWorthReport').then(m => ({ default: m.NetWorthReport }))),
@@ -23,6 +25,7 @@ const reportComponents: Record<string, React.LazyExoticComponent<React.Component
   // Debt & Loans
   'debt-payoff-timeline': lazy(() => import('@/components/reports/DebtPayoffTimelineReport').then(m => ({ default: m.DebtPayoffTimelineReport }))),
   'loan-amortization': lazy(() => import('@/components/reports/LoanAmortizationReport').then(m => ({ default: m.LoanAmortizationReport }))),
+  'credit-utilization': lazy(() => import('@/components/reports/CreditUtilizationReport').then(m => ({ default: m.CreditUtilizationReport }))),
   // Investment
   'investment-performance': lazy(() => import('@/components/reports/InvestmentPerformanceReport').then(m => ({ default: m.InvestmentPerformanceReport }))),
   'dividend-income': lazy(() => import('@/components/reports/DividendIncomeReport').then(m => ({ default: m.DividendIncomeReport }))),
@@ -59,99 +62,6 @@ const reportComponents: Record<string, React.LazyExoticComponent<React.Component
   'seasonal-spending-map': lazy(() => import('@/components/reports/SeasonalSpendingMapReport').then(m => ({ default: m.SeasonalSpendingMapReport }))),
 };
 
-const reportNames: Record<string, string> = {
-  'spending-by-category': 'Spending by Category',
-  'spending-by-payee': 'Spending by Payee',
-  'monthly-spending-trend': 'Monthly Spending Trend',
-  'income-vs-expenses': 'Income vs Expenses',
-  'income-by-source': 'Income by Source',
-  'net-worth': 'Net Worth Over Time',
-  'account-balances': 'Account Balances',
-  'cash-flow': 'Cash Flow Statement',
-  'tax-summary': 'Tax Summary',
-  'year-over-year': 'Year Over Year Comparison',
-  // Debt & Loans
-  'debt-payoff-timeline': 'Debt Payoff Timeline',
-  'loan-amortization': 'Loan Amortization Schedule',
-  // Investment
-  'investment-performance': 'Investment Performance',
-  'dividend-income': 'Gains, Dividends & Interest',
-  'sector-weightings': 'Sector Weightings',
-  'realized-gains': 'Realized Gains & Losses',
-  'portfolio-value': 'Portfolio Value Over Time',
-  'investment-transactions': 'Investment Transaction History',
-  'security-type-allocation': 'Security Type Allocation',
-  'geographic-allocation': 'Geographic/Exchange Allocation',
-  'dividend-yield-growth': 'Dividend Yield & Growth',
-  'security-performance': 'Individual Security Performance',
-  'currency-exposure': 'Currency Exposure',
-  'monte-carlo-simulation': 'Monte Carlo Simulation',
-  // Behavioral Insights
-  'recurring-expenses': 'Recurring Expenses Tracker',
-  'spending-anomalies': 'Spending Anomalies',
-  'weekend-weekday-spending': 'Weekend vs Weekday Spending',
-  'monthly-comparison': 'Monthly Comparison',
-  // Maintenance & Cleanup
-  'uncategorized-transactions': 'Uncategorized Transactions',
-  'duplicate-transactions': 'Duplicate Transaction Finder',
-  // Scheduled & Bills
-  'upcoming-bills': 'Upcoming Bills Calendar',
-  'bill-payment-history': 'Bill Payment History',
-  // Budget
-  'budget-vs-actual': 'Budget vs Actual',
-  'budget-health-score': 'Budget Health Score',
-  'budget-seasonal-patterns': 'Seasonal Spending Patterns',
-  'budget-trend': 'Budget Trend',
-  'category-performance': 'Category Performance',
-  'savings-rate': 'Savings Rate',
-  'health-score-history': 'Health Score History',
-  'flex-group-analysis': 'Flex Group Analysis',
-  'seasonal-spending-map': 'Seasonal Spending Map',
-};
-
-const reportDescriptions: Record<string, string> = {
-  'spending-by-category': 'See where your money goes with a breakdown of expenses by category over time.',
-  'spending-by-payee': 'Track how much you spend with each merchant or vendor over time.',
-  'monthly-spending-trend': 'View your spending patterns month over month to identify trends.',
-  'income-vs-expenses': 'Compare your income to expenses and track your savings rate over time.',
-  'income-by-source': 'Break down your income streams to understand where your money comes from.',
-  'net-worth': 'Track your total net worth including all accounts, assets, and liabilities.',
-  'account-balances': 'View balance history for all your accounts over a selected time period.',
-  'cash-flow': 'Detailed view of money coming in and going out across all accounts.',
-  'tax-summary': 'Annual summary of tax-deductible expenses and taxable income.',
-  'year-over-year': 'Compare this year to previous years to track financial progress.',
-  'debt-payoff-timeline': 'Visualize your debt reduction progress with projections for payoff dates.',
-  'loan-amortization': 'Detailed payment schedules for mortgages and loans with principal vs interest breakdown.',
-  'investment-performance': 'Track portfolio returns, gains/losses, and asset allocation over time.',
-  'dividend-income': 'Track capital gains and losses (realized + unrealized) alongside dividend and interest income.',
-  'sector-weightings': 'Analyze portfolio sector exposure from individual stocks and ETFs.',
-  'realized-gains': 'Track realized gains and losses from sold securities for tax planning and performance review.',
-  'portfolio-value': 'Visualize your total investment portfolio value with historical trends and period returns.',
-  'investment-transactions': 'Complete history of all investment transactions with filtering by action, account, and date.',
-  'security-type-allocation': 'View portfolio allocation by asset type (stocks, ETFs, mutual funds, bonds) with drill-down into holdings.',
-  'geographic-allocation': 'Analyze portfolio geographic exposure by exchange and region for diversification insights.',
-  'dividend-yield-growth': 'Track dividend yield, per-security yields, year-over-year growth, and payment frequency analysis.',
-  'security-performance': 'Deep dive into individual security performance with price history, transactions, and returns.',
-  'currency-exposure': 'Understand currency risk with portfolio allocation by currency and exchange rate details.',
-  'monte-carlo-simulation': 'Project future portfolio outcomes with thousands of randomized return paths and a saved-scenario library.',
-  'recurring-expenses': 'Identify and monitor subscriptions, memberships, and recurring charges.',
-  'spending-anomalies': 'Detect unusually large transactions and spending spikes that need attention.',
-  'weekend-weekday-spending': 'Analyze your spending patterns based on day of week to understand habits.',
-  'monthly-comparison': 'Compare any month to the previous month across income, expenses, net worth, and investments.',
-  'uncategorized-transactions': 'Find and categorize transactions that are missing categories.',
-  'duplicate-transactions': 'Identify potential duplicate entries that may need review or deletion.',
-  'upcoming-bills': 'Visual calendar of scheduled transactions and upcoming bill due dates.',
-  'bill-payment-history': 'Track payment patterns and history for recurring bills and scheduled transactions.',
-  'budget-vs-actual': 'Compare your budgeted amounts to actual spending over time across all categories.',
-  'budget-health-score': 'Get a 0-100 health score for your budget with detailed per-category impact analysis.',
-  'budget-seasonal-patterns': 'Discover seasonal trends and high-spending months across your budget categories.',
-  'budget-trend': 'Line chart showing total budgeted vs total actual spending over 6-12 months to track improvement.',
-  'category-performance': 'Table showing each category budget performance over multiple months with trend indicators.',
-  'savings-rate': 'Track your savings rate (income minus expenses divided by income) over time vs your target.',
-  'health-score-history': 'Line chart of monthly budget health scores showing your financial trajectory over time.',
-  'flex-group-analysis': 'Stacked bar chart for each flex group showing component categories with group limit reference.',
-  'seasonal-spending-map': 'Heatmap grid showing 12 months across all categories to identify seasonal spending patterns.',
-};
 
 function ReportSkeleton() {
   return (
@@ -182,6 +92,7 @@ export default function ReportPage() {
 }
 
 function ReportContent() {
+  const t = useTranslations('reports');
   const params = useParams();
   const reportId = params.reportId as string;
 
@@ -191,8 +102,6 @@ function ReportContent() {
   useOnUndoRedo(handleUndoRedo);
 
   const ReportComponent = reportComponents[reportId];
-  const reportName = reportNames[reportId];
-  const reportDescription = reportDescriptions[reportId];
 
   if (!ReportComponent) {
     return (
@@ -200,10 +109,10 @@ function ReportContent() {
         <div className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-8 text-center">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Report Not Found
+              {t('reportPage.notFound')}
             </h1>
             <p className="text-gray-500 dark:text-gray-400">
-              The requested report does not exist.
+              {t('reportPage.notFoundDesc')}
             </p>
           </div>
         </div>
@@ -215,11 +124,11 @@ function ReportContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title={reportName}
-          subtitle={reportDescription}
+          title={t(`page.names.${reportId}` as Parameters<typeof t>[0])}
+          subtitle={t(`page.descriptions.${reportId}` as Parameters<typeof t>[0])}
           actions={
             <Link href="/reports">
-              <Button variant="outline">Back to Reports</Button>
+              <Button variant="outline">{t('reportPage.backToReports')}</Button>
             </Link>
           }
         />

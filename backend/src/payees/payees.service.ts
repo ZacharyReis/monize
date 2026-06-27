@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository, Like, In, Not, IsNull } from "typeorm";
 import { Payee } from "./entities/payee.entity";
@@ -17,6 +18,43 @@ import { UpdatePayeeDto } from "./dto/update-payee.dto";
 import { CreatePayeeAliasDto } from "./dto/create-payee-alias.dto";
 import { MergePayeeDto } from "./dto/merge-payee.dto";
 import { ActionHistoryService } from "../action-history/action-history.service";
+import { toCountMap } from "../common/count-map.util";
+import { matchesAliasPattern } from "./alias-match.util";
+import {
+  applyPayeeCategoryToAll,
+  backfillPayeeCategory,
+  countUncategorizedTransactionsByPayee,
+} from "./payee-backfill.util";
+import { stripHtml } from "../common/sanitization.util";
+
+/**
+ * Resolved, sanitized preview of a proposed new payee. Shared by the AI
+ * Assistant human-in-the-loop confirmation flow so the preview matches what
+ * `create()` would persist.
+ */
+export interface CreatePayeePreview {
+  name: string;
+  defaultCategoryId: string | null;
+  defaultCategoryName: string | null;
+}
+
+/**
+ * Resolved preview of a proposed payee edit. Carries the resulting name and
+ * default category so the AI Assistant confirmation card shows what the edit
+ * will do and confirm applies an idempotent overwrite of the identified payee.
+ */
+export interface UpdatePayeePreview {
+  payeeId: string;
+  name: string;
+  defaultCategoryId: string | null;
+  defaultCategoryName: string | null;
+}
+
+/** Resolved preview of a proposed payee deletion. */
+export interface DeletePayeePreview {
+  payeeId: string;
+  name: string;
+}
 
 function escapeLikeWildcards(value: string): string {
   // Escape backslash first, then the LIKE wildcards. Escaping only the
@@ -26,33 +64,17 @@ function escapeLikeWildcards(value: string): string {
 }
 
 /**
- * Check if a name matches a wildcard alias pattern (case-insensitive).
- * Uses iterative glob matching instead of regex to avoid ReDoS risks.
+ * Normalize a payee name for tolerant matching. Apostrophes are dropped so
+ * "Zehr's" and "Zehrs" collapse together; any other punctuation or whitespace
+ * run folds to a single space. Lower-cased and trimmed. Used only for the
+ * fuzzy resolveByName fallback -- never for persistence.
  */
-function matchesAliasPattern(name: string, aliasPattern: string): boolean {
-  if (aliasPattern.length > 500 || name.length > 500) return false;
-  const pattern = aliasPattern.replace(/\*{2,}/g, "*").toLowerCase();
-  const text = name.toLowerCase();
-  const parts = pattern.split("*");
-  // No wildcards: exact match
-  if (parts.length === 1) return text === pattern;
-  // Check prefix (before first *)
-  if (!text.startsWith(parts[0])) return false;
-  // Check suffix (after last *)
-  if (!text.endsWith(parts[parts.length - 1])) return false;
-  // Check inner segments appear in order
-  let pos = parts[0].length;
-  for (let i = 1; i < parts.length - 1; i++) {
-    const idx = text.indexOf(parts[i], pos);
-    if (idx === -1) return false;
-    pos = idx + parts[i].length;
-  }
-  // Ensure inner segments don't overlap with the suffix
-  if (parts.length > 2) {
-    const suffixStart = text.length - parts[parts.length - 1].length;
-    if (pos > suffixStart) return false;
-  }
-  return true;
+function normalizePayeeName(value: string): string {
+  return value
+    .replace(/['’]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 @Injectable()
@@ -85,7 +107,11 @@ export class PayeesService {
 
     if (existing) {
       throw new ConflictException(
-        `Payee with name "${createPayeeDto.name}" already exists`,
+        tr(
+          "errors.payees.nameConflict",
+          `Payee with name "${createPayeeDto.name}" already exists`,
+          { name: createPayeeDto.name },
+        ),
       );
     }
 
@@ -107,8 +133,188 @@ export class PayeesService {
         isActive: saved.isActive,
       },
       description: `Created payee "${saved.name}"`,
+      descriptionKey: "createdPayee",
+      descriptionParams: { name: saved.name },
     });
     return saved;
+  }
+
+  /**
+   * Validate and resolve a proposed new payee WITHOUT persisting it. Sanitizes
+   * the name, rejects duplicates, and resolves the optional default category to
+   * a display name. Used by the AI Assistant confirmation flow.
+   */
+  async previewCreate(
+    userId: string,
+    input: { name: string; defaultCategoryId?: string | null },
+  ): Promise<CreatePayeePreview> {
+    const name = stripHtml(input.name)?.trim() || "";
+
+    const existing = await this.payeesRepository.findOne({
+      where: { userId, name },
+    });
+    if (existing) {
+      throw new ConflictException(
+        tr(
+          "errors.payees.nameConflict",
+          `Payee with name "${name}" already exists`,
+          { name },
+        ),
+      );
+    }
+
+    let defaultCategoryName: string | null = null;
+    const defaultCategoryId = input.defaultCategoryId ?? null;
+    if (defaultCategoryId) {
+      const cat = await this.categoriesRepository.findOne({
+        where: { id: defaultCategoryId, userId },
+      });
+      if (!cat) {
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
+      }
+      defaultCategoryName = cat.name;
+    }
+
+    return { name, defaultCategoryId, defaultCategoryName };
+  }
+
+  /**
+   * Resolve a category name (optionally "Parent: Child") to its id and display
+   * name for the manage_payees default-category field. Names everywhere -- the
+   * tool layers pass names and this resolves them so both surfaces behave the
+   * same. Throws NotFound when the name matches nothing.
+   */
+  private async resolveCategoryByName(
+    userId: string,
+    categoryName: string,
+  ): Promise<{ id: string; name: string }> {
+    const trimmed = categoryName.trim();
+    const sep = trimmed.lastIndexOf(":");
+    const childName = sep >= 0 ? trimmed.slice(sep + 1).trim() : trimmed;
+    const parentName = sep >= 0 ? trimmed.slice(0, sep).trim() : null;
+
+    const qb = this.categoriesRepository
+      .createQueryBuilder("category")
+      .leftJoinAndSelect("category.parent", "parent")
+      .where("category.user_id = :userId", { userId })
+      .andWhere("LOWER(category.name) = LOWER(:childName)", { childName });
+    if (parentName) {
+      qb.andWhere("LOWER(parent.name) = LOWER(:parentName)", { parentName });
+    }
+    const match = await qb.orderBy("category.name", "ASC").getOne();
+    if (!match) {
+      throw new NotFoundException(
+        tr(
+          "errors.transactions.categoryNotFound",
+          `Unknown category: ${categoryName}`,
+          { name: categoryName },
+        ),
+      );
+    }
+    return { id: match.id, name: match.name };
+  }
+
+  /**
+   * Resolve a payee by its current name for an edit/delete, throwing NotFound
+   * when no payee matches. Used by the manage_payees confirmation flow.
+   */
+  private async resolvePayeeForManage(
+    userId: string,
+    name: string,
+  ): Promise<Payee> {
+    const payee = await this.findByName(userId, name);
+    if (!payee) {
+      throw new NotFoundException(
+        tr("errors.payees.notFound", `Payee "${name}" not found`, {
+          id: name,
+        }),
+      );
+    }
+    return payee;
+  }
+
+  /**
+   * Validate + resolve a proposed new payee from NAMES (the category is given by
+   * name, not id), reusing previewCreate for the duplicate/sanitize checks.
+   */
+  async previewCreatePayee(
+    userId: string,
+    input: { name: string; categoryName?: string | null },
+  ): Promise<CreatePayeePreview> {
+    let defaultCategoryId: string | null = null;
+    if (input.categoryName) {
+      defaultCategoryId = (
+        await this.resolveCategoryByName(userId, input.categoryName)
+      ).id;
+    }
+    return this.previewCreate(userId, { name: input.name, defaultCategoryId });
+  }
+
+  /**
+   * Validate + resolve a proposed payee edit WITHOUT persisting. Resolves the
+   * target payee by its current name, sanitizes/checks any new name for
+   * conflicts, and resolves the optional new default category by name.
+   */
+  async previewUpdatePayee(
+    userId: string,
+    input: { name: string; newName?: string; categoryName?: string | null },
+  ): Promise<UpdatePayeePreview> {
+    const payee = await this.resolvePayeeForManage(userId, input.name);
+
+    let name = payee.name;
+    if (input.newName !== undefined) {
+      const sanitized = stripHtml(input.newName)?.trim() || "";
+      if (!sanitized) {
+        throw new BadRequestException(
+          tr("errors.payees.nameRequired", "Payee name is required"),
+        );
+      }
+      if (sanitized !== payee.name) {
+        const existing = await this.payeesRepository.findOne({
+          where: { userId, name: sanitized },
+        });
+        if (existing) {
+          throw new ConflictException(
+            tr(
+              "errors.payees.nameConflict",
+              `Payee with name "${sanitized}" already exists`,
+              { name: sanitized },
+            ),
+          );
+        }
+      }
+      name = sanitized;
+    }
+
+    let defaultCategoryId: string | null = payee.defaultCategoryId;
+    let defaultCategoryName: string | null =
+      payee.defaultCategory?.name ?? null;
+    if (input.categoryName !== undefined) {
+      if (input.categoryName === null || input.categoryName === "") {
+        defaultCategoryId = null;
+        defaultCategoryName = null;
+      } else {
+        const cat = await this.resolveCategoryByName(
+          userId,
+          input.categoryName,
+        );
+        defaultCategoryId = cat.id;
+        defaultCategoryName = cat.name;
+      }
+    }
+
+    return { payeeId: payee.id, name, defaultCategoryId, defaultCategoryName };
+  }
+
+  /** Validate + resolve a proposed payee deletion (by name) WITHOUT persisting. */
+  async previewDeletePayee(
+    userId: string,
+    input: { name: string },
+  ): Promise<DeletePayeePreview> {
+    const payee = await this.resolvePayeeForManage(userId, input.name);
+    return { payeeId: payee.id, name: payee.name };
   }
 
   async findAll(
@@ -119,6 +325,7 @@ export class PayeesService {
       transactionCount: number;
       lastUsedDate: string | null;
       aliasCount: number;
+      uncategorizedCount: number;
     })[]
   > {
     // Build where clause based on status filter
@@ -168,17 +375,24 @@ export class PayeesService {
       .getRawMany();
 
     // Create maps for counts and last used dates
-    const countMap = new Map<string, number>();
+    const countMap = toCountMap(stats);
     const lastUsedMap = new Map<string, string | null>();
     for (const row of stats) {
-      countMap.set(row.id, parseInt(row.count || "0", 10));
       lastUsedMap.set(row.id, row.last_used_date || null);
     }
 
-    const aliasCountMap = new Map<string, number>();
-    for (const row of aliasCounts) {
-      aliasCountMap.set(row.payee_id, parseInt(row.alias_count || "0", 10));
-    }
+    const aliasCountMap = toCountMap(aliasCounts, {
+      keyField: "payee_id",
+      countField: "alias_count",
+    });
+
+    // Per-payee count of transactions with no category (excluding transfers and
+    // split parents) -- the same scope the default-category backfill targets --
+    // so the list can flag payees that still have uncategorized transactions.
+    const uncategorizedCountMap = await countUncategorizedTransactionsByPayee(
+      this.payeesRepository.manager,
+      userId,
+    );
 
     // Merge stats with payees
     return payees.map((payee) => ({
@@ -186,6 +400,7 @@ export class PayeesService {
       transactionCount: countMap.get(payee.id) || 0,
       lastUsedDate: lastUsedMap.get(payee.id) || null,
       aliasCount: aliasCountMap.get(payee.id) || 0,
+      uncategorizedCount: uncategorizedCountMap.get(payee.id) || 0,
     }));
   }
 
@@ -196,7 +411,9 @@ export class PayeesService {
     });
 
     if (!payee) {
-      throw new NotFoundException(`Payee with ID ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.payees.notFound", `Payee with ID ${id} not found`, { id }),
+      );
     }
 
     return payee;
@@ -257,6 +474,66 @@ export class PayeesService {
       .getOne();
   }
 
+  /**
+   * Resolve a free-text payee name (as typed by a user or proposed by the AI
+   * Assistant / MCP server) to an existing payee so a new transaction can link
+   * to the payee record -- and inherit its default category -- instead of
+   * storing a detached name. Resolution is tiered, most-specific first:
+   *   1. exact name match (case-insensitive),
+   *   2. alias pattern match (the same matching the importer uses),
+   *   3. punctuation-insensitive match: normalize both sides (drop apostrophes,
+   *      fold other punctuation/whitespace) so "Zehrs" resolves to
+   *      "Zehr's Supermarket" and "Buon Gusto" to "Buon Gusto Restaurant".
+   *      Prefer a single payee whose normalized name equals the input, else a
+   *      single payee that contains it; anything ambiguous returns null.
+   * Returns null when nothing matches so the caller can offer to create one.
+   */
+  async resolveByName(userId: string, name: string): Promise<Payee | null> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const byName = await this.payeesRepository
+      .createQueryBuilder("payee")
+      .leftJoinAndSelect("payee.defaultCategory", "defaultCategory")
+      .where("payee.user_id = :userId", { userId })
+      .andWhere("LOWER(payee.name) = LOWER(:name)", { name: trimmed })
+      .getOne();
+    if (byName) {
+      return byName;
+    }
+
+    const byAlias = await this.findPayeeByAlias(userId, trimmed);
+    if (byAlias) {
+      return byAlias;
+    }
+
+    // Require a few significant characters so a 1-2 char term can't auto-link.
+    const normalizedInput = normalizePayeeName(trimmed);
+    if (normalizedInput.length < 3) {
+      return null;
+    }
+
+    // Normalize in JS over the user's active payees (the exact + alias tiers
+    // already handled the common cases) so apostrophes and other punctuation
+    // never block a match regardless of how the database collates them.
+    const activePayees = await this.payeesRepository.find({
+      where: { userId, isActive: true },
+      relations: ["defaultCategory"],
+    });
+    const containing = activePayees.filter((payee) =>
+      normalizePayeeName(payee.name).includes(normalizedInput),
+    );
+    const exactNormalized = containing.filter(
+      (payee) => normalizePayeeName(payee.name) === normalizedInput,
+    );
+    if (exactNormalized.length === 1) {
+      return exactNormalized[0];
+    }
+    return containing.length === 1 ? containing[0] : null;
+  }
+
   async findOrCreate(
     userId: string,
     name: string,
@@ -280,7 +557,13 @@ export class PayeesService {
     userId: string,
     id: string,
     updatePayeeDto: UpdatePayeeDto,
-  ): Promise<Payee & { aliasCount: number; transactionCount: number }> {
+  ): Promise<
+    Payee & {
+      aliasCount: number;
+      transactionCount: number;
+      transactionsCategorized: number;
+    }
+  > {
     const payee = await this.findOne(userId, id);
     const beforeData = {
       name: payee.name,
@@ -300,39 +583,96 @@ export class PayeesService {
 
       if (existing) {
         throw new ConflictException(
-          `Payee with name "${updatePayeeDto.name}" already exists`,
+          tr(
+            "errors.payees.nameConflict",
+            `Payee with name "${updatePayeeDto.name}" already exists`,
+            { name: updatePayeeDto.name },
+          ),
         );
       }
     }
 
-    // SECURITY: Explicit property mapping instead of Object.assign to prevent mass assignment
+    // SECURITY: Explicit property mapping instead of Object.assign to prevent
+    // mass assignment. We persist with a column-level update (not save() on the
+    // loaded entity) so the default_category_id FK is written from the scalar.
+    // Saving the loaded entity is unsafe here: its defaultCategory relation is
+    // hydrated, and TypeORM derives the FK from that relation -- so changing
+    // only the scalar (or nulling the relation) makes save() clobber the FK,
+    // which silently wiped the default category on an unchanged re-save.
+    const updateFields: Partial<Payee> = {};
     const nameChanged =
       updatePayeeDto.name !== undefined && updatePayeeDto.name !== payee.name;
-    if (updatePayeeDto.name !== undefined) payee.name = updatePayeeDto.name;
-    if (updatePayeeDto.defaultCategoryId !== undefined) {
-      payee.defaultCategoryId = updatePayeeDto.defaultCategoryId;
-      // Must also clear the loaded relation object, otherwise TypeORM's save()
-      // re-derives the FK from the stale relation entity and ignores the null.
-      if (updatePayeeDto.defaultCategoryId === null) {
-        payee.defaultCategory = null as any;
-      }
-    }
-    if (updatePayeeDto.notes !== undefined) payee.notes = updatePayeeDto.notes;
+    if (updatePayeeDto.name !== undefined)
+      updateFields.name = updatePayeeDto.name;
+    if (updatePayeeDto.defaultCategoryId !== undefined)
+      updateFields.defaultCategoryId = updatePayeeDto.defaultCategoryId;
+    if (updatePayeeDto.notes !== undefined)
+      updateFields.notes = updatePayeeDto.notes;
     if (updatePayeeDto.isActive !== undefined)
-      payee.isActive = updatePayeeDto.isActive;
+      updateFields.isActive = updatePayeeDto.isActive;
 
-    await this.payeesRepository.save(payee);
+    // The default category the payee ends up with: the new value when one was
+    // supplied, otherwise the existing one. Drives the optional backfill below
+    // and is read from the DTO (not a save()-mutated entity).
+    const effectiveCategoryId =
+      updatePayeeDto.defaultCategoryId !== undefined
+        ? updatePayeeDto.defaultCategoryId
+        : payee.defaultCategoryId;
 
-    // Cascade name change to existing transactions and scheduled transactions
-    if (nameChanged) {
-      await this.transactionsRepository.update(
-        { payeeId: id, userId },
-        { payeeName: updatePayeeDto.name },
-      );
-      await this.scheduledTransactionsRepository.update(
-        { payeeId: id, userId },
-        { payeeName: updatePayeeDto.name },
-      );
+    // Optionally apply the (new) default category to the payee's existing
+    // transactions. Only meaningful when the payee ends up with a category.
+    const applyMode = updatePayeeDto.applyCategoryToTransactions ?? "none";
+
+    // Save the payee and cascade the name change to existing transactions and
+    // scheduled transactions atomically, so a partial failure cannot leave the
+    // denormalised payeeName snapshots out of sync with the payee record. The
+    // optional category backfill runs in the same transaction so the payee
+    // default and its transactions can never drift apart on a partial failure.
+    let transactionsCategorized = 0;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      if (Object.keys(updateFields).length > 0) {
+        await queryRunner.manager.update(Payee, { id, userId }, updateFields);
+      }
+
+      if (nameChanged) {
+        await queryRunner.manager.update(
+          Transaction,
+          { payeeId: id, userId },
+          { payeeName: updatePayeeDto.name },
+        );
+        await queryRunner.manager.update(
+          ScheduledTransaction,
+          { payeeId: id, userId },
+          { payeeName: updatePayeeDto.name },
+        );
+      }
+
+      if (applyMode !== "none" && effectiveCategoryId) {
+        transactionsCategorized =
+          applyMode === "all"
+            ? await applyPayeeCategoryToAll(
+                queryRunner.manager,
+                userId,
+                id,
+                effectiveCategoryId,
+              )
+            : await backfillPayeeCategory(
+                queryRunner.manager,
+                userId,
+                id,
+                effectiveCategoryId,
+              );
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
 
     // Re-fetch with relations and computed counts so the frontend has complete data
@@ -355,8 +695,15 @@ export class PayeesService {
         isActive: refreshed.isActive,
       },
       description: `Updated payee "${refreshed.name}"`,
+      descriptionKey: "updatedPayee",
+      descriptionParams: { name: refreshed.name },
     });
-    return { ...refreshed, aliasCount, transactionCount };
+    return {
+      ...refreshed,
+      aliasCount,
+      transactionCount,
+      transactionsCategorized,
+    };
   }
 
   async remove(userId: string, id: string): Promise<void> {
@@ -375,6 +722,8 @@ export class PayeesService {
       action: "delete",
       beforeData,
       description: `Deleted payee "${beforeData.name}"`,
+      descriptionKey: "deletedPayee",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -582,6 +931,7 @@ export class PayeesService {
       transactionCount: number;
       categoryCount: number;
       percentage: number;
+      uncategorizedCount: number;
     }>
   > {
     // Get category usage statistics per payee
@@ -636,10 +986,17 @@ export class PayeesService {
     }
 
     const totalCounts = await totalCountsQuery.getRawMany();
-    const totalCountMap = new Map<string, number>();
-    for (const row of totalCounts) {
-      totalCountMap.set(row.payee_id, parseInt(row.total_count, 10));
-    }
+    const totalCountMap = toCountMap(totalCounts, {
+      keyField: "payee_id",
+      countField: "total_count",
+    });
+
+    // Per-payee count of transactions a default-category backfill would touch,
+    // surfaced per suggestion so the UI can offer the optional backfill.
+    const uncategorizedCountMap = await countUncategorizedTransactionsByPayee(
+      this.payeesRepository.manager,
+      userId,
+    );
 
     // Get current category names for payees that have one
     const payeesWithCategories = await this.payeesRepository.find({
@@ -668,6 +1025,7 @@ export class PayeesService {
       transactionCount: number;
       categoryCount: number;
       percentage: number;
+      uncategorizedCount: number;
     }> = [];
 
     // Group category usage by payee
@@ -720,6 +1078,7 @@ export class PayeesService {
           transactionCount: totalCount,
           categoryCount: topCategory.count,
           percentage: Math.round(percentage * 10) / 10,
+          uncategorizedCount: uncategorizedCountMap.get(payeeId) ?? 0,
         });
       }
     }
@@ -731,12 +1090,21 @@ export class PayeesService {
   }
 
   /**
-   * Apply category suggestions to payees (bulk update)
+   * Apply category suggestions to payees (bulk update). When an assignment opts
+   * into `backfillTransactions`, that payee's existing uncategorized
+   * transactions also receive the chosen category (manual categorizations,
+   * transfers, and split parents are left untouched). Setting the default
+   * category and backfilling span two tables, so the whole batch runs in one
+   * transaction.
    */
   async applyCategorySuggestions(
     userId: string,
-    assignments: Array<{ payeeId: string; categoryId: string }>,
-  ): Promise<{ updated: number }> {
+    assignments: Array<{
+      payeeId: string;
+      categoryId: string;
+      backfillTransactions?: boolean;
+    }>,
+  ): Promise<{ updated: number; transactionsBackfilled: number }> {
     // M24: Batch-verify all categoryIds belong to the user
     const uniqueCategoryIds = [
       ...new Set(assignments.map((a) => a.categoryId)),
@@ -752,31 +1120,56 @@ export class PayeesService {
       );
       if (invalidIds.length > 0) {
         throw new BadRequestException(
-          `Category IDs not found or not owned by user: ${invalidIds.join(", ")}`,
+          tr(
+            "errors.payees.categoryIdsNotOwned",
+            `Category IDs not found or not owned by user: ${invalidIds.join(", ")}`,
+            { ids: invalidIds.join(", ") },
+          ),
         );
       }
     }
 
     const payeeIds = [...new Set(assignments.map((a) => a.payeeId))];
-    const payees = await this.payeesRepository.find({
-      where: { id: In(payeeIds), userId },
-    });
-    const payeeMap = new Map(payees.map((p) => [p.id, p]));
 
-    const toSave: Payee[] = [];
-    for (const assignment of assignments) {
-      const payee = payeeMap.get(assignment.payeeId);
-      if (payee) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const payees = await queryRunner.manager.find(Payee, {
+        where: { id: In(payeeIds), userId },
+      });
+      const payeeMap = new Map(payees.map((p) => [p.id, p]));
+
+      const toSave: Payee[] = [];
+      let transactionsBackfilled = 0;
+      for (const assignment of assignments) {
+        const payee = payeeMap.get(assignment.payeeId);
+        if (!payee) continue;
         payee.defaultCategoryId = assignment.categoryId;
         toSave.push(payee);
+
+        if (assignment.backfillTransactions) {
+          transactionsBackfilled += await backfillPayeeCategory(
+            queryRunner.manager,
+            userId,
+            assignment.payeeId,
+            assignment.categoryId,
+          );
+        }
       }
-    }
 
-    if (toSave.length > 0) {
-      await this.payeesRepository.save(toSave);
-    }
+      if (toSave.length > 0) {
+        await queryRunner.manager.save(toSave);
+      }
 
-    return { updated: toSave.length };
+      await queryRunner.commitTransaction();
+      return { updated: toSave.length, transactionsBackfilled };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ===== Alias Methods =====
@@ -816,7 +1209,9 @@ export class PayeesService {
 
     const trimmedAlias = dto.alias.trim();
     if (!trimmedAlias) {
-      throw new BadRequestException("Alias cannot be empty");
+      throw new BadRequestException(
+        tr("errors.payees.aliasEmpty", "Alias cannot be empty"),
+      );
     }
 
     // Check for exact duplicate alias (case-insensitive)
@@ -829,7 +1224,14 @@ export class PayeesService {
 
     if (existingExact) {
       throw new ConflictException(
-        `Alias "${trimmedAlias}" is already assigned to payee "${existingExact.payee?.name || "unknown"}"`,
+        tr(
+          "errors.payees.aliasDuplicate",
+          `Alias "${trimmedAlias}" is already assigned to payee "${existingExact.payee?.name || "unknown"}"`,
+          {
+            alias: trimmedAlias,
+            payeeName: existingExact.payee?.name || "unknown",
+          },
+        ),
       );
     }
 
@@ -843,13 +1245,29 @@ export class PayeesService {
       // Check if the new alias would match any existing alias patterns
       if (matchesAliasPattern(trimmedAlias, existing.alias)) {
         throw new ConflictException(
-          `Alias "${trimmedAlias}" overlaps with existing alias "${existing.alias}" on payee "${existing.payee?.name || "unknown"}". Consider modifying one of them.`,
+          tr(
+            "errors.payees.aliasOverlap",
+            `Alias "${trimmedAlias}" overlaps with existing alias "${existing.alias}" on payee "${existing.payee?.name || "unknown"}". Consider modifying one of them.`,
+            {
+              alias: trimmedAlias,
+              existingAlias: existing.alias,
+              payeeName: existing.payee?.name || "unknown",
+            },
+          ),
         );
       }
       // Check if any existing alias pattern would match the new one
       if (matchesAliasPattern(existing.alias, trimmedAlias)) {
         throw new ConflictException(
-          `Alias "${trimmedAlias}" overlaps with existing alias "${existing.alias}" on payee "${existing.payee?.name || "unknown"}". Consider modifying one of them.`,
+          tr(
+            "errors.payees.aliasOverlap",
+            `Alias "${trimmedAlias}" overlaps with existing alias "${existing.alias}" on payee "${existing.payee?.name || "unknown"}". Consider modifying one of them.`,
+            {
+              alias: trimmedAlias,
+              existingAlias: existing.alias,
+              payeeName: existing.payee?.name || "unknown",
+            },
+          ),
         );
       }
     }
@@ -872,7 +1290,13 @@ export class PayeesService {
     });
 
     if (!alias) {
-      throw new NotFoundException(`Alias with ID ${aliasId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.payees.aliasNotFound",
+          `Alias with ID ${aliasId} not found`,
+          { id: aliasId },
+        ),
+      );
     }
 
     await this.aliasRepository.remove(alias);
@@ -924,7 +1348,9 @@ export class PayeesService {
     const { targetPayeeId, sourcePayeeId, addAsAlias = true } = dto;
 
     if (targetPayeeId === sourcePayeeId) {
-      throw new BadRequestException("Cannot merge a payee into itself");
+      throw new BadRequestException(
+        tr("errors.payees.mergeSelf", "Cannot merge a payee into itself"),
+      );
     }
 
     // Verify both payees exist and belong to the user

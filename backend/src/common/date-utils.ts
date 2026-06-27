@@ -15,6 +15,23 @@ export function formatDateYMD(date: Date): string {
 }
 
 /**
+ * Format a Date object as YYYY-MM-DD using its LOCAL components.
+ *
+ * Use this for values derived from local-time arithmetic (e.g. `new Date()`
+ * representing "now" in the server's local time, or a Date built from local
+ * year/month/day). It is distinct from `formatDateYMD` (UTC components) and
+ * from `todayYMD` (request-timezone aware) -- replacing inline local-time
+ * `${d.getFullYear()}-...` template literals with this preserves their exact
+ * behavior without pulling in UTC or request-timezone semantics.
+ */
+export function formatDateYMDLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * True iff the given string is a non-empty, well-formed IANA timezone name.
  * Lets us reject the "browser" sentinel and obvious junk before persisting
  * or scheduling against it.

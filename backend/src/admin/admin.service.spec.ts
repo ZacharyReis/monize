@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
 import { DataSource } from "typeorm";
 import {
   BadRequestException,
@@ -150,6 +151,13 @@ describe("AdminService", () => {
         {
           provide: EmailService,
           useValue: emailService,
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: (key: string, opts?: { defaultValue?: string }) =>
+              opts?.defaultValue ?? key,
+          },
         },
       ],
     }).compile();

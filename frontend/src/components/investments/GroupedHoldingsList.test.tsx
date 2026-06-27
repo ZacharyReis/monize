@@ -11,6 +11,20 @@ vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: (n: number, currencyCode?: string) =>
       currencyCode ? `${currencyCode} $${n.toFixed(2)}` : `$${n.toFixed(2)}`,
+    formatCurrencyPrecise: (n: number, currencyCode?: string) => {
+      const abs = Math.abs(n);
+      let digits = 2;
+      if (n !== 0 && abs < 0.005) {
+        digits = Math.min(6, Math.max(2, -Math.floor(Math.log10(abs)) + 2));
+      }
+      const s = `$${n.toFixed(digits)}`;
+      return currencyCode ? `${currencyCode} ${s}` : s;
+    },
+    formatSignedPercent: (n: number, decimals = 2) =>
+      `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
+    formatNumber: (n: number, decimals = 2) => n.toFixed(decimals),
+    formatQuantity: (n: number) =>
+      new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 }).format(n),
     numberFormat: 'en-US',
   }),
 }));

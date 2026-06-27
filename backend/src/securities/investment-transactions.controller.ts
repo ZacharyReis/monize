@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import {
   ApiTags,
   ApiBearerAuth,
@@ -23,6 +24,7 @@ import { AuthGuard } from "@nestjs/passport";
 import { InvestmentTransactionsService } from "./investment-transactions.service";
 import { CreateInvestmentTransactionDto } from "./dto/create-investment-transaction.dto";
 import { UpdateInvestmentTransactionDto } from "./dto/update-investment-transaction.dto";
+import { TransferSecurityDto } from "./dto/transfer-security.dto";
 import {
   InvestmentTransaction,
   InvestmentAction,
@@ -84,6 +86,24 @@ export class InvestmentTransactionsController {
     @Body() createDto: CreateInvestmentTransactionDto,
   ): Promise<InvestmentTransaction> {
     return this.investmentTransactionsService.create(req.user.id, createDto);
+  }
+
+  @Post("transfer-security")
+  @ApiOperation({
+    summary:
+      "Transfer a security between two investment accounts, preserving cost basis",
+  })
+  @ApiResponse({
+    status: 201,
+    description:
+      "Both transfer legs (TRANSFER_OUT in source, TRANSFER_IN in destination) created",
+  })
+  @ApiResponse({ status: 400, description: "Invalid request data" })
+  transferSecurity(@Request() req, @Body() dto: TransferSecurityDto) {
+    return this.investmentTransactionsService.transferSecurity(
+      req.user.id,
+      dto,
+    );
   }
 
   @Get()
@@ -149,31 +169,59 @@ export class InvestmentTransactionsController {
     if (ids) {
       for (const id of ids) {
         if (!uuidRegex.test(id)) {
-          throw new BadRequestException(`Invalid account UUID: ${id}`);
+          throw new BadRequestException(
+            tr(
+              "errors.securities.invalidAccountUuid",
+              `Invalid account UUID: ${id}`,
+              { id },
+            ),
+          );
         }
       }
     }
 
     if (startDate !== undefined && !dateRegex.test(startDate)) {
-      throw new BadRequestException("startDate must be in YYYY-MM-DD format");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.startDateFormat",
+          "startDate must be in YYYY-MM-DD format",
+        ),
+      );
     }
     if (endDate !== undefined && !dateRegex.test(endDate)) {
-      throw new BadRequestException("endDate must be in YYYY-MM-DD format");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.endDateFormat",
+          "endDate must be in YYYY-MM-DD format",
+        ),
+      );
     }
 
     if (page !== undefined) {
       const pageNum = parseInt(page, 10);
       if (isNaN(pageNum) || pageNum < 1) {
-        throw new BadRequestException("page must be a positive integer");
+        throw new BadRequestException(
+          tr(
+            "errors.securities.pagePositiveInteger",
+            "page must be a positive integer",
+          ),
+        );
       }
     }
     if (limit !== undefined) {
       const limitNum = parseInt(limit, 10);
       if (isNaN(limitNum) || limitNum < 1) {
-        throw new BadRequestException("limit must be a positive integer");
+        throw new BadRequestException(
+          tr(
+            "errors.securities.limitPositiveInteger",
+            "limit must be a positive integer",
+          ),
+        );
       }
       if (limitNum > 200) {
-        throw new BadRequestException("limit must not exceed 200");
+        throw new BadRequestException(
+          tr("errors.securities.limitMax200", "limit must not exceed 200"),
+        );
       }
     }
 
@@ -182,7 +230,11 @@ export class InvestmentTransactionsController {
       const validActions = Object.values(InvestmentAction);
       if (!validActions.includes(action as InvestmentAction)) {
         throw new BadRequestException(
-          `Invalid action: ${action}. Must be one of: ${validActions.join(", ")}`,
+          tr(
+            "errors.securities.invalidAction",
+            `Invalid action: ${action}. Must be one of: ${validActions.join(", ")}`,
+            { action, validActions: validActions.join(", ") },
+          ),
         );
       }
     }
@@ -242,15 +294,31 @@ export class InvestmentTransactionsController {
     if (ids) {
       for (const id of ids) {
         if (!uuidRegex.test(id)) {
-          throw new BadRequestException(`Invalid account UUID: ${id}`);
+          throw new BadRequestException(
+            tr(
+              "errors.securities.invalidAccountUuid",
+              `Invalid account UUID: ${id}`,
+              { id },
+            ),
+          );
         }
       }
     }
     if (startDate !== undefined && !dateRegex.test(startDate)) {
-      throw new BadRequestException("startDate must be in YYYY-MM-DD format");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.startDateFormat",
+          "startDate must be in YYYY-MM-DD format",
+        ),
+      );
     }
     if (endDate !== undefined && !dateRegex.test(endDate)) {
-      throw new BadRequestException("endDate must be in YYYY-MM-DD format");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.endDateFormat",
+          "endDate must be in YYYY-MM-DD format",
+        ),
+      );
     }
 
     return this.investmentTransactionsService.getRealizedGains(req.user.id, {
@@ -290,20 +358,34 @@ export class InvestmentTransactionsController {
 
     if (!startDate || !dateRegex.test(startDate)) {
       throw new BadRequestException(
-        "startDate is required and must be in YYYY-MM-DD format",
+        tr(
+          "errors.securities.startDateRequired",
+          "startDate is required and must be in YYYY-MM-DD format",
+        ),
       );
     }
     if (!endDate || !dateRegex.test(endDate)) {
       throw new BadRequestException(
-        "endDate is required and must be in YYYY-MM-DD format",
+        tr(
+          "errors.securities.endDateRequired",
+          "endDate is required and must be in YYYY-MM-DD format",
+        ),
       );
     }
     if (startDate > endDate) {
-      throw new BadRequestException("startDate must be on or before endDate");
+      throw new BadRequestException(
+        tr(
+          "errors.securities.startDateBeforeEndDate",
+          "startDate must be on or before endDate",
+        ),
+      );
     }
     if (granularity && granularity !== "month" && granularity !== "day") {
       throw new BadRequestException(
-        "granularity must be 'month' or 'day' if provided",
+        tr(
+          "errors.securities.invalidGranularity",
+          "granularity must be 'month' or 'day' if provided",
+        ),
       );
     }
 
@@ -311,7 +393,13 @@ export class InvestmentTransactionsController {
     if (ids) {
       for (const id of ids) {
         if (!uuidRegex.test(id)) {
-          throw new BadRequestException(`Invalid account UUID: ${id}`);
+          throw new BadRequestException(
+            tr(
+              "errors.securities.invalidAccountUuid",
+              `Invalid account UUID: ${id}`,
+              { id },
+            ),
+          );
         }
       }
     }
@@ -328,6 +416,27 @@ export class InvestmentTransactionsController {
     return this.investmentTransactionsService.getCapitalGainsByMonth(
       req.user.id,
       { accountIds: scoped, startDate, endDate },
+    );
+  }
+
+  @Get("security/:securityId/history")
+  @ApiOperation({
+    summary:
+      "Transaction history for a security with running share totals and the accounts (including closed) it was used in",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Security transaction history with per-account and cross-account running share balances",
+  })
+  @ApiResponse({ status: 404, description: "Security not found" })
+  getSecurityTransactionHistory(
+    @Request() req,
+    @Param("securityId", ParseUUIDPipe) securityId: string,
+  ) {
+    return this.investmentTransactionsService.getSecurityTransactionHistory(
+      req.user.id,
+      securityId,
     );
   }
 

@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Account, AccountType } from "./entities/account.entity";
+import { Institution } from "../institutions/entities/institution.entity";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { CategoriesService } from "../categories/categories.service";
 import { ScheduledTransactionsService } from "../scheduled-transactions/scheduled-transactions.service";
@@ -25,6 +26,8 @@ import {
   MortgageAmortizationResult,
 } from "./mortgage-amortization.util";
 import { formatDateYMD } from "../common/date-utils";
+import { roundMoney } from "../common/round.util";
+import { tr } from "../i18n/translate";
 
 @Injectable()
 export class LoanMortgageAccountService {
@@ -33,11 +36,39 @@ export class LoanMortgageAccountService {
   constructor(
     @InjectRepository(Account)
     private accountsRepository: Repository<Account>,
+    @InjectRepository(Institution)
+    private institutionsRepository: Repository<Institution>,
     @Inject(forwardRef(() => CategoriesService))
     private categoriesService: CategoriesService,
     @Inject(forwardRef(() => ScheduledTransactionsService))
     private scheduledTransactionsService: ScheduledTransactionsService,
   ) {}
+
+  /**
+   * Resolve a display name for the lender/institution backing a loan or
+   * mortgage. The account form sends the selected institution as `institutionId`
+   * (the modern Institutions table) and no longer fills the legacy free-text
+   * `institution` field, so requiring the latter rejected accounts that did have
+   * an institution set. Prefer the explicit free-text value when present (legacy
+   * callers, imports), otherwise look the name up from the referenced
+   * institution. Returns null when neither is available.
+   */
+  private async resolveInstitutionName(
+    userId: string,
+    institutionId: string | undefined,
+    institution: string | undefined,
+  ): Promise<string | null> {
+    if (institution && institution.trim()) {
+      return institution.trim();
+    }
+    if (institutionId) {
+      const found = await this.institutionsRepository.findOne({
+        where: { id: institutionId, userId },
+      });
+      return found?.name ?? null;
+    }
+    return null;
+  }
 
   async createLoanAccount(
     userId: string,
@@ -62,15 +93,31 @@ export class LoanMortgageAccountService {
       !sourceAccountId
     ) {
       throw new BadRequestException(
-        "Loan accounts require paymentAmount, paymentFrequency, paymentStartDate, and sourceAccountId",
+        tr(
+          "errors.accounts.loanRequiredFields",
+          "Loan accounts require paymentAmount, paymentFrequency, paymentStartDate, and sourceAccountId",
+        ),
       );
     }
     if (interestRate === undefined || interestRate === null) {
-      throw new BadRequestException("Loan accounts require an interest rate");
-    }
-    if (!institution) {
       throw new BadRequestException(
-        "Loan accounts require an institution name",
+        tr(
+          "errors.accounts.loanRequiresInterestRate",
+          "Loan accounts require an interest rate",
+        ),
+      );
+    }
+    const institutionName = await this.resolveInstitutionName(
+      userId,
+      accountData.institutionId,
+      institution,
+    );
+    if (!institutionName) {
+      throw new BadRequestException(
+        tr(
+          "errors.accounts.loanRequiresInstitution",
+          "Loan accounts require an institution name",
+        ),
       );
     }
 
@@ -119,7 +166,7 @@ export class LoanMortgageAccountService {
       {
         accountId: sourceAccountId,
         name: `Loan Payment - ${savedAccount.name}`,
-        payeeName: institution,
+        payeeName: institutionName,
         amount: -paymentAmount,
         currencyCode: accountData.currencyCode,
         frequency: paymentFrequency as any,
@@ -175,17 +222,31 @@ export class LoanMortgageAccountService {
       !amortizationMonths
     ) {
       throw new BadRequestException(
-        "Mortgage accounts require mortgagePaymentFrequency, paymentStartDate, sourceAccountId, and amortizationMonths",
+        tr(
+          "errors.accounts.mortgageRequiredFields",
+          "Mortgage accounts require mortgagePaymentFrequency, paymentStartDate, sourceAccountId, and amortizationMonths",
+        ),
       );
     }
     if (interestRate === undefined || interestRate === null) {
       throw new BadRequestException(
-        "Mortgage accounts require an interest rate",
+        tr(
+          "errors.accounts.mortgageRequiresInterestRate",
+          "Mortgage accounts require an interest rate",
+        ),
       );
     }
-    if (!institution) {
+    const institutionName = await this.resolveInstitutionName(
+      userId,
+      accountData.institutionId,
+      institution,
+    );
+    if (!institutionName) {
       throw new BadRequestException(
-        "Mortgage accounts require an institution name",
+        tr(
+          "errors.accounts.mortgageRequiresInstitution",
+          "Mortgage accounts require an institution name",
+        ),
       );
     }
 
@@ -260,7 +321,7 @@ export class LoanMortgageAccountService {
       {
         accountId: sourceAccountId,
         name: `Mortgage Payment - ${savedAccount.name}`,
-        payeeName: institution,
+        payeeName: institutionName,
         amount: -amortization.paymentAmount,
         currencyCode: accountData.currencyCode,
         frequency: scheduledFrequency as any,
@@ -341,12 +402,20 @@ export class LoanMortgageAccountService {
   }> {
     if (account.accountType !== AccountType.MORTGAGE) {
       throw new BadRequestException(
-        "This operation is only valid for mortgage accounts",
+        tr(
+          "errors.accounts.onlyMortgageAccounts",
+          "This operation is only valid for mortgage accounts",
+        ),
       );
     }
 
     if (account.isClosed) {
-      throw new BadRequestException("Cannot update rate on a closed account");
+      throw new BadRequestException(
+        tr(
+          "errors.accounts.updateRateClosed",
+          "Cannot update rate on a closed account",
+        ),
+      );
     }
 
     const currentBalance = Math.abs(Number(account.currentBalance));
@@ -383,9 +452,8 @@ export class LoanMortgageAccountService {
         periodicRate = newRate / 100 / periodsPerYear;
       }
 
-      interestPayment = Math.round(currentBalance * periodicRate * 100) / 100;
-      principalPayment =
-        Math.round((paymentAmount - interestPayment) * 100) / 100;
+      interestPayment = roundMoney(currentBalance * periodicRate);
+      principalPayment = roundMoney(paymentAmount - interestPayment);
     } else {
       const result = recalculateMortgageAfterRateChange(
         currentBalance,

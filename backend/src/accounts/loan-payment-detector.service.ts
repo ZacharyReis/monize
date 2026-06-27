@@ -4,6 +4,8 @@ import { Repository } from "typeorm";
 import { Account, AccountType } from "./entities/account.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
+import { roundMoney, sumMoney } from "../common/round.util";
+import { tr } from "../i18n/translate";
 
 export interface DetectedLoanPayment {
   /** Detected regular payment amount (positive) */
@@ -86,7 +88,9 @@ export class LoanPaymentDetectorService {
     });
 
     if (!account) {
-      throw new NotFoundException("Account not found");
+      throw new NotFoundException(
+        tr("errors.accounts.notFound", "Account not found"),
+      );
     }
 
     if (
@@ -180,9 +184,7 @@ export class LoanPaymentDetectorService {
     // Subtract extra principal to get the base payment (principal + interest only).
     const basePaymentAmount =
       extraPrincipal.averageExtraPrincipal > 0
-        ? Math.round(
-            (regularAmount - extraPrincipal.averageExtraPrincipal) * 100,
-          ) / 100
+        ? roundMoney(regularAmount - extraPrincipal.averageExtraPrincipal)
         : regularAmount;
 
     // Analyze the recent P/I split trend from several payments.
@@ -358,10 +360,7 @@ export class LoanPaymentDetectorService {
                 // Sum all into principalAmount for now; detectExtraPrincipal will
                 // use principalSplitAmounts to separate them.
                 principalSplitAmounts = principalSplits.map((ps) => ps.amount);
-                principalAmount = principalSplitAmounts.reduce(
-                  (s, a) => s + a,
-                  0,
-                );
+                principalAmount = sumMoney(principalSplitAmounts);
               }
             }
           }
@@ -495,8 +494,8 @@ export class LoanPaymentDetectorService {
 
     if (nearMedian.length >= 2) {
       // Return the average of the near-median amounts
-      const sum = nearMedian.reduce((s, a) => s + a, 0);
-      return Math.round((sum / nearMedian.length) * 100) / 100;
+      const sum = sumMoney(nearMedian);
+      return roundMoney(sum / nearMedian.length);
     }
 
     return null;
@@ -834,11 +833,10 @@ export class LoanPaymentDetectorService {
       memoBasedExtras.length >= 3 &&
       memoBasedExtras.length / allPayments.length >= 0.5
     ) {
-      const totalExtra = memoBasedExtras.reduce(
-        (sum, p) => sum + p.extraPrincipalAmount!,
-        0,
+      const totalExtra = sumMoney(
+        memoBasedExtras.map((p) => p.extraPrincipalAmount!),
       );
-      const avg = Math.round((totalExtra / memoBasedExtras.length) * 100) / 100;
+      const avg = roundMoney(totalExtra / memoBasedExtras.length);
       return {
         averageExtraPrincipal: avg,
         extraPrincipalCount: memoBasedExtras.length,
@@ -889,8 +887,8 @@ export class LoanPaymentDetectorService {
         }
 
         if (extraGroup) {
-          const avg = extraGroup.reduce((s, e) => s + e, 0) / extraGroup.length;
-          const extraAmount = Math.round(avg * 100) / 100;
+          const avg = sumMoney(extraGroup) / extraGroup.length;
+          const extraAmount = roundMoney(avg);
           if (extraAmount > 0.01) {
             return {
               averageExtraPrincipal: extraAmount,
@@ -985,11 +983,10 @@ export class LoanPaymentDetectorService {
       const lastPrincipal = principals[principals.length - 1];
       const lastInterest = interests[interests.length - 1];
 
-      const projectedPrincipal =
-        Math.round((lastPrincipal + avgPrincipalStep) * 100) / 100;
+      const projectedPrincipal = roundMoney(lastPrincipal + avgPrincipalStep);
       const projectedInterest = Math.max(
         0,
-        Math.round((lastInterest + avgInterestStep) * 100) / 100,
+        roundMoney(lastInterest + avgInterestStep),
       );
 
       return { projectedPrincipal, projectedInterest };
@@ -1086,7 +1083,7 @@ export class LoanPaymentDetectorService {
     const extraAmount = payment.extraPrincipalAmount ?? 0;
     const baseAmount =
       extraAmount > 0
-        ? Math.round((payment.amount - extraAmount) * 100) / 100
+        ? roundMoney(payment.amount - extraAmount)
         : payment.amount;
     return {
       paymentAmount: baseAmount,

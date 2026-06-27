@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Brackets } from "typeorm";
 import {
@@ -27,6 +28,7 @@ import {
   AggregatedDataPoint,
   ReportSummary,
 } from "./dto/execute-report.dto";
+import { roundMoney, sumMoney } from "../common/round.util";
 import { BudgetsService } from "../budgets/budgets.service";
 import { ActionHistoryService } from "../action-history/action-history.service";
 import {
@@ -91,6 +93,8 @@ export class ReportsService {
       action: "create",
       afterData: { ...saved },
       description: `Created report "${saved.name}"`,
+      descriptionKey: "createdReport",
+      descriptionParams: { name: saved.name },
     });
 
     return saved;
@@ -109,7 +113,9 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException(`Report with ID ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.reports.notFound", `Report with ID ${id} not found`, { id }),
+      );
     }
 
     return report;
@@ -162,6 +168,8 @@ export class ReportsService {
       beforeData,
       afterData: { ...saved },
       description: `Updated report "${saved.name}"`,
+      descriptionKey: "updatedReport",
+      descriptionParams: { name: saved.name },
     });
 
     return saved;
@@ -178,6 +186,8 @@ export class ReportsService {
       action: "delete",
       beforeData,
       description: `Deleted report "${beforeData.name}"`,
+      descriptionKey: "deletedReport",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -279,7 +289,10 @@ export class ReportsService {
     }
     if (!config?.customStartDate || !config?.customEndDate) {
       throw new BadRequestException(
-        "Custom timeframe requires both start and end dates",
+        tr(
+          "errors.reports.customTimeframeMissingDates",
+          "Custom timeframe requires both start and end dates",
+        ),
       );
     }
   }
@@ -336,7 +349,10 @@ export class ReportsService {
       case TimeframeType.CUSTOM:
         if (!customStart || !customEnd) {
           throw new BadRequestException(
-            "Custom timeframe requires both start and end dates",
+            tr(
+              "errors.reports.customTimeframeMissingDates",
+              "Custom timeframe requires both start and end dates",
+            ),
           );
         }
         startDate = customStart;
@@ -361,10 +377,12 @@ export class ReportsService {
       .createQueryBuilder("transaction")
       .leftJoinAndSelect("transaction.account", "account")
       .leftJoinAndSelect("transaction.category", "category")
+      .leftJoinAndSelect("category.parent", "categoryParent")
       .leftJoinAndSelect("transaction.payee", "payee")
       .leftJoinAndSelect("transaction.tags", "tags")
       .leftJoinAndSelect("transaction.splits", "splits")
       .leftJoinAndSelect("splits.category", "splitCategory")
+      .leftJoinAndSelect("splitCategory.parent", "splitCategoryParent")
       .leftJoinAndSelect("splits.tags", "splitTags")
       .where("transaction.userId = :userId", { userId })
       .andWhere("transaction.transactionDate >= :startDate", { startDate })
@@ -590,6 +608,14 @@ export class ReportsService {
     }
   }
 
+  private formatCategoryLabel(
+    category: Category | null | undefined,
+  ): string | undefined {
+    if (!category) return undefined;
+    if (category.parent) return `${category.parent.name}: ${category.name}`;
+    return category.name;
+  }
+
   private aggregateNoGrouping(
     transactions: Transaction[],
     metric: MetricType,
@@ -612,7 +638,7 @@ export class ReportsService {
               payee: tx.payeeName || tx.payee?.name || undefined,
               description: tx.description || undefined,
               memo: split.memo || undefined,
-              category: split.category?.name || undefined,
+              category: this.formatCategoryLabel(split.category),
               account: tx.account?.name || undefined,
             });
           }
@@ -627,7 +653,7 @@ export class ReportsService {
             payee: tx.payeeName || tx.payee?.name || undefined,
             description: tx.description || undefined,
             memo: undefined, // Transactions don't have memo, only splits do
-            category: tx.category?.name || undefined,
+            category: this.formatCategoryLabel(tx.category),
             account: tx.account?.name || undefined,
           });
         }
@@ -637,20 +663,20 @@ export class ReportsService {
     }
 
     // For other metrics, aggregate into a single total
-    let sum = 0;
-    let count = 0;
+    const amounts: number[] = [];
 
     for (const tx of transactions) {
       if (tx.isSplit && tx.splits && tx.splits.length > 0) {
         for (const split of tx.splits) {
-          sum += Math.abs(Number(split.amount));
-          count += 1;
+          amounts.push(Math.abs(Number(split.amount)));
         }
       } else {
-        sum += Math.abs(Number(tx.amount));
-        count += 1;
+        amounts.push(Math.abs(Number(tx.amount)));
       }
     }
+
+    const count = amounts.length;
+    const sum = sumMoney(amounts);
 
     if (count === 0) {
       return [];
@@ -680,7 +706,9 @@ export class ReportsService {
         for (const split of tx.splits) {
           const categoryId = split.categoryId || "uncategorized";
           const existing = dataMap.get(categoryId) || { sum: 0, count: 0 };
-          existing.sum += Math.abs(Number(split.amount));
+          existing.sum = roundMoney(
+            existing.sum + Math.abs(Number(split.amount)),
+          );
           existing.count += 1;
           dataMap.set(categoryId, existing);
         }
@@ -688,23 +716,28 @@ export class ReportsService {
         // Regular transaction
         const categoryId = tx.categoryId || "uncategorized";
         const existing = dataMap.get(categoryId) || { sum: 0, count: 0 };
-        existing.sum += Math.abs(Number(tx.amount));
+        existing.sum = roundMoney(existing.sum + Math.abs(Number(tx.amount)));
         existing.count += 1;
         dataMap.set(categoryId, existing);
       }
     }
 
-    const totalSum = Array.from(dataMap.values()).reduce(
-      (acc, v) => acc + v.sum,
-      0,
-    );
+    const totalSum = sumMoney(Array.from(dataMap.values()).map((v) => v.sum));
 
     const result: AggregatedDataPoint[] = [];
     for (const [categoryId, data] of dataMap) {
       const category = categoryMap.get(categoryId);
+      const parent = category?.parentId
+        ? categoryMap.get(category.parentId)
+        : null;
+      const label = category
+        ? parent
+          ? `${parent.name}: ${category.name}`
+          : category.name
+        : "Uncategorized";
       result.push({
         id: categoryId,
-        label: category?.name || "Uncategorized",
+        label,
         value: this.calculateMetricValue(data.sum, data.count, metric),
         color: category?.color || undefined,
         percentage: totalSum > 0 ? (data.sum / totalSum) * 100 : 0,
@@ -732,7 +765,7 @@ export class ReportsService {
         count: 0,
         payeeName: tx.payeeName ?? undefined,
       };
-      existing.sum += Math.abs(Number(tx.amount));
+      existing.sum = roundMoney(existing.sum + Math.abs(Number(tx.amount)));
       existing.count += 1;
       if (!existing.payeeName && tx.payeeName) {
         existing.payeeName = tx.payeeName;
@@ -740,10 +773,7 @@ export class ReportsService {
       dataMap.set(payeeId, existing);
     }
 
-    const totalSum = Array.from(dataMap.values()).reduce(
-      (acc, v) => acc + v.sum,
-      0,
-    );
+    const totalSum = sumMoney(Array.from(dataMap.values()).map((v) => v.sum));
 
     const result: AggregatedDataPoint[] = [];
     for (const [payeeId, data] of dataMap) {
@@ -791,7 +821,7 @@ export class ReportsService {
           count: 0,
           tagName: "Untagged",
         };
-        existing.sum += Math.abs(Number(tx.amount));
+        existing.sum = roundMoney(existing.sum + Math.abs(Number(tx.amount)));
         existing.count += 1;
         dataMap.set("untagged", existing);
       } else {
@@ -802,17 +832,14 @@ export class ReportsService {
             tagName: tag.name,
             color: tag.color ?? undefined,
           };
-          existing.sum += Math.abs(Number(tx.amount));
+          existing.sum = roundMoney(existing.sum + Math.abs(Number(tx.amount)));
           existing.count += 1;
           dataMap.set(tag.id, existing);
         }
       }
     }
 
-    const totalSum = Array.from(dataMap.values()).reduce(
-      (acc, v) => acc + v.sum,
-      0,
-    );
+    const totalSum = sumMoney(Array.from(dataMap.values()).map((v) => v.sum));
 
     const result: AggregatedDataPoint[] = [];
     for (const [tagId, data] of dataMap) {
@@ -864,7 +891,7 @@ export class ReportsService {
       }
 
       const existing = dataMap.get(key) || { sum: 0, count: 0, label };
-      existing.sum += Math.abs(Number(tx.amount));
+      existing.sum = roundMoney(existing.sum + Math.abs(Number(tx.amount)));
       existing.count += 1;
       dataMap.set(key, existing);
     }
@@ -890,16 +917,16 @@ export class ReportsService {
   ): number {
     switch (metric) {
       case MetricType.NONE:
-        return Math.round(sum * 100) / 100;
+        return roundMoney(sum);
       case MetricType.TOTAL_AMOUNT:
-        return Math.round(sum * 100) / 100;
+        return roundMoney(sum);
       case MetricType.COUNT:
         return count;
       case MetricType.AVERAGE:
-        return count > 0 ? Math.round((sum / count) * 100) / 100 : 0;
+        return count > 0 ? roundMoney(sum / count) : 0;
       case MetricType.BUDGET_VARIANCE:
         // For budget variance, sum contains the variance (actual - budgeted)
-        return Math.round(sum * 100) / 100;
+        return roundMoney(sum);
       default:
         return sum;
     }
@@ -927,9 +954,9 @@ export class ReportsService {
         const variance = point.value - budgeted;
         return {
           ...point,
-          value: Math.round(variance * 100) / 100,
-          budgeted: Math.round(budgeted * 100) / 100,
-          actual: Math.round(point.value * 100) / 100,
+          value: roundMoney(variance),
+          budgeted: roundMoney(budgeted),
+          actual: roundMoney(point.value),
         };
       });
     } catch {
@@ -938,14 +965,14 @@ export class ReportsService {
   }
 
   private calculateSummary(data: AggregatedDataPoint[]): ReportSummary {
-    const total = data.reduce((acc, d) => acc + d.value, 0);
+    const total = sumMoney(data.map((d) => d.value));
     const count = data.reduce((acc, d) => acc + (d.count || 1), 0);
     const average = count > 0 ? total / count : 0;
 
     return {
-      total: Math.round(total * 100) / 100,
+      total: roundMoney(total),
       count,
-      average: Math.round(average * 100) / 100,
+      average: roundMoney(average),
     };
   }
 

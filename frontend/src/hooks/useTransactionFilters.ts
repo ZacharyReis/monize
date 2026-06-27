@@ -2,9 +2,13 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MultiSelectOption } from '@/components/ui/MultiSelect';
 import { isInvestmentBrokerageAccount } from '@/lib/account-utils';
-import { buildCategoryColorMap, buildCategoryLabelMap } from '@/lib/categoryUtils';
+import {
+  buildCategoryColorMap,
+  buildCategoryLabelMap,
+  buildCategoryFilterOptions,
+  resolveSelectedCategories,
+} from '@/lib/categoryUtils';
 import { Account } from '@/types/account';
 import { Category } from '@/types/category';
 import { Payee } from '@/types/payee';
@@ -26,6 +30,11 @@ const STORAGE_KEYS = {
   tagIds: 'transactions.filter.tagIds',
   statuses: 'transactions.filter.statuses',
 };
+
+// Mirrors the backend's targetTransactionId validation so a malformed deep-link
+// value is ignored rather than sent on to a 4xx.
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const VALID_TRANSACTION_STATUSES = new Set<string>(Object.values(TransactionStatus));
 
@@ -131,6 +140,9 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
+  // Transaction id to flash/scroll to after a deep link (e.g. the AI chat's
+  // "View transaction" link). Initialized from the URL once on mount.
+  const [highlightTransactionId, setHighlightTransactionId] = useState<string | null>(null);
 
   // Track when we're syncing state from browser back/forward navigation
   const syncingFromPopstateRef = useRef(false);
@@ -178,11 +190,7 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   }, [router]);
 
   // Get display info for selected filters
-  const selectedCategories = filterCategoryIds.map(id => {
-    if (id === 'uncategorized') return { id, name: 'Uncategorized', color: null } as Category;
-    if (id === 'transfer') return { id, name: 'Transfers', color: null } as Category;
-    return categories.find(c => c.id === id);
-  }).filter((c): c is Category => c !== undefined);
+  const selectedCategories = resolveSelectedCategories(filterCategoryIds, categories);
 
   const selectedPayees = filterPayeeIds
     .map(id => payees.find(p => p.id === id))
@@ -207,27 +215,10 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   }, [accounts, filterAccountStatus]);
 
   // Memoize filter option arrays
-  const categoryFilterOptions = useMemo(() => {
-    const specialOptions: MultiSelectOption[] = [
-      { value: 'uncategorized', label: 'Uncategorized' },
-      { value: 'transfer', label: 'Transfers' },
-    ];
-    const buildOptions = (parentId: string | null = null): MultiSelectOption[] => {
-      return categories
-        .filter(c => c.parentId === parentId)
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .flatMap(cat => {
-          const children = buildOptions(cat.id);
-          return [{
-            value: cat.id,
-            label: cat.name,
-            parentId: cat.parentId,
-            children: children.length > 0 ? children : undefined,
-          }];
-        });
-    };
-    return [...specialOptions, ...buildOptions()];
-  }, [categories]);
+  const categoryFilterOptions = useMemo(
+    () => buildCategoryFilterOptions(categories),
+    [categories],
+  );
 
   const categoryColorMap = useMemo(() => buildCategoryColorMap(categories), [categories]);
   const categoryLabelMap = useMemo(() => buildCategoryLabelMap(categories), [categories]);
@@ -320,6 +311,7 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   useEffect(() => {
     const hasAnyUrlParams = searchParams.has('accountId') ||
       searchParams.has('accountIds') ||
+      searchParams.has('accountStatus') ||
       searchParams.has('categoryId') ||
       searchParams.has('categoryIds') ||
       searchParams.has('categoryType') ||
@@ -331,7 +323,8 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
       searchParams.has('amountFrom') ||
       searchParams.has('amountTo') ||
       searchParams.has('tagIds') ||
-      searchParams.has('statuses');
+      searchParams.has('statuses') ||
+      searchParams.has('targetTransactionId');
 
     const getAccountIds = () => {
       const ids = searchParams.get('accountIds');
@@ -355,6 +348,17 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     };
 
     setFilterAccountIds(getAccountIds());
+    // An explicit accountStatus param (e.g. when opening a closed account from
+    // the Institutions page) overrides the stored Show Accounts filter so the
+    // selected account is not pruned and its transactions are visible.
+    const accountStatusParam = searchParams.get('accountStatus');
+    if (
+      accountStatusParam === 'all' ||
+      accountStatusParam === 'active' ||
+      accountStatusParam === 'closed'
+    ) {
+      setFilterAccountStatus(accountStatusParam === 'all' ? '' : accountStatusParam);
+    }
     setFilterCategoryIds(getCategoryIds());
     setFilterPayeeIds(getPayeeIds());
     setFilterTagIds(getFilterValues(STORAGE_KEYS.tagIds, searchParams.get('tagIds'), hasAnyUrlParams));
@@ -372,6 +376,14 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
       setFilterTimePeriod((initialStartDate || initialEndDate) ? 'custom' : '');
     } else {
       setFilterTimePeriod(getFilterValue(STORAGE_KEYS.timePeriod, null, false));
+    }
+    // Deep link to a specific transaction (e.g. the AI chat "View transaction"
+    // link). The backend resolves which page contains it; we flash/scroll to it
+    // once it renders. A bogus value is ignored so the list still loads.
+    const targetId = searchParams.get('targetTransactionId');
+    if (targetId && UUID_REGEX.test(targetId)) {
+      targetTransactionIdRef.current = targetId;
+      setHighlightTransactionId(targetId);
     }
     setFiltersInitialized(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -584,6 +596,7 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     filtersInitialized,
     filtersExpanded, setFiltersExpanded,
     activeFilterCount,
+    highlightTransactionId, setHighlightTransactionId,
 
     // Derived filter data
     filteredAccounts,

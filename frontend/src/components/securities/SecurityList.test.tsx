@@ -14,6 +14,7 @@ describe('SecurityList', () => {
     exchange: 'NASDAQ',
     currencyCode: 'USD',
     isActive: true,
+    isFavourite: false,
     skipPriceUpdates: false,
     createdAt: '2025-01-01T00:00:00Z',
     updatedAt: '2025-01-01T00:00:00Z',
@@ -40,6 +41,39 @@ describe('SecurityList', () => {
     expect(screen.getByText('XEQT')).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Inactive')).toBeInTheDocument();
+  });
+
+  it('renders tag chips and the description under the name', () => {
+    const securities = [
+      makeSecurity({
+        description: 'Global aggregate bond ETF.',
+        tags: [{ id: 't1', name: 'Bonds', color: '#abcdef', icon: null }],
+      }),
+    ];
+
+    render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} />);
+    expect(screen.getByText('Bonds')).toBeInTheDocument();
+    expect(screen.getByText('Global aggregate bond ETF.')).toBeInTheDocument();
+  });
+
+  it('hides the description in compact and dense densities (but keeps tags)', () => {
+    const securities = [
+      makeSecurity({
+        description: 'Global aggregate bond ETF.',
+        tags: [{ id: 't1', name: 'Bonds', color: '#abcdef', icon: null }],
+      }),
+    ];
+
+    const { rerender } = render(
+      <SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} density="compact" />,
+    );
+    expect(screen.getByText('Bonds')).toBeInTheDocument();
+    expect(screen.queryByText('Global aggregate bond ETF.')).not.toBeInTheDocument();
+
+    rerender(
+      <SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} density="dense" />,
+    );
+    expect(screen.queryByText('Global aggregate bond ETF.')).not.toBeInTheDocument();
   });
 
   it('renders security type labels', () => {
@@ -112,6 +146,46 @@ describe('SecurityList', () => {
 
     render(<SecurityList securities={securities} holdings={holdings} onEdit={onEdit} onToggleActive={onToggleActive} />);
     expect(screen.getByText('Deactivate')).toBeInTheDocument();
+  });
+
+  it('shows the current share count column at full precision', () => {
+    const securities = [makeSecurity()];
+    const holdings = { s1: 0.0003 };
+
+    render(<SecurityList securities={securities} holdings={holdings} onEdit={onEdit} onToggleActive={onToggleActive} />);
+    expect(screen.getByText('Shares')).toBeInTheDocument();
+    // Residual quantity shown exactly, not rounded away.
+    expect(screen.getByText('0.0003')).toBeInTheDocument();
+  });
+
+  it('shows 0 shares when a security has no holdings', () => {
+    const securities = [makeSecurity()];
+
+    render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} />);
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
+  it('renders a History action and calls onViewHistory when clicked', () => {
+    const securities = [makeSecurity()];
+    const onViewHistory = vi.fn();
+
+    render(
+      <SecurityList
+        securities={securities}
+        onEdit={onEdit}
+        onToggleActive={onToggleActive}
+        onViewHistory={onViewHistory}
+      />,
+    );
+    fireEvent.click(screen.getByText('History'));
+    expect(onViewHistory).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'AAPL' }));
+  });
+
+  it('omits the History action when onViewHistory is not provided', () => {
+    const securities = [makeSecurity()];
+
+    render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} />);
+    expect(screen.queryByText('History')).not.toBeInTheDocument();
   });
 
   it('toggles density when density button is clicked', () => {
@@ -493,6 +567,15 @@ describe('SecurityList', () => {
       // Click Name header to sort - should not throw
       fireEvent.click(screen.getByText('Name'));
     });
+
+    it('calls onSort with "shares" when the Shares header is clicked', () => {
+      const onSort = vi.fn();
+      const securities = [makeSecurity()];
+
+      render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} onSort={onSort} sortField="symbol" sortDirection="asc" />);
+      fireEvent.click(screen.getByText('Shares'));
+      expect(onSort).toHaveBeenCalledWith('shares');
+    });
   });
 
   describe('long-press with touch events', () => {
@@ -623,12 +706,12 @@ describe('SecurityList', () => {
       expect(onViewPrices).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'AAPL' }));
     });
 
-    it('shows $ button in dense mode when onViewPrices provided', () => {
+    it('shows the prices icon button in dense mode when onViewPrices provided', () => {
       const onViewPrices = vi.fn();
       const securities = [makeSecurity()];
 
       render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} onViewPrices={onViewPrices} density="dense" />);
-      expect(screen.getByText('$')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Prices' })).toBeInTheDocument();
     });
 
     it('does not show Prices button when onViewPrices not provided', () => {
@@ -1039,6 +1122,49 @@ describe('SecurityList', () => {
       const securities = [makeSecurity()];
       render(<SecurityList securities={securities} onEdit={onEdit} onToggleActive={onToggleActive} onDelete={onDelete} density="dense" />);
       expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('favourite column', () => {
+    it('renders an "Add to favourites" star for a non-favourite security', () => {
+      render(<SecurityList securities={[makeSecurity()]} onEdit={onEdit} onToggleActive={onToggleActive} />);
+      expect(screen.getByTitle('Add to favourites')).toBeInTheDocument();
+    });
+
+    it('renders a filled star (Remove from favourites) for a favourite security', () => {
+      render(<SecurityList securities={[makeSecurity({ isFavourite: true })]} onEdit={onEdit} onToggleActive={onToggleActive} />);
+      const btn = screen.getByTitle('Remove from favourites');
+      expect(btn).toBeInTheDocument();
+      expect(btn.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('calls onToggleFavourite with the security when the star is clicked', () => {
+      const onToggleFavourite = vi.fn();
+      render(
+        <SecurityList
+          securities={[makeSecurity()]}
+          onEdit={onEdit}
+          onToggleActive={onToggleActive}
+          onToggleFavourite={onToggleFavourite}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Add to favourites'));
+      expect(onToggleFavourite).toHaveBeenCalledWith(expect.objectContaining({ id: 's1' }));
+    });
+
+    it('does not invoke other row handlers when the star is clicked', () => {
+      const onToggleFavourite = vi.fn();
+      render(
+        <SecurityList
+          securities={[makeSecurity()]}
+          onEdit={onEdit}
+          onToggleActive={onToggleActive}
+          onToggleFavourite={onToggleFavourite}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Add to favourites'));
+      expect(onEdit).not.toHaveBeenCalled();
+      expect(onToggleActive).not.toHaveBeenCalled();
     });
   });
 });

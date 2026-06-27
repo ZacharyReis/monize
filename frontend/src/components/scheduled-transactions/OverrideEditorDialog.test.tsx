@@ -417,7 +417,7 @@ describe('OverrideEditorDialog', () => {
   });
 
   // --- Split toggle ---
-  it('shows split toggle checkbox for non-transfer transactions', () => {
+  it('shows split toggle for non-transfer transactions', () => {
     render(<OverrideEditorDialog {...defaultProps} />);
     expect(screen.getByLabelText('Split this occurrence')).toBeInTheDocument();
   });
@@ -427,11 +427,11 @@ describe('OverrideEditorDialog', () => {
     expect(screen.queryByLabelText('Split this occurrence')).not.toBeInTheDocument();
   });
 
-  it('shows split editor when split checkbox is checked', () => {
+  it('shows split editor when split toggle is enabled', () => {
     render(<OverrideEditorDialog {...defaultProps} />);
 
-    const splitCheckbox = screen.getByLabelText('Split this occurrence') as HTMLInputElement;
-    fireEvent.click(splitCheckbox);
+    const splitToggle = screen.getByLabelText('Split this occurrence') as HTMLElement;
+    fireEvent.click(splitToggle);
 
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
@@ -442,8 +442,8 @@ describe('OverrideEditorDialog', () => {
     // Category combobox should be present initially
     expect(screen.getByTestId('combobox-category')).toBeInTheDocument();
 
-    const splitCheckbox = screen.getByLabelText('Split this occurrence') as HTMLInputElement;
-    fireEvent.click(splitCheckbox);
+    const splitToggle = screen.getByLabelText('Split this occurrence') as HTMLElement;
+    fireEvent.click(splitToggle);
 
     // Category combobox should be replaced by split editor
     expect(screen.queryByTestId('combobox-category')).not.toBeInTheDocument();
@@ -490,8 +490,8 @@ describe('OverrideEditorDialog', () => {
 
     render(<OverrideEditorDialog {...defaultProps} existingOverride={existingOverride} />);
 
-    const splitCheckbox = screen.getByLabelText('Split this occurrence') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this occurrence') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -499,8 +499,8 @@ describe('OverrideEditorDialog', () => {
   it('initializes split from base split transaction', () => {
     render(<OverrideEditorDialog {...defaultProps} scheduledTransaction={splitTransaction} />);
 
-    const splitCheckbox = screen.getByLabelText('Split this occurrence') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this occurrence') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -689,6 +689,214 @@ describe('OverrideEditorDialog', () => {
         expect(toast.error).toHaveBeenCalledWith('Quantity must be greater than zero');
       });
       expect(mockCreateOverride).not.toHaveBeenCalled();
+    });
+
+    it('rejects save when price is empty for qty+price action', async () => {
+      const noPriceTx = {
+        ...investmentTransaction,
+        investmentPrice: null,
+      };
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={noPriceTx}
+        />,
+      );
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Price must be greater than zero');
+      });
+      expect(mockCreateOverride).not.toHaveBeenCalled();
+    });
+
+    it('rejects save when total amount is empty for amount-only action', async () => {
+      const dividendNoTotal = {
+        ...investmentTransaction,
+        investmentAction: 'DIVIDEND',
+        investmentQuantity: null,
+        investmentPrice: null,
+        investmentTotalAmount: null,
+      };
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={dividendNoTotal}
+        />,
+      );
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Total amount is required');
+      });
+      expect(mockCreateOverride).not.toHaveBeenCalled();
+    });
+
+    it('saves a DIVIDEND amount-only override with the total amount', async () => {
+      const dividendTx = {
+        ...investmentTransaction,
+        investmentAction: 'DIVIDEND',
+        investmentQuantity: null,
+        investmentPrice: null,
+        investmentTotalAmount: 60,
+      };
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={dividendTx}
+        />,
+      );
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(mockCreateOverride).toHaveBeenCalledWith('inv1', expect.objectContaining({
+          investmentTotalAmount: 60,
+        }));
+      });
+    });
+
+    it('renders Quantity only for a quantity-only action (ADD_SHARES)', () => {
+      const addSharesTx = {
+        ...investmentTransaction,
+        investmentAction: 'ADD_SHARES',
+        investmentQuantity: 5,
+        investmentPrice: null,
+      };
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={addSharesTx}
+        />,
+      );
+      expect(screen.getByLabelText('Quantity (shares)')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Price per share')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Total Price')).not.toBeInTheDocument();
+    });
+
+    it('edits quantity directly for a quantity-only action', () => {
+      const addSharesTx = {
+        ...investmentTransaction,
+        investmentAction: 'ADD_SHARES',
+        investmentQuantity: 5,
+        investmentPrice: null,
+      };
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={addSharesTx}
+        />,
+      );
+      const qtyInput = screen.getByLabelText('Quantity (shares)') as HTMLInputElement;
+      fireEvent.change(qtyInput, { target: { value: '12' } });
+      expect(Number(qtyInput.value)).toBe(12);
+      fireEvent.change(qtyInput, { target: { value: '' } });
+      expect(qtyInput.value).toBe('');
+    });
+
+    it('shows manual-price hint when security has no price history', async () => {
+      mockGetSecurityPrices.mockResolvedValue([]);
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={investmentTransaction}
+        />,
+      );
+      await waitFor(() => {
+        expect(
+          screen.getByText(/No price history yet for this security/),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('handles getSecurityPrices rejection without crashing', async () => {
+      mockGetSecurityPrices.mockRejectedValueOnce(new Error('network'));
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={investmentTransaction}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByLabelText('Price per share')).toBeInTheDocument();
+      });
+    });
+  });
+
+  // --- Transfer save: amount is negated ---
+  describe('transfer override save', () => {
+    it('negates the amount on save for a transfer override', async () => {
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={transferTransaction}
+        />,
+      );
+      // Amount field shows absolute value (500). Change it and save.
+      const amountInput = screen.getByLabelText('Amount') as HTMLInputElement;
+      fireEvent.change(amountInput, { target: { value: '600' } });
+      fireEvent.blur(amountInput);
+
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(mockCreateOverride).toHaveBeenCalledWith('s2', expect.objectContaining({
+          amount: -600,
+        }));
+      });
+    });
+  });
+
+  // --- prefillAmount (post-reconciliation flow) ---
+  describe('prefillAmount', () => {
+    it('seeds the Amount field from prefillAmount', () => {
+      render(<OverrideEditorDialog {...defaultProps} prefillAmount={999.5} />);
+      const amountInput = screen.getByLabelText('Amount') as HTMLInputElement;
+      expect(Number(amountInput.value)).toBe(999.5);
+    });
+
+    it('seeds and negates prefillAmount on save for a transfer', async () => {
+      render(
+        <OverrideEditorDialog
+          {...defaultProps}
+          scheduledTransaction={transferTransaction}
+          prefillAmount={123.45}
+        />,
+      );
+      // Save without touching the field: the seeded prefill amount is used,
+      // negated for the transfer.
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(mockCreateOverride).toHaveBeenCalledWith('s2', expect.objectContaining({
+          amount: -123.45,
+        }));
+      });
+    });
+  });
+
+  // --- Split override save sends serialized splits ---
+  describe('split override save', () => {
+    it('sends split data with null categoryId when split is enabled', async () => {
+      render(<OverrideEditorDialog {...defaultProps} scheduledTransaction={splitTransaction} />);
+      // Already split; save should send isSplit true and categoryId null
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(mockCreateOverride).toHaveBeenCalledWith('s3', expect.objectContaining({
+          isSplit: true,
+          categoryId: null,
+          splits: expect.any(Array),
+        }));
+      });
+    });
+  });
+
+  // --- Category selection sends categoryId ---
+  describe('category selection', () => {
+    it('sends selected categoryId on save', async () => {
+      render(<OverrideEditorDialog {...defaultProps} />);
+      const combobox = screen.getByTestId('combobox-category');
+      fireEvent.change(combobox, { target: { value: 'c2' } });
+      fireEvent.click(screen.getByText('Save Override'));
+      await waitFor(() => {
+        expect(mockCreateOverride).toHaveBeenCalledWith('s1', expect.objectContaining({
+          categoryId: 'c2',
+        }));
+      });
     });
   });
 });

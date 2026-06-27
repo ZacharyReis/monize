@@ -1,0 +1,20 @@
+{
+  "title": "Acceso de emergencia",
+  "missingToken": "Falta el token de acceso de emergencia.",
+  "previewError": "Este enlace de acceso de emergencia no es válido, ha caducado o ya fue utilizado.",
+  "linkInvalid": "El enlace ya no es válido.",
+  "backToSignIn": "Volver al inicio de sesión",
+  "ownerFallback": "el titular de la cuenta",
+  "ownerFirstNameFallback": "el titular",
+  "intro": "Hola {contactName}, fuiste designado como contacto de emergencia en la cuenta de Monize de <b>{ownerName}</b>.",
+  "introDetail": "Establecer una contraseña aquí te iniciará sesión como titular de la cuenta y te dará acceso completo a la misma. Las sesiones existentes se revocan y las credenciales anteriores se reemplazan.",
+  "messageHeading": "Mensaje de {name}",
+  "newPasswordLabel": "Nueva contraseña",
+  "confirmPasswordLabel": "Confirmar contraseña",
+  "submit": "Reclamar acceso de emergencia",
+  "toasts": {
+    "success": "Ahora tienes acceso a la cuenta de {name}.",
+    "failed": "Error al completar el reclamo de acceso de emergencia. El enlace puede haber caducado o ya haber sido utilizado."
+  },
+  "passwordsNoMatch": "Las contraseñas no coinciden"
+}

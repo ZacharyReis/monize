@@ -1,13 +1,6 @@
 'use client';
 
-const SUGGESTED_QUERIES = [
-  { label: 'Monthly spending', query: 'How much did I spend last month?' },
-  { label: 'Top categories', query: 'What are my top 5 expense categories this year?' },
-  { label: 'Account balances', query: 'What are my current account balances?' },
-  { label: 'Compare months', query: 'Compare my spending this month vs last month' },
-  { label: 'Net worth trend', query: 'Show my net worth trend for the last 12 months' },
-  { label: 'Savings rate', query: 'How much have I saved this year compared to my income?' },
-];
+import { useTranslations } from 'next-intl';
 
 interface SuggestedQueriesProps {
   onSelect: (query: string) => void;
@@ -15,6 +8,17 @@ interface SuggestedQueriesProps {
 }
 
 export function SuggestedQueries({ onSelect, disabled = false }: SuggestedQueriesProps) {
+  const t = useTranslations('ai');
+
+  const suggestions = [
+    { labelKey: 'suggestedQueries.monthlySpendingLabel', queryKey: 'suggestedQueries.monthlySpendingQuery' },
+    { labelKey: 'suggestedQueries.topCategoriesLabel', queryKey: 'suggestedQueries.topCategoriesQuery' },
+    { labelKey: 'suggestedQueries.accountBalancesLabel', queryKey: 'suggestedQueries.accountBalancesQuery' },
+    { labelKey: 'suggestedQueries.compareMonthsLabel', queryKey: 'suggestedQueries.compareMonthsQuery' },
+    { labelKey: 'suggestedQueries.netWorthTrendLabel', queryKey: 'suggestedQueries.netWorthTrendQuery' },
+    { labelKey: 'suggestedQueries.savingsRateLabel', queryKey: 'suggestedQueries.savingsRateQuery' },
+  ] as const;
+
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       <div className="mb-2">
@@ -33,27 +37,31 @@ export function SuggestedQueries({ onSelect, disabled = false }: SuggestedQuerie
         </svg>
       </div>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-        Ask about your finances
+        {t('suggestedQueries.heading')}
       </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-md">
-        I can answer questions about your spending, income, account balances, net worth, and more.
+        {t('suggestedQueries.description')}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-        {SUGGESTED_QUERIES.map((suggestion) => (
-          <button
-            key={suggestion.label}
-            onClick={() => onSelect(suggestion.query)}
-            disabled={disabled}
-            className="text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:bg-transparent"
-          >
-            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {suggestion.label}
-            </span>
-            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {suggestion.query}
-            </span>
-          </button>
-        ))}
+        {suggestions.map(({ labelKey, queryKey }) => {
+          const label = t(labelKey);
+          const query = t(queryKey);
+          return (
+            <button
+              key={labelKey}
+              onClick={() => onSelect(query)}
+              disabled={disabled}
+              className="text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 dark:disabled:hover:border-gray-700 disabled:hover:bg-transparent"
+            >
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {label}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {query}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

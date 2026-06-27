@@ -11,6 +11,7 @@ import { PersonalAccessToken } from "./entities/personal-access-token.entity";
 import { User } from "../users/entities/user.entity";
 import { CreatePatDto } from "./dto/create-pat.dto";
 import { hashToken } from "./crypto.util";
+import { tr } from "../i18n/translate";
 
 const MAX_TOKENS_PER_USER = 10;
 
@@ -37,7 +38,11 @@ export class PatService {
     });
     if (count >= MAX_TOKENS_PER_USER) {
       throw new BadRequestException(
-        `Maximum of ${MAX_TOKENS_PER_USER} active tokens per user`,
+        tr(
+          "errors.auth.maxTokensExceeded",
+          `Maximum of ${MAX_TOKENS_PER_USER} active tokens per user`,
+          { MAX_TOKENS_PER_USER },
+        ),
       );
     }
 
@@ -77,7 +82,9 @@ export class PatService {
 
   async validateToken(rawToken: string): Promise<ValidatedToken> {
     if (!rawToken || !rawToken.startsWith("pat_")) {
-      throw new UnauthorizedException("Invalid token format");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidTokenFormat", "Invalid token format"),
+      );
     }
 
     const tokenHash = hashToken(rawToken);
@@ -86,15 +93,21 @@ export class PatService {
     });
 
     if (!token) {
-      throw new UnauthorizedException("Invalid token");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidToken", "Invalid token"),
+      );
     }
 
     if (token.isRevoked) {
-      throw new UnauthorizedException("Token has been revoked");
+      throw new UnauthorizedException(
+        tr("errors.auth.tokenRevoked", "Token has been revoked"),
+      );
     }
 
     if (token.expiresAt && token.expiresAt < new Date()) {
-      throw new UnauthorizedException("Token has expired");
+      throw new UnauthorizedException(
+        tr("errors.auth.tokenExpired", "Token has expired"),
+      );
     }
 
     // SECURITY: Verify user account is active and not flagged for password change
@@ -103,10 +116,14 @@ export class PatService {
       select: ["id", "isActive", "mustChangePassword"],
     });
     if (!user || !user.isActive) {
-      throw new UnauthorizedException("User account is inactive");
+      throw new UnauthorizedException(
+        tr("errors.auth.userAccountInactive", "User account is inactive"),
+      );
     }
     if (user.mustChangePassword) {
-      throw new UnauthorizedException("Password change required");
+      throw new UnauthorizedException(
+        tr("errors.auth.passwordChangeRequired", "Password change required"),
+      );
     }
 
     await this.patRepository.update(token.id, {
@@ -125,7 +142,9 @@ export class PatService {
     });
 
     if (!token) {
-      throw new NotFoundException("Token not found");
+      throw new NotFoundException(
+        tr("errors.auth.tokenNotFound", "Token not found"),
+      );
     }
 
     await this.patRepository.update(tokenId, { isRevoked: true });

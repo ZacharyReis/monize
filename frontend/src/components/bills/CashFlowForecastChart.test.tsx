@@ -2,24 +2,74 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@/test/render';
 import { CashFlowForecastChart } from './CashFlowForecastChart';
 
+// The recharts mock invokes the Area `dot` render-prop and the Tooltip
+// `content` render-prop so the SVG min-balance callout and the tooltip
+// transaction-overflow branch are exercised by the data-driven tests below.
+// The render-prop output is exposed via test ids those tests opt into;
+// existing assertions are unaffected since the chart only renders when
+// forecast data is present.
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
+  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  Area: ({ dot, fill, stroke }: any) => (
+    <div data-testid="area" data-fill={fill} data-stroke={stroke}>
+      {typeof dot === 'function' && (
+        <svg data-testid="line-dots">
+          {dot({ cx: 50, cy: 60, index: 0 })}
+          {dot({ cx: 70, cy: 80, index: 1 })}
+        </svg>
+      )}
+    </div>
+  ),
   LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
   Line: () => <div data-testid="line" />,
   XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
+  YAxis: ({ tickFormatter }: any) => (
+    <div data-testid="y-axis">{tickFormatter ? tickFormatter(2000) : null}</div>
+  ),
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
+  Tooltip: ({ content }: any) => {
+    // The component passes `content={<CashFlowTooltip formatCurrency={...} />}`
+    // (a JSX element), so render its component type, merging the element's own
+    // props (e.g. formatCurrency) with sample tooltip data props.
+    const Comp = content?.type;
+    const tooltipProps = {
+      active: true,
+      payload: [
+        {
+          payload: {
+            label: 'Tooltip Day',
+            balance: -150,
+            transactions: [
+              { name: 'Rent', amount: -1000 },
+              { name: 'Pay', amount: 3000 },
+              { name: 'A', amount: -1 },
+              { name: 'B', amount: -2 },
+              { name: 'C', amount: -3 },
+              { name: 'D', amount: -4 },
+            ],
+          },
+        },
+      ],
+    };
+    return (
+      <div data-testid="tooltip">
+        {Comp ? <Comp {...content.props} {...tooltipProps} /> : null}
+      </div>
+    );
+  },
   ReferenceLine: () => <div data-testid="reference-line" />,
 }));
 
 const mockFormatCurrency = vi.fn((n: number, _code?: string) => `$${n.toFixed(2)}`);
 const mockFormatCurrencyAxis = vi.fn((n: number, _code?: string) => `$${n}`);
+const mockFormatCurrencyFlag = vi.fn((n: number, _code?: string) => `$${n}`);
 
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: mockFormatCurrency,
     formatCurrencyAxis: mockFormatCurrencyAxis,
+    formatCurrencyFlag: mockFormatCurrencyFlag,
   }),
 }));
 
@@ -415,6 +465,145 @@ describe('CashFlowForecastChart', () => {
         undefined,
         undefined,
       );
+    });
+  });
+
+  describe('chart render-prop and tooltip branches', () => {
+    it('marks the highest and lowest forecast points with value bubbles', () => {
+      const forecastData = [
+        { label: 'Day 1', balance: 1000, transactions: [{ amount: 0, name: 'Open' }] },
+        { label: 'Day 2', balance: -150, transactions: [{ amount: -1150, name: 'Rent' }] },
+      ];
+      mockBuildForecast.mockReturnValue(forecastData);
+      mockGetForecastSummary.mockReturnValue({
+        startingBalance: 1000,
+        endingBalance: -150,
+        minBalance: -150,
+        goesNegative: true,
+      });
+      render(
+        <CashFlowForecastChart
+          scheduledTransactions={[{} as any]}
+          accounts={[makeAccount()]}
+          isLoading={false}
+        />,
+      );
+      // The mocked Area invokes the dot render-prop for both points: the high
+      // (1000) and low (-150) each draw a callout group with the formatted
+      // label text.
+      const dots = screen.getByTestId('line-dots');
+      const labels = Array.from(dots.querySelectorAll('text')).map((node) => node.textContent);
+      expect(labels).toContain('$1000');
+      expect(labels).toContain('$-150');
+    });
+
+    it('temporarily hides a value bubble when its dismiss control is clicked', () => {
+      const forecastData = [
+        { label: 'Day 1', balance: 1000, transactions: [{ amount: 0, name: 'Open' }] },
+        { label: 'Day 2', balance: -150, transactions: [{ amount: -1150, name: 'Rent' }] },
+      ];
+      mockBuildForecast.mockReturnValue(forecastData);
+      mockGetForecastSummary.mockReturnValue({
+        startingBalance: 1000,
+        endingBalance: -150,
+        minBalance: -150,
+        goesNegative: true,
+      });
+      const { container } = render(
+        <CashFlowForecastChart
+          scheduledTransactions={[{} as any]}
+          accounts={[makeAccount()]}
+          isLoading={false}
+        />,
+      );
+      const labels = () =>
+        Array.from(
+          container.querySelectorAll('[data-testid="line-dots"] text'),
+        ).map((node) => node.textContent);
+      expect(labels()).toEqual(expect.arrayContaining(['$1000', '$-150']));
+
+      // The dot mock renders index 0 (high, $1000) first, so the first dismiss
+      // control belongs to the high bubble.
+      const closeControls = container.querySelectorAll('.chart-flag-dismiss');
+      expect(closeControls).toHaveLength(2);
+      fireEvent.click(closeControls[0]);
+
+      expect(labels()).toContain('$-150');
+      expect(labels()).not.toContain('$1000');
+    });
+
+    it('formats the bubble labels with the compact flag formatter', () => {
+      const forecastData = [
+        { label: 'Day 1', balance: 60000, transactions: [{ amount: 0, name: 'Open' }] },
+        { label: 'Day 2', balance: 5000, transactions: [{ amount: -55000, name: 'Bill' }] },
+      ];
+      mockBuildForecast.mockReturnValue(forecastData);
+      mockGetForecastSummary.mockReturnValue({
+        startingBalance: 60000,
+        endingBalance: 5000,
+        minBalance: 5000,
+        goesNegative: false,
+      });
+      mockFormatCurrencyFlag.mockClear();
+      render(
+        <CashFlowForecastChart
+          scheduledTransactions={[{} as any]}
+          accounts={[makeAccount()]}
+          isLoading={false}
+        />,
+      );
+      expect(screen.getByTestId('line-dots')).toBeInTheDocument();
+      // The high/low bubbles are labelled via the compact flag formatter.
+      expect(mockFormatCurrencyFlag).toHaveBeenCalled();
+    });
+
+    it('shades the area under the line with the zero-anchored balance gradient', () => {
+      const forecastData = [
+        { label: 'Day 1', balance: 1000, transactions: [{ amount: 0, name: 'Open' }] },
+        { label: 'Day 2', balance: -150, transactions: [{ amount: -1150, name: 'Rent' }] },
+      ];
+      mockBuildForecast.mockReturnValue(forecastData);
+      mockGetForecastSummary.mockReturnValue({
+        startingBalance: 1000,
+        endingBalance: -150,
+        minBalance: -150,
+        goesNegative: true,
+      });
+      render(
+        <CashFlowForecastChart
+          scheduledTransactions={[{} as any]}
+          accounts={[makeAccount()]}
+          isLoading={false}
+        />,
+      );
+      const area = screen.getByTestId('area');
+      expect(area.getAttribute('data-fill')).toBe('url(#forecastBalance)');
+      expect(area.getAttribute('data-stroke')).toBe('var(--chart-primary)');
+    });
+
+    it('renders the tooltip content with a transaction overflow indicator', () => {
+      const forecastData = [
+        { label: 'Day 1', balance: 1000, transactions: [{ amount: -100, name: 'Bill' }] },
+        { label: 'Day 2', balance: 800, transactions: [{ amount: -200, name: 'Bill 2' }] },
+      ];
+      mockBuildForecast.mockReturnValue(forecastData);
+      mockGetForecastSummary.mockReturnValue({
+        startingBalance: 1000,
+        endingBalance: 800,
+        minBalance: 800,
+        goesNegative: false,
+      });
+      render(
+        <CashFlowForecastChart
+          scheduledTransactions={[{} as any]}
+          accounts={[makeAccount()]}
+          isLoading={false}
+        />,
+      );
+      // The mocked Tooltip renders content with 6 transactions, so the
+      // "+1 more" overflow line (component lines ~78-83) renders.
+      expect(screen.getByText(/\+1 more/)).toBeInTheDocument();
+      expect(screen.getByText('Tooltip Day')).toBeInTheDocument();
     });
   });
 });

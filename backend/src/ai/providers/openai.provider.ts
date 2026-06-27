@@ -8,8 +8,14 @@ import {
   AiToolResponse,
   AiToolStreamChunk,
   AiMessage,
+  AiContentBlock,
   ModelVerificationResult,
 } from "./ai-provider.interface";
+import {
+  contentToPlainText,
+  isContentBlocks,
+  unsupportedAttachmentNote,
+} from "./content-blocks.util";
 import { longRunningFetch } from "./long-running-fetch";
 
 export class OpenAiProvider implements AiProvider {
@@ -41,7 +47,10 @@ export class OpenAiProvider implements AiProvider {
 
     for (const msg of messages) {
       if (msg.role === "user") {
-        result.push({ role: "user", content: msg.content });
+        result.push({
+          role: "user",
+          content: this.mapUserContent(msg.content),
+        });
       } else if (msg.role === "assistant") {
         if (msg.toolCalls && msg.toolCalls.length > 0) {
           result.push({
@@ -71,6 +80,35 @@ export class OpenAiProvider implements AiProvider {
     return result;
   }
 
+  /**
+   * Map a user turn's content to OpenAI's native shape. Plain strings pass
+   * through; multimodal blocks become content parts. Images map to `image_url`
+   * data URLs. OpenAI's chat.completions has no portable PDF-input path, so a
+   * `document` block degrades to a text note telling the model what happened.
+   */
+  private mapUserContent(
+    content: string | AiContentBlock[],
+  ): OpenAI.ChatCompletionUserMessageParam["content"] {
+    if (!isContentBlocks(content)) {
+      return content;
+    }
+    return content.map((block): OpenAI.ChatCompletionContentPart => {
+      if (block.type === "image") {
+        return {
+          type: "image_url",
+          image_url: { url: `data:${block.mediaType};base64,${block.data}` },
+        };
+      }
+      if (block.type === "document") {
+        return {
+          type: "text",
+          text: unsupportedAttachmentNote("PDF", block.filename, this.name),
+        };
+      }
+      return { type: "text", text: block.text };
+    });
+  }
+
   private toSimpleMessages(
     messages: AiMessage[],
     systemPrompt: string,
@@ -81,7 +119,7 @@ export class OpenAiProvider implements AiProvider {
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({
           role: m.role as "user" | "assistant",
-          content: m.content,
+          content: contentToPlainText(m.content),
         })),
     ];
   }

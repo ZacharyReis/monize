@@ -16,6 +16,7 @@ import { User } from "../../users/entities/user.entity";
 import { UserPreference } from "../../users/entities/user-preference.entity";
 import { TwoFactorService } from "../two-factor.service";
 import type { StepUpPurpose } from "./dto/verify-step-up.dto";
+import { tr } from "../../i18n/translate";
 
 interface VerifyArgs {
   password?: string;
@@ -73,13 +74,18 @@ export class StepUpAuthService {
         `Step-up rejected: too many attempts for user ${userId} purpose ${purpose}`,
       );
       throw new UnauthorizedException(
-        "Too many verification attempts. Please try again later.",
+        tr(
+          "errors.auth.stepUpTooManyAttempts",
+          "Too many verification attempts. Please try again later.",
+        ),
       );
     }
 
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.auth.userNotFound", "User not found"),
+      );
     }
 
     const preferences = await this.preferencesRepository.findOne({
@@ -146,7 +152,12 @@ export class StepUpAuthService {
         `Step-up verification failed for user ${userId} purpose ${purpose}`,
       );
       throw new UnauthorizedException(
-        twoFactorEnabled ? "Invalid authenticator code" : "Incorrect password",
+        twoFactorEnabled
+          ? tr(
+              "errors.auth.invalidAuthenticatorCode",
+              "Invalid authenticator code",
+            )
+          : tr("errors.auth.incorrectPassword", "Incorrect password"),
       );
     }
 

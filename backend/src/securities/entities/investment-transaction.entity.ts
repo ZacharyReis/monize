@@ -65,6 +65,14 @@ export class InvestmentTransaction {
   @Column({ type: "uuid", name: "transaction_split_id", nullable: true })
   transactionSplitId: string | null;
 
+  @ApiProperty({
+    required: false,
+    description:
+      "When set, links the two legs of a security transfer (TRANSFER_OUT <-> TRANSFER_IN). Editing or deleting one leg cascades to the other.",
+  })
+  @Column({ type: "uuid", name: "linked_transaction_id", nullable: true })
+  linkedTransactionId: string | null;
+
   @ApiProperty({ required: false })
   @Column({ type: "uuid", name: "security_id", nullable: true })
   securityId: string | null;

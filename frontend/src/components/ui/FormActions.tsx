@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { Button } from './Button';
 import { cn } from '@/lib/utils';
 
@@ -14,11 +17,13 @@ interface FormActionsProps {
  */
 export function FormActions({
   onCancel,
-  submitLabel = 'Save',
+  submitLabel,
   isSubmitting = false,
   submitDisabled = false,
   className,
 }: FormActionsProps) {
+  const t = useTranslations('common');
+  const resolvedSubmitLabel = submitLabel ?? t('formActions.save');
   return (
     <div className={cn('flex justify-end space-x-3 pt-4', className)}>
       {onCancel && (
@@ -28,11 +33,11 @@ export function FormActions({
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('formActions.cancel')}
         </Button>
       )}
       <Button type="submit" isLoading={isSubmitting} disabled={submitDisabled || isSubmitting}>
-        {submitLabel}
+        {resolvedSubmitLabel}
       </Button>
     </div>
   );

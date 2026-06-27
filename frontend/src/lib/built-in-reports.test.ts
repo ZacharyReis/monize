@@ -114,4 +114,13 @@ describe('builtInReportsApi', () => {
       params: { ...params, sensitivity: 'high' },
     });
   });
+
+  it('getMonthlyComparison fetches with the month param and returns data', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { month: '2024-03', categories: [] } });
+    const result = await builtInReportsApi.getMonthlyComparison('2024-03');
+    expect(apiClient.get).toHaveBeenCalledWith('/built-in-reports/monthly-comparison', {
+      params: { month: '2024-03' },
+    });
+    expect(result).toEqual({ month: '2024-03', categories: [] });
+  });
 });

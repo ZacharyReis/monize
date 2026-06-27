@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { delegationApi } from '@/lib/delegation';
@@ -13,6 +14,7 @@ const logger = createLogger('DelegationBanner');
  * (Phase 1, req 1G/1H). Renders nothing for normal users with no delegations.
  */
 export function DelegationBanner() {
+  const t = useTranslations('layout');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const actingAsUserId = useAuthStore((s) => s.actingAsUserId);
   const availableContexts = useAuthStore((s) => s.availableContexts);
@@ -35,15 +37,13 @@ export function DelegationBanner() {
           ? (err as { response?: { status?: number; data?: { message?: string } } }).response
           : undefined;
       if (status?.data?.message === 'DELEGATE_2FA_REQUIRED') {
-        toast.error(
-          'That account requires two-factor authentication. Set up 2FA in Settings before switching.',
-        );
+        toast.error(t('delegationBanner.error2fa'));
       } else {
-        toast.error('Unable to switch account');
+        toast.error(t('delegationBanner.errorSwitch'));
       }
       logger.error(err);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -91,8 +91,8 @@ export function DelegationBanner() {
     ? current.label
     : actingAsUserId
       ? availableContexts.find((c) => c.userId === actingAsUserId)?.label ??
-        'Shared account'
-      : 'Your account';
+        t('delegationBanner.sharedAccount')
+      : t('delegationBanner.yourAccount');
 
   return (
     <div
@@ -119,13 +119,13 @@ export function DelegationBanner() {
         />
       </svg>
       <span className="text-amber-700 dark:text-amber-300/90 truncate min-w-0 flex items-center gap-2">
-        Viewing:
+        {t('delegationBanner.viewing')}
         <span className="inline-flex items-center max-w-[40vw] sm:max-w-xs truncate rounded-full bg-amber-200/70 dark:bg-amber-800/50 text-amber-900 dark:text-amber-100 font-medium px-2.5 py-0.5">
           {currentLabel}
         </span>
       </span>
       <label className="sr-only" htmlFor="delegation-context-select">
-        Switch account
+        {t('delegationBanner.switchAccountLabel')}
       </label>
       <select
         id="delegation-context-select"
@@ -138,7 +138,7 @@ export function DelegationBanner() {
       >
         {availableContexts.map((c) => (
           <option key={c.userId} value={c.userId}>
-            {c.isSelf ? `${c.label} (you)` : c.label}
+            {c.isSelf ? t('delegationBanner.selfSuffix', { label: c.label }) : c.label}
           </option>
         ))}
       </select>

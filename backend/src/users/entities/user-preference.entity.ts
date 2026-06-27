@@ -26,6 +26,9 @@ export class UserPreference {
   @Column({ default: "light" })
   theme: string;
 
+  @Column({ name: "color_theme", length: 20, default: "default" })
+  colorTheme: string;
+
   @Column({ default: "browser" })
   timezone: string;
 
@@ -99,6 +102,14 @@ export class UserPreference {
     default: 5,
   })
   recentTransactionsLimit: number;
+
+  // Opt-in: show the app-wide floating AI chat bubble. Default off so the
+  // bubble only appears for users who enable it in AI Settings.
+  @Column({ name: "ai_bubble_enabled", default: false })
+  aiBubbleEnabled: boolean;
+
+  @Column({ length: 10, default: "en" })
+  language: string;
 
   // Set opportunistically by RequestContextInterceptor when an authenticated
   // request carries an X-Client-Timezone header. Cron jobs prefer the user's

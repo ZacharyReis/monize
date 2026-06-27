@@ -1,0 +1,132 @@
+{
+  "demoBanner": {
+    "label": "[XX-Demo Mode-XX]",
+    "message": "[XX-All data resets daily at 4:00 AM UTC. Explore freely!-XX]"
+  },
+  "delegationBanner": {
+    "viewing": "[XX-Viewing:-XX]",
+    "sharedAccount": "[XX-Shared account-XX]",
+    "yourAccount": "[XX-Your account-XX]",
+    "switchAccountLabel": "[XX-Switch account-XX]",
+    "selfSuffix": "[XX-{label} (you)-XX]",
+    "error2fa": "[XX-That account requires two-factor authentication. Set up 2FA in Settings before switching.-XX]",
+    "errorSwitch": "[XX-Unable to switch account-XX]"
+  },
+  "backendDownBanner": {
+    "connectionBlockedLabel": "[XX-Connection Blocked-XX]",
+    "connectionBlockedDetail": "[XX-Security headers are blocking requests over plain HTTP.-XX]",
+    "connectionLostLabel": "[XX-Connection Lost-XX]",
+    "connectionLostDetail": "[XX-Unable to reach the server. Retrying automatically...-XX]",
+    "httpsHint": "[XX-Set <code>DISABLE_HTTPS_HEADERS=true</code> in your environment or access the site over HTTPS.-XX]"
+  },
+  "httpWarningBanner": {
+    "label": "[XX-HTTPS Required-XX]",
+    "detail": "[XX-Security headers are active but this site is being accessed over plain HTTP. API requests may fail.-XX]",
+    "httpsHint": "[XX-Set <code>DISABLE_HTTPS_HEADERS=true</code> in your environment or access the site over HTTPS.-XX]",
+    "dismiss": "[XX-Dismiss-XX]",
+    "dismissAriaLabel": "[XX-Dismiss HTTPS warning-XX]"
+  },
+  "updateBanner": {
+    "availableWithVersion": "[XX-Monize v{version} is available-XX]",
+    "availableGeneric": "[XX-A new version of Monize is available-XX]",
+    "runningVersion": "[XX-(running v{version})-XX]",
+    "releaseNotes": "[XX-Release notes-XX]",
+    "dismiss": "[XX-Dismiss-XX]",
+    "dismissAriaLabel": "[XX-Dismiss update notification-XX]"
+  },
+  "actionHistory": {
+    "title": "[XX-Action History-XX]",
+    "buttonAriaLabel": "[XX-Action History-XX]",
+    "closeAriaLabel": "[XX-Close-XX]",
+    "undo": "[XX-Undo-XX]",
+    "redo": "[XX-Redo-XX]",
+    "noRecentActions": "[XX-No recent actions-XX]",
+    "undoneLabel": "[XX-Undone-XX]",
+    "nothingToUndo": "[XX-Nothing to undo-XX]",
+    "nothingToRedo": "[XX-Nothing to redo-XX]",
+    "cannotUndoDefault": "[XX-Cannot undo this action-XX]",
+    "cannotRedoDefault": "[XX-Cannot redo this action-XX]",
+    "undoFailed": "[XX-Undo failed-XX]",
+    "redoFailed": "[XX-Redo failed-XX]",
+    "entityLabels": {
+      "transaction": "[XX-Transaction-XX]",
+      "transfer": "[XX-Transfer-XX]",
+      "investment_transaction": "[XX-Investment-XX]",
+      "bulk_transaction": "[XX-Bulk-XX]",
+      "category": "[XX-Category-XX]",
+      "payee": "[XX-Payee-XX]",
+      "tag": "[XX-Tag-XX]",
+      "account": "[XX-Account-XX]",
+      "scheduled_transaction": "[XX-Scheduled-XX]",
+      "security": "[XX-Security-XX]",
+      "budget": "[XX-Budget-XX]",
+      "custom_report": "[XX-Report-XX]"
+    },
+    "actionLabels": {
+      "BUY": "[XX-Buy-XX]",
+      "SELL": "[XX-Sell-XX]",
+      "DIVIDEND": "[XX-Dividend-XX]",
+      "INTEREST": "[XX-Interest-XX]",
+      "CAPITAL_GAIN": "[XX-Capital Gain-XX]",
+      "SPLIT": "[XX-Split-XX]",
+      "TRANSFER_IN": "[XX-Transfer In-XX]",
+      "TRANSFER_OUT": "[XX-Transfer Out-XX]",
+      "REINVEST": "[XX-Reinvest-XX]",
+      "ADD_SHARES": "[XX-Add Shares-XX]",
+      "REMOVE_SHARES": "[XX-Remove Shares-XX]"
+    },
+    "descriptions": {
+      "createdAccount": "[XX-Created account \"{name}\"-XX]",
+      "updatedAccount": "[XX-Updated account \"{name}\"-XX]",
+      "deletedAccount": "[XX-Deleted account \"{name}\"-XX]",
+      "createdBudget": "[XX-Created budget \"{name}\"-XX]",
+      "updatedBudget": "[XX-Updated budget \"{name}\"-XX]",
+      "deletedBudget": "[XX-Deleted budget \"{name}\"-XX]",
+      "createdCategory": "[XX-Created category \"{name}\"-XX]",
+      "updatedCategory": "[XX-Updated category \"{name}\"-XX]",
+      "deletedCategory": "[XX-Deleted category \"{name}\"-XX]",
+      "createdInstitution": "[XX-Created institution \"{name}\"-XX]",
+      "updatedInstitution": "[XX-Updated institution \"{name}\"-XX]",
+      "deletedInstitution": "[XX-Deleted institution \"{name}\"-XX]",
+      "createdInvestmentReport": "[XX-Created investment report \"{name}\"-XX]",
+      "updatedInvestmentReport": "[XX-Updated investment report \"{name}\"-XX]",
+      "deletedInvestmentReport": "[XX-Deleted investment report \"{name}\"-XX]",
+      "createdPayee": "[XX-Created payee \"{name}\"-XX]",
+      "updatedPayee": "[XX-Updated payee \"{name}\"-XX]",
+      "deletedPayee": "[XX-Deleted payee \"{name}\"-XX]",
+      "createdReport": "[XX-Created report \"{name}\"-XX]",
+      "updatedReport": "[XX-Updated report \"{name}\"-XX]",
+      "deletedReport": "[XX-Deleted report \"{name}\"-XX]",
+      "createdScheduledTransaction": "[XX-Created scheduled transaction \"{name}\"-XX]",
+      "updatedScheduledTransaction": "[XX-Updated scheduled transaction \"{name}\"-XX]",
+      "deletedScheduledTransaction": "[XX-Deleted scheduled transaction \"{name}\"-XX]",
+      "createdSecurity": "[XX-Created security \"{symbol}\"-XX]",
+      "updatedSecurity": "[XX-Updated security \"{symbol}\"-XX]",
+      "deletedSecurity": "[XX-Deleted security \"{symbol}\"-XX]",
+      "createdTag": "[XX-Created tag \"{name}\"-XX]",
+      "updatedTag": "[XX-Updated tag \"{name}\"-XX]",
+      "deletedTag": "[XX-Deleted tag \"{name}\"-XX]",
+      "createdTransaction": "[XX-Created transaction {payee} {amount}-XX]",
+      "updatedTransaction": "[XX-Updated transaction {payee} {amount}-XX]",
+      "deletedTransaction": "[XX-Deleted transaction {payee} {amount}-XX]",
+      "createdTransfer": "[XX-Created transfer {amount} from {from} to {to}-XX]",
+      "createdInvestmentTransaction": "[XX-Created {action} transaction-XX]",
+      "updatedInvestmentTransaction": "[XX-Updated {action} transaction-XX]",
+      "deletedInvestmentTransaction": "[XX-Deleted {action} transaction-XX]",
+      "transferredSecurity": "[XX-Transferred security between accounts-XX]",
+      "updatedSecurityTransfer": "[XX-Updated security transfer-XX]"
+    },
+    "timeAgo": {
+      "justNow": "[XX-just now-XX]",
+      "minutes": "[XX-{count}m ago-XX]",
+      "hours": "[XX-{count}h ago-XX]",
+      "days": "[XX-{count}d ago-XX]"
+    },
+    "undonePrefix": "[XX-Undone: {description}-XX]",
+    "redonePrefix": "[XX-Redone: {description}-XX]"
+  },
+  "pageHeader": {
+    "helpAriaLabel": "[XX-Open the Monize wiki for help with this section-XX]",
+    "helpTooltip": "[XX-Open the Monize wiki for help with this section-XX]"
+  }
+}

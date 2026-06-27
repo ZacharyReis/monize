@@ -1,0 +1,58 @@
+{
+  "title": "Uzgodnij konto",
+  "subtitle": "Porównaj swoje zapisy z wyciągiem bankowym",
+  "subtitleActive": "Uzgadnianie: {name}",
+  "setup": {
+    "title": "Rozpocznij uzgadnianie",
+    "intro": "Uzgodnij swoje konto z wyciągiem bankowym, aby upewnić się, że zapisy się zgadzają.",
+    "accountLabel": "Konto",
+    "accountPlaceholder": "Wybierz konto...",
+    "statementDateLabel": "Data wyciągu",
+    "statementBalanceLabel": "Saldo końcowe wyciągu",
+    "start": "Rozpocznij uzgadnianie"
+  },
+  "summary": {
+    "statementBalance": "Saldo wyciągu",
+    "reconciledBalance": "Saldo uzgodnione",
+    "selected": "Wybrano ({count})",
+    "difference": "Różnica"
+  },
+  "list": {
+    "heading": "Nieuzgodnione transakcje ({count})",
+    "selectAll": "Zaznacz wszystko",
+    "selectNone": "Odznacz wszystkie",
+    "empty": "Nie znaleziono nieuzgodnionych transakcji w tym okresie.",
+    "colSelect": "Zaznacz",
+    "colDate": "Data",
+    "colPayee": "Odbiorca",
+    "colCategory": "Kategoria",
+    "colAmount": "Kwota",
+    "colStatus": "Status",
+    "finish": "Zakończ uzgadnianie"
+  },
+  "status": {
+    "cleared": "Rozliczona",
+    "unreconciled": "Nieuzgodniona",
+    "void": "Anulowana",
+    "reconciled": "Uzgodniona"
+  },
+  "complete": {
+    "title": "Uzgadnianie zakończone",
+    "message": "Twoje konto zostało pomyślnie uzgodnione na dzień {date}.",
+    "existingPayment": "To konto ma zaplanowaną płatność, <b>{name}</b>. Czy chcesz zaktualizować jej następne wystąpienie do uzgodnionego salda <b>{amount}</b>?",
+    "updatePayment": "Zaktualizuj kolejną płatność",
+    "noPayment": "Nie znaleziono zaplanowanej płatności dla tego konta. Czy chcesz utworzyć płatność dla uzgodnionego salda <b>{amount}</b>?",
+    "createPayment": "Utwórz zaplanowaną płatność",
+    "backToAccounts": "Powrót do kont",
+    "reconcileAnother": "Uzgodnij kolejne konto"
+  },
+  "toasts": {
+    "loadAccountsFailed": "Nie udało się wczytać kont",
+    "fillAllFields": "Wypełnij wszystkie pola",
+    "loadDataFailed": "Nie udało się wczytać danych do uzgodnienia",
+    "differenceRequired": "Aby zakończyć uzgadnianie, różnica musi wynosić {amount}",
+    "noneSelected": "Nie wybrano transakcji do uzgodnienia",
+    "success": "{count, plural, one {Pomyślnie uzgodniono # transakcję} few {Pomyślnie uzgodniono # transakcje} many {Pomyślnie uzgodniono # transakcji} other {Pomyślnie uzgodniono # transakcji}}",
+    "reconcileFailed": "Nie udało się uzgodnić transakcji"
+  }
+}

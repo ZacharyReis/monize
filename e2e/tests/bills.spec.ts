@@ -1,127 +1,130 @@
-import { test, expect } from '@playwright/test';
-import { registerUser } from '../helpers/auth';
+import { test, expect } from '../fixtures';
+import {
+  createAccount,
+  createScheduledTransaction,
+} from '../helpers/factories';
+import { uniqueId } from '../helpers/api';
 
+// Full CRUD matrix for Bills & Deposits (scheduled transactions). Preconditions
+// seeded via the API; behaviour driven through the UI. Account is required, so
+// each test that needs one seeds it first.
 test.describe('Bills & Deposits', () => {
-  test.beforeEach(async ({ page }) => {
-    await registerUser(page);
-  });
-
-  test('can navigate to bills page', async ({ page }) => {
+  test('navigates to the bills page', async ({ authedPage: page }) => {
     await page.goto('/bills');
-
-    // Should show the bills page header
     await expect(page.locator('body')).toContainText(/bills & deposits/i);
   });
 
-  test('can create a new scheduled transaction', async ({ page }) => {
-    // First create an account to use in the scheduled transaction
-    await page.goto('/accounts');
-    const newAccountButton = page.getByRole('button', { name: /new account|add account/i });
-    if (await newAccountButton.isVisible()) {
-      await newAccountButton.click();
-      await page.getByLabel(/name/i).first().fill('E2E Bills Account');
-      await page.getByRole('button', { name: /save|create/i }).click();
-      await page.waitForTimeout(2000);
-    }
+  test('creates a scheduled transaction through the UI', async ({ authedPage: page, api }) => {
+    await createAccount(api, { name: `Bills Account ${uniqueId()}` });
+    const name = `E2E Rent ${uniqueId()}`;
 
-    // Navigate to the bills page
     await page.goto('/bills');
-    await expect(page.locator('body')).toContainText(/bills & deposits/i);
+    await page.getByRole('button', { name: /new schedule/i }).click();
 
-    // Click the new schedule button
-    const newScheduleButton = page.getByRole('button', { name: /new schedule/i });
-    await expect(newScheduleButton).toBeVisible();
-    await newScheduleButton.click();
-
-    // The form modal should appear
+    const dialog = page.getByRole('dialog');
     await expect(
-      page.getByText(/new scheduled transaction/i).first(),
+      dialog.getByText(/new scheduled transaction/i).first(),
     ).toBeVisible({ timeout: 10000 });
+    await dialog.getByLabel(/^name$/i).first().fill(name);
+    // First real option after the "Select account..." placeholder.
+    await dialog.getByLabel(/^account$/i).first().selectOption({ index: 1 });
+    await dialog.getByLabel(/amount/i).first().fill('1500');
+    await dialog.getByRole('button', { name: /^create$/i }).first().click();
 
-    // Fill in the scheduled transaction form
-    await page.getByLabel(/name/i).first().fill('E2E Monthly Rent');
-
-    // Select account
-    const accountSelect = page.getByLabel(/account/i).first();
-    if (await accountSelect.isVisible()) {
-      await accountSelect.selectOption({ label: /E2E Bills Account/i });
-    }
-
-    // Fill amount
-    const amountField = page.getByLabel(/amount/i).first();
-    if (await amountField.isVisible()) {
-      await amountField.fill('-1500');
-    }
-
-    // Fill due date
-    const dueDateField = page.getByLabel(/due date/i).first();
-    if (await dueDateField.isVisible()) {
-      const today = new Date().toISOString().split('T')[0];
-      await dueDateField.fill(today);
-    }
-
-    // Submit the form
-    const saveButton = page.getByRole('button', { name: /save|create/i }).first();
-    if (await saveButton.isVisible()) {
-      await saveButton.click();
-      await page.waitForTimeout(2000);
-    }
-
-    // Verify the scheduled transaction appears in the list
-    await expect(page.locator('body')).toContainText('E2E Monthly Rent');
+    await expect(page.locator('tr', { hasText: name })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('tr', { hasText: name })).toBeVisible();
   });
 
-  test('shows summary cards', async ({ page }) => {
+  test('lists scheduled transactions seeded via the API', async ({ authedPage: page, api }) => {
+    const account = await createAccount(api);
+    const rent = await createScheduledTransaction(api, {
+      accountId: account.id,
+      name: `Rent ${uniqueId()}`,
+    });
+    const salary = await createScheduledTransaction(api, {
+      accountId: account.id,
+      name: `Salary ${uniqueId()}`,
+      amount: 2000,
+    });
+
     await page.goto('/bills');
 
-    // Should display the summary cards
+    await expect(page.locator('tr', { hasText: rent.name })).toBeVisible();
+    await expect(page.locator('tr', { hasText: salary.name })).toBeVisible();
+  });
+
+  test('edits a scheduled transaction through the UI', async ({ authedPage: page, api }) => {
+    const account = await createAccount(api);
+    const sched = await createScheduledTransaction(api, {
+      accountId: account.id,
+      name: `Edit Me ${uniqueId()}`,
+    });
+    const newName = `Edited ${uniqueId()}`;
+
+    await page.goto('/bills');
+    await page
+      .locator('tr', { hasText: sched.name })
+      .getByTitle('Edit schedule')
+      .click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(
+      dialog.getByText(/edit scheduled transaction/i).first(),
+    ).toBeVisible({ timeout: 10000 });
+    await dialog.getByLabel(/^name$/i).first().fill(newName);
+    await dialog.getByRole('button', { name: /^update$/i }).first().click();
+
+    await expect(page.locator('tr', { hasText: newName })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('tr', { hasText: newName })).toBeVisible();
+    await expect(page.locator('tr', { hasText: sched.name })).toHaveCount(0);
+  });
+
+  test('deletes a scheduled transaction through the UI', async ({ authedPage: page, api }) => {
+    const account = await createAccount(api);
+    const sched = await createScheduledTransaction(api, {
+      accountId: account.id,
+      name: `Delete Me ${uniqueId()}`,
+    });
+
+    await page.goto('/bills');
+    await page
+      .locator('tr', { hasText: sched.name })
+      .getByTitle('Delete')
+      .click();
+
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+
+    await expect(page.locator('tr', { hasText: sched.name })).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('tr', { hasText: sched.name })).toHaveCount(0);
+  });
+
+  test('shows summary cards', async ({ authedPage: page }) => {
+    await page.goto('/bills');
+
     await expect(page.getByText(/active bills/i).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/active deposits/i).first()).toBeVisible();
     await expect(page.getByText(/monthly net/i).first()).toBeVisible();
     await expect(page.getByText(/due now/i).first()).toBeVisible();
   });
 
-  test('can switch to calendar view', async ({ page }) => {
+  test('switches to calendar view', async ({ authedPage: page }) => {
     await page.goto('/bills');
 
-    // Should see the list and calendar view toggle buttons
     const calendarButton = page.getByRole('button', { name: /calendar/i });
     await expect(calendarButton).toBeVisible({ timeout: 10000 });
-
-    // Click on the Calendar tab
     await calendarButton.click();
 
-    // Calendar should render with day-of-week headers
-    await expect(page.getByText('Sun')).toBeVisible();
-    await expect(page.getByText('Mon')).toBeVisible();
-    await expect(page.getByText('Tue')).toBeVisible();
-    await expect(page.getByText('Wed')).toBeVisible();
-    await expect(page.getByText('Thu')).toBeVisible();
-    await expect(page.getByText('Fri')).toBeVisible();
-    await expect(page.getByText('Sat')).toBeVisible();
-
-    // Calendar should show a Today button
+    // Exact matching so short labels like "Mon" don't collide with
+    // "Monize" / "Monthly Net".
+    await expect(page.getByText('Sun', { exact: true })).toBeVisible();
+    await expect(page.getByText('Mon', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sat', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /today/i })).toBeVisible();
-  });
-
-  test('can switch between list and calendar views', async ({ page }) => {
-    await page.goto('/bills');
-
-    // Start in list view
-    const listButton = page.getByRole('button', { name: /^list$/i });
-    const calendarButton = page.getByRole('button', { name: /calendar/i });
-
-    await expect(listButton).toBeVisible({ timeout: 10000 });
-    await expect(calendarButton).toBeVisible();
-
-    // Switch to calendar
-    await calendarButton.click();
-    await expect(page.getByText('Sun')).toBeVisible();
-
-    // Switch back to list
-    await listButton.click();
-
-    // Filter buttons should be visible in list mode
-    await expect(page.getByRole('button', { name: /all/i }).first()).toBeVisible();
   });
 });

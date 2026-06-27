@@ -4,6 +4,9 @@ import {
   buildAccountFilterLabel,
   formatAccountType,
   isInvestmentBrokerageAccount,
+  isInvestmentCashHalf,
+  getMainAccountName,
+  maskAccountNumber,
 } from './account-utils';
 import { Account } from '@/types/account';
 
@@ -11,7 +14,7 @@ function makeAccount(overrides: Partial<Account> & { id: string; name: string })
   return {
     userId: 'u1', accountType: 'CHEQUING', accountSubType: null,
     linkedAccountId: null, description: null, currencyCode: 'CAD',
-    accountNumber: null, institution: null, openingBalance: 0, currentBalance: 0,
+    accountNumber: null, institution: null, institutionId: null, openingBalance: 0, currentBalance: 0,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false,
     statementDueDay: null, statementSettlementDay: null,
@@ -267,5 +270,104 @@ describe('buildAccountFilterLabel', () => {
 
   it('ignores selections for accounts not in the available list', () => {
     expect(buildAccountFilterLabel(['99'], accounts)).toBe('All Accounts');
+  });
+});
+
+describe('isInvestmentCashHalf', () => {
+  it('returns true for the cash half of a linked pair', () => {
+    const cash = makeAccount({
+      id: 'c1', name: 'TFSA - Cash',
+      accountType: 'INVESTMENT', accountSubType: 'INVESTMENT_CASH',
+      linkedAccountId: 'b1',
+    });
+    expect(isInvestmentCashHalf(cash)).toBe(true);
+  });
+
+  it('returns false for the brokerage half', () => {
+    const brokerage = makeAccount({
+      id: 'b1', name: 'TFSA - Brokerage',
+      accountType: 'INVESTMENT', accountSubType: 'INVESTMENT_BROKERAGE',
+      linkedAccountId: 'c1',
+    });
+    expect(isInvestmentCashHalf(brokerage)).toBe(false);
+  });
+
+  it('returns false for a cash account with no linked partner', () => {
+    const cash = makeAccount({
+      id: 'c2', name: 'Standalone',
+      accountType: 'INVESTMENT', accountSubType: 'INVESTMENT_CASH',
+      linkedAccountId: null,
+    });
+    expect(isInvestmentCashHalf(cash)).toBe(false);
+  });
+
+  it('returns false for a plain account', () => {
+    expect(isInvestmentCashHalf(makeAccount({ id: 'p', name: 'Chequing' }))).toBe(
+      false,
+    );
+  });
+});
+
+describe('getMainAccountName', () => {
+  it('strips a trailing " - Brokerage" suffix', () => {
+    expect(getMainAccountName('TFSA - Brokerage')).toBe('TFSA');
+  });
+
+  it('strips a trailing " - Cash" suffix', () => {
+    expect(getMainAccountName('TFSA - Cash')).toBe('TFSA');
+  });
+
+  it('leaves a plain account name untouched', () => {
+    expect(getMainAccountName('Chequing')).toBe('Chequing');
+  });
+
+  it('only strips the suffix at the end of the name', () => {
+    expect(getMainAccountName('Cash - Reserve')).toBe('Cash - Reserve');
+  });
+
+  it('strips a localized suffix when supplied', () => {
+    expect(getMainAccountName('TFSA - Bargeld', ['Maklerkonto', 'Bargeld'])).toBe(
+      'TFSA',
+    );
+  });
+
+  it('still strips the English suffix even when localized words are supplied', () => {
+    expect(getMainAccountName('TFSA - Cash', ['Maklerkonto', 'Bargeld'])).toBe(
+      'TFSA',
+    );
+  });
+
+  it('escapes regex metacharacters in localized suffixes', () => {
+    expect(getMainAccountName('TFSA - (Cash)', ['(Cash)'])).toBe('TFSA');
+  });
+});
+
+describe('maskAccountNumber', () => {
+  it('keeps the first and last four digits of a credit-card number', () => {
+    expect(maskAccountNumber('4111111111111234', true)).toBe('4111••••••••1234');
+  });
+
+  it('keeps only the last four digits of a non-credit-card number', () => {
+    expect(maskAccountNumber('12345678', false)).toBe('••••5678');
+  });
+
+  it('preserves separators while masking the digits between the windows', () => {
+    expect(maskAccountNumber('4111 1111 1111 1234', true)).toBe('4111 •••• •••• 1234');
+    expect(maskAccountNumber('1234-5678-9012', false)).toBe('••••-••••-9012');
+  });
+
+  it('masks every digit when the number is too short to reveal a window', () => {
+    // Non-credit-card: revealing the last four would expose all four.
+    expect(maskAccountNumber('1234', false)).toBe('••••');
+    // Credit-card: revealing first and last four would expose all eight.
+    expect(maskAccountNumber('12345678', true)).toBe('••••••••');
+  });
+
+  it('ignores surrounding whitespace', () => {
+    expect(maskAccountNumber('  987654321  ', false)).toBe('•••••4321');
+  });
+
+  it('returns an empty string for an empty value', () => {
+    expect(maskAccountNumber('', false)).toBe('');
   });
 });

@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import * as bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import { createGzip, gunzipSync, gzipSync } from "zlib";
 import { User } from "../users/entities/user.entity";
 import { OidcService } from "../auth/oidc/oidc.service";
@@ -18,6 +19,7 @@ import {
   isEncryptedBackup,
   BackupDecryptionError,
 } from "./backup-crypto.util";
+import { tr } from "../i18n/translate";
 
 export interface RestoreBackupInput {
   compressedData: Buffer;
@@ -37,6 +39,9 @@ export class BackupPasswordRequiredError extends BadRequestException {
 
 const BACKUP_VERSION = 1;
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface BackupData {
   version: number;
   exportedAt: string;
@@ -46,6 +51,7 @@ interface BackupData {
   categories: Record<string, unknown>[];
   payees: Record<string, unknown>[];
   payee_aliases: Record<string, unknown>[];
+  institutions: Record<string, unknown>[];
   accounts: Record<string, unknown>[];
   tags: Record<string, unknown>[];
   transactions: Record<string, unknown>[];
@@ -65,6 +71,7 @@ interface BackupData {
   budget_period_categories: Record<string, unknown>[];
   budget_alerts: Record<string, unknown>[];
   custom_reports: Record<string, unknown>[];
+  investment_reports: Record<string, unknown>[];
   import_column_mappings: Record<string, unknown>[];
   monthly_account_balances: Record<string, unknown>[];
   auto_backup_settings: Record<string, unknown>[];
@@ -201,6 +208,18 @@ export class BackupService {
         sql: "SELECT * FROM payee_aliases WHERE user_id = $1",
       },
       {
+        // Institutions must be exported (and restored) before accounts because
+        // accounts.institution_id has an FK to institutions(id). The logo_data
+        // BYTEA column is base64-encoded so it survives JSON serialization;
+        // insertRows decodes it back to bytea on restore.
+        key: "institutions",
+        sql: `SELECT id, user_id, name, website, country,
+                     encode(logo_data, 'base64') AS logo_data,
+                     logo_content_type, has_logo, logo_fetched_at,
+                     created_at, updated_at
+              FROM institutions WHERE user_id = $1 ORDER BY name`,
+      },
+      {
         key: "accounts",
         sql: "SELECT * FROM accounts WHERE user_id = $1 ORDER BY name",
       },
@@ -300,6 +319,10 @@ export class BackupService {
         sql: "SELECT * FROM custom_reports WHERE user_id = $1",
       },
       {
+        key: "investment_reports",
+        sql: "SELECT * FROM investment_reports WHERE user_id = $1",
+      },
+      {
         key: "import_column_mappings",
         sql: "SELECT * FROM import_column_mappings WHERE user_id = $1",
       },
@@ -352,14 +375,26 @@ export class BackupService {
   ): Promise<{ message: string; restored: Record<string, number> }> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.backup.userNotFoundRestore", "User not found"),
+      );
     }
 
     await this.verifyAuthentication(user, input);
 
     const gzippedPayload = this.maybeDecrypt(input, user);
-    const data = this.decompressAndParse(gzippedPayload);
-    this.validateBackupFormat(data);
+    const rawData = this.decompressAndParse(gzippedPayload);
+    this.validateBackupFormat(rawData);
+
+    // Remap every primary key in the backup to a fresh UUID (and rewrite all
+    // references to those keys, including ids embedded in JSONB columns) so the
+    // restore behaves as if the backup came from an entirely separate system.
+    // Without this, restoring one user's backup into another user's account on
+    // the SAME system would collide on the original UUIDs: the inserts would be
+    // silently skipped by ON CONFLICT DO NOTHING, and the Phase-3 deferred-FK
+    // UPDATEs (keyed only by id) would mutate the OTHER user's rows.
+    const idRemap = this.buildBackupIdRemap(rawData);
+    const data = this.remapBackupIds(rawData, idRemap);
 
     this.logger.log(`Starting backup restore for user ${userId}`);
 
@@ -409,6 +444,12 @@ export class BackupService {
         queryRunner,
         "payee_aliases",
         data.payee_aliases,
+        userId,
+      );
+      restored.institutions = await this.insertRows(
+        queryRunner,
+        "institutions",
+        data.institutions,
         userId,
       );
       restored.accounts = await this.insertRows(
@@ -531,6 +572,12 @@ export class BackupService {
         data.custom_reports,
         userId,
       );
+      restored.investmentReports = await this.insertRows(
+        queryRunner,
+        "investment_reports",
+        data.investment_reports,
+        userId,
+      );
       restored.importColumnMappings = await this.insertRows(
         queryRunner,
         "import_column_mappings",
@@ -626,8 +673,14 @@ export class BackupService {
 
     throw new BackupPasswordRequiredError(
       input.backupPassword
-        ? "The password you entered cannot decrypt this backup. Try the password that was set when the backup was created."
-        : "This backup is encrypted. Provide the password that was used when the backup was created.",
+        ? tr(
+            "errors.backup.backupPasswordWrong",
+            "The password you entered cannot decrypt this backup. Try the password that was set when the backup was created.",
+          )
+        : tr(
+            "errors.backup.backupPasswordRequired",
+            "This backup is encrypted. Provide the password that was used when the backup was created.",
+          ),
     );
   }
 
@@ -638,7 +691,10 @@ export class BackupService {
       json = decompressed.toString("utf-8");
     } catch {
       throw new BadRequestException(
-        "Failed to decompress backup file. Ensure the file is gzip-compressed.",
+        tr(
+          "errors.backup.decompressFailed",
+          "Failed to decompress backup file. Ensure the file is gzip-compressed.",
+        ),
       );
     }
 
@@ -646,7 +702,10 @@ export class BackupService {
       return JSON.parse(json) as BackupData;
     } catch {
       throw new BadRequestException(
-        "Invalid backup file: decompressed content is not valid JSON",
+        tr(
+          "errors.backup.invalidJsonBackup",
+          "Invalid backup file: decompressed content is not valid JSON",
+        ),
       );
     }
   }
@@ -658,7 +717,10 @@ export class BackupService {
     if (user.authProvider === "oidc") {
       if (!input.oidcIdToken) {
         throw new UnauthorizedException(
-          "OIDC re-authentication is required to confirm restore",
+          tr(
+            "errors.backup.oidcReauthRequired",
+            "OIDC re-authentication is required to confirm restore",
+          ),
         );
       }
       if (
@@ -670,18 +732,26 @@ export class BackupService {
         )
       ) {
         throw new UnauthorizedException(
-          "Invalid OIDC token: the token must be a valid ID token from your SSO provider",
+          tr(
+            "errors.backup.oidcTokenInvalid",
+            "Invalid OIDC token: the token must be a valid ID token from your SSO provider",
+          ),
         );
       }
     } else if (user.passwordHash) {
       if (!input.password) {
         throw new UnauthorizedException(
-          "Password is required to confirm restore",
+          tr(
+            "errors.backup.passwordRequiredForRestore",
+            "Password is required to confirm restore",
+          ),
         );
       }
       const isValid = await bcrypt.compare(input.password, user.passwordHash);
       if (!isValid) {
-        throw new UnauthorizedException("Invalid password");
+        throw new UnauthorizedException(
+          tr("errors.backup.invalidPassword", "Invalid password"),
+        );
       }
     }
   }
@@ -689,19 +759,103 @@ export class BackupService {
   private validateBackupFormat(data: BackupData): void {
     if (!data || typeof data !== "object") {
       throw new BadRequestException(
-        "Invalid backup format: data must be an object",
+        tr(
+          "errors.backup.invalidBackupFormat",
+          "Invalid backup format: data must be an object",
+        ),
       );
     }
     if (data.version !== BACKUP_VERSION) {
       throw new BadRequestException(
-        `Unsupported backup version: ${data.version}. Expected ${BACKUP_VERSION}`,
+        tr(
+          "errors.backup.unsupportedBackupVersion",
+          `Unsupported backup version: ${data.version}. Expected ${BACKUP_VERSION}`,
+          { version: data.version, expected: BACKUP_VERSION },
+        ),
       );
     }
     if (!data.exportedAt) {
       throw new BadRequestException(
-        "Invalid backup format: missing exportedAt",
+        tr(
+          "errors.backup.missingExportedAt",
+          "Invalid backup format: missing exportedAt",
+        ),
       );
     }
+  }
+
+  /**
+   * Builds a map from every primary-key UUID in the backup to a freshly
+   * generated UUID. Currencies are intentionally excluded: they are shared,
+   * global rows keyed by `code` (not by a per-user UUID) and are referenced by
+   * code, so they must keep their original identifiers. Non-UUID ids (e.g.
+   * `security_prices.id` is BIGSERIAL) are also excluded -- they get a fresh
+   * value assigned by the DB on insert (see insertRows), and remapping them
+   * to UUIDs here would (a) corrupt them and (b) clobber unrelated bigint
+   * values in other columns that happen to share the same string form.
+   */
+  private buildBackupIdRemap(data: BackupData): Map<string, string> {
+    const remap = new Map<string, string>();
+    for (const [table, rows] of Object.entries(data)) {
+      if (table === "currencies" || !Array.isArray(rows)) continue;
+      for (const row of rows) {
+        if (!row || typeof row !== "object") continue;
+        const id = (row as Record<string, unknown>).id;
+        if (typeof id === "string" && UUID_REGEX.test(id) && !remap.has(id)) {
+          remap.set(id, randomUUID());
+        }
+      }
+    }
+    return remap;
+  }
+
+  /**
+   * Returns a deep copy of the backup with every id and every reference to an
+   * id (FK columns plus ids embedded in JSONB values such as scheduled
+   * transaction `tag_ids` or override `splits`) rewritten via the remap. The
+   * `user_id` columns are never remapped here -- they are not backup row ids,
+   * and insertRows() forces them to the restoring user. Currencies are passed
+   * through unchanged.
+   */
+  private remapBackupIds(
+    data: BackupData,
+    remap: Map<string, string>,
+  ): BackupData {
+    if (remap.size === 0) return data;
+    const result: Record<string, unknown> = { ...data };
+    for (const [table, rows] of Object.entries(data)) {
+      if (table === "currencies" || !Array.isArray(rows)) continue;
+      result[table] = rows.map((row) => this.deepRemapIds(row, remap));
+    }
+    return result as unknown as BackupData;
+  }
+
+  /**
+   * Recursively rewrites any string that matches a remapped id. Recurses into
+   * arrays and plain objects (e.g. JSONB columns) so ids nested inside JSON are
+   * remapped too. Because the remap only contains genuine backup primary keys
+   * (random UUIDs), non-id strings such as names or memos are left untouched.
+   */
+  private deepRemapIds(value: unknown, remap: Map<string, string>): unknown {
+    if (typeof value === "string") {
+      return remap.get(value) ?? value;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.deepRemapIds(item, remap));
+    }
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      !(value instanceof Date)
+    ) {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, val]) => [
+          key,
+          this.deepRemapIds(val, remap),
+        ]),
+      );
+    }
+    return value;
   }
 
   private async deleteAllUserData(
@@ -709,6 +863,12 @@ export class BackupService {
     queryRunner: ReturnType<DataSource["createQueryRunner"]>,
   ): Promise<void> {
     // Delete in FK-safe order (reverse of insert order)
+
+    // Action history (undo/redo log) -- not included in backups, so wipe it
+    // outright; restored data should not be undoable to the prior state.
+    await queryRunner.query("DELETE FROM action_history WHERE user_id = $1", [
+      userId,
+    ]);
 
     // Monte Carlo scenarios (cash flows cascade on scenario delete)
     await queryRunner.query(
@@ -850,6 +1010,10 @@ export class BackupService {
       userId,
     ]);
     await queryRunner.query(
+      "DELETE FROM investment_reports WHERE user_id = $1",
+      [userId],
+    );
+    await queryRunner.query(
       "DELETE FROM import_column_mappings WHERE user_id = $1",
       [userId],
     );
@@ -873,6 +1037,12 @@ export class BackupService {
 
     // Accounts
     await queryRunner.query("DELETE FROM accounts WHERE user_id = $1", [
+      userId,
+    ]);
+
+    // Institutions (accounts reference these via institution_id; deleted after
+    // accounts so no rows still point at them)
+    await queryRunner.query("DELETE FROM institutions WHERE user_id = $1", [
       userId,
     ]);
 
@@ -915,8 +1085,18 @@ export class BackupService {
       table: string;
       rows: Record<string, unknown>[];
       column: string;
+      // When set, the UPDATE only applies if a row with the referenced id
+      // exists in this table. Used for institution_id so legacy backups that
+      // predate institution export leave the column NULL instead of failing.
+      requireReferencedTable?: string;
     }> = [
       { table: "categories", rows: data.categories, column: "parent_id" },
+      {
+        table: "accounts",
+        rows: data.accounts,
+        column: "institution_id",
+        requireReferencedTable: "institutions",
+      },
       {
         table: "accounts",
         rows: data.accounts,
@@ -1000,14 +1180,20 @@ export class BackupService {
     }
 
     try {
-      for (const { table, rows, column } of deferredUpdates) {
+      for (const {
+        table,
+        rows,
+        column,
+        requireReferencedTable,
+      } of deferredUpdates) {
         if (!rows) continue;
+        const sql = requireReferencedTable
+          ? `UPDATE "${table}" SET "${column}" = $1 WHERE id = $2
+             AND EXISTS (SELECT 1 FROM "${requireReferencedTable}" WHERE id = $1)`
+          : `UPDATE "${table}" SET "${column}" = $1 WHERE id = $2`;
         for (const row of rows) {
           if (row[column] != null && row.id != null) {
-            await queryRunner.query(
-              `UPDATE "${table}" SET "${column}" = $1 WHERE id = $2`,
-              [row[column], row.id],
-            );
+            await queryRunner.query(sql, [row[column], row.id]);
           }
         }
       }
@@ -1134,6 +1320,7 @@ export class BackupService {
       "categories",
       "payees",
       "payee_aliases",
+      "institutions",
       "accounts",
       "tags",
       "transactions",
@@ -1154,6 +1341,7 @@ export class BackupService {
       "budget_period_categories",
       "budget_alerts",
       "custom_reports",
+      "investment_reports",
       "import_column_mappings",
       "monthly_account_balances",
       "auto_backup_settings",
@@ -1164,7 +1352,11 @@ export class BackupService {
 
     if (!allowedTables.has(table)) {
       throw new BadRequestException(
-        `Table ${table} is not allowed in backup restore`,
+        tr(
+          "errors.backup.tableNotAllowed",
+          `Table ${table} is not allowed in backup restore`,
+          { table },
+        ),
       );
     }
 
@@ -1179,6 +1371,10 @@ export class BackupService {
         "principal_category_id",
         "interest_category_id",
         "asset_category_id",
+        // Deferred so that legacy backups (taken before institutions were
+        // included in the export) restore without violating fk_accounts_institution.
+        // Phase 3 only re-applies it when the referenced institution exists.
+        "institution_id",
       ],
       transactions: ["linked_transaction_id", "parent_transaction_id"],
       payees: ["default_category_id"],
@@ -1190,22 +1386,47 @@ export class BackupService {
     const columnsToDefer = deferredFkColumns[table] ?? [];
 
     // Fetch all valid column names for this table from the schema. This serves
-    // two purposes: (1) detect native PostgreSQL array columns so we can pass JS
-    // arrays directly to the pg driver, and (2) validate that column names from
+    // three purposes: (1) detect native PostgreSQL array columns so we can pass
+    // JS arrays directly to the pg driver, (2) validate that column names from
     // the user-uploaded backup are real columns, preventing SQL injection via
-    // crafted column names with embedded double-quote characters.
-    const schemaColResult = await queryRunner.query(
-      `SELECT column_name, data_type FROM information_schema.columns
+    // crafted column names with embedded double-quote characters, and (3)
+    // detect sequence-backed columns (e.g. BIGSERIAL `id`) that must be stripped
+    // from the INSERT so PostgreSQL assigns a fresh value -- otherwise the
+    // backup's bigint ids would collide with other users' rows on the shared
+    // sequence and be silently skipped by ON CONFLICT DO NOTHING.
+    const schemaColResult: Array<{
+      column_name: string;
+      data_type: string;
+      column_default: string | null;
+    }> = await queryRunner.query(
+      `SELECT column_name, data_type, column_default FROM information_schema.columns
        WHERE table_name = $1 AND table_schema = 'public'`,
       [table],
     );
     const validColumns = new Set<string>(
-      schemaColResult.map((r: { column_name: string }) => r.column_name),
+      schemaColResult.map((r) => r.column_name),
     );
     const pgArrayColumns = new Set<string>(
       schemaColResult
-        .filter((r: { data_type: string }) => r.data_type === "ARRAY")
-        .map((r: { column_name: string }) => r.column_name),
+        .filter((r) => r.data_type === "ARRAY")
+        .map((r) => r.column_name),
+    );
+    const sequenceBackedColumns = new Set<string>(
+      schemaColResult
+        .filter(
+          (r) =>
+            typeof r.column_default === "string" &&
+            r.column_default.includes("nextval"),
+        )
+        .map((r) => r.column_name),
+    );
+    // BYTEA columns (e.g. institutions.logo_data) are base64-encoded in the
+    // backup; their placeholders are wrapped in decode(..., 'base64') so the
+    // bytes are restored correctly.
+    const byteaColumns = new Set<string>(
+      schemaColResult
+        .filter((r) => r.data_type === "bytea")
+        .map((r) => r.column_name),
     );
 
     let count = 0;
@@ -1222,6 +1443,14 @@ export class BackupService {
 
       // Strip deferred FK columns to avoid circular reference violations
       for (const col of columnsToDefer) {
+        delete filteredRow[col];
+      }
+
+      // Strip sequence-backed columns (e.g. BIGSERIAL `id`) so the DB assigns
+      // a fresh value. Reusing the backup's value would collide with other
+      // users' rows on the shared sequence and be silently dropped by
+      // ON CONFLICT DO NOTHING.
+      for (const col of sequenceBackedColumns) {
         delete filteredRow[col];
       }
 
@@ -1251,7 +1480,11 @@ export class BackupService {
       }
 
       const columnList = columns.map((c) => `"${c}"`).join(", ");
-      const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+      const placeholders = columns
+        .map((c, i) =>
+          byteaColumns.has(c) ? `decode($${i + 1}, 'base64')` : `$${i + 1}`,
+        )
+        .join(", ");
 
       await queryRunner.query(
         `INSERT INTO "${table}" (${columnList}) VALUES (${placeholders})

@@ -1,6 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { Global, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
 import { DataSource } from "typeorm";
 import { User } from "@/users/entities/user.entity";
 import { NetWorthService } from "@/net-worth/net-worth.service";
@@ -13,6 +15,32 @@ import { ScheduledTransactionsService } from "@/scheduled-transactions/scheduled
 import { ScheduledTransactionOverrideService } from "@/scheduled-transactions/scheduled-transaction-override.service";
 import { ScheduledTransactionLoanService } from "@/scheduled-transactions/scheduled-transaction-loan.service";
 import * as bcrypt from "bcryptjs";
+
+/**
+ * Provides a lightweight I18nService globally to the integration test graph.
+ * Several services (email senders, etc.) inject I18nService; the app supplies it
+ * via the global nestjs-i18n module, but the integration TestingModule builds
+ * feature modules in isolation. A stub avoids pulling in the real I18nModule
+ * (whose `watch: true` file watcher would leak a handle and hang Jest). The
+ * stub returns the English `defaultValue`, matching production behaviour for the
+ * default locale.
+ */
+@Global()
+@Module({
+  providers: [
+    {
+      provide: I18nService,
+      useValue: {
+        translate: (key: string, options?: { defaultValue?: string }) =>
+          options?.defaultValue ?? key,
+        t: (key: string, options?: { defaultValue?: string }) =>
+          options?.defaultValue ?? key,
+      },
+    },
+  ],
+  exports: [I18nService],
+})
+class TestI18nModule {}
 
 /**
  * Creates a NestJS TestingModule wired to a real PostgreSQL database.
@@ -31,6 +59,7 @@ export async function createIntegrationModule(
   const moduleBuilder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true }),
+      TestI18nModule,
       TypeOrmModule.forRoot({
         type: "postgres",
         host: process.env.DATABASE_HOST || "localhost",
@@ -125,6 +154,7 @@ export async function createTestUserDirect(
     authProvider: "local",
     role: overrides.role || "user",
     isActive: true,
+    emailVerified: true,
   });
   return dataSource.manager.save(user);
 }

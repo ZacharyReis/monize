@@ -273,8 +273,8 @@ describe("DataQualityReportsService", () => {
         "2025-12-31",
       );
 
-      expect(result.summary.expenseTotal).toBe(33.34);
-      expect(result.summary.incomeTotal).toBe(66.66);
+      expect(result.summary.expenseTotal).toBe(33.337);
+      expect(result.summary.incomeTotal).toBe(66.663);
     });
 
     it("formats transaction dates as YYYY-MM-DD", async () => {

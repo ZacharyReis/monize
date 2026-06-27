@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { QueryFailedError } from "typeorm";
+import { tr } from "../../i18n/translate";
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -29,7 +30,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
 
       if (status === HttpStatus.TOO_MANY_REQUESTS) {
-        message = "Too many requests. Please wait a few minutes and try again.";
+        message = tr(
+          "errors.http.tooManyRequests",
+          "Too many requests. Please wait a few minutes and try again.",
+        );
       } else {
         const exceptionResponse = exception.getResponse();
 
@@ -49,18 +53,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const driverError = exception.driverError as { code?: string };
       if (driverError?.code === "23505") {
         status = HttpStatus.CONFLICT;
-        message = "A record with this value already exists";
+        message = tr(
+          "errors.http.duplicateRecord",
+          "A record with this value already exists",
+        );
       } else if (driverError?.code === "23503") {
         status = HttpStatus.BAD_REQUEST;
-        message = "Referenced record does not exist or cannot be removed";
+        message = tr(
+          "errors.http.referencedRecord",
+          "Referenced record does not exist or cannot be removed",
+        );
       } else {
         status = HttpStatus.INTERNAL_SERVER_ERROR;
-        message = "Internal server error";
+        message = tr("errors.http.internal", "Internal server error");
       }
       this.logger.error("Database error", exception.stack);
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = "Internal server error";
+      message = tr("errors.http.internal", "Internal server error");
 
       this.logger.error(
         "Unhandled exception",

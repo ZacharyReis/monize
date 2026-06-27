@@ -18,6 +18,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { CreateTransactionSplitDto } from "./create-transaction-split.dto";
 import { TransactionStatus } from "../entities/transaction.entity";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
+import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
 
 export class CreateTransactionDto {
   @ApiProperty({ description: "Account ID where the transaction occurs" })
@@ -60,8 +61,7 @@ export class CreateTransactionDto {
   amount: number;
 
   @ApiProperty({ description: "Currency code (e.g., CAD, USD)" })
-  @IsString()
-  @MaxLength(3)
+  @IsCurrencyCode()
   currencyCode: string;
 
   @ApiPropertyOptional({ description: "Exchange rate (defaults to 1.0)" })

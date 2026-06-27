@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { useHideOnScroll } from '@/hooks/useHideOnScroll';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/lib/auth';
@@ -9,6 +11,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { BudgetAlertBadge } from '@/components/budgets/BudgetAlertBadge';
 import { ActionHistoryPanel } from '@/components/layout/ActionHistoryPanel';
+import { MobileNavDrawer } from '@/components/layout/MobileNavDrawer';
 import {
   HEADER_SEARCH_EVENT,
   clearTransactionFilterStorage,
@@ -16,39 +19,41 @@ import {
 } from '@/hooks/useTransactionFilters';
 import toast from 'react-hot-toast';
 
+// Labels are translation keys in the `navigation` namespace, resolved at
+// render time. The href doubles as the route and the active-state match.
 const navLinks = [
-  { href: '/transactions', label: 'Transactions' },
-  { href: '/bills', label: 'Bills & Deposits' },
-  { href: '/investments', label: 'Investments' },
-  { href: '/accounts', label: 'Accounts' },
-  { href: '/budgets', label: 'Budgets' },
-  { href: '/reports', label: 'Reports' },
+  { href: '/transactions', labelKey: 'transactions' },
+  { href: '/bills', labelKey: 'bills' },
+  { href: '/investments', labelKey: 'investments' },
+  { href: '/accounts', labelKey: 'accounts' },
+  { href: '/budgets', labelKey: 'budgets' },
+  { href: '/reports', labelKey: 'reports' },
 ];
 
-const toolsLinks: { href: string; label: string; badge?: string }[] = [
-  { href: '/categories', label: 'Categories' },
-  { href: '/payees', label: 'Payees' },
-  { href: '/tags', label: 'Tags' },
-  { href: '/securities', label: 'Securities' },
-  { href: '/currencies', label: 'Currencies' },
-  { href: '/import', label: 'Import Transactions' },
+const toolsLinks: { href: string; labelKey: string; badge?: string }[] = [
+  { href: '/categories', labelKey: 'categories' },
+  { href: '/payees', labelKey: 'payees' },
+  { href: '/institutions', labelKey: 'institutions' },
+  { href: '/tags', labelKey: 'tags' },
+  { href: '/securities', labelKey: 'securities' },
+  { href: '/currencies', labelKey: 'currencies' },
+  { href: '/import', labelKey: 'import' },
 ];
 
-const aiLinks: { href: string; label: string }[] = [
-  { href: '/insights', label: 'Insights' },
-  { href: '/ai', label: 'AI Assistant' },
+const aiLinks: { href: string; labelKey: string }[] = [
+  { href: '/insights', labelKey: 'insights' },
+  { href: '/ai', labelKey: 'aiAssistant' },
 ];
 
 export function AppHeader() {
+  const t = useTranslations('navigation');
   const router = useRouter();
   const pathname = usePathname();
-  const {
-    user,
-    logout,
-    actingAsUserId,
-    delegateCapabilities,
-    delegateSections,
-  } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const actingAsUserId = useAuthStore((s) => s.actingAsUserId);
+  const delegateCapabilities = useAuthStore((s) => s.delegateCapabilities);
+  const delegateSections = useAuthStore((s) => s.delegateSections);
   const isDelegateView = !!actingAsUserId;
   // A delegate sees a top-nav entry only if it is reachable: granted
   // sections (bills/investments/budgets/reports) plus Transactions when
@@ -98,14 +103,12 @@ export function AppHeader() {
   const [searchTerm, setSearchTerm] = useState('');
   const toolsRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLDivElement>(null);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdowns when clicking outside
   useClickOutside(toolsRef, () => setToolsOpen(false));
   useClickOutside(aiRef, () => setAiOpen(false));
-  useClickOutside(mobileMenuRef, () => setMobileMenuOpen(false));
   useClickOutside(searchRef, () => setSearchOpen(false));
 
   // Focus the search input as it slides open.
@@ -150,11 +153,29 @@ export function AppHeader() {
   const isToolsActive = toolsLinks.some((link) => pathname === link.href);
   const isAiActive = aiLinks.some((link) => pathname === link.href);
 
+  // Slide the header out of view when scrolling down, back in when scrolling up,
+  // moving it in lockstep with the scroll position. Keep it pinned while any
+  // menu or the search field is open so the open surface never scrolls away.
+  const { ref: headerRef, offset: scrollOffset } = useHideOnScroll<HTMLElement>();
+  const anyMenuOpen = mobileMenuOpen || searchOpen || toolsOpen || aiOpen;
+  const headerOffset = anyMenuOpen ? 0 : scrollOffset;
+
+  // Publish how far the header is currently slid up so sticky sub-navigation
+  // (e.g. the Settings menu) can anchor to the header instead of floating where
+  // the header used to be once it slides out of view.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--app-header-offset', `${headerOffset}px`);
+    return () => {
+      root.style.removeProperty('--app-header-offset');
+    };
+  }, [headerOffset]);
+
   const handleLogout = async () => {
     try {
       await authApi.logout();
       logout();
-      toast.success('Logged out successfully');
+      toast.success(t('loggedOut'));
       router.push('/login');
     } catch {
       logout();
@@ -163,16 +184,24 @@ export function AppHeader() {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50">
+    <header
+      ref={headerRef}
+      style={{ transform: `translateY(-${headerOffset}px)` }}
+      // No transition while scrolling so the header tracks the scroll speed 1:1;
+      // a short transition only when a menu forces it back into view.
+      className={`sticky top-0 z-40 bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 ${
+        anyMenuOpen ? 'transition-transform duration-200 ease-out' : ''
+      }`}
+    >
       <div className="px-4 sm:px-6 lg:px-12">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             {/* Mobile hamburger menu button */}
-            <div className="relative lg:hidden" ref={mobileMenuRef}>
+            <div className="lg:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 mr-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                aria-label="Toggle menu"
+                aria-label={t('toggleMenu')}
               >
                 {mobileMenuOpen ? (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -185,134 +214,36 @@ export function AppHeader() {
                 )}
               </button>
 
-              {/* Mobile menu dropdown */}
-              {mobileMenuOpen && (
-                <div className="absolute left-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg dark:shadow-gray-700/50 border border-gray-200 dark:border-gray-700 z-50">
-                  <div className="py-1">
-                    {/* Dashboard link */}
-                    <button
-                      onClick={() => router.push('/dashboard')}
-                      className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                        pathname === '/dashboard'
-                          ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Dashboard
-                    </button>
-
-                    {/* Main nav links */}
-                    {visibleNavLinks.map((link) => (
-                      <button
-                        key={link.href}
-                        onClick={() => router.push(link.href)}
-                        className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                          pathname === link.href
-                            ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {link.label}
-                      </button>
-                    ))}
-
-                    {showAiMenu && (
-                    <>
-                    {/* Divider */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-
-                    {/* AI section header */}
-                    <div className="px-4 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      AI
-                    </div>
-
-                    {/* AI links */}
-                    {aiLinks.map((link) => (
-                      <button
-                        key={link.href}
-                        onClick={() => router.push(link.href)}
-                        className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                          pathname === link.href
-                            ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {link.label}
-                      </button>
-                    ))}
-                    </>
-                    )}
-
-                    {visibleToolsLinks.length > 0 && (
-                    <>
-                    {/* Divider */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-
-                    {/* Tools section header */}
-                    <div className="px-4 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Tools
-                    </div>
-
-                    {/* Tools links */}
-                    {visibleToolsLinks.map((link) => (
-                      <button
-                        key={link.href}
-                        onClick={() => router.push(link.href)}
-                        className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                          pathname === link.href
-                            ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {link.label}
-                        {link.badge && (
-                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                            {link.badge}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    </>
-                    )}
-
-                    {/* Admin section - only for admins */}
-                    {!isDelegateView && user?.role === 'admin' && (
-                      <>
-                        <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                        <div className="px-4 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Admin
-                        </div>
-                        <button
-                          onClick={() => router.push('/admin/users')}
-                          className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                            pathname.startsWith('/admin')
-                              ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          User Management
-                        </button>
-                      </>
-                    )}
-
-                    {/* Divider */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-
-                    {/* Settings link -- delegates land on a Security-only
-                        view that manages their OWN credentials. */}
-                    <button
-                      onClick={() => router.push('/settings')}
-                      className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                        pathname === '/settings'
-                          ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Settings
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Mobile navigation drawer (slides in from the left).
+                  Delegates land on a Security-only Settings view that manages
+                  their OWN credentials. */}
+              <MobileNavDrawer
+                isOpen={mobileMenuOpen}
+                onClose={() => setMobileMenuOpen(false)}
+                pathname={pathname}
+                onNavigate={(href) => {
+                  // Close the drawer up front so navigating to the current
+                  // route (no pathname change, so the route-change effect
+                  // below never fires) still dismisses it.
+                  setMobileMenuOpen(false);
+                  router.push(href);
+                }}
+                navLinks={visibleNavLinks.map((l) => ({
+                  href: l.href,
+                  label: t(l.labelKey),
+                }))}
+                aiLinks={aiLinks.map((l) => ({
+                  href: l.href,
+                  label: t(l.labelKey),
+                }))}
+                showAiMenu={showAiMenu}
+                toolsLinks={visibleToolsLinks.map((l) => ({
+                  href: l.href,
+                  label: t(l.labelKey),
+                  badge: l.badge,
+                }))}
+                showAdmin={!isDelegateView && user?.role === 'admin'}
+              />
             </div>
 
             <button
@@ -337,7 +268,7 @@ export function AppHeader() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  {link.label}
+                  {t(link.labelKey)}
                 </button>
               ))}
 
@@ -353,7 +284,7 @@ export function AppHeader() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  AI
+                  {t('ai')}
                   <svg
                     className={`w-4 h-4 transition-transform ${aiOpen ? 'rotate-180' : ''}`}
                     fill="none"
@@ -380,7 +311,7 @@ export function AppHeader() {
                               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                           }`}
                         >
-                          {link.label}
+                          {t(link.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -403,7 +334,7 @@ export function AppHeader() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  Tools
+                  {t('tools')}
                   <svg
                     className={`w-4 h-4 transition-transform ${toolsOpen ? 'rotate-180' : ''}`}
                     fill="none"
@@ -430,7 +361,7 @@ export function AppHeader() {
                               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                           }`}
                         >
-                          {link.label}
+                          {t(link.labelKey)}
                           {link.badge && (
                             <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
                               {link.badge}
@@ -456,7 +387,7 @@ export function AppHeader() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  Admin
+                  {t('admin')}
                 </button>
               )}
             </nav>
@@ -471,8 +402,8 @@ export function AppHeader() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Search transactions..."
-                  aria-label="Search transactions"
+                  placeholder={t('search.placeholder')}
+                  aria-label={t('search.label')}
                   aria-hidden={!searchOpen}
                   tabIndex={searchOpen ? 0 : -1}
                   className={`overflow-hidden transition-all duration-200 ease-out rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -490,8 +421,8 @@ export function AppHeader() {
                       setSearchOpen(true);
                     }
                   }}
-                  aria-label={searchOpen ? 'Search' : 'Open search'}
-                  title="Search transactions"
+                  aria-label={searchOpen ? t('search.submit') : t('search.open')}
+                  title={t('search.label')}
                   className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <svg
@@ -520,7 +451,7 @@ export function AppHeader() {
                   ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                   : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
-              title="Settings"
+              title={t('settings')}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -547,8 +478,23 @@ export function AppHeader() {
               variant="outline"
               size="sm"
               onClick={handleLogout}
+              title={t('logout')}
+              aria-label={t('logout')}
             >
-              Logout
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"
+                />
+              </svg>
             </Button>
           </div>
         </div>

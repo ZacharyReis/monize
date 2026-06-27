@@ -62,9 +62,20 @@ const oidcUser: User = {
   hasPassword: false,
 };
 
+// Renders inside act() so the on-mount getEncryptionStatus() fetch and its
+// resulting state update are flushed before assertions run.
+async function renderSection(user: User = localUser) {
+  await act(async () => {
+    render(<BackupRestoreSection user={user} />);
+  });
+}
+
 describe('BackupRestoreSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The download flow clicks a blob-href anchor; jsdom logs "Not implemented:
+    // navigation" for that, so stub the click to keep test output clean.
+    HTMLAnchorElement.prototype.click = vi.fn();
     // Re-set the default for getEncryptionStatus since per-test
     // mockResolvedValue overrides survive clearAllMocks.
     (backupApi.getEncryptionStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -73,8 +84,8 @@ describe('BackupRestoreSection', () => {
     });
   });
 
-  it('renders backup and restore sections', () => {
-    render(<BackupRestoreSection user={localUser} />);
+  it('renders backup and restore sections', async () => {
+    await renderSection(localUser);
 
     expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
     expect(screen.getByText('Create Backup')).toBeInTheDocument();
@@ -94,7 +105,7 @@ describe('BackupRestoreSection', () => {
     global.URL.createObjectURL = createObjectURL;
     global.URL.revokeObjectURL = revokeObjectURL;
 
-    render(<BackupRestoreSection user={localUser} />);
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Download Backup'));
 
@@ -109,7 +120,7 @@ describe('BackupRestoreSection', () => {
       new Error('Export failed'),
     );
 
-    render(<BackupRestoreSection user={localUser} />);
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Download Backup'));
 
@@ -118,8 +129,8 @@ describe('BackupRestoreSection', () => {
     });
   });
 
-  it('expands restore form when button clicked', () => {
-    render(<BackupRestoreSection user={localUser} />);
+  it('expands restore form when button clicked', async () => {
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
 
@@ -129,16 +140,16 @@ describe('BackupRestoreSection', () => {
     expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
 
-  it('shows OIDC re-auth button for OIDC users', () => {
-    render(<BackupRestoreSection user={oidcUser} />);
+  it('shows OIDC re-auth button for OIDC users', async () => {
+    await renderSection(oidcUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
 
     expect(screen.getByText('Re-authenticate and Restore')).toBeInTheDocument();
   });
 
-  it('collapses restore form on cancel', () => {
-    render(<BackupRestoreSection user={localUser} />);
+  it('collapses restore form on cancel', async () => {
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
     expect(screen.getByText('Confirm Restore')).toBeInTheDocument();
@@ -147,8 +158,8 @@ describe('BackupRestoreSection', () => {
     expect(screen.queryByText('Confirm Restore')).not.toBeInTheDocument();
   });
 
-  it('disables confirm button without password and file', () => {
-    render(<BackupRestoreSection user={localUser} />);
+  it('disables confirm button without password and file', async () => {
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
 
@@ -162,7 +173,7 @@ describe('BackupRestoreSection', () => {
       restored: { categories: 5, accounts: 3 },
     });
 
-    render(<BackupRestoreSection user={localUser} />);
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
 
@@ -190,7 +201,7 @@ describe('BackupRestoreSection', () => {
     });
 
     // Verify success modal is shown with summary
-    expect(screen.getByText('Restore Complete')).toBeInTheDocument();
+    expect(await screen.findByText('Restore Complete')).toBeInTheDocument();
     expect(screen.getByText('Categories')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText('Accounts')).toBeInTheDocument();
@@ -208,7 +219,7 @@ describe('BackupRestoreSection', () => {
       new Error('Server error'),
     );
 
-    render(<BackupRestoreSection user={localUser} />);
+    await renderSection(localUser);
 
     fireEvent.click(screen.getByText('Restore from Backup...'));
 
@@ -233,7 +244,7 @@ describe('BackupRestoreSection', () => {
       (backupApi.getEncryptionStatus as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('network'),
       );
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       // The fallback path renders the "Enable Encrypted Backups" CTA.
       await waitFor(() =>
         expect(screen.getByText('Enable Encrypted Backups')).toBeInTheDocument(),
@@ -249,7 +260,7 @@ describe('BackupRestoreSection', () => {
         undefined,
       );
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() =>
         expect(screen.getByText('Enable Encrypted Backups')).toBeInTheDocument(),
       );
@@ -272,7 +283,7 @@ describe('BackupRestoreSection', () => {
         undefined,
       );
 
-      render(<BackupRestoreSection user={oidcUser} />);
+      await renderSection(oidcUser);
       await waitFor(() =>
         expect(screen.getByText('Set Backup Password')).toBeInTheDocument(),
       );
@@ -293,7 +304,7 @@ describe('BackupRestoreSection', () => {
       (backupApi.enableLocalEncryption as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('bad password'),
       );
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() =>
         expect(screen.getByText('Enable Encrypted Backups')).toBeInTheDocument(),
       );
@@ -315,7 +326,7 @@ describe('BackupRestoreSection', () => {
         undefined,
       );
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() => expect(screen.getByText('Disable')).toBeInTheDocument());
       fireEvent.click(screen.getByText('Disable'));
 
@@ -330,7 +341,7 @@ describe('BackupRestoreSection', () => {
       (backupApi.disableEncryption as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('boom'),
       );
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() => expect(screen.getByText('Disable')).toBeInTheDocument());
       fireEvent.click(screen.getByText('Disable'));
       await waitFor(() =>
@@ -343,14 +354,14 @@ describe('BackupRestoreSection', () => {
         enabled: true,
         needsBackupPassword: false,
       });
-      render(<BackupRestoreSection user={oidcUser} />);
+      await renderSection(oidcUser);
       await waitFor(() =>
         expect(screen.getByText('Change Backup Password')).toBeInTheDocument(),
       );
     });
 
     it('encryption setup modal Cancel closes it without calling the API', async () => {
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() =>
         expect(screen.getByText('Enable Encrypted Backups')).toBeInTheDocument(),
       );
@@ -379,7 +390,7 @@ describe('BackupRestoreSection', () => {
       global.URL.createObjectURL = createObjectURL;
       global.URL.revokeObjectURL = revokeObjectURL;
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       // Wait for status to load so the export click sees encryption=enabled.
       await waitFor(() => expect(screen.getByText('Disable')).toBeInTheDocument());
 
@@ -400,7 +411,7 @@ describe('BackupRestoreSection', () => {
         enabled: true,
         needsBackupPassword: false,
       });
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() => expect(screen.getByText('Disable')).toBeInTheDocument());
       fireEvent.click(screen.getByText('Download Backup'));
       await screen.findByPlaceholderText('Login password');
@@ -418,7 +429,7 @@ describe('BackupRestoreSection', () => {
       const restoreMock = backupApi.restoreBackup as ReturnType<typeof vi.fn>;
       restoreMock.mockResolvedValue({ message: 'ok', restored: { accounts: 1 } });
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -446,7 +457,7 @@ describe('BackupRestoreSection', () => {
     });
 
     it('does not show a backup-password field for unencrypted files', async () => {
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -472,7 +483,7 @@ describe('BackupRestoreSection', () => {
         return Promise.reject(err);
       });
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -500,7 +511,7 @@ describe('BackupRestoreSection', () => {
       (backupApi.restoreBackup as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('regular error'),
       );
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -524,7 +535,7 @@ describe('BackupRestoreSection', () => {
         message: 'ok',
         restored: {},
       });
-      render(<BackupRestoreSection user={oidcUser} />);
+      await renderSection(oidcUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -541,7 +552,7 @@ describe('BackupRestoreSection', () => {
     });
 
     it('OIDC restore Cancel closes the form', async () => {
-      render(<BackupRestoreSection user={oidcUser} />);
+      await renderSection(oidcUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       expect(screen.getByText('Re-authenticate and Restore')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Cancel'));
@@ -552,7 +563,7 @@ describe('BackupRestoreSection', () => {
   });
 
   it('toasts an error when no file is selected on restore', async () => {
-    render(<BackupRestoreSection user={localUser} />);
+    await renderSection(localUser);
     fireEvent.click(screen.getByText('Restore from Backup...'));
     fireEvent.change(screen.getByPlaceholderText('Enter your password'), {
       target: { value: 'pw' },
@@ -575,7 +586,7 @@ describe('BackupRestoreSection', () => {
         message: 'ok',
         restored: {},
       });
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -600,7 +611,7 @@ describe('BackupRestoreSection', () => {
       global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock');
       global.URL.revokeObjectURL = vi.fn();
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       await waitFor(() => expect(screen.getByText('Disable')).toBeInTheDocument());
       fireEvent.click(screen.getByText('Download Backup'));
       const input = await screen.findByPlaceholderText('Login password');
@@ -615,7 +626,7 @@ describe('BackupRestoreSection', () => {
       const restoreMock = backupApi.restoreBackup as ReturnType<typeof vi.fn>;
       restoreMock.mockResolvedValue({ message: 'ok', restored: {} });
 
-      render(<BackupRestoreSection user={localUser} />);
+      await renderSection(localUser);
       fireEvent.click(screen.getByText('Restore from Backup...'));
       await act(async () => {
         fireEvent.change(
@@ -648,7 +659,7 @@ describe('BackupRestoreSection', () => {
       enabled: true,
       needsBackupPassword: false,
     });
-    render(<BackupRestoreSection user={oidcUser} />);
+    await renderSection(oidcUser);
     await waitFor(() =>
       expect(screen.getByText('Change Backup Password')).toBeInTheDocument(),
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import { MutableRefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,11 +13,11 @@ import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
 import { FormActions } from '@/components/ui/FormActions';
 
-const priceSchema = z.object({
-  priceDate: z.string().min(1, 'Date is required'),
-  closePrice: z.string().min(1, 'Price is required').refine(
+const buildPriceSchema = (t: (key: string) => string) => z.object({
+  priceDate: z.string().min(1, t('priceValidation.dateRequired')),
+  closePrice: z.string().min(1, t('priceValidation.priceRequired')).refine(
     (val) => !isNaN(Number(val)) && Number(val) >= 0,
-    'Price must be a non-negative number',
+    t('priceValidation.priceNonNegative'),
   ),
   openPrice: z.string().optional(),
   highPrice: z.string().optional(),
@@ -24,7 +25,7 @@ const priceSchema = z.object({
   volume: z.string().optional(),
 });
 
-type PriceFormData = z.infer<typeof priceSchema>;
+type PriceFormData = z.infer<ReturnType<typeof buildPriceSchema>>;
 
 interface SecurityPriceFormProps {
   price?: SecurityPrice;
@@ -35,13 +36,14 @@ interface SecurityPriceFormProps {
 }
 
 export function SecurityPriceForm({ price, onSubmit, onCancel, onDirtyChange, submitRef }: SecurityPriceFormProps) {
+  const t = useTranslations('securities');
   const {
     register,
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<PriceFormData>({
-    resolver: zodResolver(priceSchema),
+    resolver: zodResolver(buildPriceSchema(t)),
     defaultValues: {
       priceDate: price?.priceDate || new Date().toISOString().substring(0, 10),
       closePrice: price?.closePrice != null ? String(price.closePrice) : '',
@@ -61,7 +63,16 @@ export function SecurityPriceForm({ price, onSubmit, onCancel, onDirtyChange, su
       ...(data.lowPrice && { lowPrice: Number(data.lowPrice) }),
       ...(data.volume && { volume: Number(data.volume) }),
     };
-    await onSubmit(cleanedData);
+    // onSubmit may re-throw after surfacing its own error toast (so the parent
+    // keeps the form open). Swallow it here: react-hook-form's handleSubmit
+    // would otherwise reject, producing an unhandled promise rejection. The
+    // failure is already handled (toast) and the form stays open because the
+    // parent does not clear its open state on error.
+    try {
+      await onSubmit(cleanedData);
+    } catch {
+      // handled upstream via toast; nothing to do here
+    }
   };
 
   useFormDirtyNotify(isDirty, onDirtyChange);
@@ -70,14 +81,14 @@ export function SecurityPriceForm({ price, onSubmit, onCancel, onDirtyChange, su
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
       <DateInput
-        label="Date"
+        label={t('priceForm.dateLabel')}
         error={errors.priceDate?.message}
         onDateChange={(date) => setValue('priceDate', date, { shouldDirty: true, shouldValidate: true })}
         {...register('priceDate')}
       />
 
       <Input
-        label="Close Price"
+        label={t('priceForm.closePriceLabel')}
         type="number"
         step="any"
         {...register('closePrice')}
@@ -87,42 +98,42 @@ export function SecurityPriceForm({ price, onSubmit, onCancel, onDirtyChange, su
 
       <div className="grid grid-cols-2 gap-3">
         <Input
-          label="Open Price"
+          label={t('priceForm.openPriceLabel')}
           type="number"
           step="any"
           {...register('openPrice')}
           error={errors.openPrice?.message}
-          placeholder="Optional"
+          placeholder={t('priceForm.optionalPlaceholder')}
         />
         <Input
-          label="High Price"
+          label={t('priceForm.highPriceLabel')}
           type="number"
           step="any"
           {...register('highPrice')}
           error={errors.highPrice?.message}
-          placeholder="Optional"
+          placeholder={t('priceForm.optionalPlaceholder')}
         />
         <Input
-          label="Low Price"
+          label={t('priceForm.lowPriceLabel')}
           type="number"
           step="any"
           {...register('lowPrice')}
           error={errors.lowPrice?.message}
-          placeholder="Optional"
+          placeholder={t('priceForm.optionalPlaceholder')}
         />
         <Input
-          label="Volume"
+          label={t('priceForm.volumeLabel')}
           type="number"
           step="1"
           {...register('volume')}
           error={errors.volume?.message}
-          placeholder="Optional"
+          placeholder={t('priceForm.optionalPlaceholder')}
         />
       </div>
 
       <FormActions
         onCancel={onCancel}
-        submitLabel={price ? 'Update Price' : 'Add Price'}
+        submitLabel={price ? t('priceForm.submitUpdate') : t('priceForm.submitCreate')}
         isSubmitting={isSubmitting}
       />
     </form>

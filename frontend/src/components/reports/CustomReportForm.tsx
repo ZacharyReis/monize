@@ -44,6 +44,7 @@ import { createLogger } from '@/lib/logger';
 import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
 import { FormActions } from '@/components/ui/FormActions';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('CustomReportForm');
 
@@ -135,6 +136,7 @@ interface CustomReportFormProps {
 }
 
 export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, submitRef }: CustomReportFormProps) {
+  const t = useTranslations('reports');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]);
@@ -249,47 +251,47 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
 
   useFormSubmitRef(submitRef, handleSubmit, handleFormSubmit);
 
-  const viewTypeOptions = Object.entries(VIEW_TYPE_LABELS).map(([value, label]) => ({
+  const viewTypeOptions = Object.keys(VIEW_TYPE_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.viewType.${value}`),
   }));
 
-  const timeframeOptions = Object.entries(TIMEFRAME_LABELS).map(([value, label]) => ({
+  const timeframeOptions = Object.keys(TIMEFRAME_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.timeframe.${value}`),
   }));
 
-  const groupByOptions = Object.entries(GROUP_BY_LABELS).map(([value, label]) => ({
+  const groupByOptions = Object.keys(GROUP_BY_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.groupBy.${value}`),
   }));
 
-  const metricOptions = Object.entries(METRIC_LABELS).map(([value, label]) => ({
+  const metricOptions = Object.keys(METRIC_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.metric.${value}`),
   }));
 
-  const directionOptions = Object.entries(DIRECTION_LABELS).map(([value, label]) => ({
+  const directionOptions = Object.keys(DIRECTION_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.direction.${value}`),
   }));
 
-  const tableColumnOptions = Object.entries(TABLE_COLUMN_LABELS).map(([value, label]) => ({
+  const tableColumnOptions = Object.keys(TABLE_COLUMN_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.tableColumn.${value}`),
   }));
 
   const sortByOptions = [
-    { value: '', label: 'Default' },
-    ...Object.entries(TABLE_COLUMN_LABELS).map(([value, label]) => ({
+    { value: '', label: t('customReport.sortByPlaceholder') },
+    ...Object.keys(TABLE_COLUMN_LABELS).map((value) => ({
       value,
-      label,
+      label: t(`customReportLabels.tableColumn.${value}`),
     })),
   ];
 
-  const sortDirectionOptions = Object.entries(SORT_DIRECTION_LABELS).map(([value, label]) => ({
+  const sortDirectionOptions = Object.keys(SORT_DIRECTION_LABELS).map((value) => ({
     value,
-    label,
+    label: t(`customReportLabels.sortDirection.${value}`),
   }));
 
   if (isLoadingData) {
@@ -305,22 +307,22 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {/* Basic Info Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Basic Information
+          {t('customReport.basicInformation')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Input
-              label="Report Name"
+              label={t('customReport.labelReportName')}
               {...register('name')}
               error={errors.name?.message}
-              placeholder="e.g., Monthly Food Spending"
+              placeholder={t('customReport.namePlaceholder')}
             />
           </div>
           <div className="md:col-span-2">
             <Input
-              label="Description (optional)"
+              label={t('customReport.labelDescription')}
               {...register('description')}
-              placeholder="Brief description of what this report shows"
+              placeholder={t('customReport.descriptionPlaceholder')}
             />
           </div>
           <Controller
@@ -328,7 +330,7 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
             control={control}
             render={({ field }) => (
               <IconPicker
-                label="Icon"
+                label={t('customReport.labelIcon')}
                 value={field.value || null}
                 onChange={field.onChange}
               />
@@ -339,7 +341,7 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
             control={control}
             render={({ field }) => (
               <ColorPicker
-                label="Background Color"
+                label={t('customReport.labelBackgroundColor')}
                 value={field.value || null}
                 onChange={field.onChange}
               />
@@ -351,17 +353,17 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {/* Visualization Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Visualization
+          {t('customReport.visualization')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
-            label="View Type"
+            label={t('customReport.labelViewType')}
             options={viewTypeOptions}
             {...register('viewType')}
             error={errors.viewType?.message}
           />
           <Select
-            label="Group By"
+            label={t('customReport.labelGroupBy')}
             options={groupByOptions}
             {...register('groupBy')}
             error={errors.groupBy?.message}
@@ -373,7 +375,7 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {watchViewType === ReportViewType.TABLE && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-            Table Configuration
+            {t('customReport.tableConfiguration')}
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <Controller
@@ -381,22 +383,22 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
               control={control}
               render={({ field }) => (
                 <MultiSelect
-                  label="Columns to Display"
+                  label={t('customReport.labelColumns')}
                   options={tableColumnOptions}
                   value={field.value || []}
                   onChange={field.onChange}
-                  placeholder="Select columns..."
+                  placeholder={t('customReport.columnsPlaceholder')}
                 />
               )}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
-                label="Sort By"
+                label={t('customReport.labelSortBy')}
                 options={sortByOptions}
                 {...register('sortBy')}
               />
               <Select
-                label="Sort Direction"
+                label={t('customReport.labelSortDirection')}
                 options={sortDirectionOptions}
                 {...register('sortDirection')}
               />
@@ -408,11 +410,11 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {/* Time Period Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Time Period
+          {t('customReport.timePeriod')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
-            label="Timeframe"
+            label={t('customReport.labelTimeframe')}
             options={timeframeOptions}
             {...register('timeframeType')}
             error={errors.timeframeType?.message}
@@ -420,13 +422,13 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
           {watchTimeframeType === TimeframeType.CUSTOM && (
             <>
               <DateInput
-                label="Start Date"
+                label={t('customReport.labelStartDate')}
                 error={errors.customStartDate?.message}
                 onDateChange={(date) => setValue('customStartDate', date, { shouldDirty: true, shouldValidate: true })}
                 {...register('customStartDate')}
               />
               <DateInput
-                label="End Date"
+                label={t('customReport.labelEndDate')}
                 error={errors.customEndDate?.message}
                 onDateChange={(date) => setValue('customEndDate', date, { shouldDirty: true, shouldValidate: true })}
                 {...register('customEndDate')}
@@ -439,7 +441,7 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {/* Filters Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Filters (Optional)
+          {t('customReport.filtersOptional')}
         </h3>
         <FilterBuilder
           value={filterGroups}
@@ -454,17 +456,17 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
       {/* Aggregation Options Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Aggregation Options
+          {t('customReport.aggregationOptions')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
-            label="Metric"
+            label={t('customReport.labelMetric')}
             options={metricOptions}
             {...register('metric')}
             error={errors.metric?.message}
           />
           <Select
-            label="Direction"
+            label={t('customReport.labelDirection')}
             options={directionOptions}
             {...register('direction')}
             error={errors.direction?.message}
@@ -477,7 +479,7 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Include transfers
+                {t('customReport.checkboxTransfers')}
               </span>
             </label>
           </div>
@@ -489,14 +491,14 @@ export function CustomReportForm({ report, onSubmit, onCancel, onDirtyChange, su
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Add to favourites
+                {t('customReport.checkboxFavourites')}
               </span>
             </label>
           </div>
         </div>
       </div>
       {/* Actions */}
-      <FormActions onCancel={onCancel} submitLabel={report ? 'Update Report' : 'Create Report'} isSubmitting={isSubmitting} />
+      <FormActions onCancel={onCancel} submitLabel={report ? t('customReport.submitUpdate') : t('customReport.submitCreate')} isSubmitting={isSubmitting} />
     </form>
   );
 }

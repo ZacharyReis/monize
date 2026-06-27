@@ -3,8 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { DataSource, In, IsNull, Repository } from "typeorm";
 import { Budget } from "./entities/budget.entity";
 import { BudgetCategory } from "./entities/budget-category.entity";
 import {
@@ -33,6 +34,7 @@ import {
 } from "./budget-spending.util";
 import { formatDateYMD, todayYMD } from "../common/date-utils";
 import { formatCurrency } from "../common/format-currency.util";
+import { roundMoney, sumMoney } from "../common/round.util";
 import { ActionHistoryService } from "../action-history/action-history.service";
 
 export interface UpcomingBill {
@@ -84,6 +86,7 @@ export class BudgetsService {
     private scheduledTransactionsRepository: Repository<ScheduledTransaction>,
     @InjectRepository(ScheduledTransactionOverride)
     private overridesRepository: Repository<ScheduledTransactionOverride>,
+    private dataSource: DataSource,
     private actionHistoryService: ActionHistoryService,
   ) {}
 
@@ -104,6 +107,8 @@ export class BudgetsService {
       action: "create",
       afterData: { ...saved },
       description: `Created budget "${saved.name}"`,
+      descriptionKey: "createdBudget",
+      descriptionParams: { name: saved.name },
     });
 
     return saved;
@@ -129,7 +134,9 @@ export class BudgetsService {
     });
 
     if (!budget) {
-      throw new NotFoundException(`Budget with ID ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.budgets.notFound", `Budget with ID ${id} not found`, { id }),
+      );
     }
 
     return budget;
@@ -172,6 +179,8 @@ export class BudgetsService {
       beforeData,
       afterData: { ...saved },
       description: `Updated budget "${saved.name}"`,
+      descriptionKey: "updatedBudget",
+      descriptionParams: { name: saved.name },
     });
 
     return saved;
@@ -188,6 +197,8 @@ export class BudgetsService {
       action: "delete",
       beforeData,
       description: `Deleted budget "${beforeData.name}"`,
+      descriptionKey: "deletedBudget",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -204,7 +215,11 @@ export class BudgetsService {
 
     if (!category) {
       throw new NotFoundException(
-        `Category with ID ${dto.categoryId} not found`,
+        tr(
+          "errors.budgets.categoryNotFound",
+          `Category with ID ${dto.categoryId} not found`,
+          { id: dto.categoryId },
+        ),
       );
     }
 
@@ -213,7 +228,12 @@ export class BudgetsService {
     });
 
     if (existing) {
-      throw new BadRequestException("This category is already in the budget");
+      throw new BadRequestException(
+        tr(
+          "errors.budgets.categoryAlreadyInBudget",
+          "This category is already in the budget",
+        ),
+      );
     }
 
     const budgetCategory = this.budgetCategoriesRepository.create({
@@ -238,7 +258,11 @@ export class BudgetsService {
 
     if (!budgetCategory) {
       throw new NotFoundException(
-        `Budget category with ID ${categoryId} not found`,
+        tr(
+          "errors.budgets.budgetCategoryNotFound",
+          `Budget category with ID ${categoryId} not found`,
+          { id: categoryId },
+        ),
       );
     }
 
@@ -274,7 +298,11 @@ export class BudgetsService {
 
     if (!budgetCategory) {
       throw new NotFoundException(
-        `Budget category with ID ${categoryId} not found`,
+        tr(
+          "errors.budgets.budgetCategoryNotFound",
+          `Budget category with ID ${categoryId} not found`,
+          { id: categoryId },
+        ),
       );
     }
 
@@ -288,24 +316,47 @@ export class BudgetsService {
   ): Promise<BudgetCategory[]> {
     await this.findOne(userId, budgetId);
 
-    const results: BudgetCategory[] = [];
+    // Load all targeted budget categories in a single query (avoids the prior
+    // per-item N+1) and validate before any write.
+    const ids = categories.map((item) => item.id);
+    const existing = await this.budgetCategoriesRepository.find({
+      where: { id: In(ids), budgetId },
+    });
+    const byId = new Map(existing.map((bc) => [bc.id, bc]));
 
     for (const item of categories) {
-      const budgetCategory = await this.budgetCategoriesRepository.findOne({
-        where: { id: item.id, budgetId },
-      });
-
-      if (!budgetCategory) {
+      if (!byId.has(item.id)) {
         throw new NotFoundException(
-          `Budget category with ID ${item.id} not found`,
+          tr(
+            "errors.budgets.budgetCategoryNotFound",
+            `Budget category with ID ${item.id} not found`,
+            { id: item.id },
+          ),
         );
       }
-
-      budgetCategory.amount = item.amount;
-      results.push(await this.budgetCategoriesRepository.save(budgetCategory));
     }
 
-    return results;
+    // Apply all amount changes atomically so a partial failure cannot leave
+    // some categories updated and others not.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const results: BudgetCategory[] = [];
+      for (const item of categories) {
+        const budgetCategory = byId.get(item.id)!;
+        budgetCategory.amount = item.amount;
+        results.push(await queryRunner.manager.save(budgetCategory));
+      }
+
+      await queryRunner.commitTransaction();
+      return results;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async getSummary(
@@ -346,13 +397,10 @@ export class BudgetsService {
     const expenseCategories = categoryBreakdown.filter((c) => !c.isIncome);
     const incomeCategories = categoryBreakdown.filter((c) => c.isIncome);
 
-    const totalBudgeted = expenseCategories.reduce(
-      (sum, c) => sum + c.budgeted,
-      0,
-    );
-    const totalSpent = expenseCategories.reduce((sum, c) => sum + c.spent, 0);
-    const totalIncome = incomeCategories.reduce((sum, c) => sum + c.spent, 0);
-    const remaining = totalBudgeted - totalSpent;
+    const totalBudgeted = sumMoney(expenseCategories.map((c) => c.budgeted));
+    const totalSpent = sumMoney(expenseCategories.map((c) => c.spent));
+    const totalIncome = sumMoney(incomeCategories.map((c) => c.spent));
+    const remaining = roundMoney(totalBudgeted - totalSpent);
     const percentUsed =
       totalBudgeted > 0
         ? Math.round((totalSpent / totalBudgeted) * 10000) / 100
@@ -448,22 +496,16 @@ export class BudgetsService {
     );
 
     const expenseCategories = categoryBreakdown.filter((c) => !c.isIncome);
-    const currentSpent = expenseCategories.reduce((sum, c) => sum + c.spent, 0);
-    const budgetTotal = expenseCategories.reduce(
-      (sum, c) => sum + c.budgeted,
-      0,
-    );
+    const currentSpent = sumMoney(expenseCategories.map((c) => c.spent));
+    const budgetTotal = sumMoney(expenseCategories.map((c) => c.budgeted));
 
     const upcomingBills = await this.getUpcomingBills(userId, periodEnd);
-    const totalUpcomingBills = upcomingBills.reduce(
-      (sum, b) => sum + b.amount,
-      0,
-    );
+    const totalUpcomingBills = sumMoney(upcomingBills.map((b) => b.amount));
 
     const dailyBurnRate = currentSpent / daysElapsed;
     const projectedTotal = dailyBurnRate * totalDays;
     const projectedVariance = projectedTotal - budgetTotal;
-    const remaining = budgetTotal - currentSpent;
+    const remaining = roundMoney(budgetTotal - currentSpent);
     const trulyAvailable = remaining - totalUpcomingBills;
     const safeDailySpend =
       daysRemaining > 0 ? Math.max(0, trulyAvailable / daysRemaining) : 0;
@@ -479,19 +521,19 @@ export class BudgetsService {
     }
 
     return {
-      dailyBurnRate: Math.round(dailyBurnRate * 100) / 100,
-      projectedTotal: Math.round(projectedTotal * 100) / 100,
+      dailyBurnRate: roundMoney(dailyBurnRate),
+      projectedTotal: roundMoney(projectedTotal),
       budgetTotal,
-      projectedVariance: Math.round(projectedVariance * 100) / 100,
-      safeDailySpend: Math.round(safeDailySpend * 100) / 100,
+      projectedVariance: roundMoney(projectedVariance),
+      safeDailySpend: roundMoney(safeDailySpend),
       daysElapsed,
       daysRemaining,
       totalDays,
       currentSpent,
       paceStatus,
       upcomingBills,
-      totalUpcomingBills: Math.round(totalUpcomingBills * 100) / 100,
-      trulyAvailable: Math.round(trulyAvailable * 100) / 100,
+      totalUpcomingBills: roundMoney(totalUpcomingBills),
+      trulyAvailable: roundMoney(trulyAvailable),
     };
   }
 
@@ -649,7 +691,13 @@ export class BudgetsService {
     });
 
     if (!alert) {
-      throw new NotFoundException(`Alert with ID ${alertId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.budgets.alertNotFound",
+          `Alert with ID ${alertId} not found`,
+          { id: alertId },
+        ),
+      );
     }
 
     alert.isRead = true;
@@ -662,7 +710,13 @@ export class BudgetsService {
     });
 
     if (!alert) {
-      throw new NotFoundException(`Alert with ID ${alertId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.budgets.alertNotFound",
+          `Alert with ID ${alertId} not found`,
+          { id: alertId },
+        ),
+      );
     }
 
     alert.dismissedAt = new Date();
@@ -722,12 +776,9 @@ export class BudgetsService {
 
     const expenseCategories = categoryBreakdown.filter((c) => !c.isIncome);
 
-    const totalBudgeted = expenseCategories.reduce(
-      (sum, c) => sum + c.budgeted,
-      0,
-    );
-    const totalSpent = expenseCategories.reduce((sum, c) => sum + c.spent, 0);
-    const remaining = totalBudgeted - totalSpent;
+    const totalBudgeted = sumMoney(expenseCategories.map((c) => c.budgeted));
+    const totalSpent = sumMoney(expenseCategories.map((c) => c.spent));
+    const remaining = roundMoney(totalBudgeted - totalSpent);
     const percentUsed =
       totalBudgeted > 0
         ? Math.round((totalSpent / totalBudgeted) * 10000) / 100
@@ -767,7 +818,7 @@ export class BudgetsService {
       totalSpent,
       remaining,
       percentUsed,
-      safeDailySpend: Math.round(safeDailySpend * 100) / 100,
+      safeDailySpend: roundMoney(safeDailySpend),
       daysRemaining,
       topCategories,
     };
@@ -976,14 +1027,14 @@ export class BudgetsService {
 
       if (budget.incomeLinked && !bc.isIncome) {
         percentage = rawAmount;
-        budgeted = Math.round(((actualIncome * rawAmount) / 100) * 100) / 100;
+        budgeted = roundMoney((actualIncome * rawAmount) / 100);
       } else {
         budgeted = rawAmount;
       }
 
       const spent = resolveCategorySpent(bc, spendingMap, transferSpendingMap);
       const categoryName = resolveCategoryName(bc);
-      const remaining = budgeted - spent;
+      const remaining = roundMoney(budgeted - spent);
       const percentUsed =
         budgeted > 0 ? Math.round((spent / budgeted) * 10000) / 100 : 0;
 

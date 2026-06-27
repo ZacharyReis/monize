@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -21,15 +22,16 @@ export default function NewCustomReportPage() {
 }
 
 function NewCustomReportContent() {
+  const t = useTranslations('reports');
   const router = useRouter();
 
   const handleSubmit = async (data: CreateCustomReportData) => {
     try {
       const report = await customReportsApi.create(data);
-      toast.success('Report created');
+      toast.success(t('customPages.createSuccess'));
       router.push(`/reports/custom/${report.id}`);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create report'));
+      toast.error(getErrorMessage(error, t('customPages.createError')));
       throw error;
     }
   };
@@ -39,11 +41,11 @@ function NewCustomReportContent() {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Create Custom Report"
-          subtitle="Define how you want to view and analyze your financial data"
+          title={t('customPages.createTitle')}
+          subtitle={t('customPages.createSubtitle')}
           actions={
             <Link href="/reports">
-              <Button variant="outline">Back to Reports</Button>
+              <Button variant="outline">{t('reportPage.backToReports')}</Button>
             </Link>
           }
         />

@@ -1,0 +1,179 @@
+{
+  "chartFlag": {
+    "dismiss": "Ocultar este valor"
+  },
+  "appVersion": {
+    "releaseNotes": "Ver las notas de la versión v{version}"
+  },
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "edit": "Editar",
+  "close": "Cerrar",
+  "actions": {
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "view": "Ver",
+    "duplicate": "Duplicar",
+    "merge": "Combinar",
+    "reactivate": "Reactivar",
+    "reconcile": "Conciliar",
+    "post": "Registrar",
+    "skip": "Omitir",
+    "close": "Cerrar",
+    "reopen": "Reabrir",
+    "scheduleRecurring": "Hacer recurrente",
+    "more": "Más acciones"
+  },
+  "loading": "Cargando...",
+  "pagination": {
+    "showing": "Mostrando",
+    "of": "de",
+    "firstPage": "Primera página",
+    "lastPage": "Última página",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente",
+    "back10Pages": "Retroceder 10 páginas",
+    "forward10Pages": "Avanzar 10 páginas",
+    "enterPageNumber": "Introduce el número de página"
+  },
+  "confirmDialog": {
+    "confirm": "Confirmar"
+  },
+  "unsavedChanges": {
+    "title": "Cambios sin guardar",
+    "message": "Tienes cambios sin guardar. ¿Qué quieres hacer?",
+    "discard": "Descartar"
+  },
+  "exportDropdown": {
+    "export": "Exportar",
+    "exporting": "Exportando...",
+    "exportPdf": "Exportar PDF",
+    "exportReport": "Exportar informe",
+    "failedPdf": "Error al exportar el PDF. Inténtalo de nuevo."
+  },
+  "dateRange": {
+    "custom": "Personalizado",
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin"
+  },
+  "colorPicker": {
+    "custom": "Personalizado:",
+    "apply": "Aplicar"
+  },
+  "chartDownload": {
+    "downloadAsPng": "Descargar {filename} como PNG",
+    "unableToCapture": "No se puede capturar la imagen del gráfico",
+    "failedToDownload": "Error al descargar el gráfico"
+  },
+  "chartViewToggle": {
+    "pieChart": "Gráfico circular",
+    "barChart": "Gráfico de barras",
+    "stackedChart": "Gráfico de barras apiladas 100%",
+    "lineChart": "Gráfico de líneas",
+    "areaChart": "Gráfico de área",
+    "table": "Tabla"
+  },
+  "formActions": {
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "themeToggle": {
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema",
+    "title": "Tema: {label}. Haz clic para cambiar."
+  },
+  "errorPage": {
+    "title": "Algo salió mal",
+    "description": "Se produjo un error inesperado. Inténtalo de nuevo o contacta con el soporte si el problema persiste.",
+    "errorId": "ID de error: {digest}",
+    "tryAgain": "Intentar de nuevo",
+    "goToDashboard": "Ir al panel de control"
+  },
+  "errorBoundary": {
+    "defaultMessage": "Ocurrió un error al renderizar este componente."
+  },
+  "calendar": {
+    "clear": "Limpiar",
+    "today": "Hoy"
+  },
+  "multiSelect": {
+    "search": "Buscar...",
+    "selectAll": "Seleccionar todo",
+    "clear": "Limpiar",
+    "noOptions": "No se encontraron opciones",
+    "selectedCount": "{count} seleccionados"
+  },
+  "combobox": {
+    "createOption": "Crear \"{value}\""
+  },
+  "passwordInput": {
+    "show": "Mostrar entrada",
+    "hide": "Ocultar entrada"
+  },
+  "currencyInput": {
+    "openCalculator": "Abrir calculadora",
+    "calculator": "Calculadora",
+    "toggleSign": "Cambiar signo"
+  },
+  "dateInput": {
+    "shortcutsTitle": "Atajos de teclado",
+    "today": "Hoy",
+    "firstDayOfYear": "Primer día del año",
+    "lastDayOfYear": "Último día del año",
+    "firstDayOfMonth": "Primer día del mes",
+    "lastDayOfMonth": "Último día del mes",
+    "nextDay": "Día siguiente",
+    "previousDay": "Día anterior",
+    "nextMonth": "Mes siguiente",
+    "previousMonth": "Mes anterior"
+  },
+  "accountTypes": {
+    "CHEQUING": "Cuenta corriente",
+    "SAVINGS": "Cuenta de ahorros",
+    "CREDIT_CARD": "Tarjeta de crédito",
+    "INVESTMENT": "Inversión",
+    "LOAN": "Préstamo",
+    "MORTGAGE": "Hipoteca",
+    "CASH": "Efectivo",
+    "LINE_OF_CREDIT": "Línea de crédito",
+    "ASSET": "Activo",
+    "OTHER": "Otro"
+  },
+  "accountFilter": {
+    "allAccounts": "Todas las cuentas",
+    "allBut": "Todas excepto {names}"
+  },
+  "passwordRequirements": "La contraseña debe tener al menos 12 caracteres e incluir una letra mayúscula, una minúscula, un número y un carácter especial.",
+  "passwordValidation": {
+    "min": "La contraseña debe tener al menos 12 caracteres",
+    "max": "La contraseña no puede superar los 100 caracteres",
+    "lowercase": "Debe contener una letra minúscula",
+    "uppercase": "Debe contener una letra mayúscula",
+    "number": "Debe contener un número",
+    "special": "Debe contener un carácter especial"
+  },
+  "codeValidation": {
+    "length": "El código debe tener exactamente 6 dígitos",
+    "digits": "El código debe ser de 6 dígitos"
+  },
+  "monthsShort": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+  "weekdaysShort": ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  "weekdaysMin": ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"],
+  "weekdaysNarrow": ["D", "L", "M", "X", "J", "V", "S"],
+  "dateFormat": {
+    "browserAuto": "Usar configuración regional del navegador (detectado automáticamente como {sample})",
+    "custom": "Personalizado..."
+  },
+  "emailInvalid": "Introduce una dirección de correo electrónico válida",
+  "noSectionAccess": "No tienes acceso a esa sección.",
+  "undoRedo": {
+    "nothingToUndo": "Nada que deshacer",
+    "cannotUndo": "No se puede deshacer esta acción",
+    "undoFailed": "Error al deshacer",
+    "nothingToRedo": "Nada que rehacer",
+    "cannotRedo": "No se puede rehacer esta acción",
+    "redoFailed": "Error al rehacer"
+  }
+}

@@ -8,6 +8,7 @@ import {
   IsArray,
   IsEnum,
   Min,
+  Max,
   ValidateNested,
   IsDateString,
   MaxLength,
@@ -43,7 +44,9 @@ class InlineSplitDto {
   investment?: InvestmentSplitDto;
 
   @ApiPropertyOptional({ description: "Amount for this split" })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   amount: number;
 
   @ApiPropertyOptional({ description: "Memo for this split" })
@@ -63,7 +66,9 @@ export class PostScheduledTransactionDto {
 
   @ApiPropertyOptional({ description: "Override amount for this posting only" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   amount?: number;
 
   @ApiPropertyOptional({
@@ -111,6 +116,7 @@ export class PostScheduledTransactionDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 8 })
   @Min(0)
+  @Max(999999999999)
   investmentQuantity?: number;
 
   @ApiPropertyOptional({
@@ -119,6 +125,7 @@ export class PostScheduledTransactionDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   @Min(0)
+  @Max(999999999999)
   investmentPrice?: number;
 
   @ApiPropertyOptional({
@@ -127,5 +134,7 @@ export class PostScheduledTransactionDto {
   })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   investmentTotalAmount?: number;
 }

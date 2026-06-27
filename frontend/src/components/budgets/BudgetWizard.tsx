@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { BudgetWizardAnalysis } from './BudgetWizardAnalysis';
 import { BudgetWizardCategories } from './BudgetWizardCategories';
 import { BudgetWizardStrategy } from './BudgetWizardStrategy';
@@ -50,7 +51,7 @@ interface BudgetWizardProps {
   accounts?: Account[];
 }
 
-const STEPS = ['Analyze', 'Categories', 'Configure', 'Review'] as const;
+const STEPS = ['analyze', 'categories', 'configure', 'review'] as const;
 
 export function BudgetWizard({
   onComplete,
@@ -58,6 +59,7 @@ export function BudgetWizard({
   defaultCurrency,
   accounts = [],
 }: BudgetWizardProps) {
+  const t = useTranslations('budgets');
   const [currentStep, setCurrentStep] = useState(0);
   const now = new Date();
   const defaultPeriodStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -175,10 +177,10 @@ export function BudgetWizard({
   return (
     <div>
       {/* Step indicators */}
-      <nav aria-label="Wizard steps" className="mb-8">
+      <nav aria-label={t('wizard.ariaLabel')} className="mb-8">
         <ol className="flex items-center justify-center gap-1 sm:gap-2">
-          {STEPS.map((stepName, index) => (
-            <li key={stepName} className="flex items-center">
+          {STEPS.map((stepKey, index) => (
+            <li key={stepKey} className="flex items-center">
               <div
                 className={`flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${
                   index === currentStep
@@ -199,7 +201,7 @@ export function BudgetWizard({
                 >
                   {index < currentStep ? '\u2713' : index + 1}
                 </span>
-                <span className="hidden sm:inline">{stepName}</span>
+                <span className="hidden sm:inline">{t(`wizard.steps.${stepKey}`)}</span>
               </div>
               {index < STEPS.length - 1 && (
                 <div

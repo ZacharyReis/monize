@@ -29,10 +29,10 @@ describe("McpCategoriesTools", () => {
     expect(server.registerTool).toHaveBeenCalledTimes(1);
   });
 
-  describe("get_categories", () => {
+  describe("list_categories", () => {
     it("returns error when no user context", async () => {
       resolve.mockReturnValue(undefined);
-      const result = await handlers["get_categories"]({}, { sessionId: "s1" });
+      const result = await handlers["list_categories"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
     });
 
@@ -51,7 +51,7 @@ describe("McpCategoriesTools", () => {
         totalCount: 1,
       });
 
-      const result = await handlers["get_categories"]({}, { sessionId: "s1" });
+      const result = await handlers["list_categories"]({}, { sessionId: "s1" });
       expect(categoriesService.getLlmCategories).toHaveBeenCalledWith("u1", {
         type: undefined,
         search: undefined,
@@ -68,7 +68,7 @@ describe("McpCategoriesTools", () => {
         totalCount: 0,
       });
 
-      await handlers["get_categories"](
+      await handlers["list_categories"](
         { type: "income", search: "salary" },
         { sessionId: "s1" },
       );
@@ -85,13 +85,13 @@ describe("McpCategoriesTools", () => {
         new Error("DB fail"),
       );
 
-      const result = await handlers["get_categories"]({}, { sessionId: "s1" });
+      const result = await handlers["list_categories"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
     });
 
     it("returns error when scope is insufficient", async () => {
       resolve.mockReturnValue({ userId: "u1", scopes: "write_only" } as any);
-      const result = await handlers["get_categories"]({}, { sessionId: "s1" });
+      const result = await handlers["list_categories"]({}, { sessionId: "s1" });
       expect(result.isError).toBe(true);
     });
   });

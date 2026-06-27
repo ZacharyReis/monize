@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from './Button';
 import { Modal } from './Modal';
 
@@ -20,13 +21,16 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   variant = 'danger',
   onConfirm,
   onCancel,
   pushHistory = false,
 }: ConfirmDialogProps) {
+  const t = useTranslations('common');
+  const resolvedConfirmLabel = confirmLabel ?? t('confirmDialog.confirm');
+  const resolvedCancelLabel = cancelLabel ?? t('cancel');
   const iconColors = {
     danger: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900',
     warning: 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900',
@@ -104,13 +108,13 @@ export function ConfirmDialog({
       </div>
       <div className="mt-6 flex justify-end space-x-3">
         <Button variant="outline" onClick={onCancel}>
-          {cancelLabel}
+          {resolvedCancelLabel}
         </Button>
         <button
           onClick={onConfirm}
           className={`inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${buttonVariants[variant]}`}
         >
-          {confirmLabel}
+          {resolvedConfirmLabel}
         </button>
       </div>
     </Modal>

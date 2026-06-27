@@ -109,15 +109,34 @@ vi.mock('@/hooks/useExchangeRates', () => ({
     isLoading: false,
     convert: vi.fn(),
     convertToDefault: vi.fn(),
-    getRate: vi.fn().mockReturnValue(null),
+    getRate: vi.fn((code: string) => {
+      const rates: Record<string, number> = { USD: 1.35, EUR: 1.45 };
+      return rates[code] ?? null;
+    }),
     refresh: mockRefreshHook,
     defaultCurrency: 'CAD',
   }),
 }));
 
-// Mock child components
+// Mock child components. The form mock exposes a submit button so tests can
+// drive handleFormSubmit (create + edit paths). The list mock adds decimals
+// and code sort triggers so every sort comparator branch can be exercised.
 vi.mock('@/components/currencies/CurrencyForm', () => ({
-  CurrencyForm: () => <div data-testid="currency-form">CurrencyForm</div>,
+  CurrencyForm: ({ onSubmit }: any) => (
+    <div data-testid="currency-form">
+      CurrencyForm
+      <button
+        data-testid="currency-form-submit"
+        onClick={() =>
+          onSubmit?.({ code: 'JPY', name: 'Yen', symbol: 'JPY', decimalPlaces: 0 }).catch(
+            () => {},
+          )
+        }
+      >
+        Submit
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/currencies/CurrencyList', () => ({
@@ -128,6 +147,8 @@ vi.mock('@/components/currencies/CurrencyList', () => ({
       {onSort && <button data-testid="sort-trigger" onClick={() => onSort('name')}>Sort</button>}
       {onSort && <button data-testid="sort-trigger-symbol" onClick={() => onSort('symbol')}>Sort Symbol</button>}
       {onSort && <button data-testid="sort-trigger-rate" onClick={() => onSort('rate')}>Sort Rate</button>}
+      {onSort && <button data-testid="sort-trigger-decimals" onClick={() => onSort('decimals')}>Sort Decimals</button>}
+      {onSort && <button data-testid="sort-trigger-code" onClick={() => onSort('code')}>Sort Code</button>}
       {currencies.map((c: any) => (
         <div key={c.code} data-testid={`currency-row-${c.code}`}>
           {c.name}

@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, In, Repository } from "typeorm";
 import { MonteCarloScenario } from "./entities/monte-carlo-scenario.entity";
@@ -23,6 +24,7 @@ import { Holding } from "../securities/entities/holding.entity";
 import { Security } from "../securities/entities/security.entity";
 import { SecurityPrice } from "../securities/entities/security-price.entity";
 import { Account } from "../accounts/entities/account.entity";
+import { roundMoney } from "../common/round.util";
 
 export interface HistoricalStats {
   /** Number of full calendar years of data used to compute the stats. */
@@ -126,7 +128,11 @@ export class MonteCarloService {
       relations: ["cashFlows"],
     });
     if (!scenario) {
-      throw new NotFoundException(`Scenario ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.monteCarlo.scenarioNotFound", `Scenario ${id} not found`, {
+          id,
+        }),
+      );
     }
     if (scenario.cashFlows) {
       scenario.cashFlows.sort((a, b) => a.sortOrder - b.sortOrder);
@@ -219,7 +225,12 @@ export class MonteCarloService {
     // this via @IsArray, but we re-check here so the invariant is visible to
     // static analysis (mirrors AccountsService.reorderFavourites).
     if (!Array.isArray(scenarioIds)) {
-      throw new BadRequestException("scenarioIds must be an array");
+      throw new BadRequestException(
+        tr(
+          "errors.monteCarlo.scenarioIdsMustBeArray",
+          "scenarioIds must be an array",
+        ),
+      );
     }
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -362,7 +373,12 @@ export class MonteCarloService {
     accountIds: string[],
   ): Promise<HistoricalStats> {
     if (accountIds.length === 0) {
-      throw new BadRequestException("At least one accountId is required");
+      throw new BadRequestException(
+        tr(
+          "errors.monteCarlo.atLeastOneAccountRequired",
+          "At least one accountId is required",
+        ),
+      );
     }
 
     const currentBalance = await this.computeCurrentValue(userId, accountIds);
@@ -458,7 +474,12 @@ export class MonteCarloService {
     accountIds: string[],
   ): Promise<AccountHoldingStats[]> {
     if (accountIds.length === 0) {
-      throw new BadRequestException("At least one accountId is required");
+      throw new BadRequestException(
+        tr(
+          "errors.monteCarlo.atLeastOneAccountRequired",
+          "At least one accountId is required",
+        ),
+      );
     }
 
     // Verify the requested accounts belong to the user before running queries
@@ -503,10 +524,7 @@ export class MonteCarloService {
         name: h.security?.name ?? "Unknown",
         currencyCode: h.security?.currencyCode ?? "USD",
         quantity: Number(h.quantity),
-        marketValue:
-          price == null
-            ? 0
-            : Math.round(Number(h.quantity) * price * 100) / 100,
+        marketValue: price == null ? 0 : roundMoney(Number(h.quantity) * price),
         yearsObserved: series.length,
         meanReturn: stats.mean,
         volatility: stats.stdev,
@@ -650,7 +668,7 @@ export class MonteCarloService {
       // with more than 4 decimals fail the DTO's @IsNumber maxDecimalPlaces
       // check. Clamp non-finite values to 0 and round to 4 decimal places.
       if (!Number.isFinite(value)) return 0;
-      return Math.round(value * 10000) / 10000;
+      return roundMoney(value);
     } catch (err) {
       this.logger.warn(
         `Failed to compute current portfolio value for accounts ${accountIds.join(",")}: ${

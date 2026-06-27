@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { BudgetTrendReportsService } from "./budget-trend-reports.service";
 import { BudgetHealthReportsService } from "./budget-health-reports.service";
 import { BudgetActivityReportsService } from "./budget-activity-reports.service";
@@ -143,6 +143,8 @@ export interface LlmBudgetStatusError {
 
 @Injectable()
 export class BudgetReportsService {
+  private readonly logger = new Logger(BudgetReportsService.name);
+
   constructor(
     private readonly trendReports: BudgetTrendReportsService,
     private readonly healthReports: BudgetHealthReportsService,
@@ -252,7 +254,10 @@ export class BudgetReportsService {
     let summary: Awaited<ReturnType<BudgetsService["getSummary"]>>;
     try {
       summary = await this.budgetsService.getSummary(userId, budget.id);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Failed to retrieve budget summary for ${budget.id}: ${err instanceof Error ? err.message : err}`,
+      );
       return { error: "Failed to retrieve budget summary" };
     }
 
@@ -260,14 +265,20 @@ export class BudgetReportsService {
       null;
     try {
       velocity = await this.budgetsService.getVelocity(userId, budget.id);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Failed to compute budget velocity for ${budget.id}: ${err instanceof Error ? err.message : err}`,
+      );
       velocity = null;
     }
 
     let healthScore: HealthScoreResult | null = null;
     try {
       healthScore = await this.getHealthScore(userId, budget.id);
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Failed to compute budget health score for ${budget.id}: ${err instanceof Error ? err.message : err}`,
+      );
       healthScore = null;
     }
 

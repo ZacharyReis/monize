@@ -11,6 +11,7 @@ interface PreferencesState {
   isLoaded: boolean;
   _hasHydrated: boolean;
   loadPreferences: () => Promise<void>;
+  getLanguage: () => string;
   updatePreferences: (prefs: Partial<UserPreferences>) => void;
   clearPreferences: () => void;
   setHasHydrated: (state: boolean) => void;
@@ -34,6 +35,8 @@ export const usePreferencesStore = create<PreferencesState>()(
           set({ isLoaded: true });
         }
       },
+
+      getLanguage: () => get().preferences?.language || 'en',
 
       updatePreferences: (prefs) => {
         const current = get().preferences;

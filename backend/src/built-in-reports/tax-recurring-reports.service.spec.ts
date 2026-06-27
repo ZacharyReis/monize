@@ -355,9 +355,9 @@ describe("TaxRecurringReportsService", () => {
 
       const result = await service.getTaxSummary(mockUserId, 2025);
 
-      expect(result.incomeBySource[0].total).toBe(3333.33);
-      expect(result.totals.income).toBe(3333.33);
-      expect(result.deductibleExpenses[0].total).toBe(111.12);
+      expect(result.incomeBySource[0].total).toBe(3333.333);
+      expect(result.totals.income).toBe(3333.333);
+      expect(result.deductibleExpenses[0].total).toBe(111.115);
     });
 
     it("passes correct year date range to the query", async () => {
@@ -556,8 +556,8 @@ describe("TaxRecurringReportsService", () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].payeeName).toBe("Spotify");
       expect(result.data[0].occurrences).toBe(6);
-      // 30 USD + 27.27 EUR * 1.1 = 30 + 29.997
-      expect(result.data[0].totalAmount).toBe(60);
+      // 30 USD + 27.27 EUR * 1.1 = 30 + 29.997 = 59.997 (4dp storage precision)
+      expect(result.data[0].totalAmount).toBe(59.997);
     });
 
     it("uses the most recent last_transaction_date when merging", async () => {
@@ -660,8 +660,8 @@ describe("TaxRecurringReportsService", () => {
 
       const result = await service.getRecurringExpenses(mockUserId);
 
-      expect(result.data[0].totalAmount).toBe(33.33);
-      expect(result.data[0].averageAmount).toBe(11.11);
+      expect(result.data[0].totalAmount).toBe(33.333);
+      expect(result.data[0].averageAmount).toBe(11.111);
     });
 
     it("uses 'Uncategorized' when category_name is null", async () => {
@@ -1211,7 +1211,7 @@ describe("TaxRecurringReportsService", () => {
       );
 
       expect(result.billPayments[0].totalPaid).toBe(100);
-      expect(result.billPayments[0].averagePayment).toBe(33.33);
+      expect(result.billPayments[0].averagePayment).toBe(33.3333);
     });
   });
 });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { BudgetWizard } from '@/components/budgets/BudgetWizard';
@@ -19,6 +20,7 @@ export default function BudgetCreatePage() {
 }
 
 function BudgetCreateContent() {
+  const t = useTranslations('budgets');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { defaultCurrency } = useExchangeRates();
   const router = useRouter();
@@ -32,8 +34,8 @@ function BudgetCreateContent() {
       <main className="px-0 sm:px-6 lg:px-12 pt-2 sm:pt-6 pb-8">
         <div className="px-2 sm:px-0">
           <PageHeader
-            title="Create Budget"
-            subtitle="Analyze your spending and create a personalized budget"
+            title={t('pages.create.title')}
+            subtitle={t('pages.create.subtitle')}
           />
         </div>
         <div className="bg-white dark:bg-gray-800 sm:shadow sm:rounded-lg p-0 sm:p-6">

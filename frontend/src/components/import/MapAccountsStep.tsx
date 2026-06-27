@@ -1,6 +1,7 @@
 'use client';
 
 import { RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -33,15 +34,15 @@ export function MapAccountsStep({
   securityMappings,
   setStep,
 }: MapAccountsStepProps) {
+  const t = useTranslations('import');
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Map Transfer Accounts
+          {t('mapAccounts.heading')}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          The following transfer accounts were found in your QIF file. Map them to existing
-          accounts or create new ones.
+          {t('mapAccounts.description')}
         </p>
         <div ref={scrollContainerRef} className="space-y-4 max-h-96 overflow-y-auto">
           {accountMappings.map((mapping, index) => {
@@ -59,7 +60,7 @@ export function MapAccountsStep({
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select
-                  label="Map to existing"
+                  label={t('mapAccounts.mapToExisting')}
                   options={accountOptions}
                   value={mapping.accountId || ''}
                   onChange={(e) =>
@@ -68,8 +69,8 @@ export function MapAccountsStep({
                 />
                 <div>
                   <Input
-                    label="Or create new"
-                    placeholder="New account name"
+                    label={t('mapAccounts.orCreateNew')}
+                    placeholder={t('mapAccounts.newAccountNamePlaceholder')}
                     value={mapping.createNew || ''}
                     onChange={(e) =>
                       handleAccountMappingChange(index, 'createNew', e.target.value)
@@ -78,7 +79,7 @@ export function MapAccountsStep({
                   {mapping.createNew && (
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <Select
-                        label="Account type"
+                        label={t('mapAccounts.accountType')}
                         options={accountTypeOptions}
                         value={mapping.accountType || 'CHEQUING'}
                         onChange={(e) =>
@@ -86,7 +87,7 @@ export function MapAccountsStep({
                         }
                       />
                       <Select
-                        label="Currency"
+                        label={t('mapAccounts.currency')}
                         options={currencyOptions}
                         value={mapping.currencyCode || defaultCurrency}
                         onChange={(e) =>
@@ -114,9 +115,9 @@ export function MapAccountsStep({
               }
             }}
           >
-            Back
+            {t('navigation.back')}
           </Button>
-          <Button onClick={() => setStep('review')}>Next</Button>
+          <Button onClick={() => setStep('review')}>{t('navigation.next')}</Button>
         </div>
       </div>
     </div>

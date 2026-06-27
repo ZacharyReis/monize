@@ -48,6 +48,49 @@ export class UpdatePreferencesDto {
   theme?: string;
 
   @ApiPropertyOptional({
+    description:
+      "Colour theme (palette), separate from the light/dark mode preference",
+    example: "default",
+    enum: [
+      "default",
+      "latte",
+      "msmoney",
+      "newspaper",
+      "burgundy",
+      "nord",
+      "forest",
+      "solarized",
+      "gruvbox",
+      "dracula",
+      "tokyonight",
+      "rosepine",
+      "midnight",
+      "highcontrast",
+      "colorblind",
+    ],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn([
+    "default",
+    "latte",
+    "msmoney",
+    "newspaper",
+    "burgundy",
+    "nord",
+    "forest",
+    "solarized",
+    "gruvbox",
+    "dracula",
+    "tokyonight",
+    "rosepine",
+    "midnight",
+    "highcontrast",
+    "colorblind",
+  ])
+  colorTheme?: string;
+
+  @ApiPropertyOptional({
     description: "Timezone (browser = use browser timezone)",
     example: "browser",
   })
@@ -70,6 +113,13 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   gettingStartedDismissed?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Show the app-wide floating AI chat bubble",
+  })
+  @IsOptional()
+  @IsBoolean()
+  aiBubbleEnabled?: boolean;
 
   @ApiPropertyOptional({
     description: "Day the week starts on (0=Sunday, 1=Monday, ..., 6=Saturday)",
@@ -172,4 +222,16 @@ export class UpdatePreferencesDto {
   @IsInt()
   @IsIn([1, 2, 3, 6, 9, 12])
   forecastLookbackMonths?: number;
+    description:
+      "UI language. 'browser' to follow the browser's configured language, an ISO 639-1 code (e.g. 'en', 'fr'), or a BCP 47 tag (e.g. 'pt-BR'). Must be 'browser' or one of the SUPPORTED_LOCALES values.",
+    example: "en",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  @Matches(/^(browser|[a-z]{2}(-[A-Z]{2})?)$/, {
+    message:
+      "language must be 'browser', an ISO 639-1 code (e.g. 'en'), or a BCP 47 tag (e.g. 'pt-BR')",
+  })
+  language?: string;
 }

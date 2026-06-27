@@ -76,7 +76,6 @@ describe('CreateUserModal', () => {
   });
 
   it('rejects a weak password without calling the API', async () => {
-    const toast = await import('react-hot-toast');
     renderModal(false);
 
     fireEvent.change(screen.getByPlaceholderText('user@example.com'), {
@@ -90,7 +89,10 @@ describe('CreateUserModal', () => {
     });
 
     expect(mockCreateUser).not.toHaveBeenCalled();
-    expect(toast.default.error).toHaveBeenCalled();
+    // The shared passwordSchema surfaces an inline validation error.
+    await waitFor(() =>
+      expect(screen.getByText(/at least 12 characters/i)).toBeInTheDocument(),
+    );
   });
 
   it('sends the chosen role and a valid password', async () => {

@@ -28,6 +28,7 @@ import {
   MonthlyComparisonQueryDto,
   SpendingTrendsQueryDto,
   SpendingTrendsResponse,
+  MonthlyCategoryBreakdownResponse,
 } from "./dto";
 
 @ApiTags("Built-in Reports")
@@ -262,6 +263,19 @@ export class BuiltInReportsController {
       query.lookbackMonths ?? 3,
       query.accountId ?? "all",
       query.forecastDays ?? 365,
+  @Get("monthly-category-breakdown")
+  @ApiOperation({
+    summary: "Get expense and income amounts broken down by category and month",
+  })
+  @ApiResponse({ status: 200, type: MonthlyCategoryBreakdownResponse })
+  getMonthlyCategoryBreakdown(
+    @Request() req,
+    @Query() query: ReportQueryDto,
+  ): Promise<MonthlyCategoryBreakdownResponse> {
+    return this.reportsService.getMonthlyCategoryBreakdown(
+      req.user.id,
+      query.startDate,
+      query.endDate,
     );
   }
 }

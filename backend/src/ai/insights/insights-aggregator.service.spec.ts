@@ -3,11 +3,13 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { InsightsAggregatorService } from "./insights-aggregator.service";
 import { Transaction } from "../../transactions/entities/transaction.entity";
 import { ScheduledTransaction } from "../../scheduled-transactions/entities/scheduled-transaction.entity";
+import { TransactionAnalyticsService } from "../../transactions/transaction-analytics.service";
 
 describe("InsightsAggregatorService", () => {
   let service: InsightsAggregatorService;
   let mockTransactionRepo: Record<string, jest.Mock>;
   let mockScheduledTransactionRepo: Record<string, jest.Mock>;
+  let mockTransactionAnalytics: Record<string, jest.Mock>;
 
   const userId = "user-1";
 
@@ -40,6 +42,10 @@ describe("InsightsAggregatorService", () => {
       find: jest.fn().mockResolvedValue([]),
     };
 
+    mockTransactionAnalytics = {
+      getRecurringCharges: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InsightsAggregatorService,
@@ -50,6 +56,10 @@ describe("InsightsAggregatorService", () => {
         {
           provide: getRepositoryToken(ScheduledTransaction),
           useValue: mockScheduledTransactionRepo,
+        },
+        {
+          provide: TransactionAnalyticsService,
+          useValue: mockTransactionAnalytics,
         },
       ],
     }).compile();
@@ -145,36 +155,30 @@ describe("InsightsAggregatorService", () => {
       expect(result.monthlySpending[1].total).toBe(150);
     });
 
-    it("detects recurring charges with consistent timing", async () => {
-      const qb = mockQueryBuilder();
-      let callCount = 0;
-
-      qb.getRawMany.mockImplementation(() => {
-        callCount++;
-        if (callCount === 3) {
-          // Recurring charges query (third call)
-          return Promise.resolve([
-            {
-              payeeName: "Netflix",
-              categoryName: "Entertainment",
-              amounts: [15.99, 15.99, 15.99, 17.99],
-              dates: ["2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01"],
-              txnCount: "4",
-            },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
-
-      mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
+    it("includes recurring charges from the shared analytics service", async () => {
+      // Recurring-charge detection lives on TransactionAnalyticsService; the
+      // aggregator just surfaces whatever the shared method returns.
+      const charges = [
+        {
+          payeeName: "Netflix",
+          amounts: [15.99, 17.99],
+          dates: ["2025-11-01", "2025-12-01"],
+          frequency: "monthly",
+          currentAmount: 17.99,
+          previousAmount: 15.99,
+          categoryName: "Entertainment",
+        },
+      ];
+      mockTransactionAnalytics.getRecurringCharges.mockResolvedValue(charges);
 
       const result = await service.computeAggregates(userId, "USD");
 
-      expect(result.recurringCharges).toHaveLength(1);
-      expect(result.recurringCharges[0].payeeName).toBe("Netflix");
-      expect(result.recurringCharges[0].frequency).toBe("monthly");
-      expect(result.recurringCharges[0].currentAmount).toBe(17.99);
-      expect(result.recurringCharges[0].previousAmount).toBe(15.99);
+      expect(mockTransactionAnalytics.getRecurringCharges).toHaveBeenCalledWith(
+        userId,
+        expect.any(String),
+        expect.any(String),
+      );
+      expect(result.recurringCharges).toEqual(charges);
     });
 
     it("computes average monthly spending from completed months only", async () => {
@@ -236,35 +240,6 @@ describe("InsightsAggregatorService", () => {
       expect(result.categorySpending[0].categoryId).toBeNull();
     });
 
-    it("handles recurring charge with single amount", async () => {
-      const qb = mockQueryBuilder();
-      let callCount = 0;
-
-      qb.getRawMany.mockImplementation(() => {
-        callCount++;
-        if (callCount === 3) {
-          return Promise.resolve([
-            {
-              payeeName: "Service",
-              categoryName: "Utilities",
-              amounts: [29.99, 29.99, 29.99],
-              dates: ["2025-10-15", "2025-11-15", "2025-12-15"],
-              txnCount: "3",
-            },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
-
-      mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.computeAggregates(userId, "USD");
-
-      expect(result.recurringCharges).toHaveLength(1);
-      expect(result.recurringCharges[0].currentAmount).toBe(29.99);
-      expect(result.recurringCharges[0].previousAmount).toBe(29.99);
-    });
-
     it("uses innerJoin for category spending query", async () => {
       const qb = mockQueryBuilder();
       mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
@@ -272,49 +247,6 @@ describe("InsightsAggregatorService", () => {
       await service.computeAggregates(userId, "USD");
 
       expect(qb.innerJoin).toHaveBeenCalled();
-    });
-
-    it("filters out irregular charges", async () => {
-      const qb = mockQueryBuilder();
-      let callCount = 0;
-
-      qb.getRawMany.mockImplementation(() => {
-        callCount++;
-        if (callCount === 3) {
-          return Promise.resolve([
-            {
-              payeeName: "Random Store",
-              categoryName: "Shopping",
-              amounts: [50, 20, 150],
-              dates: ["2025-08-10", "2025-09-25", "2025-12-01"],
-              txnCount: "3",
-            },
-          ]);
-        }
-        return Promise.resolve([]);
-      });
-
-      mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.computeAggregates(userId, "USD");
-
-      expect(result.recurringCharges).toHaveLength(0);
-    });
-
-    it("excludes investment-linked cash debits from recurring-charge detection", async () => {
-      // Regular BUY activity can repeat monthly (e.g. DRIP) and would
-      // otherwise be flagged as a subscription-like recurring charge.
-      const qb = mockQueryBuilder();
-      mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
-
-      await service.computeAggregates(userId, "USD");
-
-      const andWhereCalls = qb.andWhere.mock.calls.map(
-        (c: unknown[]) => c[0] as string,
-      );
-      expect(andWhereCalls).toContain(
-        "NOT EXISTS (SELECT 1 FROM investment_transactions it WHERE it.transaction_id = t.id)",
-      );
     });
   });
 });

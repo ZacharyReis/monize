@@ -1,5 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
+import { Logger } from "@nestjs/common";
 import { DemoModeService } from "./demo-mode.service";
 
 describe("DemoModeService", () => {
@@ -64,16 +65,27 @@ describe("DemoModeService", () => {
   });
 
   it("logs a message when demo mode is active", async () => {
-    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    const logSpy = jest
+      .spyOn(Logger.prototype, "log")
+      .mockImplementation(() => {});
     await createService("true");
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringContaining("Demo mode is ACTIVE"),
     );
+    logSpy.mockRestore();
   });
 
   it("does not log when demo mode is inactive", async () => {
-    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    const logSpy = jest
+      .spyOn(Logger.prototype, "log")
+      .mockImplementation(() => {});
     await createService("false");
-    expect(logSpy).not.toHaveBeenCalled();
+    const demoLogs = logSpy.mock.calls.filter(
+      (args) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("Demo mode is ACTIVE"),
+    );
+    expect(demoLogs).toHaveLength(0);
+    logSpy.mockRestore();
   });
 });

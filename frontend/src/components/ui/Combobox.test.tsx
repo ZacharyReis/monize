@@ -40,6 +40,19 @@ describe('Combobox', () => {
     expect(screen.getByText('Date')).toBeInTheDocument();
   });
 
+  it('does not open on focus when openOnFocus is false, but opens on click', () => {
+    render(<Combobox options={options} onChange={onChange} openOnFocus={false} />);
+
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    // Focus alone must not reveal the options.
+    expect(screen.queryByText('Apple')).not.toBeInTheDocument();
+
+    // An explicit click still opens the dropdown.
+    fireEvent.click(input);
+    expect(screen.getByText('Apple')).toBeInTheDocument();
+  });
+
   it('filters options when typing', async () => {
     render(<Combobox options={options} onChange={onChange} />);
 
@@ -297,6 +310,29 @@ describe('Combobox', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Apple')).not.toBeInTheDocument();
+    });
+  });
+
+  it('commits a typed custom value when the click lands on a submit button', async () => {
+    render(
+      <form>
+        <Combobox options={options} onChange={onChange} allowCustomValue />
+        <button type="submit" data-testid="save">Save</button>
+      </form>,
+    );
+
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    // Input changes are ignored for ~100ms after the dropdown auto-opens.
+    await new Promise(r => setTimeout(r, 150));
+    fireEvent.change(input, { target: { value: 'Narnia' } });
+
+    // Mousedown on the submit button fires the click-outside handler. The typed
+    // custom value must still be lifted to the parent before the form submits.
+    fireEvent.mouseDown(screen.getByTestId('save'));
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith('', 'Narnia');
     });
   });
 
@@ -1246,6 +1282,54 @@ describe('Combobox', () => {
       await waitFor(() => {
         expect(screen.getByText('Liquor Control Board of Ontario')).toBeInTheDocument();
       });
+    });
+  });
+
+  // Regression: typing a new value (e.g. a payee not in the list) and then
+  // leaving the field by pressing Tab used to discard the text, so the form
+  // read a blank value on submit. A typed custom value must be lifted to the
+  // parent whether focus leaves by Tab or by clicking elsewhere.
+  describe('committing a typed custom value', () => {
+    it('commits a custom value when tabbing out of the field', () => {
+      render(<Combobox options={options} onChange={onChange} allowCustomValue />);
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'Brand New Payee' } });
+      fireEvent.keyDown(input, { key: 'Tab' });
+      expect(onChange).toHaveBeenLastCalledWith('', 'Brand New Payee');
+    });
+
+    it('commits a custom value when focus leaves via an outside click', () => {
+      render(
+        <div>
+          <Combobox options={options} onChange={onChange} allowCustomValue />
+          <button type="button">Outside</button>
+        </div>,
+      );
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'Brand New Payee' } });
+      fireEvent.mouseDown(screen.getByText('Outside'));
+      expect(onChange).toHaveBeenLastCalledWith('', 'Brand New Payee');
+    });
+
+    it('snaps a typed value to an exact option match when leaving the field', () => {
+      render(
+        <div>
+          <Combobox options={options} onChange={onChange} allowCustomValue />
+          <button type="button">Outside</button>
+        </div>,
+      );
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'Banana' } });
+      fireEvent.mouseDown(screen.getByText('Outside'));
+      expect(onChange).toHaveBeenLastCalledWith('2', 'Banana');
+    });
+
+    it('does not commit a typed value on Tab when custom values are disallowed', () => {
+      render(<Combobox options={options} onChange={onChange} />);
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'Unknown' } });
+      fireEvent.keyDown(input, { key: 'Tab' });
+      expect(onChange).not.toHaveBeenCalledWith('', 'Unknown');
     });
   });
 });

@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
+import { convertWithRateLookup } from "../common/currency-conversion.util";
 
 export interface RawCategoryAggregate {
   category_id: string | null;
@@ -68,17 +69,21 @@ export class ReportCurrencyService {
     defaultCurrency: string,
     rateMap: RateMap,
   ): number {
-    if (!fromCurrency || fromCurrency === defaultCurrency) return amount;
-    const directKey = `${fromCurrency}->${defaultCurrency}`;
-    const directRate = rateMap.get(directKey);
-    if (directRate) return amount * directRate;
-    const inverseKey = `${defaultCurrency}->${fromCurrency}`;
-    const inverseRate = rateMap.get(inverseKey);
-    if (inverseRate && inverseRate !== 0) return amount / inverseRate;
-    // M30: Log warning when no conversion rate is found instead of silently returning unconverted amount
-    this.logger.warn(
-      `No exchange rate found for ${fromCurrency} -> ${defaultCurrency}, returning unconverted amount`,
+    // Flat latest-rate lookup; the direct/inverse decision is shared with
+    // net worth via convertWithRateLookup so the two surfaces stay consistent.
+    const result = convertWithRateLookup(
+      amount,
+      fromCurrency,
+      defaultCurrency,
+      (f, t) => rateMap.get(`${f}->${t}`),
     );
-    return amount;
+    if (result == null) {
+      // M30: Log warning when no conversion rate is found instead of silently returning unconverted amount
+      this.logger.warn(
+        `No exchange rate found for ${fromCurrency} -> ${defaultCurrency}, returning unconverted amount`,
+      );
+      return amount;
+    }
+    return result;
   }
 }

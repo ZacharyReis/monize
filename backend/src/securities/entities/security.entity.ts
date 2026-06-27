@@ -5,11 +5,14 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
   JoinColumn,
   Unique,
 } from "typeorm";
 import { ApiProperty } from "@nestjs/swagger";
 import { User } from "../../users/entities/user.entity";
+import { Tag } from "../../tags/entities/tag.entity";
 
 @Entity("securities")
 @Unique(["userId", "symbol"])
@@ -54,9 +57,25 @@ export class Security {
   @Column({ type: "varchar", length: 3, name: "currency_code" })
   currencyCode: string;
 
+  @ApiProperty({
+    example: "Global aggregate bond ETF. ~99% bonds, ~1% cash. TER 0.10%.",
+    description:
+      "Free-text description, optionally pre-filled from the quote provider",
+    nullable: true,
+  })
+  @Column({ type: "text", nullable: true })
+  description: string | null;
+
   @ApiProperty({ example: true })
   @Column({ type: "boolean", default: true, name: "is_active" })
   isActive: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: "Pinned to the dashboard Favourite Securities widget",
+  })
+  @Column({ type: "boolean", default: false, name: "is_favourite" })
+  isFavourite: boolean;
 
   @ApiProperty({
     example: false,
@@ -82,6 +101,15 @@ export class Security {
   @ApiProperty({ description: "ETF sector breakdown array [{sector, weight}]" })
   @Column({ type: "jsonb", nullable: true, name: "sector_weightings" })
   sectorWeightings: { sector: string; weight: number }[] | null;
+
+  @ApiProperty({
+    description:
+      "Manual ETF/fund country breakdown array [{name, weight}]. weight is a " +
+      "decimal 0-1 (same convention as sectorWeightings). A shortfall under 1.0 " +
+      "is shown as 'Other' at display/report time and is not stored.",
+  })
+  @Column({ type: "jsonb", nullable: true, name: "country_weightings" })
+  countryWeightings: { name: string; weight: number }[] | null;
 
   @ApiProperty({ description: "When sector data was last fetched from Yahoo" })
   @Column({ type: "timestamp", nullable: true, name: "sector_data_updated_at" })
@@ -128,6 +156,15 @@ export class Security {
     name: "historical_backfill_attempted_at",
   })
   historicalBackfillAttemptedAt: Date | null;
+
+  @ApiProperty({ description: "User-defined tags classifying this security" })
+  @ManyToMany(() => Tag)
+  @JoinTable({
+    name: "security_tags",
+    joinColumn: { name: "security_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "tag_id", referencedColumnName: "id" },
+  })
+  tags: Tag[];
 
   @ApiProperty()
   @CreateDateColumn({ name: "created_at" })

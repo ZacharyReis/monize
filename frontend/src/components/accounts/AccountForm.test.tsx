@@ -12,6 +12,11 @@ vi.mock('@/lib/accounts', () => ({
     getAll: vi.fn().mockResolvedValue([]),
     previewLoanAmortization: vi.fn(),
     previewMortgageAmortization: vi.fn(),
+    canDelete: vi.fn().mockResolvedValue({
+      transactionCount: 0,
+      investmentTransactionCount: 0,
+      canDelete: true,
+    }),
   },
 }));
 
@@ -20,6 +25,14 @@ vi.mock('@/lib/categories', () => ({
     getAll: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/institutions', () => ({
+  institutionsApi: {
+    getAll: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+  },
+  institutionLogoUrl: (id: string) => `/api/v1/institutions/${id}/logo`,
 }));
 
 vi.mock('@/lib/exchange-rates', () => ({
@@ -181,7 +194,7 @@ function createExistingAccount(overrides: Partial<Account> = {}): Account {
     description: null,
     currencyCode: 'CAD',
     accountNumber: null,
-    institution: null,
+    institution: null, institutionId: null,
     openingBalance: 1000,
     currentBalance: 1500,
     creditLimit: null,
@@ -444,7 +457,6 @@ describe('AccountForm', () => {
       expect(screen.getByDisplayValue('My Savings')).toBeInTheDocument();
     });
     expect(screen.getByDisplayValue('Test description')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('RBC')).toBeInTheDocument();
     expect(screen.getByDisplayValue('1234567')).toBeInTheDocument();
   });
 
@@ -547,7 +559,7 @@ describe('AccountForm', () => {
     });
   });
 
-  it('shows "Lender/Institution (required)" label for LOAN type', async () => {
+  it('shows the institution selector as required for LOAN type', async () => {
     render(
       <AccountForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
     );
@@ -558,9 +570,10 @@ describe('AccountForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Lender/Institution (required)')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Institution (optional)')).not.toBeInTheDocument();
   });
 
-  it('shows "Lender/Institution (required)" label for MORTGAGE type', async () => {
+  it('shows the institution selector as required for MORTGAGE type', async () => {
     render(
       <AccountForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
     );
@@ -571,6 +584,56 @@ describe('AccountForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Lender/Institution (required)')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Institution (optional)')).not.toBeInTheDocument();
+  });
+
+  it('blocks new MORTGAGE submit with localized required errors and no raw Zod enum message', async () => {
+    render(<AccountForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+    const typeSelect = screen.getByLabelText('Account Type') as HTMLSelectElement;
+    await act(async () => { fireEvent.change(typeSelect, { target: { value: 'MORTGAGE' } }); });
+
+    const nameInput = screen.getByLabelText('Account Name');
+    await act(async () => { fireEvent.change(nameInput, { target: { value: 'Home Mortgage' } }); });
+
+    await waitFor(() => {
+      expect(screen.getByText('Mortgage Details')).toBeInTheDocument();
+    });
+
+    const submitButton = screen.getByRole('button', { name: /Create Account/i });
+    await act(async () => { fireEvent.click(submitButton); });
+
+    // Institution is no longer optional, and the unselected payment-frequency
+    // dropdown produces a clean localized message rather than the raw Zod
+    // "Invalid option: expected one of ..." error from issue #785.
+    await waitFor(() => {
+      expect(screen.getByText('Please select or create an institution')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Payment frequency is required')).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid option/i)).not.toBeInTheDocument();
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
+  it('blocks new LOAN submit when the institution is missing', async () => {
+    render(<AccountForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+    const typeSelect = screen.getByLabelText('Account Type') as HTMLSelectElement;
+    await act(async () => { fireEvent.change(typeSelect, { target: { value: 'LOAN' } }); });
+
+    const nameInput = screen.getByLabelText('Account Name');
+    await act(async () => { fireEvent.change(nameInput, { target: { value: 'Car Loan' } }); });
+
+    await waitFor(() => {
+      expect(screen.getByText('Loan Payment Details')).toBeInTheDocument();
+    });
+
+    const submitButton = screen.getByRole('button', { name: /Create Account/i });
+    await act(async () => { fireEvent.click(submitButton); });
+
+    await waitFor(() => {
+      expect(screen.getByText('Please select or create an institution')).toBeInTheDocument();
+    });
+    expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
   it('does not show loan fields when editing existing LOAN account', async () => {
@@ -1227,12 +1290,12 @@ describe('AccountForm', () => {
     });
   });
 
-  it('excludeFromNetWorth checkbox is checked for account with excludeFromNetWorth=true', async () => {
+  it('excludeFromNetWorth toggle is on for account with excludeFromNetWorth=true', async () => {
     const account = createExistingAccount({ excludeFromNetWorth: true });
     render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     await waitFor(() => {
-      const checkbox = screen.getByRole('checkbox', { name: /Exclude from Net Worth/i }) as HTMLInputElement;
-      expect(checkbox.checked).toBe(true);
+      const toggle = screen.getByRole('switch', { name: /Exclude from Net Worth/i });
+      expect(toggle).toHaveAttribute('aria-checked', 'true');
     });
   });
 
@@ -1561,6 +1624,109 @@ describe('AccountForm', () => {
 
       const mortgageInput = screen.getByLabelText('Mortgage Amount') as HTMLInputElement;
       await act(async () => { fireEvent.change(mortgageInput, { target: { value: '350000' } }); });
+    });
+  });
+
+  describe('currency lock for accounts with transactions', () => {
+    it('does not check transaction count for new accounts', async () => {
+      render(<AccountForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Currency')).toBeInTheDocument();
+      });
+
+      expect(accountsApi.canDelete).not.toHaveBeenCalled();
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      expect(currencySelect.disabled).toBe(false);
+    });
+
+    it('leaves currency enabled when editing an account with no transactions', async () => {
+      (accountsApi.canDelete as any).mockResolvedValue({
+        transactionCount: 0,
+        investmentTransactionCount: 0,
+        canDelete: true,
+      });
+      const account = createExistingAccount();
+
+      render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      await waitFor(() => {
+        expect(accountsApi.canDelete).toHaveBeenCalledWith(account.id);
+      });
+
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      await waitFor(() => {
+        expect(currencySelect.disabled).toBe(false);
+      });
+      expect(screen.queryByLabelText(/Currency is locked/i)).not.toBeInTheDocument();
+    });
+
+    it('disables currency and shows tooltip when the account has regular transactions', async () => {
+      (accountsApi.canDelete as any).mockResolvedValue({
+        transactionCount: 7,
+        investmentTransactionCount: 0,
+        canDelete: false,
+      });
+      const account = createExistingAccount();
+
+      render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      await waitFor(() => {
+        expect(currencySelect.disabled).toBe(true);
+      });
+      // Dimmed to visually signal it cannot be changed
+      expect(currencySelect.className).toContain('opacity-60');
+      expect(screen.getByLabelText(/Currency is locked/i)).toBeInTheDocument();
+    });
+
+    it('does not dim the currency select when it is unlocked', async () => {
+      (accountsApi.canDelete as any).mockResolvedValue({
+        transactionCount: 0,
+        investmentTransactionCount: 0,
+        canDelete: true,
+      });
+      const account = createExistingAccount();
+
+      render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      await waitFor(() => {
+        expect(accountsApi.canDelete).toHaveBeenCalledWith(account.id);
+      });
+
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      expect(currencySelect.className).not.toContain('opacity-60');
+    });
+
+    it('disables currency when the account has only investment transactions', async () => {
+      (accountsApi.canDelete as any).mockResolvedValue({
+        transactionCount: 0,
+        investmentTransactionCount: 3,
+        canDelete: false,
+      });
+      const account = createExistingAccount({ accountType: 'INVESTMENT' });
+
+      render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      await waitFor(() => {
+        expect(currencySelect.disabled).toBe(true);
+      });
+      expect(screen.getByLabelText(/Currency is locked/i)).toBeInTheDocument();
+    });
+
+    it('keeps currency enabled if the transaction-count lookup fails', async () => {
+      (accountsApi.canDelete as any).mockRejectedValue(new Error('boom'));
+      const account = createExistingAccount();
+
+      render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+
+      await waitFor(() => {
+        expect(accountsApi.canDelete).toHaveBeenCalled();
+      });
+
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      expect(currencySelect.disabled).toBe(false);
     });
   });
 

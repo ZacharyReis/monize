@@ -108,9 +108,82 @@ describe("McpWriteLimiter", () => {
     });
   });
 
+  describe("reserve()", () => {
+    it("allows a reservation under the limit", () => {
+      expect(limiter.reserve("user-1", 5)).toBeUndefined();
+    });
+
+    it("allows a reservation that exactly reaches the limit", () => {
+      expect(limiter.reserve("user-1", MCP_DAILY_WRITE_LIMIT)).toBeUndefined();
+    });
+
+    it("blocks a reservation that would exceed the limit", () => {
+      const result = limiter.reserve("user-1", MCP_DAILY_WRITE_LIMIT + 1);
+      expect(result).toBeDefined();
+      expect(result?.isError).toBe(true);
+      expect(result?.content[0].text).toContain("Daily write limit reached");
+    });
+
+    it("accounts for already-recorded writes when reserving", () => {
+      for (let i = 0; i < MCP_DAILY_WRITE_LIMIT - 2; i++) {
+        limiter.record("user-1", "create_transaction");
+      }
+
+      // Two slots remain: reserving two is allowed, three is not.
+      expect(limiter.reserve("user-1", 2)).toBeUndefined();
+      expect(limiter.reserve("user-1", 3)).toBeDefined();
+    });
+
+    it("shares the budget across operations regardless of tool name", () => {
+      for (let i = 0; i < MCP_DAILY_WRITE_LIMIT; i++) {
+        limiter.record(
+          "user-1",
+          i % 2 === 0 ? "create_transaction" : "create_payee",
+        );
+      }
+
+      // A single shared cap: once exhausted, any further write is blocked no
+      // matter which domain/tool it belongs to.
+      expect(limiter.reserve("user-1", 1)).toBeDefined();
+    });
+  });
+
   describe("MCP_DAILY_WRITE_LIMIT constant", () => {
     it("is set to 50", () => {
       expect(MCP_DAILY_WRITE_LIMIT).toBe(50);
+    });
+  });
+
+  describe("configurable limit via MCP_DAILY_WRITE_LIMIT env var", () => {
+    const stubConfig = (value: unknown) =>
+      ({ get: jest.fn().mockReturnValue(value) }) as any;
+
+    it("uses the env value when set to a positive integer", () => {
+      const configured = new McpWriteLimiter(stubConfig(5));
+      for (let i = 0; i < 5; i++) {
+        configured.record("user-1", "create_transaction");
+      }
+      const result = configured.checkLimit("user-1");
+      expect(result.limit).toBe(5);
+      expect(result.allowed).toBe(false);
+    });
+
+    it("accepts the env value as a string (env vars are strings)", () => {
+      const configured = new McpWriteLimiter(stubConfig("3"));
+      expect(configured.checkLimit("user-1").limit).toBe(3);
+    });
+
+    it("falls back to the default when the env value is missing", () => {
+      const configured = new McpWriteLimiter(stubConfig(undefined));
+      expect(configured.checkLimit("user-1").limit).toBe(MCP_DAILY_WRITE_LIMIT);
+    });
+
+    it("falls back to the default for invalid or non-positive values", () => {
+      for (const bad of ["abc", "0", "-5", "2.5", ""]) {
+        expect(new McpWriteLimiter(stubConfig(bad)).checkLimit("u").limit).toBe(
+          MCP_DAILY_WRITE_LIMIT,
+        );
+      }
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   UpdateAutoBackupSettingsDto,
   AutoBackupFrequency,
 } from "./dto/update-auto-backup-settings.dto";
+import { tr } from "../i18n/translate";
 
 const BACKUP_FILE_PREFIX = "monize-backup-";
 
@@ -123,7 +124,10 @@ export class AutoBackupService {
       if (dto.enabled) {
         if (!settings.folderPath) {
           throw new BadRequestException(
-            "A folder path must be set before enabling automatic backups",
+            tr(
+              "errors.backup.folderPathRequired",
+              "A folder path must be set before enabling automatic backups",
+            ),
           );
         }
         await this.assertFolderWritable(settings.folderPath);
@@ -163,13 +167,31 @@ export class AutoBackupService {
       stat = await fs.stat(safePath);
     } catch (error) {
       if (error.code === "ENOENT") {
-        throw new BadRequestException(`Folder does not exist: ${safePath}`);
+        throw new BadRequestException(
+          tr(
+            "errors.backup.folderNotExist",
+            `Folder does not exist: ${safePath}`,
+            { safePath },
+          ),
+        );
       }
-      throw new BadRequestException(`Cannot access folder: ${safePath}`);
+      throw new BadRequestException(
+        tr(
+          "errors.backup.folderAccessError",
+          `Cannot access folder: ${safePath}`,
+          { safePath },
+        ),
+      );
     }
 
     if (!stat.isDirectory()) {
-      throw new BadRequestException(`Path is not a directory: ${safePath}`);
+      throw new BadRequestException(
+        tr(
+          "errors.backup.pathNotDirectory",
+          `Path is not a directory: ${safePath}`,
+          { safePath },
+        ),
+      );
     }
 
     const entries = await fs.readdir(safePath, { withFileTypes: true });
@@ -189,7 +211,10 @@ export class AutoBackupService {
     });
     if (!settings || !settings.folderPath) {
       throw new BadRequestException(
-        "Auto-backup is not configured. Please set a folder path first.",
+        tr(
+          "errors.backup.notConfigured",
+          "Auto-backup is not configured. Please set a folder path first.",
+        ),
       );
     }
 
@@ -286,7 +311,11 @@ export class AutoBackupService {
   ): Promise<string> {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) {
-      throw new BadRequestException(`User ${userId} not found`);
+      throw new BadRequestException(
+        tr("errors.backup.userNotFound", `User ${userId} not found`, {
+          userId,
+        }),
+      );
     }
 
     const encryptionPassword =
@@ -296,7 +325,10 @@ export class AutoBackupService {
       // (likely AI_ENCRYPTION_KEY rotated). Fail loud rather than silently
       // writing an unencrypted backup.
       throw new BadRequestException(
-        "Encrypted backups are enabled but the stored password could not be decrypted. Re-enable encryption in Security settings.",
+        tr(
+          "errors.backup.encryptedPasswordDecryptFailed",
+          "Encrypted backups are enabled but the stored password could not be decrypted. Re-enable encryption in Security settings.",
+        ),
       );
     }
 
@@ -537,7 +569,13 @@ export class AutoBackupService {
   private safePath(basePath: string, filename: string): string {
     const full = resolve(basePath, filename);
     if (!full.startsWith(basePath + "/") && full !== basePath) {
-      throw new BadRequestException(`Path traversal detected: ${filename}`);
+      throw new BadRequestException(
+        tr(
+          "errors.backup.pathTraversal",
+          `Path traversal detected: ${filename}`,
+          { filename },
+        ),
+      );
     }
     return full;
   }
@@ -550,21 +588,41 @@ export class AutoBackupService {
    */
   private validateFolderPath(folderPath: string): string {
     if (typeof folderPath !== "string") {
-      throw new BadRequestException("Folder path must be a string");
+      throw new BadRequestException(
+        tr(
+          "errors.backup.folderPathMustBeString",
+          "Folder path must be a string",
+        ),
+      );
     }
     if (folderPath.length > 4096) {
-      throw new BadRequestException("Folder path is too long");
+      throw new BadRequestException(
+        tr("errors.backup.folderPathTooLong", "Folder path is too long"),
+      );
     }
     if (!folderPath.startsWith("/")) {
-      throw new BadRequestException("Folder path must be an absolute path");
+      throw new BadRequestException(
+        tr(
+          "errors.backup.folderPathMustBeAbsolute",
+          "Folder path must be an absolute path",
+        ),
+      );
     }
     if (folderPath.includes("..")) {
       throw new BadRequestException(
-        "Folder path must not contain '..' segments",
+        tr(
+          "errors.backup.folderPathNoDotDot",
+          "Folder path must not contain '..' segments",
+        ),
       );
     }
     if (folderPath.includes("\0")) {
-      throw new BadRequestException("Folder path must not contain null bytes");
+      throw new BadRequestException(
+        tr(
+          "errors.backup.folderPathNoNullBytes",
+          "Folder path must not contain null bytes",
+        ),
+      );
     }
     // Trim trailing slashes without a greedy regex (avoids ReDoS on '/' runs).
     let trimmed = folderPath;
@@ -575,7 +633,10 @@ export class AutoBackupService {
     const normalized = resolve(trimmed);
     if (normalized !== trimmed) {
       throw new BadRequestException(
-        "Folder path must be a normalized absolute path",
+        tr(
+          "errors.backup.folderPathMustBeNormalized",
+          "Folder path must be a normalized absolute path",
+        ),
       );
     }
     return normalized;
@@ -589,17 +650,31 @@ export class AutoBackupService {
     try {
       const stat = await fs.stat(safePath);
       if (!stat.isDirectory()) {
-        throw new BadRequestException(`Path is not a directory: ${safePath}`);
+        throw new BadRequestException(
+          tr(
+            "errors.backup.pathNotDirectory",
+            `Path is not a directory: ${safePath}`,
+            { safePath },
+          ),
+        );
       }
     } catch (error) {
       if (error.code === "ENOENT") {
         throw new BadRequestException(
-          `Folder does not exist: ${safePath}. Ensure the path is mapped as a Docker volume.`,
+          tr(
+            "errors.backup.folderNotExistVolume",
+            `Folder does not exist: ${safePath}. Ensure the path is mapped as a Docker volume.`,
+            { safePath },
+          ),
         );
       }
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
-        `Cannot access folder: ${safePath} - ${error.message}`,
+        tr(
+          "errors.backup.folderAccessErrorDetail",
+          `Cannot access folder: ${safePath} - ${error.message}`,
+          { safePath, message: error.message },
+        ),
       );
     }
 
@@ -613,7 +688,11 @@ export class AutoBackupService {
       await fs.unlink(testFile);
     } catch {
       throw new BadRequestException(
-        `Folder is not writable: ${safePath}. Check container permissions.`,
+        tr(
+          "errors.backup.folderNotWritable",
+          `Folder is not writable: ${safePath}. Check container permissions.`,
+          { safePath },
+        ),
       );
     }
   }

@@ -1,17 +1,41 @@
+import { formatDate } from './utils';
+
 export const PAGE_SIZE = 50;
 
-export const DATE_FORMAT_OPTIONS = [
-  { value: 'browser', label: 'Use browser locale (auto-detect)' },
-  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2024-12-31)' },
-  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (12/31/2024)' },
-  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (31/12/2024)' },
-  { value: 'DD-MMM-YYYY', label: 'DD-MMM-YYYY (31-Dec-2024)' },
-];
+type DateFormatOption = { value: string; label: string };
 
-export const EXPORT_DATE_FORMAT_OPTIONS = [
-  ...DATE_FORMAT_OPTIONS,
-  { value: 'custom', label: 'Custom...' },
-];
+/**
+ * Date-format picker options. The pattern labels (YYYY-MM-DD, etc.) are format
+ * codes shown verbatim; only the descriptive "browser" entry is translated.
+ * `t` is the `common` namespace translator.
+ */
+export function getDateFormatOptions(
+  t: (key: string, values?: Record<string, string | number>) => string,
+  browserLocale?: string,
+): DateFormatOption[] {
+  // Preview the format 'browser' mode actually produces, using the same date
+  // the pattern options show (2024-12-31) formatted with the effective locale
+  // (e.g. "12/31/2024"). Mirrors formatDate's 'browser' branch.
+  const sample = formatDate('2024-12-31', 'browser', browserLocale);
+  return [
+    { value: 'browser', label: t('dateFormat.browserAuto', { sample }) },
+    { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2024-12-31)' },
+    { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (12/31/2024)' },
+    { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (31/12/2024)' },
+    { value: 'DD-MMM-YYYY', label: 'DD-MMM-YYYY (31-Dec-2024)' },
+  ];
+}
+
+/** Export picker options: the date formats plus a "Custom..." entry. */
+export function getExportDateFormatOptions(
+  t: (key: string, values?: Record<string, string | number>) => string,
+  browserLocale?: string,
+): DateFormatOption[] {
+  return [
+    ...getDateFormatOptions(t, browserLocale),
+    { value: 'custom', label: t('dateFormat.custom') },
+  ];
+}
 
 export const EXCHANGE_OPTIONS = [
   // North America
@@ -44,3 +68,72 @@ export const EXCHANGE_OPTIONS = [
   { value: 'BSE', label: 'BSE', subtitle: 'Bombay Stock Exchange (India)' },
   { value: 'NSE', label: 'NSE', subtitle: 'National Stock Exchange (India)' },
 ];
+
+/**
+ * Canonical country names for manual ETF/fund country allocations. Mirrors the
+ * backend `COUNTRY_OPTIONS` in `securities/security-enums.ts` -- keep the two in
+ * sync. Used by the AllocationEditor combobox; custom values are still allowed.
+ */
+export const COUNTRY_NAMES = [
+  'United States',
+  'Canada',
+  'United Kingdom',
+  'Germany',
+  'France',
+  'Switzerland',
+  'Netherlands',
+  'Italy',
+  'Spain',
+  'Sweden',
+  'Norway',
+  'Denmark',
+  'Finland',
+  'Belgium',
+  'Austria',
+  'Ireland',
+  'Portugal',
+  'Luxembourg',
+  'Poland',
+  'Greece',
+  'Czech Republic',
+  'Hungary',
+  'Russia',
+  'Turkey',
+  'Japan',
+  'China',
+  'Hong Kong',
+  'Taiwan',
+  'South Korea',
+  'India',
+  'Australia',
+  'New Zealand',
+  'Singapore',
+  'Malaysia',
+  'Indonesia',
+  'Thailand',
+  'Philippines',
+  'Vietnam',
+  'Pakistan',
+  'Israel',
+  'Saudi Arabia',
+  'United Arab Emirates',
+  'Qatar',
+  'Kuwait',
+  'South Africa',
+  'Egypt',
+  'Nigeria',
+  'Kenya',
+  'Morocco',
+  'Brazil',
+  'Mexico',
+  'Argentina',
+  'Chile',
+  'Colombia',
+  'Peru',
+] as const;
+
+/** Combobox-ready options for the manual country allocation editor. */
+export const COUNTRY_OPTIONS = COUNTRY_NAMES.map((name) => ({
+  value: name,
+  label: name,
+}));

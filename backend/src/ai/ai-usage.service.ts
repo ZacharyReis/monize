@@ -5,6 +5,7 @@ import { Cron } from "@nestjs/schedule";
 import { AiUsageLog } from "./entities/ai-usage-log.entity";
 import { AiProviderConfig } from "./entities/ai-provider-config.entity";
 import { AiUsageSummary, EstimatedCostByCurrency } from "./dto/ai-response.dto";
+import { roundMoney } from "../common/round.util";
 
 interface CostRate {
   inputCostPer1M: number | null;
@@ -35,7 +36,7 @@ function computeCost(
     rate.outputCostPer1M !== null
       ? (outputTokens / TOKENS_PER_UNIT) * rate.outputCostPer1M
       : 0;
-  return Math.round((inputCost + outputCost) * 10000) / 10000;
+  return roundMoney(inputCost + outputCost);
 }
 
 function addCostToBucket(
@@ -44,7 +45,7 @@ function addCostToBucket(
   cost: number,
 ): void {
   const prev = bucket[currency] ?? 0;
-  bucket[currency] = Math.round((prev + cost) * 10000) / 10000;
+  bucket[currency] = roundMoney(prev + cost);
 }
 
 interface LogUsageParams {

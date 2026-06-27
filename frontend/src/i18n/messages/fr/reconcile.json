@@ -1,0 +1,58 @@
+{
+  "title": "Rapprocher le compte",
+  "subtitle": "Comparez vos enregistrements avec votre relevé bancaire",
+  "subtitleActive": "Rapprochement en cours : {name}",
+  "setup": {
+    "title": "Démarrer le rapprochement",
+    "intro": "Rapprochez votre compte avec un relevé bancaire pour vous assurer que vos enregistrements correspondent.",
+    "accountLabel": "Compte",
+    "accountPlaceholder": "Sélectionner un compte...",
+    "statementDateLabel": "Date du relevé",
+    "statementBalanceLabel": "Solde de fin de relevé",
+    "start": "Démarrer le rapprochement"
+  },
+  "summary": {
+    "statementBalance": "Solde du relevé",
+    "reconciledBalance": "Solde rapproché",
+    "selected": "Sélectionnés ({count})",
+    "difference": "Différence"
+  },
+  "list": {
+    "heading": "Transactions non rapprochées ({count})",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "empty": "Aucune transaction non rapprochée trouvée pour cette période.",
+    "colSelect": "Sélectionner",
+    "colDate": "Date",
+    "colPayee": "Bénéficiaire",
+    "colCategory": "Catégorie",
+    "colAmount": "Montant",
+    "colStatus": "Statut",
+    "finish": "Terminer le rapprochement"
+  },
+  "status": {
+    "cleared": "Encaissé",
+    "unreconciled": "Non rapproché",
+    "void": "Annulé",
+    "reconciled": "Rapproché"
+  },
+  "complete": {
+    "title": "Rapprochement terminé",
+    "message": "Votre compte a été rapproché avec succès au {date}.",
+    "existingPayment": "Ce compte possède un paiement récurrent, <b>{name}</b>. Souhaitez-vous mettre à jour sa prochaine occurrence au solde rapproché de <b>{amount}</b> ?",
+    "updatePayment": "Mettre à jour le prochain paiement",
+    "noPayment": "Aucun paiement récurrent n'a été trouvé pour ce compte. Souhaitez-vous en créer un pour le solde rapproché de <b>{amount}</b> ?",
+    "createPayment": "Créer un paiement récurrent",
+    "backToAccounts": "Retour aux comptes",
+    "reconcileAnother": "Rapprocher un autre compte"
+  },
+  "toasts": {
+    "loadAccountsFailed": "Échec du chargement des comptes",
+    "fillAllFields": "Veuillez remplir tous les champs",
+    "loadDataFailed": "Échec du chargement des données de rapprochement",
+    "differenceRequired": "La différence doit être {amount} pour terminer le rapprochement",
+    "noneSelected": "Aucune transaction sélectionnée pour le rapprochement",
+    "success": "{count, plural, one {# transaction rapprochée avec succès} other {# transactions rapprochées avec succès}}",
+    "reconcileFailed": "Échec du rapprochement des transactions"
+  }
+}

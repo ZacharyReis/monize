@@ -1,0 +1,324 @@
+{
+  "priceRefresh": {
+    "noneToUpdate": "No hay valores para actualizar",
+    "updated": "{count, plural, one {# precio de valor actualizado} other {# precios de valores actualizados}}",
+    "partialFailure": "Precios actualizados: {updated} correctos, {failed} fallidos{symbols}",
+    "failed": "Error al actualizar los precios"
+  },
+  "page": {
+    "title": "Valores",
+    "subtitle": "Gestiona tus acciones, ETFs, fondos mutuos y otros valores",
+    "newSecurity": "+ Nuevo valor",
+    "searchPlaceholder": "Buscar por símbolo o nombre...",
+    "statusAll": "Todos ({count})",
+    "statusActive": "Activos ({count})",
+    "statusInactive": "Inactivos ({count})",
+    "modalTitleEdit": "Editar valor",
+    "modalTitleNew": "Nuevo valor",
+    "loading": "Cargando valores...",
+    "count": "{count, plural, one {# valor} other {# valores}}",
+    "toasts": {
+      "loadFailed": "Error al cargar los valores",
+      "updated": "Valor actualizado correctamente",
+      "created": "Valor creado correctamente",
+      "deactivated": "Valor desactivado",
+      "activated": "Valor activado",
+      "statusFailed": "Error al actualizar el estado del valor",
+      "deleted": "Valor \"{symbol}\" eliminado",
+      "deleteFailed": "Error al eliminar el valor",
+      "favouriteFailed": "Error al actualizar favorito",
+      "updateFailed": "Error al actualizar el valor",
+      "createFailed": "Error al crear el valor"
+    },
+    "deleteConfirm": {
+      "title": "Eliminar valor",
+      "message": "¿Estás seguro de que deseas eliminar \"{symbol}\"? Todo el historial de precios también se eliminará. Esta acción no se puede deshacer.",
+      "confirmLabel": "Eliminar",
+      "cancelLabel": "Cancelar"
+    }
+  },
+  "summary": {
+    "totalSecurities": "Total de valores",
+    "types": "Tipos",
+    "exchanges": "Bolsas",
+    "currencies": "Divisas"
+  },
+  "list": {
+    "columns": {
+      "symbol": "Símbolo",
+      "name": "Nombre",
+      "type": "Tipo",
+      "shares": "Acciones",
+      "exchange": "Bolsa",
+      "currency": "Divisa",
+      "provider": "Proveedor",
+      "source": "Fuente",
+      "status": "Estado",
+      "actions": "Acciones",
+      "favourite": "Favorito"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compacto",
+      "dense": "Denso",
+      "toggle": "Cambiar densidad de filas"
+    },
+    "statusBadge": {
+      "active": "Activo",
+      "activeShort": "Act",
+      "inactive": "Inactivo",
+      "inactiveShort": "Ina"
+    },
+    "providerTitle": {
+      "override": "Proveedor configurado para este valor",
+      "inherited": "Heredado de tu preferencia de proveedor de cotizaciones predeterminado"
+    },
+    "columnTitles": {
+      "shares": "Acciones actuales en todas las cuentas",
+      "source": "Fuente del precio más reciente"
+    },
+    "actions": {
+      "history": "Historial",
+      "prices": "Precios",
+      "edit": "Editar",
+      "deactivate": "Desactivar",
+      "activate": "Activar",
+      "delete": "Eliminar"
+    },
+    "favouriteButton": {
+      "add": "Agregar a favoritos",
+      "remove": "Quitar de favoritos"
+    },
+    "empty": {
+      "title": "No hay valores",
+      "subtitle": "Comienza agregando tu primer valor."
+    },
+    "contextMenu": {
+      "transactionHistory": "Historial de transacciones",
+      "viewPrices": "Ver precios",
+      "editSecurity": "Editar valor",
+      "deactivate": "Desactivar",
+      "activate": "Activar",
+      "delete": "Eliminar"
+    }
+  },
+  "typeLabels": {
+    "STOCK": "Acción",
+    "ETF": "ETF",
+    "MUTUAL_FUND": "Fondo mutuo",
+    "BOND": "Bono",
+    "OPTION": "Opción",
+    "CRYPTO": "Cripto",
+    "OTHER": "Otro",
+    "STOCK_short": "Acc",
+    "ETF_short": "ETF",
+    "MUTUAL_FUND_short": "FM",
+    "BOND_short": "Bon",
+    "OPTION_short": "Opt",
+    "CRYPTO_short": "Cri",
+    "OTHER_short": "Otr"
+  },
+  "form": {
+    "symbolLabel": "Símbolo",
+    "nameLabel": "Nombre",
+    "typeLabel": "Tipo",
+    "exchangeLabel": "Bolsa",
+    "currencyLabel": "Divisa",
+    "quoteProviderLabel": "Proveedor de cotizaciones",
+    "msnIdLabel": "ID de instrumento MSN (avanzado)",
+    "lookupProviderAriaLabel": "Buscar proveedor",
+    "lookupButton": "Buscar",
+    "revertButton": "Revertir",
+    "clearButton": "Limpiar",
+    "revertTitle": "Revertir a los valores originales",
+    "clearTitle": "Limpiar todos los campos",
+    "favouriteLabel": "Favorito",
+    "addToFavourites": "Agregar a favoritos",
+    "removeFromFavourites": "Quitar de favoritos",
+    "submitCreate": "Crear valor",
+    "submitUpdate": "Actualizar valor",
+    "toasts": {
+      "lookupTooShort": "Ingresa un símbolo o nombre (al menos 2 caracteres) para buscar",
+      "notFound": "No se encontró ningún valor para \"{query}\"",
+      "found": "Encontrado: {details}",
+      "lookupFailed": "Error en la búsqueda - inténtalo de nuevo",
+      "tagCreated": "Etiqueta \"{name}\" creada"
+    },
+    "msnNotConfigured": "MSN está seleccionado como proveedor de cotizaciones predeterminado, pero MSN_API_KEY no está configurado en el servidor. Las cotizaciones de MSN fallarán hasta que un administrador configure la variable de entorno y reinicie el backend.",
+    "providers": {
+      "auto": "Auto",
+      "yahoo": "Yahoo",
+      "msn": "MSN"
+    },
+    "types": {
+      "select": "Seleccionar tipo...",
+      "stock": "Acción",
+      "etf": "ETF",
+      "mutualFund": "Fondo mutuo",
+      "bond": "Bono",
+      "option": "Opción",
+      "crypto": "Criptomoneda",
+      "other": "Otro"
+    },
+    "quoteProviderUseDefault": "Usar predeterminado ({provider})",
+    "symbolPlaceholder": "p. ej., AAPL, XEQT, BTC",
+    "namePlaceholder": "p. ej., Apple Inc., iShares Core Equity ETF",
+    "exchangeSearchPlaceholder": "Buscar bolsas...",
+    "exchangePlaceholder": "Resuelto automáticamente del ticker; cambia solo si es incorrecto",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Notas sobre este valor.",
+    "tagsLabel": "Etiquetas",
+    "tagsPlaceholder": "Seleccionar etiquetas...",
+    "createNewTag": "Crear nueva etiqueta...",
+    "newTagTitle": "Nueva etiqueta",
+    "allocation": {
+      "help": "Los proveedores de cotizaciones no ofrecen la exposición por país de los ETF y fondos. Añádela manualmente en porcentajes. Todo lo que quede por debajo del 100 % se muestra como «Otros». Puedes pegar un desglose en el Asistente de IA para rellenarlo.",
+      "sectionTitle": "Asignación geográfica",
+      "countryPlaceholder": "Selecciona o escribe un país",
+      "addRow": "Añadir país",
+      "removeRow": "Eliminar fila",
+      "other": "Otros",
+      "total": "Total: {total} %",
+      "overError": "La asignación suma más del 100 %.",
+      "nameAriaLabel": "País",
+      "weightAriaLabel": "Porcentaje"
+    }
+  },
+  "priceForm": {
+    "dateLabel": "Fecha",
+    "closePriceLabel": "Precio de cierre",
+    "openPriceLabel": "Precio de apertura",
+    "highPriceLabel": "Precio máximo",
+    "lowPriceLabel": "Precio mínimo",
+    "volumeLabel": "Volumen",
+    "optionalPlaceholder": "Opcional",
+    "submitCreate": "Agregar precio",
+    "submitUpdate": "Actualizar precio"
+  },
+  "priceHistory": {
+    "title": "{symbol} - Historial de precios",
+    "forceUpdateButton": "Forzar actualización de precios",
+    "forceUpdateTitle": "Volver a obtener el historial de precios de todo el período en que has tenido este valor",
+    "addPriceButton": "+ Agregar precio",
+    "addPriceSection": "Agregar precio",
+    "editPriceSection": "Editar precio",
+    "loading": "Cargando precios...",
+    "empty": "No hay historial de precios disponible",
+    "columns": {
+      "date": "Fecha",
+      "close": "Cierre",
+      "open": "Apertura",
+      "high": "Máximo",
+      "low": "Mínimo",
+      "volume": "Volumen",
+      "source": "Fuente",
+      "actions": "Acciones"
+    },
+    "toasts": {
+      "added": "Precio agregado",
+      "updated": "Precio actualizado",
+      "deleted": "Precio eliminado",
+      "loadFailed": "Error al cargar el historial de precios",
+      "addFailed": "Error al agregar el precio",
+      "updateFailed": "Error al actualizar el precio",
+      "deleteFailed": "Error al eliminar el precio",
+      "updatedCount": "{count, plural, one {Actualizado # precio para {symbol}} other {Actualizados # precios para {symbol}}}",
+      "noPricesFound": "No se encontraron precios para {symbol}",
+      "updatePricesFailed": "Error al actualizar los precios para {symbol}",
+      "updateFetchFailed": "Error al actualizar los precios"
+    },
+    "closeButton": "Cerrar",
+    "deleteConfirm": {
+      "title": "Eliminar precio",
+      "confirmLabel": "Eliminar"
+    }
+  },
+  "transactionHistory": {
+    "inactiveBadge": "Inactivo",
+    "currentShares": "Acciones actuales",
+    "accountLabel": "Cuenta",
+    "allAccounts": "Todas las cuentas ({shares})",
+    "accountClosed": "{name} (cerrada)",
+    "addTransaction": "+ Agregar transacción",
+    "loading": "Cargando transacciones...",
+    "emptyAll": "No hay transacciones para este valor.",
+    "emptyAccount": "No hay transacciones para este valor en la cuenta seleccionada.",
+    "editTransactionTitle": "Editar transacción",
+    "columns": {
+      "date": "Fecha",
+      "account": "Cuenta",
+      "action": "Acción",
+      "quantity": "Cantidad",
+      "runningTotal": "Total acumulado",
+      "price": "Precio",
+      "amount": "Monto",
+      "actionsLabel": "Acciones"
+    },
+    "actionLabels": {
+      "BUY": "Comprar",
+      "SELL": "Vender",
+      "DIVIDEND": "Dividendo",
+      "INTEREST": "Interés",
+      "CAPITAL_GAIN": "Ganancia de capital",
+      "SPLIT": "División",
+      "TRANSFER_IN": "Transferencia entrante",
+      "TRANSFER_OUT": "Transferencia saliente",
+      "REINVEST": "Reinvertir",
+      "ADD_SHARES": "Agregar acciones",
+      "REMOVE_SHARES": "Quitar acciones"
+    },
+    "toasts": {
+      "loadHistoryFailed": "Error al cargar el historial",
+      "loadTransactionFailed": "Error al cargar la transacción"
+    }
+  },
+  "shareAdjustment": {
+    "heading": "Ajustar acciones",
+    "accountLabel": "Cuenta",
+    "accountPlaceholder": "Seleccionar cuenta...",
+    "actionLabel": "Acción",
+    "quantityLabel": "Cantidad (acciones)",
+    "dateLabel": "Fecha",
+    "descriptionLabel": "Descripción (opcional)",
+    "descriptionPlaceholder": "p. ej., Limpiar acciones residuales",
+    "saving": "Guardando...",
+    "submitButton": "Registrar ajuste",
+    "accountClosed": "{name} (cerrada)",
+    "adjustmentActions": {
+      "REMOVE_SHARES": "Quitar acciones",
+      "ADD_SHARES": "Agregar acciones"
+    },
+    "toasts": {
+      "selectAccount": "Selecciona una cuenta",
+      "quantityRequired": "La cantidad debe ser mayor que cero",
+      "recorded": "Ajuste registrado",
+      "failed": "Error al registrar el ajuste"
+    }
+  },
+  "lookupPicker": {
+    "title": "Múltiples coincidencias para \"{query}\"",
+    "subtitle": "Selecciona el valor que deseas usar.",
+    "columns": {
+      "symbol": "Símbolo",
+      "name": "Nombre",
+      "exchange": "Bolsa",
+      "currency": "Divisa",
+      "type": "Tipo",
+      "source": "Fuente"
+    },
+    "selectButton": "Seleccionar"
+  },
+  "validation": {
+    "symbolRequired": "El símbolo es obligatorio",
+    "symbolMax": "El símbolo debe tener 20 caracteres o menos",
+    "nameRequired": "El nombre es obligatorio",
+    "nameMax": "El nombre debe tener 255 caracteres o menos",
+    "currencyRequired": "La divisa es obligatoria",
+    "descriptionMax": "La descripción no puede superar los 5000 caracteres"
+  },
+  "priceValidation": {
+    "dateRequired": "La fecha es obligatoria",
+    "priceRequired": "El precio es obligatorio",
+    "priceNonNegative": "El precio debe ser un número no negativo"
+  }
+}

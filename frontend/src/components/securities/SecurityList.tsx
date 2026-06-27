@@ -1,14 +1,101 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef, memo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
+import { useTranslations, useMessages } from 'next-intl';
 import { Security } from '@/types/investment';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { DensityLevel, nextDensity } from '@/hooks/useTableDensity';
+import { HIGHLIGHT_FLASH, HIGHLIGHT_FLASH_CELL, useScrollIntoViewWhen } from '@/hooks/useHighlightTarget';
 import { SortIcon } from '@/components/ui/SortIcon';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { formatShareQuantity } from '@/lib/format';
+import { useLongPress, type LongPressRowHandlers } from '@/hooks/useLongPress';
+import { RowActions } from '@/components/ui/row-actions/RowActions';
+import { RowActionSheet } from '@/components/ui/row-actions/RowActionSheet';
+import type { RowAction } from '@/components/ui/row-actions/rowAction';
 
-export type SecuritySortField = 'symbol' | 'name' | 'type' | 'exchange' | 'currency' | 'provider' | 'source';
+interface SecurityActionLabels {
+  history: string;
+  prices: string;
+  edit: string;
+  activate: string;
+  deactivate: string;
+  delete: string;
+}
+
+interface SecurityActionHandlers {
+  onViewHistory?: (security: Security) => void;
+  onViewPrices?: (security: Security) => void;
+  onEdit: (security: Security) => void;
+  onToggleActive: (security: Security) => void;
+  onDelete?: (security: Security) => void;
+}
+
+/**
+ * Builds the standard row actions for a security. Shared by the desktop
+ * `RowActions` cell and the mobile `RowActionSheet`.
+ */
+function buildSecurityActions(
+  security: Security,
+  hasHoldings: boolean,
+  hasTransactions: boolean,
+  labels: SecurityActionLabels,
+  handlers: SecurityActionHandlers,
+): RowAction[] {
+  const canDelete = !hasHoldings && !hasTransactions;
+  return [
+    {
+      key: 'history',
+      label: labels.history,
+      icon: 'history',
+      tone: 'neutral',
+      onClick: () => handlers.onViewHistory?.(security),
+      hidden: !handlers.onViewHistory,
+    },
+    {
+      key: 'prices',
+      label: labels.prices,
+      icon: 'prices',
+      tone: 'neutral',
+      onClick: () => handlers.onViewPrices?.(security),
+      hidden: !handlers.onViewPrices,
+    },
+    {
+      key: 'edit',
+      label: labels.edit,
+      icon: 'edit',
+      tone: 'primary',
+      onClick: () => handlers.onEdit(security),
+    },
+    security.isActive
+      ? {
+          key: 'toggle',
+          label: labels.deactivate,
+          icon: 'deactivate',
+          tone: 'warning',
+          onClick: () => handlers.onToggleActive(security),
+          hidden: hasHoldings,
+        }
+      : {
+          key: 'toggle',
+          label: labels.activate,
+          icon: 'activate',
+          tone: 'success',
+          onClick: () => handlers.onToggleActive(security),
+          hidden: hasHoldings,
+        },
+    {
+      key: 'delete',
+      label: labels.delete,
+      icon: 'delete',
+      tone: 'delete',
+      destructive: true,
+      onClick: () => handlers.onDelete?.(security),
+      hidden: !canDelete || !handlers.onDelete,
+    },
+  ];
+}
+
+export type SecuritySortField = 'symbol' | 'name' | 'type' | 'shares' | 'exchange' | 'currency' | 'provider' | 'source';
 
 /** Format a security_prices.source value into a short human label. */
 function formatPriceSource(source: string | null | undefined): string {
@@ -58,97 +145,117 @@ interface SecurityListProps {
   transactionSecurityIds?: SecurityTransactions;
   onEdit: (security: Security) => void;
   onToggleActive: (security: Security) => void;
+  onToggleFavourite?: (security: Security) => void;
   onDelete?: (security: Security) => void;
   onViewPrices?: (security: Security) => void;
+  onViewHistory?: (security: Security) => void;
   density?: DensityLevel;
   onDensityChange?: (density: DensityLevel) => void;
   sortField?: SecuritySortField;
   sortDirection?: SortDirection;
   onSort?: (field: SecuritySortField) => void;
+  /** Security id to flash/scroll to (e.g. arriving from a deep link). */
+  highlightId?: string | null;
 }
 
 interface SecurityRowProps {
   security: Security;
   hasHoldings: boolean;
   hasTransactions: boolean;
+  shares: number;
   density: DensityLevel;
   cellPadding: string;
   onEdit: (security: Security) => void;
   onToggleActive: (security: Security) => void;
+  onToggleFavourite?: (security: Security) => void;
   onDelete?: (security: Security) => void;
   onViewPrices?: (security: Security) => void;
-  onLongPressStart: (security: Security) => void;
-  onLongPressStartTouch: (security: Security, e: React.TouchEvent) => void;
-  onLongPressEnd: () => void;
-  onTouchMove: (e: React.TouchEvent) => void;
+  onViewHistory?: (security: Security) => void;
+  getRowHandlers: (security: Security) => LongPressRowHandlers;
   index: number;
   defaultQuoteProvider: 'yahoo' | 'msn';
+  isHighlighted?: boolean;
 }
-
-const formatSecurityType = (type: string | null, dense: boolean = false): string => {
-  if (!type) return '-';
-  const labels: Record<string, { full: string; short: string }> = {
-    STOCK: { full: 'Stock', short: 'Stk' },
-    ETF: { full: 'ETF', short: 'ETF' },
-    MUTUAL_FUND: { full: 'Mutual Fund', short: 'MF' },
-    BOND: { full: 'Bond', short: 'Bnd' },
-    OPTION: { full: 'Option', short: 'Opt' },
-    CRYPTO: { full: 'Crypto', short: 'Cry' },
-    OTHER: { full: 'Other', short: 'Oth' },
-  };
-  const label = labels[type];
-  if (!label) return type;
-  return dense ? label.short : label.full;
-};
 
 const SecurityRow = memo(function SecurityRow({
   security,
   hasHoldings,
   hasTransactions,
+  shares,
   density,
   cellPadding,
   onEdit,
   onToggleActive,
+  onToggleFavourite,
   onDelete,
   onViewPrices,
-  onLongPressStart,
-  onLongPressStartTouch,
-  onLongPressEnd,
-  onTouchMove,
+  onViewHistory,
+  getRowHandlers,
   index,
   defaultQuoteProvider,
+  isHighlighted,
 }: SecurityRowProps) {
-  const canDelete = !hasHoldings && !hasTransactions;
+  const rowRef = useScrollIntoViewWhen<HTMLTableRowElement>(!!isHighlighted);
+  const t = useTranslations('securities');
+  const tc = useTranslations('common');
+  const messages = useMessages();
+  const typeLabelsMap = ((messages as any)?.securities?.typeLabels ?? {}) as Record<string, string>;
+  const getTypeLabel = (type: string, short: boolean): string => {
+    const key = short ? `${type}_short` : type;
+    return typeLabelsMap[key] ?? type;
+  };
 
-  const handleEdit = useCallback(() => {
-    onEdit(security);
-  }, [onEdit, security]);
+  const handleToggleFavourite = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleFavourite?.(security);
+    },
+    [onToggleFavourite, security],
+  );
 
-  const handleToggleActive = useCallback(() => {
-    onToggleActive(security);
-  }, [onToggleActive, security]);
-
-  const handleDelete = useCallback(() => {
-    onDelete?.(security);
-  }, [onDelete, security]);
-
-  const handleViewPrices = useCallback(() => {
-    onViewPrices?.(security);
-  }, [onViewPrices, security]);
+  const actions = buildSecurityActions(
+    security,
+    hasHoldings,
+    hasTransactions,
+    {
+      history: t('list.actions.history'),
+      prices: t('list.actions.prices'),
+      edit: tc('actions.edit'),
+      activate: t('list.actions.activate'),
+      deactivate: t('list.actions.deactivate'),
+      delete: tc('actions.delete'),
+    },
+    { onViewHistory, onViewPrices, onEdit, onToggleActive, onDelete },
+  );
 
   return (
     <tr
+      ref={rowRef}
       className={`group hover:bg-gray-100 dark:hover:bg-gray-800 select-none ${
         !security.isActive ? 'opacity-60' : ''
-      } ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'}`}
-      onMouseDown={() => onLongPressStart(security)}
-      onMouseUp={onLongPressEnd}
-      onMouseLeave={onLongPressEnd}
-      onTouchStart={(e) => onLongPressStartTouch(security, e)}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onLongPressEnd}
-      onTouchCancel={onLongPressEnd}
+      } ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} ${isHighlighted ? HIGHLIGHT_FLASH : ''}`}
+      {...getRowHandlers(security)}
     >
+      <td className={`${cellPadding} whitespace-nowrap text-center`}>
+        <button
+          type="button"
+          onClick={handleToggleFavourite}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={security.isFavourite ? t('list.favouriteButton.remove') : t('list.favouriteButton.add')}
+          aria-label={security.isFavourite ? t('list.favouriteButton.remove') : t('list.favouriteButton.add')}
+          aria-pressed={security.isFavourite}
+        >
+          <svg
+            className={`w-4 h-4 ${security.isFavourite ? 'text-yellow-500' : 'text-gray-300 dark:text-gray-500'}`}
+            fill={security.isFavourite ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        </button>
+      </td>
       <td className={`${cellPadding} whitespace-nowrap`}>
         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {security.symbol}
@@ -158,10 +265,44 @@ const SecurityRow = memo(function SecurityRow({
         <span className="text-sm text-gray-900 dark:text-gray-100">
           {security.name}
         </span>
+        {security.tags && security.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {security.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: tag.color ? `${tag.color}20` : '#9ca3af20',
+                  color: tag.color || '#6b7280',
+                }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {density === 'normal' && security.description && (
+          <p
+            className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2 max-w-md"
+            title={security.description}
+          >
+            {security.description}
+          </p>
+        )}
       </td>
       <td className={`${cellPadding} whitespace-nowrap`}>
         <span className="text-sm text-gray-500 dark:text-gray-400">
-          {formatSecurityType(security.securityType, density === 'dense')}
+          {security.securityType
+            ? getTypeLabel(security.securityType, density === 'dense')
+            : '-'}
+        </span>
+      </td>
+      <td className={`${cellPadding} whitespace-nowrap text-right`}>
+        <span
+          className="text-sm text-gray-900 dark:text-gray-100"
+          title={t('list.columnTitles.shares')}
+        >
+          {formatShareQuantity(shares)}
         </span>
       </td>
       {density === 'normal' && (
@@ -191,8 +332,8 @@ const SecurityRow = memo(function SecurityRow({
                   }`}
                   title={
                     isOverride
-                      ? 'Per-security provider override'
-                      : 'Inherited from your default Quote Provider preference'
+                      ? t('list.providerTitle.override')
+                      : t('list.providerTitle.inherited')
                   }
                 >
                   {effective === 'msn' ? 'MSN' : 'Yahoo'}
@@ -218,60 +359,17 @@ const SecurityRow = memo(function SecurityRow({
       <td className={`${cellPadding} whitespace-nowrap hidden sm:table-cell`}>
         {security.isActive ? (
           <span className={`inline-flex items-center rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 ${density === 'dense' ? 'px-1.5 py-0.5' : 'px-2.5 py-0.5'}`}>
-            {density === 'dense' ? 'Act' : 'Active'}
+            {density === 'dense' ? t('list.statusBadge.activeShort') : t('list.statusBadge.active')}
           </span>
         ) : (
           <span className={`inline-flex items-center rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 ${density === 'dense' ? 'px-1.5 py-0.5' : 'px-2.5 py-0.5'}`}>
-            {density === 'dense' ? 'Ina' : 'Inactive'}
+            {density === 'dense' ? t('list.statusBadge.inactiveShort') : t('list.statusBadge.inactive')}
           </span>
         )}
       </td>
       {/* Actions - hidden on mobile */}
-      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium hidden sm:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`}>
-        <div className="flex justify-end gap-2">
-          {onViewPrices && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleViewPrices}
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-            >
-              {density === 'dense' ? '$' : 'Prices'}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleEdit}
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-          >
-            {density === 'dense' ? '✎' : 'Edit'}
-          </Button>
-          {!hasHoldings && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleActive}
-              className={security.isActive
-                ? 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300'
-                : 'text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300'}
-            >
-              {density === 'dense'
-                ? (security.isActive ? '⊘' : '✓')
-                : (security.isActive ? 'Deactivate' : 'Activate')}
-            </Button>
-          )}
-          {canDelete && onDelete && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDelete}
-              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-            >
-              {density === 'dense' ? '\u2715' : 'Delete'}
-            </Button>
-          )}
-        </div>
+      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium hidden sm:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800 ${isHighlighted ? HIGHLIGHT_FLASH_CELL : ''}`}>
+        <RowActions actions={actions} density={density} />
       </td>
     </tr>
   );
@@ -283,14 +381,18 @@ export function SecurityList({
   transactionSecurityIds = new Set(),
   onEdit,
   onToggleActive,
+  onToggleFavourite,
   onDelete,
   onViewPrices,
+  onViewHistory,
   density: propDensity,
   onDensityChange,
   sortField: propSortField,
   sortDirection: propSortDirection,
   onSort,
+  highlightId,
 }: SecurityListProps) {
+  const t = useTranslations('securities');
   const [localDensity, setLocalDensity] = useState<DensityLevel>('normal');
   const [localSortField, setLocalSortField] = useState<SecuritySortField>('symbol');
   const [localSortDirection, setLocalSortDirection] = useState<SortDirection>('asc');
@@ -318,54 +420,12 @@ export function SecurityList({
     }
   }, [onSort, localSortField]);
 
-  // Long-press handling for context menu on mobile
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const longPressTriggered = useRef(false);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const LONG_PRESS_MOVE_THRESHOLD = 10;
+  // Long-press opens a per-row action sheet on mobile (and via right-click).
   const [contextSecurity, setContextSecurity] = useState<Security | null>(null);
 
-  const handleLongPressStart = useCallback((security: Security) => {
-    touchStartPos.current = null;
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setContextSecurity(security);
-    }, 750);
-  }, []);
-
-  const handleLongPressStartTouch = useCallback((security: Security, e: React.TouchEvent) => {
-    if (e?.touches?.[0]) {
-      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else {
-      touchStartPos.current = null;
-    }
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setContextSecurity(security);
-    }, 750);
-  }, []);
-
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    touchStartPos.current = null;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartPos.current && longPressTimer.current && e.touches?.[0]) {
-      const deltaX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
-      const deltaY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-      if (deltaX > LONG_PRESS_MOVE_THRESHOLD || deltaY > LONG_PRESS_MOVE_THRESHOLD) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-        touchStartPos.current = null;
-      }
-    }
-  }, []);
+  const { getRowHandlers } = useLongPress<Security>({
+    onLongPress: setContextSecurity,
+  });
 
   // Memoize padding classes based on density
   const cellPadding = useMemo(() => {
@@ -410,10 +470,10 @@ export function SecurityList({
           />
         </svg>
         <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          No securities
+          {t('list.empty.title')}
         </h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Get started by adding your first security.
+          {t('list.empty.subtitle')}
         </p>
       </div>
     );
@@ -426,35 +486,44 @@ export function SecurityList({
         <button
           onClick={cycleDensity}
           className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          title="Toggle row density"
+          title={t('list.density.toggle')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {density === 'normal' ? 'Normal' : density === 'compact' ? 'Compact' : 'Dense'}
+          {density === 'normal' ? t('list.density.normal') : density === 'compact' ? t('list.density.compact') : t('list.density.dense')}
         </button>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
+              <th className={`${headerPadding} text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
+                <span className="sr-only">{t('list.columns.favourite')}</span>
+              </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
                 onClick={() => handleSort('symbol')}
               >
-                Symbol<SortIcon field="symbol" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.symbol')}<SortIcon field="symbol" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
                 onClick={() => handleSort('name')}
               >
-                Name<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.name')}<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
                 onClick={() => handleSort('type')}
               >
-                Type<SortIcon field="type" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.type')}<SortIcon field="type" sortField={sortField} sortDirection={sortDirection} />
+              </th>
+              <th
+                className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                onClick={() => handleSort('shares')}
+              >
+                {t('list.columns.shares')}<SortIcon field="shares" sortField={sortField} sortDirection={sortDirection} />
               </th>
               {density === 'normal' && (
                 <>
@@ -462,35 +531,35 @@ export function SecurityList({
                     className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden sm:table-cell`}
                     onClick={() => handleSort('exchange')}
                   >
-                    Exchange<SortIcon field="exchange" sortField={sortField} sortDirection={sortDirection} />
+                    {t('list.columns.exchange')}<SortIcon field="exchange" sortField={sortField} sortDirection={sortDirection} />
                   </th>
                   <th
                     className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden sm:table-cell`}
                     onClick={() => handleSort('currency')}
                   >
-                    Currency<SortIcon field="currency" sortField={sortField} sortDirection={sortDirection} />
+                    {t('list.columns.currency')}<SortIcon field="currency" sortField={sortField} sortDirection={sortDirection} />
                   </th>
                   <th
                     className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden md:table-cell`}
                     onClick={() => handleSort('provider')}
-                    title="Per-security quote provider override"
+                    title={t('list.columnTitles.source')}
                   >
-                    Provider<SortIcon field="provider" sortField={sortField} sortDirection={sortDirection} />
+                    {t('list.columns.provider')}<SortIcon field="provider" sortField={sortField} sortDirection={sortDirection} />
                   </th>
                   <th
                     className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden md:table-cell`}
                     onClick={() => handleSort('source')}
-                    title="Source of the most recent price"
+                    title={t('list.columnTitles.source')}
                   >
-                    Source<SortIcon field="source" sortField={sortField} sortDirection={sortDirection} />
+                    {t('list.columns.source')}<SortIcon field="source" sortField={sortField} sortDirection={sortDirection} />
                   </th>
                 </>
               )}
               <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
-                Status
+                {t('list.columns.status')}
               </th>
               <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell sticky right-0 bg-gray-50 dark:bg-gray-800`}>
-                Actions
+                {t('list.columns.actions')}
               </th>
             </tr>
           </thead>
@@ -501,94 +570,48 @@ export function SecurityList({
                 security={security}
                 hasHoldings={(holdings[security.id] || 0) > 0}
                 hasTransactions={transactionSecurityIds.has(security.id)}
+                shares={holdings[security.id] || 0}
                 density={density}
                 cellPadding={cellPadding}
                 onEdit={onEdit}
                 onToggleActive={onToggleActive}
+                onToggleFavourite={onToggleFavourite}
                 onDelete={onDelete}
                 onViewPrices={onViewPrices}
-                onLongPressStart={handleLongPressStart}
-                onLongPressStartTouch={handleLongPressStartTouch}
-                onLongPressEnd={handleLongPressEnd}
-                onTouchMove={handleTouchMove}
+                onViewHistory={onViewHistory}
+                getRowHandlers={getRowHandlers}
                 index={index}
                 defaultQuoteProvider={defaultQuoteProvider}
+                isHighlighted={!!highlightId && security.id === highlightId}
               />
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Long-press Context Menu */}
-      <Modal isOpen={!!contextSecurity} onClose={() => setContextSecurity(null)} maxWidth="sm" className="p-0">
-        {contextSecurity && (() => {
-          const contextHasHoldings = (holdings[contextSecurity.id] || 0) > 0;
-          const contextHasTransactions = transactionSecurityIds.has(contextSecurity.id);
-          const contextCanDelete = !contextHasHoldings && !contextHasTransactions;
-          return (
-          <div>
-            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{contextSecurity.symbol}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{contextSecurity.name}</p>
-            </div>
-            <div className="py-2">
-              {onViewPrices && (
-                <button
-                  onClick={() => { setContextSecurity(null); onViewPrices(contextSecurity); }}
-                  className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  View Prices
-                </button>
-              )}
-              <button
-                onClick={() => { setContextSecurity(null); onEdit(contextSecurity); }}
-                className="w-full text-left px-5 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-              >
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Security
-              </button>
-              {!contextHasHoldings && (
-                <button
-                  onClick={() => { setContextSecurity(null); onToggleActive(contextSecurity); }}
-                  className={`w-full text-left px-5 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 ${
-                    contextSecurity.isActive
-                      ? 'text-yellow-600 dark:text-yellow-400'
-                      : 'text-green-600 dark:text-green-400'
-                  }`}
-                >
-                  {contextSecurity.isActive ? (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
-                  {contextSecurity.isActive ? 'Deactivate' : 'Activate'}
-                </button>
-              )}
-              {contextCanDelete && onDelete && (
-                <button
-                  onClick={() => { setContextSecurity(null); onDelete(contextSecurity); }}
-                  className="w-full text-left px-5 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </button>
-              )}
-            </div>
-          </div>
-          );
-        })()}
-      </Modal>
+      {/* Long-press action sheet */}
+      <RowActionSheet
+        isOpen={!!contextSecurity}
+        title={contextSecurity?.symbol ?? ''}
+        subtitle={contextSecurity?.name}
+        actions={contextSecurity
+          ? buildSecurityActions(
+              contextSecurity,
+              (holdings[contextSecurity.id] || 0) > 0,
+              transactionSecurityIds.has(contextSecurity.id),
+              {
+                history: t('list.contextMenu.transactionHistory'),
+                prices: t('list.contextMenu.viewPrices'),
+                edit: t('list.contextMenu.editSecurity'),
+                activate: t('list.contextMenu.activate'),
+                deactivate: t('list.contextMenu.deactivate'),
+                delete: t('list.contextMenu.delete'),
+              },
+              { onViewHistory, onViewPrices, onEdit, onToggleActive, onDelete },
+            )
+          : []}
+        onClose={() => setContextSecurity(null)}
+      />
     </div>
   );
 }

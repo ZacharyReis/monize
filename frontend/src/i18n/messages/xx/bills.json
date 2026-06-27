@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "[XX-Bills & Deposits-XX]",
+    "subtitle": "[XX-Manage your recurring transactions and scheduled payments-XX]",
+    "newButton": "[XX-+ New Schedule-XX]",
+    "summaryActiveBills": "[XX-Active Bills-XX]",
+    "summaryActiveDeposits": "[XX-Active Deposits-XX]",
+    "summaryMonthlyNet": "[XX-Monthly Net-XX]",
+    "summaryDueNow": "[XX-Due Now-XX]",
+    "loadingText": "[XX-Loading scheduled transactions...-XX]",
+    "chartUnavailable": "[XX-Chart temporarily unavailable-XX]"
+  },
+  "viewTabs": {
+    "list": "[XX-List-XX]",
+    "calendar": "[XX-Calendar-XX]",
+    "filterAll": "[XX-All ({count})-XX]",
+    "filterBills": "[XX-Bills ({count})-XX]",
+    "filterDeposits": "[XX-Deposits ({count})-XX]",
+    "todayButton": "[XX-Today-XX]"
+  },
+  "form": {
+    "titleNew": "[XX-New Scheduled Transaction-XX]",
+    "titleEdit": "[XX-Edit Scheduled Transaction-XX]"
+  },
+  "overrideConfirm": {
+    "title": "[XX-Existing Overrides Found-XX]",
+    "message": "[XX-This scheduled transaction has {count, plural, one {# individual occurrence} other {# individual occurrences}} with custom modifications.-XX]",
+    "question": "[XX-What would you like to do with these modifications when you update the base template?-XX]",
+    "keepButton": "[XX-Keep Modifications-XX]",
+    "deleteButton": "[XX-Delete All Modifications-XX]"
+  },
+  "forecast": {
+    "title": "[XX-Cash Flow Forecast-XX]",
+    "scheduledCount": "[XX-{count, plural, one {# scheduled transaction} other {# scheduled transactions}} in forecast-XX]",
+    "tooltipTransactions": "[XX-Transactions:-XX]",
+    "tooltipMore": "[XX-+{count} more-XX]",
+    "noData": "[XX-No data to display-XX]",
+    "noAccounts": "[XX-No accounts found-XX]",
+    "noScheduled": "[XX-No scheduled transactions-XX]",
+    "noMatchingAccount": "[XX-Select an account with scheduled transactions-XX]",
+    "noUpcoming": "[XX-No upcoming transactions in this period - showing current balance-XX]",
+    "summaryStarting": "[XX-Starting-XX]",
+    "summaryEnding": "[XX-Ending-XX]",
+    "summaryLowest": "[XX-Lowest-XX]",
+    "summaryMinBalance": "[XX-Min Balance-XX]",
+    "allAccounts": "[XX-All Accounts-XX]"
+  },
+  "calendar": {
+    "days": {
+      "sun": "[XX-Sun-XX]",
+      "mon": "[XX-Mon-XX]",
+      "tue": "[XX-Tue-XX]",
+      "wed": "[XX-Wed-XX]",
+      "thu": "[XX-Thu-XX]",
+      "fri": "[XX-Fri-XX]",
+      "sat": "[XX-Sat-XX]"
+    },
+    "more": "[XX-+{count} more-XX]"
+  },
+  "toasts": {
+    "overridesDeleted": "[XX-Overrides deleted-XX]",
+    "notFound": "[XX-Scheduled payment not found-XX]",
+    "loadFailed": "[XX-Failed to load scheduled transactions-XX]",
+    "overridesDeleteFailed": "[XX-Failed to delete overrides-XX]"
+  }
+}

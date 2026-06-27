@@ -1,0 +1,165 @@
+{
+  "test": {
+    "subject": "[XX-Monize Test Email-XX]",
+    "heading": "[XX-Monize Test Email-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "body": "[XX-This is a test email from Monize. If you received this, your email notifications are working correctly.-XX]"
+  },
+  "billReminder": {
+    "subjectOne": "[XX-Monize: 1 upcoming bill needs attention-XX]",
+    "subjectMany": "[XX-Monize: {{ count }} upcoming bills need attention-XX]",
+    "heading": "[XX-Upcoming Bill Reminder-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "introOne": "[XX-You have 1 upcoming bill that needs attention:-XX]",
+    "introMany": "[XX-You have {{ count }} upcoming bills that need attention:-XX]",
+    "colPayee": "[XX-Payee-XX]",
+    "colDueDate": "[XX-Due Date-XX]",
+    "colType": "[XX-Type-XX]",
+    "colAmount": "[XX-Amount-XX]",
+    "typeIncome": "[XX-Income-XX]",
+    "typeExpense": "[XX-Expense-XX]",
+    "button": "[XX-View Bills &amp; Deposits-XX]"
+  },
+  "mortgageReminder": {
+    "subject": "[XX-Monize: 1 upcoming mortgage renewal-XX]",
+    "subjectPlural": "[XX-Monize: {{ count }} upcoming mortgage renewals-XX]",
+    "heading": "[XX-Mortgage Renewal Reminder-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "introOne": "[XX-You have 1 mortgage with an upcoming term renewal. Contact your lender to discuss renewal options before the term ends:-XX]",
+    "introMany": "[XX-You have {{ count }} mortgages with an upcoming term renewal. Contact your lender to discuss renewal options before the term ends:-XX]",
+    "colMortgage": "[XX-Mortgage-XX]",
+    "colTermEndDate": "[XX-Term End Date-XX]",
+    "colTimeRemaining": "[XX-Time Remaining-XX]",
+    "daysRemainingOne": "[XX-1 day-XX]",
+    "daysRemainingMany": "[XX-{{ count }} days-XX]",
+    "button": "[XX-View Accounts-XX]"
+  },
+  "severity": {
+    "critical": "[XX-Critical-XX]",
+    "warning": "[XX-Warning-XX]",
+    "success": "[XX-Good News-XX]",
+    "info": "[XX-Info-XX]"
+  },
+  "budgetAlertImmediate": {
+    "subject": "[XX-Monize: Alert - {{ title }}-XX]",
+    "subjectPlural": "[XX-Monize: {{ count }} alerts need attention-XX]",
+    "heading": "[XX-Alert-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-Your budget needs attention:-XX]",
+    "colSeverity": "[XX-Severity-XX]",
+    "colAlert": "[XX-Alert-XX]",
+    "colDetails": "[XX-Details-XX]",
+    "button": "[XX-View Budget-XX]"
+  },
+  "budgetWeeklyDigest": {
+    "subject": "[XX-Monize: Your weekly budget summary-XX]",
+    "heading": "[XX-Weekly Budget Summary-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-Here is your weekly budget summary for: <strong>{{ budgets }}</strong>-XX]",
+    "criticalOne": "[XX-critical-XX]",
+    "criticalMany": "[XX-critical-XX]",
+    "warningOne": "[XX-warning-XX]",
+    "warningMany": "[XX-warnings-XX]",
+    "positiveOne": "[XX-positive-XX]",
+    "positiveMany": "[XX-positive-XX]",
+    "thisWeek": "[XX-This Week:-XX]",
+    "noAlerts": "[XX-No alerts-XX]",
+    "totalAlerts": "[XX-Total alerts: {{ count }}-XX]",
+    "topAlertsHeading": "[XX-Top Alerts-XX]",
+    "andMore": "[XX-...and {{ count }} more-XX]",
+    "button": "[XX-View Budget Dashboard-XX]"
+  },
+  "budgetMonthlySummary": {
+    "subject": "[XX-Monize: Monthly budget summary - {{ period }}-XX]",
+    "subjectPlural": "[XX-Monize: Monthly budget summary for {{ count }} budgets-XX]",
+    "heading": "[XX-Monthly Budget Summary-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-Here is your monthly budget summary for the period that just closed:-XX]",
+    "overBudget": "[XX-Over Budget-XX]",
+    "healthScore": "[XX-Health Score:-XX]",
+    "labelBudgeted": "[XX-Budgeted-XX]",
+    "labelSpent": "[XX-Spent-XX]",
+    "labelRemaining": "[XX-Remaining-XX]",
+    "percentUsed": "[XX-{{ percent }}% used-XX]",
+    "topCategories": "[XX-Top Categories-XX]",
+    "button": "[XX-View Budget Dashboard-XX]"
+  },
+  "oidcLink": {
+    "subject": "[XX-Monize: Confirm SSO Account Link-XX]",
+    "heading": "[XX-Link Your SSO Account-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-Someone attempted to sign in via SSO with an email that matches your existing Monize account. To link your SSO identity to this account, click the button below:-XX]",
+    "button": "[XX-Confirm Account Link-XX]",
+    "disclaimer": "[XX-If you did not initiate this request, you can safely ignore this email. The link expires in 1 hour.-XX]"
+  },
+  "accountLocked": {
+    "subject": "[XX-Account Temporarily Locked-XX]",
+    "heading": "[XX-Account Temporarily Locked-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "body1": "[XX-Your Monize account has been temporarily locked due to multiple failed login attempts. This is a security measure to protect your account.-XX]",
+    "body2": "[XX-The lock will expire automatically. If you did not attempt to log in, we recommend resetting your password immediately.-XX]"
+  },
+  "passwordReset": {
+    "subject": "[XX-Monize Password Reset-XX]",
+    "heading": "[XX-Password Reset Request-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-We received a request to reset your password. Click the button below to set a new password:-XX]",
+    "button": "[XX-Reset Password-XX]",
+    "disclaimer": "[XX-This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.-XX]"
+  },
+  "emailVerification": {
+    "subject": "[XX-Verify your Monize email-XX]",
+    "heading": "[XX-Verify your email address-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-Thanks for signing up for Monize. Please confirm your email address to activate your account and sign in:-XX]",
+    "button": "[XX-Verify Email-XX]",
+    "disclaimer": "[XX-This link will expire in 24 hours. If you did not create a Monize account, you can safely ignore this email.-XX]"
+  },
+  "accountInvite": {
+    "subject": "[XX-Your Monize account is ready-XX]",
+    "heading": "[XX-Your Monize account is ready-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-An administrator has created a Monize account for you. Click the button below to set your password and sign in:-XX]",
+    "button": "[XX-Set Your Password-XX]",
+    "disclaimer": "[XX-This link will expire in 24 hours. If you were not expecting this, you can safely ignore this email.-XX]"
+  },
+  "delegateInvite": {
+    "subject": "[XX-You have been invited to Monize-XX]",
+    "heading": "[XX-You have been invited to Monize-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "intro": "[XX-{{ owner }} has invited you to access their Monize account as a delegate. Click the button below to set your password and get started:-XX]",
+    "button": "[XX-Set Your Password-XX]",
+    "disclaimer": "[XX-This link will expire in 24 hours. If you were not expecting this invitation, you can safely ignore this email.-XX]"
+  },
+  "emergencyAccessReminder": {
+    "subjectOne": "[XX-Monize: your account has been inactive for 1 day-XX]",
+    "subjectMany": "[XX-Monize: your account has been inactive for {{ daysSinceLogin }} days-XX]",
+    "heading": "[XX-Monize Emergency Access Reminder-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "grantPhraseToday": "[XX-today-XX]",
+    "grantPhraseFutureOne": "[XX-in 1 day-XX]",
+    "grantPhraseFutureMany": "[XX-in {{ count }} days-XX]",
+    "bodyOne": "[XX-You have not signed in to Monize for <strong>1 day</strong>. If you remain inactive, your designated emergency contacts will be granted full access to your account {{ grantPhrase }}.-XX]",
+    "bodyMany": "[XX-You have not signed in to Monize for <strong>{{ daysSinceLogin }} days</strong>. If you remain inactive, your designated emergency contacts will be granted full access to your account {{ grantPhrase }}.-XX]",
+    "contactsLabel": "[XX-Designated contacts:-XX]",
+    "button": "[XX-Sign in now-XX]",
+    "footer": "[XX-Signing in resets the timer. If you no longer want this feature enabled, you can disable it from Settings → Emergency Access.-XX]"
+  },
+  "emergencyAccessGrant": {
+    "subject": "[XX-You have been granted emergency access to {{ owner }}'s Monize account-XX]",
+    "heading": "[XX-Emergency Access Granted-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "body": "[XX-<strong>{{ owner }}</strong> previously designated you as an emergency contact on their Monize account. Because they have not signed in for an extended period, you are now being granted full access to take over the account.-XX]",
+    "claimIntro": "[XX-To claim access, click the link below and set a new password. You will be signed in as the account holder.-XX]",
+    "button": "[XX-Claim Emergency Access-XX]",
+    "expiry": "[XX-This link is valid until <strong>{{ expiry }}</strong> and can only be used once. If multiple contacts received this email, the first to claim will take over the account.-XX]"
+  },
+  "emergencyAccessGrantRevoked": {
+    "subject": "[XX-Monize: emergency access was granted while you were away-XX]",
+    "heading": "[XX-Emergency Access Was Granted While You Were Away-XX]",
+    "greeting": "[XX-Hi {{ name }},-XX]",
+    "body1": "[XX-Because your account had been inactive, your designated emergency contacts were sent links to take over your account. You have now signed back in, so <strong>those links have been revoked</strong> and the safeguard has been re-armed.-XX]",
+    "body2": "[XX-If this was expected, no action is needed. If you did not expect this, review your sign-in activity and your emergency-access settings.-XX]",
+    "button": "[XX-Review Emergency Access-XX]"
+  }
+}

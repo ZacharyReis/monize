@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import { Button } from '@/components/ui/Button';
-import dynamic from 'next/dynamic';
 
-const AccountForm = dynamic(() => import('@/components/accounts/AccountForm').then(m => m.AccountForm), { ssr: false });
 import { AccountList } from '@/components/accounts/AccountList';
-import { Modal } from '@/components/ui/Modal';
-import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
+import { AccountFormModal } from '@/components/accounts/AccountFormModal';
 import { accountsApi } from '@/lib/accounts';
 import { investmentsApi } from '@/lib/investments';
+import { institutionsApi } from '@/lib/institutions';
 import { countLogicalAccounts } from '@/lib/account-utils';
 import { Account } from '@/types/account';
+import { Institution } from '@/types/institution';
 import { PortfolioSummary } from '@/types/investment';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -37,29 +36,34 @@ export default function AccountsPage() {
 }
 
 function AccountsContent() {
+  const t = useTranslations('accounts');
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { showForm, editingItem, openCreate, openEdit, close, isEditing, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<Account>();
+  const formModal = useFormModal<Account>();
+  const { openCreate, openEdit } = formModal;
   const { convertToDefault, defaultCurrency } = useExchangeRates();
   const { formatCurrency } = useNumberFormat();
 
   const loadAccounts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, portfolio] = await Promise.all([
+      const [data, portfolio, insts] = await Promise.all([
         accountsApi.getAll(true),
         investmentsApi.getPortfolioSummary().catch(() => null),
+        institutionsApi.getAll().catch(() => [] as Institution[]),
       ]);
       setAccounts(data);
       setPortfolioSummary(portfolio);
+      setInstitutions(insts);
     } catch (error) {
-      showErrorToast(error, 'Failed to load accounts');
+      showErrorToast(error, t('toast.loadFailed'));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadAccounts();
@@ -78,51 +82,6 @@ function AccountsContent() {
     }
     return map;
   }, [portfolioSummary]);
-
-  const handleFormSubmit = async (data: any) => {
-    try {
-      const cleanedData = {
-        ...data,
-        openingBalance: data.openingBalance || data.openingBalance === 0 ? data.openingBalance : undefined,
-        creditLimit: data.creditLimit || data.creditLimit === 0 ? data.creditLimit : undefined,
-        interestRate: data.interestRate || data.interestRate === 0 ? data.interestRate : undefined,
-      };
-
-      // LOAN/MORTGAGE store openingBalance as negative. The form shows the
-      // absolute amount ("Loan Amount" / "Mortgage Amount"), so negate it when
-      // saving an update. Backend handles negation on create for these types.
-      // All other account types (including CREDIT_CARD, LINE_OF_CREDIT) let the
-      // user type the sign directly, so no auto-negation is applied.
-      const effectiveType = cleanedData.accountType || editingItem?.accountType;
-      if (
-        cleanedData.openingBalance != null &&
-        cleanedData.openingBalance > 0 &&
-        (effectiveType === 'LOAN' || effectiveType === 'MORTGAGE') &&
-        editingItem
-      ) {
-        cleanedData.openingBalance = -cleanedData.openingBalance;
-      }
-
-      Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key] === undefined || cleanedData[key] === '' || (typeof cleanedData[key] === 'number' && isNaN(cleanedData[key]))) {
-          delete cleanedData[key];
-        }
-      });
-
-      if (editingItem) {
-        await accountsApi.update(editingItem.id, cleanedData);
-        toast.success('Account updated successfully');
-      } else {
-        await accountsApi.create(cleanedData);
-        toast.success('Account created successfully');
-      }
-      close();
-      loadAccounts();
-    } catch (error) {
-      showErrorToast(error, `Failed to ${editingItem ? 'update' : 'create'} account`);
-      throw error;
-    }
-  };
 
   const calculateSummary = () => {
     const activeAccounts = accounts.filter((a) => !a.isClosed);
@@ -157,32 +116,32 @@ function AccountsContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Accounts"
-          subtitle="Manage your bank accounts, credit cards, and investments"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Accounts"
-          actions={<Button onClick={openCreate}>+ New Account</Button>}
+          actions={<Button onClick={openCreate}>{t('page.newAccount')}</Button>}
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-6">
           <SummaryCard
-            label="Total Active Accounts"
+            label={t('page.summary.totalActiveAccounts')}
             value={summary.accountCount}
             icon={SummaryIcons.accounts}
           />
           <SummaryCard
-            label="Net Worth"
+            label={t('page.summary.netWorth')}
             value={formatCurrency(summary.totalBalance, defaultCurrency)}
             icon={SummaryIcons.money}
             valueColor={summary.totalBalance >= 0 ? 'blue' : 'red'}
           />
           <SummaryCard
-            label="Total Assets"
+            label={t('page.summary.totalAssets')}
             value={formatCurrency(summary.totalAssets, defaultCurrency)}
             icon={SummaryIcons.checkmark}
             valueColor="green"
           />
           <SummaryCard
-            label="Total Liabilities"
+            label={t('page.summary.totalLiabilities')}
             value={formatCurrency(summary.totalLiabilities, defaultCurrency)}
             icon={SummaryIcons.cross}
             valueColor="red"
@@ -190,26 +149,14 @@ function AccountsContent() {
         </div>
 
         {/* Form Modal */}
-        <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="2xl" className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Account' : 'New Account'}
-          </h2>
-          <AccountForm
-            account={editingItem}
-            onSubmit={handleFormSubmit}
-            onCancel={close}
-            onDirtyChange={setFormDirty}
-            submitRef={formSubmitRef}
-          />
-        </Modal>
-        <UnsavedChangesDialog {...unsavedChangesDialog} />
+        <AccountFormModal formModal={formModal} onSaved={loadAccounts} />
 
         {/* Accounts List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading accounts..." />
+            <LoadingSpinner text={t('page.loadingAccounts')} />
           ) : (
-            <AccountList accounts={accounts} brokerageMarketValues={brokerageMarketValues} defaultCurrency={defaultCurrency} convertToDefault={convertToDefault} onEdit={openEdit} onRefresh={loadAccounts} />
+            <AccountList accounts={accounts} institutions={institutions} brokerageMarketValues={brokerageMarketValues} defaultCurrency={defaultCurrency} convertToDefault={convertToDefault} onEdit={openEdit} onRefresh={loadAccounts} />
           )}
         </div>
       </main>

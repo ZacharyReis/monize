@@ -17,6 +17,7 @@ vi.mock('@/components/ui/ExportDropdown', () => ({
 
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
+    formatSignedPercent: (n: number, decimals = 2) => `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
     formatCurrencyCompact: (n: number) => `$${n.toFixed(0)}`,
     formatCurrencyAxis: (n: number) => `$${n}`,
@@ -32,6 +33,7 @@ vi.mock('@/hooks/useExchangeRates', () => ({
 
 vi.mock('@/lib/utils', () => ({
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
+  cn: (...inputs: any[]) => inputs.flat(Infinity).filter(Boolean).join(' '),
 }));
 
 vi.mock('recharts', () => ({
@@ -56,7 +58,10 @@ vi.mock('recharts', () => ({
     }
     return null;
   },
-  ReferenceLine: () => null,
+  ReferenceLine: ({ label }: any) =>
+    typeof label === 'function'
+      ? label({ viewBox: { x: 0, y: 50, width: 600 } })
+      : null,
 }));
 
 const mockGetSecurities = vi.fn();
@@ -123,12 +128,15 @@ describe('SecurityPerformanceReport', () => {
     ]);
   });
 
-  it('shows loading state initially', () => {
+  it('shows loading state initially', async () => {
     mockGetSecurities.mockReturnValue(new Promise(() => {}));
     mockGetPortfolioSummary.mockReturnValue(new Promise(() => {}));
     mockGetInvestmentAccounts.mockReturnValue(new Promise(() => {}));
     render(<SecurityPerformanceReport />);
     expect(document.querySelector('.animate-pulse')).toBeTruthy();
+    // Flush the secondary detail-fetch resolution so its state update is
+    // wrapped in act().
+    await act(async () => {});
   });
 
   it('renders security selector with active securities only', async () => {
@@ -256,14 +264,15 @@ describe('SecurityPerformanceReport', () => {
     });
   });
 
-  it('handles loadDetail error and load error gracefully', async () => {
+  it('shows a retryable error when the base load fails', async () => {
     mockGetSecurities.mockRejectedValue(new Error('boom'));
     mockGetPortfolioSummary.mockRejectedValue(new Error('boom'));
     mockGetInvestmentAccounts.mockRejectedValue(new Error('boom'));
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load report data/)).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument();
   });
 
   it('exports pdf in chart view', async () => {

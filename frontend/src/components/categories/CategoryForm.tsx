@@ -1,26 +1,28 @@
 'use client';
 
-import { useEffect, MutableRefObject } from 'react';
+import { useEffect, useMemo, MutableRefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { useForm, useWatch } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from '@/components/ui/Input';
+import { Combobox } from '@/components/ui/Combobox';
 import { Select } from '@/components/ui/Select';
 import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
 import { FormActions } from '@/components/ui/FormActions';
 import { Category } from '@/types/category';
 
-const categorySchema = z.object({
-  name: z.string().min(1, 'Category name is required').max(255),
+const buildCategorySchema = (t: (key: string) => string) => z.object({
+  name: z.string().min(1, t('validation.nameRequired')).max(255),
   parentId: z.string().optional(),
   description: z.string().optional(),
   color: z.string().optional(),
   isIncome: z.boolean(),
 });
 
-type CategoryFormData = z.infer<typeof categorySchema>;
+type CategoryFormData = z.infer<ReturnType<typeof buildCategorySchema>>;
 
 interface CategoryFormProps {
   category?: Category;
@@ -44,6 +46,7 @@ const colourPalette = [
 ];
 
 export function CategoryForm({ category, categories, onSubmit, onCancel, onDirtyChange, submitRef }: CategoryFormProps) {
+  const t = useTranslations('categories');
   const {
     register,
     handleSubmit,
@@ -51,7 +54,7 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
     setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<CategoryFormData>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver(buildCategorySchema(t)),
     defaultValues: category
       ? {
           name: category.name,
@@ -119,42 +122,58 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
     return buildTree();
   };
 
-  const parentOptions = [
-    { value: '', label: 'No parent (top-level)' },
-    ...getAvailableParents().map(({ category: cat }) => {
-      const parent = cat.parentId ? categories.find(c => c.id === cat.parentId) : null;
-      const displayName = parent ? `${parent.name}: ${cat.name}` : cat.name;
-      return {
-        value: cat.id,
-        label: displayName,
-      };
-    }),
-  ];
+  const parentOptions = getAvailableParents().map(({ category: cat }) => {
+    const parent = cat.parentId ? categories.find(c => c.id === cat.parentId) : null;
+    const displayName = parent ? `${parent.name}: ${cat.name}` : cat.name;
+    return {
+      value: cat.id,
+      label: displayName,
+    };
+  });
+
+  // Sync the parent selection from the searchable combobox back into the form.
+  const handleParentChange = (parentId: string) => {
+    setValue('parentId', parentId || '', { shouldDirty: true });
+  };
+
+  // Resolve the display name for the initially selected parent so the combobox
+  // can show it before the matching option is looked up (mirrors PayeeForm).
+  const initialParentId = category?.parentId;
+  const initialParentName = useMemo(() => {
+    if (!initialParentId) return '';
+    const cat = categories.find(c => c.id === initialParentId);
+    if (!cat) return '';
+    const parent = cat.parentId ? categories.find(c => c.id === cat.parentId) : null;
+    return parent ? `${parent.name}: ${cat.name}` : cat.name;
+  }, [initialParentId, categories]);
 
   const typeOptions = [
-    { value: 'false', label: 'Expense' },
-    { value: 'true', label: 'Income' },
+    { value: 'false', label: t('form.typeExpense') },
+    { value: 'true', label: t('form.typeIncome') },
   ];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input
-        label="Category Name"
+        label={t('form.nameLabel')}
         error={errors.name?.message}
         {...register('name')}
       />
 
-      <Select
-        label="Parent Category"
+      <Combobox
+        label={t('form.parentLabel')}
+        placeholder={t('form.noParent')}
         options={parentOptions}
+        value={watchedParentId}
+        initialDisplayValue={initialParentName}
+        onChange={handleParentChange}
         error={errors.parentId?.message}
-        {...register('parentId')}
       />
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Select
-            label="Type"
+            label={t('form.typeLabel')}
             options={typeOptions}
             error={errors.isIncome?.message}
             disabled={hasParent}
@@ -163,14 +182,14 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
           />
           {hasParent && parentCategory && (
             <p className="mt-1 text-xs text-gray-500">
-              Type inherited from parent
+              {t('form.typeInherited')}
             </p>
           )}
         </div>
 
         <div>
           <input type="hidden" {...register('color')} />
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colour</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('form.colourLabel')}</label>
           {/* Mobile: dropdown select */}
           <div className="md:hidden">
             <div className="flex items-center gap-2">
@@ -189,7 +208,7 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
                 onChange={(e) => setValue('color', e.target.value, { shouldDirty: true })}
                 className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 text-sm"
               >
-                <option value="">{hasParent ? 'Inherit from parent' : 'No colour'}</option>
+                <option value="">{hasParent ? t('form.colourInherit') : t('form.colourNone')}</option>
                 {colourPalette.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -206,7 +225,7 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
                   ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
-              title={hasParent ? 'Inherit from parent' : 'No colour'}
+              title={hasParent ? t('form.colourInherit') : t('form.colourNone')}
               style={
                 !watchedColor && parentCategory?.effectiveColor
                   ? { backgroundColor: parentCategory.effectiveColor, opacity: 0.4 }
@@ -236,19 +255,19 @@ export function CategoryForm({ category, categories, onSubmit, onCancel, onDirty
           </div>
           {hasParent && !watchedColor && parentCategory?.effectiveColor && (
             <p className="mt-1 text-xs text-gray-500">
-              Colour inherited from parent ({parentCategory.name})
+              {t('form.colourInheritedFrom', { name: parentCategory.name })}
             </p>
           )}
         </div>
       </div>
 
       <Input
-        label="Description (optional)"
+        label={t('form.descriptionLabel')}
         error={errors.description?.message}
         {...register('description')}
       />
 
-      <FormActions onCancel={onCancel} submitLabel={category ? 'Update Category' : 'Create Category'} isSubmitting={isSubmitting} />
+      <FormActions onCancel={onCancel} submitLabel={category ? t('form.submitUpdate') : t('form.submitCreate')} isSubmitting={isSubmitting} />
     </form>
   );
 }

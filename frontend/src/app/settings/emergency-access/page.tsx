@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -116,6 +117,7 @@ export default function EmergencyAccessPage() {
 }
 
 function EmergencyAccessContent() {
+  const t = useTranslations('settings.emergencyAccess');
   const isDemoMode = useDemoMode();
   const isDelegateView = useAuthStore((s) => !!s.actingAsUserId);
 
@@ -128,15 +130,15 @@ function EmergencyAccessContent() {
               href="/settings"
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
             >
-              &larr; Back to Settings
+              &larr; {t('backLink')}
             </Link>
           </div>
-          <PageHeader title="Emergency Access" />
+          <PageHeader title={t('title')} />
           <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-6 mb-6">
             <p className="text-sm text-amber-700 dark:text-amber-300">
               {isDelegateView
-                ? 'Emergency access can only be configured by the account owner.'
-                : 'Emergency access is disabled in demo mode.'}
+                ? t('delegateRestricted')
+                : t('demoRestricted')}
             </p>
           </div>
         </main>
@@ -164,6 +166,7 @@ function useNowEverySecond(enabled: boolean): number | null {
 }
 
 function MessageCountdown() {
+  const t = useTranslations('settings.emergencyAccess.message');
   const expiresAt = useStepUpTokenStore((s) =>
     s.getExpiresAt(STEP_UP_PURPOSE),
   );
@@ -175,12 +178,17 @@ function MessageCountdown() {
   const secs = Math.floor((remainingMs % 60_000) / 1000);
   return (
     <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-      Unlocked for {mins}:{secs.toString().padStart(2, '0')}
+      {t('unlockTimer', { mins, secs: secs.toString().padStart(2, '0') })}
     </span>
   );
 }
 
 function EmergencyAccessSection() {
+  const t = useTranslations('settings.emergencyAccess');
+  const tMsg = useTranslations('settings.emergencyAccess.message');
+  const tContacts = useTranslations('settings.emergencyAccess.contacts');
+  const tStatus = useTranslations('settings.emergencyAccess.status');
+  const tc = useTranslations('common');
   const preferences = usePreferencesStore((s) => s.preferences);
   const userTimezone = resolveTimezone(preferences?.timezone);
   const dateFormat = preferences?.dateFormat || 'browser';
@@ -251,12 +259,12 @@ function EmergencyAccessSection() {
         reminderAfterDays: data.reminderAfterDays,
       });
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to load emergency access'));
+      toast.error(getErrorMessage(err, t('toasts.loadFailed')));
       logger.error(err);
     } finally {
       setLoading(false);
     }
-  }, [settingsForm]);
+  }, [settingsForm, t]);
 
   useEffect(() => {
     void load();
@@ -312,7 +320,7 @@ function EmergencyAccessSection() {
           });
         }
       } catch (err) {
-        toast.error(getErrorMessage(err, 'Failed to confirm re-authentication'));
+        toast.error(getErrorMessage(err, t('toasts.reauthFailed')));
         logger.error(err);
       }
     })();
@@ -335,13 +343,13 @@ function EmergencyAccessSection() {
           setStepUpOpen(true);
           return;
         }
-        toast.error(getErrorMessage(err, 'Failed to load message'));
+        toast.error(getErrorMessage(err, tMsg('toasts.loadFailed')));
         logger.error(err);
       } finally {
         setMessageLoading(false);
       }
     },
-    [messageForm, clearStepUp],
+    [messageForm, clearStepUp, tMsg],
   );
 
   const handleReveal = () => {
@@ -377,7 +385,7 @@ function EmergencyAccessSection() {
       setView((prev) =>
         prev ? { ...prev, messageMetadata: { ...meta, updatedAt: meta.updatedAt ? String(meta.updatedAt) : null } } : prev,
       );
-      toast.success('Message saved');
+      toast.success(tMsg('toasts.saved'));
       setMessageMode('view');
     } catch (err) {
       if (err instanceof StepUpRequiredError) {
@@ -385,10 +393,10 @@ function EmergencyAccessSection() {
         // to click Save again.
         clearStepUp(STEP_UP_PURPOSE);
         setStepUpOpen(true);
-        toast.error('Verification expired -- please verify again to save');
+        toast.error(tMsg('toasts.verifyAgain'));
         return;
       }
-      toast.error(getErrorMessage(err, 'Failed to save message'));
+      toast.error(getErrorMessage(err, tMsg('toasts.saveFailed')));
       logger.error(err);
     } finally {
       setSavingMessage(false);
@@ -400,9 +408,9 @@ function EmergencyAccessSection() {
     try {
       const next = await emergencyAccessApi.updateSettings(data);
       setView(next);
-      toast.success('Emergency access settings saved');
+      toast.success(t('settings.toasts.saved'));
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to save settings'));
+      toast.error(getErrorMessage(err, t('settings.toasts.saveFailed')));
       logger.error(err);
     } finally {
       setSavingSettings(false);
@@ -437,10 +445,10 @@ function EmergencyAccessSection() {
           : [...prev.contacts, saved];
         return { ...prev, contacts };
       });
-      toast.success(editingContact ? 'Contact updated' : 'Contact added');
+      toast.success(editingContact ? tContacts('toasts.updated') : tContacts('toasts.added'));
       setShowContactForm(false);
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to save contact'));
+      toast.error(getErrorMessage(err, tContacts('toasts.saveFailed')));
       logger.error(err);
     } finally {
       setSubmittingContact(false);
@@ -460,10 +468,10 @@ function EmergencyAccessSection() {
             }
           : prev,
       );
-      toast.success('Contact removed');
+      toast.success(tContacts('toasts.removed'));
       setRemoveTarget(null);
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to remove contact'));
+      toast.error(getErrorMessage(err, tContacts('toasts.removeFailed')));
       logger.error(err);
     } finally {
       setRemoving(false);
@@ -475,10 +483,10 @@ function EmergencyAccessSection() {
     try {
       const next = await emergencyAccessApi.reset();
       setView(next);
-      toast.success('Granted state cleared');
+      toast.success(t('resetConfirm.toasts.cleared'));
       setShowResetConfirm(false);
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to reset granted state'));
+      toast.error(getErrorMessage(err, t('resetConfirm.toasts.resetFailed')));
       logger.error(err);
     } finally {
       setResetting(false);
@@ -501,9 +509,9 @@ function EmergencyAccessSection() {
     return (
       <PageLayout>
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-12 pt-6 pb-8">
-          <PageHeader title="Emergency Access" />
+          <PageHeader title={t('title')} />
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Unable to load emergency access settings.
+            {t('loadError')}
           </p>
         </main>
       </PageLayout>
@@ -522,24 +530,22 @@ function EmergencyAccessSection() {
             href="/settings"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
-            &larr; Back to Settings
+            &larr; {t('backLink')}
           </Link>
         </div>
 
         <PageHeader
-          title="Emergency Access"
-          subtitle="Designate contacts who automatically receive full access to your account if you do not sign in for an extended period"
+          title={t('title')}
+          subtitle={t('subtitle')}
         />
 
         {!view.emailConfigured && (
           <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">
-              Email is not configured
+              {t('emailNotConfigured.heading')}
             </h2>
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Emergency access depends on email delivery. Ask your administrator
-              to configure the SMTP environment variables (SMTP_HOST, SMTP_USER,
-              SMTP_PASSWORD) and try again.
+              {t('emailNotConfigured.body')}
             </p>
           </div>
         )}
@@ -547,7 +553,7 @@ function EmergencyAccessSection() {
         {view.grantedAt && (
           <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-6">
             <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
-              Emergency access already granted
+              {t('alreadyGranted.heading')}
             </h2>
             <p className="text-sm text-red-700 dark:text-red-300 mb-3">
               On{' '}
@@ -557,16 +563,14 @@ function EmergencyAccessSection() {
                 dateFormat,
                 timeFormat,
               )}
-              , your designated contacts received magic links to take over the
-              account. If this was unintended, clear the granted state below to
-              void outstanding links.
+              , {t('alreadyGranted.description')}
             </p>
             <Button
               variant="danger"
               size="sm"
               onClick={() => setShowResetConfirm(true)}
             >
-              Clear granted state
+              {t('alreadyGranted.clearButton')}
             </Button>
           </div>
         )}
@@ -576,7 +580,7 @@ function EmergencyAccessSection() {
           className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6"
         >
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Settings
+            {t('settings.heading')}
           </h2>
 
           <div className="space-y-4">
@@ -587,16 +591,16 @@ function EmergencyAccessSection() {
                   settingsForm.setValue('enabled', v, { shouldDirty: true })
                 }
                 disabled={!view.emailConfigured}
-                label="Enable emergency access"
+                label={t('settings.enableLabel')}
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Enable emergency access
+                {t('settings.enableLabel')}
               </span>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
-                label="Days of inactivity before access is granted"
+                label={t('settings.grantAfterDaysLabel')}
                 type="number"
                 min={2}
                 max={365}
@@ -607,7 +611,7 @@ function EmergencyAccessSection() {
                 })}
               />
               <Input
-                label="Days of inactivity before reminder emails"
+                label={t('settings.reminderAfterDaysLabel')}
                 type="number"
                 min={1}
                 max={364}
@@ -625,7 +629,7 @@ function EmergencyAccessSection() {
                 isLoading={savingSettings}
                 disabled={!view.emailConfigured}
               >
-                Save settings
+                {t('settings.saveButton')}
               </Button>
             </div>
           </div>
@@ -635,11 +639,10 @@ function EmergencyAccessSection() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Message to your contacts
+                {tMsg('heading')}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-                Encrypted at rest. Viewing or editing requires re-verifying
-                your identity.
+                {tMsg('description')}
               </p>
             </div>
             {messageMode !== 'hidden' && <MessageCountdown />}
@@ -650,19 +653,19 @@ function EmergencyAccessSection() {
               <div className="text-sm text-gray-700 dark:text-gray-300">
                 {messageMetadata.hasMessage ? (
                   <>
-                    Message set
+                    {tMsg('messageSet')}
                     <span className="text-gray-500 dark:text-gray-400">
                       {' '}
-                      ({messageMetadata.charCount} chars
+                      {tMsg('charCount', { count: messageMetadata.charCount })}
                       {messageMetadata.updatedAt
-                        ? `, updated ${formatTimestamp(messageMetadata.updatedAt, userTimezone, dateFormat, timeFormat)}`
+                        ? tMsg('updatedAt', { timestamp: formatTimestamp(messageMetadata.updatedAt, userTimezone, dateFormat, timeFormat) })
                         : ''}
                       )
                     </span>
                   </>
                 ) : (
                   <span className="text-gray-500 dark:text-gray-400">
-                    No message set
+                    {tMsg('noMessage')}
                   </span>
                 )}
               </div>
@@ -677,7 +680,7 @@ function EmergencyAccessSection() {
                     !messageMetadata.hasMessage
                   }
                 >
-                  Reveal message
+                  {tMsg('revealButton')}
                 </Button>
                 <Button
                   size="sm"
@@ -685,8 +688,8 @@ function EmergencyAccessSection() {
                   disabled={!view.emailConfigured || messageLoading}
                 >
                   {messageMetadata.hasMessage
-                    ? 'Edit message'
-                    : 'Add message'}
+                    ? tMsg('editButton')
+                    : tMsg('addButton')}
                 </Button>
               </div>
             </div>
@@ -695,14 +698,14 @@ function EmergencyAccessSection() {
           {messageMode === 'view' && (
             <div className="space-y-3">
               <pre className="whitespace-pre-wrap break-words rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-sm font-mono text-gray-900 dark:text-gray-100">
-                {messageForm.getValues('message') || '(empty)'}
+                {messageForm.getValues('message') || tMsg('emptyMessage')}
               </pre>
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={handleLockNow}>
-                  Lock now
+                  {tMsg('lockNowButton')}
                 </Button>
                 <Button size="sm" onClick={() => setMessageMode('edit')}>
-                  Edit
+                  {tMsg('editMessageButton')}
                 </Button>
               </div>
             </div>
@@ -715,7 +718,7 @@ function EmergencyAccessSection() {
             >
               <textarea
                 rows={8}
-                placeholder="Notes, instructions, locations of important documents..."
+                placeholder={tMsg('messagePlaceholder')}
                 className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-mono"
                 {...messageForm.register('message')}
               />
@@ -725,7 +728,7 @@ function EmergencyAccessSection() {
                 </p>
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Maximum 4000 characters. Stored encrypted at rest.
+                {tMsg('maxCharsNote')}
               </p>
               <div className="flex justify-end gap-2">
                 <Button
@@ -735,7 +738,7 @@ function EmergencyAccessSection() {
                   onClick={handleLockNow}
                   disabled={savingMessage}
                 >
-                  Lock now
+                  {tMsg('lockNowButton')}
                 </Button>
                 <Button
                   type="button"
@@ -744,10 +747,10 @@ function EmergencyAccessSection() {
                   onClick={() => setMessageMode('view')}
                   disabled={savingMessage}
                 >
-                  Cancel
+                  {tMsg('cancelButton')}
                 </Button>
                 <Button type="submit" size="sm" isLoading={savingMessage}>
-                  Save message
+                  {tMsg('saveButton')}
                 </Button>
               </div>
             </form>
@@ -758,12 +761,10 @@ function EmergencyAccessSection() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Emergency Contacts
+                {tContacts('heading')}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-                Each contact receives a magic link by email when access is
-                granted. They use it to set a new password and take over your
-                account. The first contact to claim wins.
+                {tContacts('description')}
               </p>
             </div>
             <Button
@@ -771,12 +772,12 @@ function EmergencyAccessSection() {
               onClick={openCreateContact}
               disabled={!view.emailConfigured}
             >
-              Add contact
+              {tContacts('addButton')}
             </Button>
           </div>
 
           {view.contacts.length === 0 ? (
-            <p className="text-sm text-gray-500">No contacts yet.</p>
+            <p className="text-sm text-gray-500">{tContacts('noContacts')}</p>
           ) : (
             <ul className="space-y-3">
               {view.contacts.map((c) => (
@@ -794,14 +795,14 @@ function EmergencyAccessSection() {
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => openEditContact(c)}>
-                      Edit
+                      {tContacts('editButton')}
                     </Button>
                     <Button
                       variant="danger"
                       size="sm"
                       onClick={() => setRemoveTarget(c)}
                     >
-                      Remove
+                      {tContacts('removeButton')}
                     </Button>
                   </div>
                 </li>
@@ -812,19 +813,19 @@ function EmergencyAccessSection() {
 
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Status
+            {tStatus('heading')}
           </h2>
           <dl className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
             <div>
-              <dt className="inline font-medium">Last access: </dt>
+              <dt className="inline font-medium">{tStatus('lastAccess')}</dt>
               <dd className="inline">
                 {view.lastActivityAt
-                  ? `${formatTimestamp(view.lastActivityAt, userTimezone, dateFormat, timeFormat)} (${inactiveDays} day${inactiveDays === 1 ? '' : 's'} ago)`
-                  : 'unknown'}
+                  ? `${formatTimestamp(view.lastActivityAt, userTimezone, dateFormat, timeFormat)} (${tStatus('daysAgo', { count: inactiveDays ?? 0, plural: inactiveDays === 1 ? '' : 's' })})`
+                  : tStatus('unknown')}
               </dd>
             </div>
             <div>
-              <dt className="inline font-medium">Last reminder sent: </dt>
+              <dt className="inline font-medium">{tStatus('lastReminderSent')}</dt>
               <dd className="inline">
                 {view.lastReminderSentAt
                   ? formatTimestamp(
@@ -833,21 +834,20 @@ function EmergencyAccessSection() {
                       dateFormat,
                       timeFormat,
                     )
-                  : 'never'}
+                  : tStatus('never')}
               </dd>
             </div>
             <div>
-              <dt className="inline font-medium">Grant status: </dt>
+              <dt className="inline font-medium">{tStatus('grantStatus')}</dt>
               <dd className="inline">
                 {view.grantedAt
-                  ? `granted on ${formatTimestamp(view.grantedAt, userTimezone, dateFormat, timeFormat)}`
-                  : 'not yet granted'}
+                  ? tStatus('grantedOn', { timestamp: formatTimestamp(view.grantedAt, userTimezone, dateFormat, timeFormat) })
+                  : tStatus('notYetGranted')}
               </dd>
             </div>
           </dl>
           <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            The timer resets automatically any time you use the app -- signing
-            in, viewing a page, recording a transaction, anything authenticated.
+            {tStatus('timerNote')}
           </p>
         </div>
 
@@ -863,17 +863,17 @@ function EmergencyAccessSection() {
           >
             <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {editingContact ? 'Edit contact' : 'Add emergency contact'}
+                {editingContact ? tContacts('contactModal.editTitle') : tContacts('contactModal.addTitle')}
               </h2>
             </div>
             <div className="px-6 py-4 space-y-4">
               <Input
-                label="First name"
+                label={tContacts('contactModal.firstNameLabel')}
                 error={contactForm.formState.errors.firstName?.message}
                 {...contactForm.register('firstName')}
               />
               <Input
-                label="Email"
+                label={tContacts('contactModal.emailLabel')}
                 type="email"
                 autoComplete="off"
                 error={contactForm.formState.errors.email?.message}
@@ -887,10 +887,10 @@ function EmergencyAccessSection() {
                 onClick={() => setShowContactForm(false)}
                 disabled={submittingContact}
               >
-                Cancel
+                {tc('cancel')}
               </Button>
               <Button type="submit" isLoading={submittingContact}>
-                {editingContact ? 'Save changes' : 'Add contact'}
+                {editingContact ? tContacts('contactModal.saveButton') : tContacts('contactModal.addButton')}
               </Button>
             </div>
           </form>
@@ -898,9 +898,9 @@ function EmergencyAccessSection() {
 
         <ConfirmDialog
           isOpen={removeTarget !== null}
-          title="Remove contact"
-          message="This contact will no longer receive emergency access. You can add them again later."
-          confirmLabel={removing ? 'Removing...' : 'Remove'}
+          title={tContacts('removeDialog.title')}
+          message={tContacts('removeDialog.message')}
+          confirmLabel={removing ? tContacts('removeDialog.removingButton') : tContacts('removeDialog.removeButton')}
           variant="danger"
           pushHistory
           onConfirm={handleRemove}
@@ -909,9 +909,9 @@ function EmergencyAccessSection() {
 
         <ConfirmDialog
           isOpen={showResetConfirm}
-          title="Clear granted state"
-          message="This voids any outstanding magic links, lets the reminder cadence start again, and lets the grant cascade fire again after another period of inactivity."
-          confirmLabel={resetting ? 'Clearing...' : 'Clear'}
+          title={t('resetConfirm.title')}
+          message={t('resetConfirm.message')}
+          confirmLabel={resetting ? t('resetConfirm.clearingButton') : t('resetConfirm.clearButton')}
           variant="danger"
           pushHistory
           onConfirm={handleReset}
@@ -923,7 +923,7 @@ function EmergencyAccessSection() {
           purpose={STEP_UP_PURPOSE}
           authProvider={selfUser?.authProvider ?? 'local'}
           hasPassword={selfUser?.hasPassword ?? false}
-          reason="Re-verify your identity to view or edit your emergency-access message."
+          reason={t('stepUp.reason')}
           oidcReturnTo="/settings/emergency-access"
           oidcResumePayload={
             pendingMode ? { mode: pendingMode } : undefined

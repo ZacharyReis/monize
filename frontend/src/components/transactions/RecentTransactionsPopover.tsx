@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, RefObject } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { createPortal } from 'react-dom';
 import { transactionsApi } from '@/lib/transactions';
 import { Transaction } from '@/types/transaction';
-import { formatCurrency } from '@/lib/format';
+import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { createLogger } from '@/lib/logger';
@@ -45,8 +46,10 @@ export function RecentTransactionsPopover({
   onSelect,
   onClose,
 }: RecentTransactionsPopoverProps) {
+  const t = useTranslations('transactions');
   const popoverRef = useRef<HTMLDivElement>(null);
   const { formatDate } = useDateFormat();
+  const { formatCurrency } = useNumberFormat();
   const limit = usePreferencesStore((s) => s.preferences?.recentTransactionsLimit ?? 5);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   // The popover is mounted-on-open by the parent, so the fetch always starts
@@ -98,7 +101,9 @@ export function RecentTransactionsPopover({
 
   if (!position) return null;
 
-  const heading = payeeId || payeeName ? `Recent for ${payeeName || 'this payee'}` : 'Recent transactions';
+  const heading = payeeId || payeeName
+    ? t('recentPopover.recentForPayee', { name: payeeName || '' })
+    : t('recentPopover.recentTransactions');
 
   const content = (
     <div
@@ -113,28 +118,28 @@ export function RecentTransactionsPopover({
       </div>
       <div className="max-h-80 overflow-y-auto">
         {isLoading && (
-          <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+          <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">{t('recentPopover.loading')}</div>
         )}
         {!isLoading && error && (
           <div className="px-3 py-4 text-sm text-red-600 dark:text-red-400">{error}</div>
         )}
         {!isLoading && !error && transactions.length === 0 && (
           <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-            No recent transactions{payeeId || payeeName ? ' for this payee' : ''}.
+            {payeeId || payeeName ? t('recentPopover.noRecentForPayee') : t('recentPopover.noRecent')}
           </div>
         )}
         {!isLoading && !error && transactions.length > 0 && (
           <ul>
-            {transactions.map((t) => {
-              const payeeLabel = t.payeeName || t.payee?.name || '(no payee)';
-              const categoryLabel = t.isSplit
-                ? formatSplitCategoryLabel(t)
-                : t.category?.name || '(uncategorized)';
+            {transactions.map((tx) => {
+              const payeeLabel = tx.payeeName || tx.payee?.name || t('recentPopover.noPayee');
+              const categoryLabel = tx.isSplit
+                ? formatSplitCategoryLabel(tx)
+                : tx.category?.name || t('recentPopover.uncategorized');
               return (
-                <li key={t.id}>
+                <li key={tx.id}>
                   <button
                     type="button"
-                    onClick={() => onSelect(t)}
+                    onClick={() => onSelect(tx)}
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 focus:bg-gray-50 dark:focus:bg-gray-700 focus:outline-none border-b last:border-b-0 border-gray-100 dark:border-gray-700"
                   >
                     <div className="flex items-baseline justify-between gap-2">
@@ -142,16 +147,16 @@ export function RecentTransactionsPopover({
                         {payeeLabel}
                       </span>
                       <span className="text-sm font-mono text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                        {formatCurrency(Number(t.amount), t.currencyCode)}
+                        {formatCurrency(Number(tx.amount), tx.currencyCode)}
                       </span>
                     </div>
                     <div className="flex items-baseline justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
                       <span className="truncate">{categoryLabel}</span>
-                      <span className="whitespace-nowrap">{formatDate(t.transactionDate)}</span>
+                      <span className="whitespace-nowrap">{formatDate(tx.transactionDate)}</span>
                     </div>
-                    {t.description && (
+                    {tx.description && (
                       <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {t.description}
+                        {tx.description}
                       </div>
                     )}
                   </button>

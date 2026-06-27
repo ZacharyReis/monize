@@ -19,6 +19,7 @@
  */
 
 import type { QifTransaction, QifParseResult } from "./qif-parser";
+import { roundMoney } from "../common/round.util";
 
 // Strip HTML angle brackets to prevent stored XSS.
 function stripHtml(value: string): string {
@@ -219,7 +220,7 @@ export function parseOfx(content: string): QifParseResult {
 
     const tx: QifTransaction = {
       date,
-      amount: Math.round(amount * 10000) / 10000,
+      amount: roundMoney(amount),
       payee,
       memo: memoText,
       number: truncate(checkNum, 100),

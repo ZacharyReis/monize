@@ -11,12 +11,14 @@ vi.mock('@/lib/transactions', () => ({
   },
 }));
 
-vi.mock('@/lib/format', () => ({
-  formatCurrency: (amount: number, code: string) => `${code} ${amount.toFixed(2)}`,
-}));
-
 vi.mock('@/hooks/useDateFormat', () => ({
   useDateFormat: () => ({ formatDate: (d: string) => d, dateFormat: 'browser' }),
+}));
+
+vi.mock('@/hooks/useNumberFormat', () => ({
+  useNumberFormat: () => ({
+    formatCurrency: (amount: number, code?: string) => `${code ?? 'CAD'} ${amount.toFixed(2)}`,
+  }),
 }));
 
 vi.mock('@/lib/logger', () => ({

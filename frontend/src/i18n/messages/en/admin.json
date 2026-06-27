@@ -1,0 +1,108 @@
+{
+  "createUserModal": {
+    "title": "Add User",
+    "description": "Create a new account. You can email an invite, set a password yourself, or generate a temporary one to share.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "user@example.com",
+    "firstNameLabel": "First name (optional)",
+    "firstNamePlaceholder": "First name",
+    "lastNameLabel": "Last name (optional)",
+    "lastNamePlaceholder": "Last name",
+    "roleLabel": "Role",
+    "roleUser": "User",
+    "roleAdmin": "Admin",
+    "credentialsLegend": "Credentials",
+    "inviteLabel": "Send an email invite to set a password",
+    "inviteSmtpNote": "Requires SMTP to be configured.",
+    "setPasswordLabel": "Set a password now",
+    "tempPasswordLabel": "Generate a temporary password",
+    "tempPasswordNote": "Shown once after creation. The user must change it on first login.",
+    "passwordFieldLabel": "Password",
+    "passwordPlaceholder": "Set a password",
+    "createButton": "Create User",
+    "validation": {
+      "invalidPassword": "Invalid password."
+    },
+    "toasts": {
+      "createFailed": "Failed to create user"
+    }
+  },
+  "resetPasswordModal": {
+    "defaultTitle": "Password Reset Successful",
+    "defaultDescription": "A temporary password has been set for {userName}.",
+    "temporaryPasswordLabel": "Temporary Password",
+    "copy": "Copy",
+    "copied": "Copied",
+    "notShownAgain": "This password will not be shown again.",
+    "mustChangeOnLogin": "The user will be required to change their password on next login.",
+    "toasts": {
+      "copied": "Password copied to clipboard",
+      "copyFailed": "Failed to copy to clipboard"
+    }
+  },
+  "userTable": {
+    "colUser": "User",
+    "colRole": "Role",
+    "colProvider": "Provider",
+    "colStatus": "Status",
+    "colLastLogin": "Last Login",
+    "colActions": "Actions",
+    "youSuffix": "(you)",
+    "noEmail": "No email",
+    "unknown": "Unknown",
+    "never": "Never",
+    "providerSso": "SSO",
+    "providerLocal": "Local",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "statusActive": "Active",
+    "statusDisabled": "Disabled",
+    "clickToDisable": "Click to disable",
+    "clickToEnable": "Click to enable",
+    "resetPassword": "Reset Password",
+    "noUsers": "No users found."
+  },
+  "usersPage": {
+    "title": "User Management",
+    "userCount": "{count, plural, one {# user} other {# users}}",
+    "newUser": "+ New User",
+    "loadingUsers": "Loading users...",
+    "toasts": {
+      "inviteSent": "Invite email sent to {email}",
+      "userCreated": "{name} has been created",
+      "userUpgraded": "{name} was upgraded to a full account",
+      "roleChanged": "{name} is now {role}",
+      "roleAdmin": "an admin",
+      "roleUser": "a user",
+      "userEnabled": "{name} has been enabled",
+      "userDisabled": "{name} has been disabled",
+      "userDeleted": "{name} has been deleted",
+      "userDowngraded": "{name}'s own data was removed; their delegate access remains.",
+      "loadFailed": "Failed to load users",
+      "deleteFailed": "Failed to delete user",
+      "disableFailed": "Failed to disable user",
+      "resetFailed": "Failed to reset password"
+    },
+    "dialogs": {
+      "promoteTitle": "Promote User?",
+      "demoteTitle": "Demote User?",
+      "promoteMessage": "Are you sure you want to promote {name} to {role}?",
+      "demoteMessage": "Are you sure you want to demote {name} to {role}?",
+      "promoteConfirm": "Promote to Admin",
+      "demoteConfirm": "Demote to User",
+      "disableTitle": "Disable User?",
+      "disableMessage": "Are you sure you want to disable {name}? They will be unable to log in.",
+      "disableConfirm": "Disable User",
+      "resetTitle": "Reset Password?",
+      "resetMessage": "This will generate a new temporary password for {name}. They will be required to change it on next login.",
+      "resetConfirm": "Reset Password",
+      "deleteTitle": "Delete User?",
+      "deleteMessage": "Are you sure you want to delete {name}? This will permanently remove their account and all associated data. This action cannot be undone. If they are a delegate of another account, their own data is removed but their login is kept so the delegation still works -- they become a delegate-only user.",
+      "deleteConfirm": "Delete User",
+      "tempPasswordTitleCreated": "User Created",
+      "tempPasswordTitleUpgraded": "Account Upgraded",
+      "tempPasswordDescCreated": "A temporary password was generated for {name}. Share it with them to sign in.",
+      "tempPasswordDescUpgraded": "An existing shared user was upgraded to a full account. Share this temporary password with {name}."
+    }
+  }
+}

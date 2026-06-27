@@ -7,6 +7,7 @@ describe('ThemeContext', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove('dark');
+    document.documentElement.removeAttribute('data-theme');
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
       matches: false,
       media: query,
@@ -112,6 +113,54 @@ describe('ThemeContext', () => {
     });
     expect(result.current.theme).toBe('dark');
     expect(result.current.resolvedTheme).toBe('dark');
+  });
+
+  it('defaults to the default colour theme', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper: ThemeProvider });
+    expect(result.current.colorTheme).toBe('default');
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
+
+  it('persists colour theme to localStorage and applies data-theme when setColorTheme is called', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper: ThemeProvider });
+
+    act(() => {
+      result.current.setColorTheme('nord');
+    });
+
+    expect(localStorage.setItem).toHaveBeenCalledWith('monize-color-theme', 'nord');
+    expect(result.current.colorTheme).toBe('nord');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('nord');
+  });
+
+  it('removes the data-theme attribute when switching back to the default colour theme', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper: ThemeProvider });
+
+    act(() => {
+      result.current.setColorTheme('latte');
+    });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('latte');
+
+    act(() => {
+      result.current.setColorTheme('default');
+    });
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
+
+  it('reads persisted colour theme from localStorage on mount', () => {
+    localStorage.setItem('monize-color-theme', 'solarized');
+
+    const { result } = renderHook(() => useTheme(), { wrapper: ThemeProvider });
+    expect(result.current.colorTheme).toBe('solarized');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('solarized');
+  });
+
+  it('ignores invalid stored colour theme values', () => {
+    localStorage.setItem('monize-color-theme', 'neon-disco');
+
+    const { result } = renderHook(() => useTheme(), { wrapper: ThemeProvider });
+    expect(result.current.colorTheme).toBe('default');
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
   });
 
   it('throws when useTheme is called outside ThemeProvider', () => {

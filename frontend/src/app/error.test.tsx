@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+import { render as rtlRender } from '@testing-library/react';
+import { NextIntlClientProvider } from 'next-intl';
 import { render, screen, fireEvent } from '@/test/render';
+import esCommon from '@/i18n/messages/es/common.json';
 import ErrorPage from './error';
 
 vi.mock('@/lib/logger', () => ({
@@ -49,5 +52,16 @@ describe('ErrorPage', () => {
     const errorWithDigest = Object.assign(new Error('test'), { digest: 'abc123' });
     render(<ErrorPage error={errorWithDigest} reset={mockReset} />);
     expect(screen.getByText(/Error ID: abc123/i)).toBeInTheDocument();
+  });
+
+  it('renders translated copy when the active locale is not English', () => {
+    rtlRender(
+      <NextIntlClientProvider locale="es" messages={{ common: esCommon }}>
+        <ErrorPage error={new Error('test error')} reset={mockReset} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+    expect(screen.getByText(/Se produjo un error inesperado/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Intentar de nuevo' })).toBeInTheDocument();
   });
 });

@@ -1,0 +1,165 @@
+{
+  "test": {
+    "subject": "Monize Test-E-Mail",
+    "heading": "Monize Test-E-Mail",
+    "greeting": "Hallo {{ name }},",
+    "body": "Dies ist eine Test-E-Mail von Monize. Wenn Sie diese erhalten haben, funktionieren Ihre E-Mail-Benachrichtigungen korrekt."
+  },
+  "billReminder": {
+    "subjectOne": "Monize: 1 anstehende Rechnung erfordert Ihre Aufmerksamkeit",
+    "subjectMany": "Monize: {{ count }} anstehende Rechnungen erfordern Ihre Aufmerksamkeit",
+    "heading": "Erinnerung an anstehende Rechnung",
+    "greeting": "Hallo {{ name }},",
+    "introOne": "Sie haben 1 anstehende Rechnung, die Ihre Aufmerksamkeit erfordert:",
+    "introMany": "Sie haben {{ count }} anstehende Rechnungen, die Ihre Aufmerksamkeit erfordern:",
+    "colPayee": "Zahlungsempfänger",
+    "colDueDate": "Fälligkeitsdatum",
+    "colType": "Typ",
+    "colAmount": "Betrag",
+    "typeIncome": "Einnahme",
+    "typeExpense": "Ausgabe",
+    "button": "Rechnungen &amp; Einzahlungen anzeigen"
+  },
+  "mortgageReminder": {
+    "subject": "Monize: 1 bevorstehende Hypothekenverlängerung",
+    "subjectPlural": "Monize: {{ count }} bevorstehende Hypothekenverlängerungen",
+    "heading": "Erinnerung an Hypothekenverlängerung",
+    "greeting": "Hallo {{ name }},",
+    "introOne": "Sie haben 1 Hypothek mit einer bevorstehenden Laufzeitverlängerung. Kontaktieren Sie Ihren Kreditgeber, um Verlängerungsoptionen zu besprechen, bevor die Laufzeit endet:",
+    "introMany": "Sie haben {{ count }} Hypotheken mit bevorstehenden Laufzeitverlängerungen. Kontaktieren Sie Ihren Kreditgeber, um Verlängerungsoptionen zu besprechen, bevor die Laufzeit endet:",
+    "colMortgage": "Hypothek",
+    "colTermEndDate": "Laufzeitende",
+    "colTimeRemaining": "Verbleibende Zeit",
+    "daysRemainingOne": "1 Tag",
+    "daysRemainingMany": "{{ count }} Tage",
+    "button": "Konten anzeigen"
+  },
+  "severity": {
+    "critical": "Kritisch",
+    "warning": "Warnung",
+    "success": "Gute Nachrichten",
+    "info": "Info"
+  },
+  "budgetAlertImmediate": {
+    "subject": "Monize: Alarm – {{ title }}",
+    "subjectPlural": "Monize: {{ count }} Alarme erfordern Ihre Aufmerksamkeit",
+    "heading": "Alarm",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Ihr Budget erfordert Ihre Aufmerksamkeit:",
+    "colSeverity": "Schweregrad",
+    "colAlert": "Alarm",
+    "colDetails": "Details",
+    "button": "Budget anzeigen"
+  },
+  "budgetWeeklyDigest": {
+    "subject": "Monize: Ihre wöchentliche Budget-Zusammenfassung",
+    "heading": "Wöchentliche Budget-Zusammenfassung",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Hier ist Ihre wöchentliche Budget-Zusammenfassung für: <strong>{{ budgets }}</strong>",
+    "criticalOne": "kritisch",
+    "criticalMany": "kritisch",
+    "warningOne": "Warnung",
+    "warningMany": "Warnungen",
+    "positiveOne": "positiv",
+    "positiveMany": "positiv",
+    "thisWeek": "Diese Woche:",
+    "noAlerts": "Keine Alarme",
+    "totalAlerts": "Alarme gesamt: {{ count }}",
+    "topAlertsHeading": "Top-Alarme",
+    "andMore": "...und {{ count }} weitere",
+    "button": "Budget-Dashboard anzeigen"
+  },
+  "budgetMonthlySummary": {
+    "subject": "Monize: Monatliche Budget-Zusammenfassung – {{ period }}",
+    "subjectPlural": "Monize: Monatliche Budget-Zusammenfassung für {{ count }} Budgets",
+    "heading": "Monatliche Budget-Zusammenfassung",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Hier ist Ihre monatliche Budget-Zusammenfassung für den gerade abgeschlossenen Zeitraum:",
+    "overBudget": "Über Budget",
+    "healthScore": "Gesundheitswert:",
+    "labelBudgeted": "Budgetiert",
+    "labelSpent": "Ausgegeben",
+    "labelRemaining": "Verbleibend",
+    "percentUsed": "{{ percent }}% verwendet",
+    "topCategories": "Top-Kategorien",
+    "button": "Budget-Dashboard anzeigen"
+  },
+  "oidcLink": {
+    "subject": "Monize: SSO-Kontoverknüpfung bestätigen",
+    "heading": "Ihr SSO-Konto verknüpfen",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Jemand hat versucht, sich über SSO mit einer E-Mail-Adresse anzumelden, die mit Ihrem bestehenden Monize-Konto übereinstimmt. Um Ihre SSO-Identität mit diesem Konto zu verknüpfen, klicken Sie auf die Schaltfläche unten:",
+    "button": "Kontoverknüpfung bestätigen",
+    "disclaimer": "Wenn Sie diese Anfrage nicht initiiert haben, können Sie diese E-Mail ignorieren. Der Link läuft in 1 Stunde ab."
+  },
+  "accountLocked": {
+    "subject": "Konto vorübergehend gesperrt",
+    "heading": "Konto vorübergehend gesperrt",
+    "greeting": "Hallo {{ name }},",
+    "body1": "Ihr Monize-Konto wurde aufgrund mehrerer fehlgeschlagener Anmeldeversuche vorübergehend gesperrt. Dies ist eine Sicherheitsmaßnahme zum Schutz Ihres Kontos.",
+    "body2": "Die Sperre läuft automatisch ab. Wenn Sie nicht versucht haben, sich anzumelden, empfehlen wir Ihnen, Ihr Passwort sofort zurückzusetzen."
+  },
+  "passwordReset": {
+    "subject": "Monize Passwort zurücksetzen",
+    "heading": "Anfrage zum Zurücksetzen des Passworts",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Wir haben eine Anfrage erhalten, Ihr Passwort zurückzusetzen. Klicken Sie auf die Schaltfläche unten, um ein neues Passwort festzulegen:",
+    "button": "Passwort zurücksetzen",
+    "disclaimer": "Dieser Link läuft in 1 Stunde ab. Wenn Sie keine Passwortrücksetzung angefordert haben, können Sie diese E-Mail ignorieren."
+  },
+  "emailVerification": {
+    "subject": "Bestätigen Sie Ihre Monize-E-Mail-Adresse",
+    "heading": "Bestätigen Sie Ihre E-Mail-Adresse",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Danke, dass Sie sich für Monize registriert haben. Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu aktivieren und sich anzumelden:",
+    "button": "E-Mail bestätigen",
+    "disclaimer": "Dieser Link läuft in 24 Stunden ab. Wenn Sie kein Monize-Konto erstellt haben, können Sie diese E-Mail ignorieren."
+  },
+  "accountInvite": {
+    "subject": "Ihr Monize-Konto ist bereit",
+    "heading": "Ihr Monize-Konto ist bereit",
+    "greeting": "Hallo {{ name }},",
+    "intro": "Ein Administrator hat ein Monize-Konto für Sie erstellt. Klicken Sie auf die Schaltfläche unten, um Ihr Passwort festzulegen und sich anzumelden:",
+    "button": "Ihr Passwort festlegen",
+    "disclaimer": "Dieser Link läuft in 24 Stunden ab. Wenn Sie dies nicht erwartet haben, können Sie diese E-Mail ignorieren."
+  },
+  "delegateInvite": {
+    "subject": "Sie wurden zu Monize eingeladen",
+    "heading": "Sie wurden zu Monize eingeladen",
+    "greeting": "Hallo {{ name }},",
+    "intro": "{{ owner }} hat Sie eingeladen, als Delegierter auf das Monize-Konto zuzugreifen. Klicken Sie auf die Schaltfläche unten, um Ihr Passwort festzulegen und zu beginnen:",
+    "button": "Ihr Passwort festlegen",
+    "disclaimer": "Dieser Link läuft in 24 Stunden ab. Wenn Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail ignorieren."
+  },
+  "emergencyAccessReminder": {
+    "subjectOne": "Monize: Ihr Konto war 1 Tag lang inaktiv",
+    "subjectMany": "Monize: Ihr Konto war {{ daysSinceLogin }} Tage lang inaktiv",
+    "heading": "Monize Erinnerung an Notfallzugriff",
+    "greeting": "Hallo {{ name }},",
+    "grantPhraseToday": "heute",
+    "grantPhraseFutureOne": "in 1 Tag",
+    "grantPhraseFutureMany": "in {{ count }} Tagen",
+    "bodyOne": "Sie haben sich seit <strong>1 Tag</strong> nicht bei Monize angemeldet. Wenn Sie inaktiv bleiben, erhalten Ihre designierten Notfallkontakte {{ grantPhrase }} vollen Zugriff auf Ihr Konto.",
+    "bodyMany": "Sie haben sich seit <strong>{{ daysSinceLogin }} Tagen</strong> nicht bei Monize angemeldet. Wenn Sie inaktiv bleiben, erhalten Ihre designierten Notfallkontakte {{ grantPhrase }} vollen Zugriff auf Ihr Konto.",
+    "contactsLabel": "Designierte Kontakte:",
+    "button": "Jetzt anmelden",
+    "footer": "Die Anmeldung setzt den Timer zurück. Wenn Sie diese Funktion nicht mehr aktiviert haben möchten, können Sie sie unter Einstellungen → Notfallzugriff deaktivieren."
+  },
+  "emergencyAccessGrant": {
+    "subject": "Sie haben Notfallzugriff auf das Monize-Konto von {{ owner }} erhalten",
+    "heading": "Notfallzugriff gewährt",
+    "greeting": "Hallo {{ name }},",
+    "body": "<strong>{{ owner }}</strong> hat Sie zuvor als Notfallkontakt in seinem Monize-Konto eingetragen. Da er sich über einen längeren Zeitraum nicht angemeldet hat, erhalten Sie nun vollen Zugriff, um das Konto zu übernehmen.",
+    "claimIntro": "Um den Zugriff zu beanspruchen, klicken Sie auf den Link unten und legen Sie ein neues Passwort fest. Sie werden als Kontoinhaber angemeldet.",
+    "button": "Notfallzugriff beanspruchen",
+    "expiry": "Dieser Link ist gültig bis <strong>{{ expiry }}</strong> und kann nur einmal verwendet werden. Wenn mehrere Kontakte diese E-Mail erhalten haben, übernimmt derjenige das Konto, der zuerst den Zugriff beansprucht."
+  },
+  "emergencyAccessGrantRevoked": {
+    "subject": "Monize: Notfallzugriff wurde während Ihrer Abwesenheit gewährt",
+    "heading": "Notfallzugriff wurde während Ihrer Abwesenheit gewährt",
+    "greeting": "Hallo {{ name }},",
+    "body1": "Da Ihr Konto inaktiv war, wurden Ihren designierten Notfallkontakten Links zur Übernahme Ihres Kontos zugeschickt. Da Sie sich nun wieder angemeldet haben, <strong>wurden diese Links widerrufen</strong> und die Schutzfunktion wurde neu aktiviert.",
+    "body2": "Wenn dies erwartet war, sind keine weiteren Maßnahmen erforderlich. Wenn Sie dies nicht erwartet haben, überprüfen Sie Ihre Anmeldeaktivität und Ihre Notfallzugriffseinstellungen.",
+    "button": "Notfallzugriff überprüfen"
+  }
+}

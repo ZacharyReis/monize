@@ -8,6 +8,8 @@ let mockDefaultCurrency = 'CAD';
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: (n: number, _currency?: string) => `$${n.toFixed(2)}`,
+    formatSignedPercent: (n: number, decimals = 2) =>
+      `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
   }),
 }));
 
@@ -180,6 +182,37 @@ describe('PortfolioSummaryCard', () => {
   it('renders titleSuffix in empty state', () => {
     render(<PortfolioSummaryCard summary={null} isLoading={false} titleSuffix="My Account" />);
     expect(screen.getByText('Portfolio Summary (My Account)')).toBeInTheDocument();
+  });
+
+  it('uses backend totals (live FX) in the default-currency view, not the stale frontend rate', () => {
+    // Simulate useExchangeRates returning a stale/different rate (x2). The
+    // default-currency view must show the backend's already-converted totals
+    // so it stays in sync with the Portfolio Value Over Time chart, rather
+    // than re-converting per account with this stale rate.
+    mockConvertToDefault.mockImplementation((n: number) => n * 2);
+    const summary = makeSummary({
+      totalHoldingsValue: 45000,
+      totalCashValue: 5000,
+      holdingsByAccount: [
+        {
+          accountId: 'a1',
+          currencyCode: 'USD',
+          totalMarketValue: 45000,
+          totalCostBasis: 40000,
+          cashBalance: 5000,
+          totalGainLoss: 5000,
+          totalGainLossPercent: 12.5,
+          netInvested: 35000,
+          holdings: [],
+        },
+      ],
+    });
+    render(<PortfolioSummaryCard summary={summary} isLoading={false} />);
+    // Backend total is shown ($45000.00), not the re-converted 45000 * 2.
+    expect(screen.getByText('$45000.00')).toBeInTheDocument();
+    expect(screen.queryByText('$90000.00')).not.toBeInTheDocument();
+    // The default-currency view must not re-convert through the rate hook.
+    expect(mockConvertToDefault).not.toHaveBeenCalled();
   });
 
   it('renders titleSuffix in populated state', () => {

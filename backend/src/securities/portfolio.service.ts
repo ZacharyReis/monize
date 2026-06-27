@@ -5,9 +5,15 @@ import { Holding } from "./entities/holding.entity";
 import { SecurityPrice } from "./entities/security-price.entity";
 import { Account, AccountType } from "../accounts/entities/account.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
-import { PortfolioCalculationService } from "./portfolio-calculation.service";
+import {
+  PortfolioCalculationService,
+  DailyRateIndex,
+} from "./portfolio-calculation.service";
 import { YahooFinanceService } from "./yahoo-finance.service";
 import { QuoteProviderRegistry } from "./providers/quote-provider.registry";
+import { roundMoney } from "../common/round.util";
+import { mapWithConcurrency } from "../common/concurrency.util";
+import { formatDateYMD } from "../common/date-utils";
 import {
   IntradayInterval,
   IntradayPoint,
@@ -18,6 +24,10 @@ import {
   IntradayValuePoint,
   IntradayValueResponse,
 } from "./dto/intraday-value.dto";
+
+// Intraday charts run on an interactive request; cap concurrent Yahoo fetches
+// so a portfolio with many holdings does not open one connection per symbol.
+const INTRADAY_FETCH_CONCURRENCY = 6;
 
 export interface TopMover {
   securityId: string;
@@ -90,7 +100,7 @@ export interface PortfolioSummary {
 export interface AllocationItem {
   name: string;
   symbol: string | null;
-  type: "cash" | "security";
+  type: "cash" | "security" | "tag" | "untagged";
   value: number;
   percentage: number;
   color?: string;
@@ -124,9 +134,27 @@ export interface LlmPortfolioHolding {
 export interface LlmPortfolioAllocation {
   name: string;
   symbol: string | null;
-  type: "cash" | "security";
+  type: "cash" | "security" | "tag" | "untagged";
   value: number;
   percentage: number;
+}
+
+/**
+ * Per-account holdings breakdown embedded in the LLM portfolio summary. Each
+ * entry lists the individual positions held in one investment account, the
+ * account's cash balance, and its rolled-up totals. This replaces the former
+ * standalone holding-details tool so a single summary call answers both
+ * portfolio-wide and per-account holdings questions.
+ */
+export interface LlmAccountHoldings {
+  accountName: string;
+  currency: string;
+  cashBalance: number;
+  totalCostBasis: number;
+  totalMarketValue: number;
+  totalGainLoss: number;
+  totalGainLossPercent: number;
+  holdings: LlmPortfolioHolding[];
 }
 
 export interface LlmPortfolioSummary {
@@ -140,6 +168,7 @@ export interface LlmPortfolioSummary {
   timeWeightedReturn: number | null;
   cagr: number | null;
   holdings: LlmPortfolioHolding[];
+  holdingsByAccount: LlmAccountHoldings[];
   allocation: LlmPortfolioAllocation[];
 }
 
@@ -204,6 +233,14 @@ const RANGE_FALLBACKS: Record<
 };
 
 const INTRADAY_CACHE_TTL_MS = 60_000;
+
+// Gap (in days) between a security's two most recent prices at or above which
+// their delta is NOT treated as a "daily" move in Top Movers. A normal
+// daily-priced security spans 1-4 days (weekends/holidays); a weekly-priced
+// fund spans exactly 7, and a sparsely priced holding such as a GIC can span
+// months -- all of which would otherwise surface a stale, perpetual daily
+// change.
+const DAILY_PRICE_GAP_EXCLUSION_DAYS = 7;
 
 @Injectable()
 export class PortfolioService {
@@ -293,6 +330,18 @@ export class PortfolioService {
 
     // Categorise into cash / brokerage / standalone
     const categorised = this.calculationService.categoriseAccounts(accounts);
+
+    // Prime the rate cache with live spot FX so every "as of now" valuation
+    // below (holdings value, cash, net invested, allocation) converts at the
+    // current rate and matches the live Portfolio Value Over Time chart rather
+    // than the once-a-day stored snapshot. Best effort -- per currency, falls
+    // back to the stored daily rate when no live quote is available.
+    await this.calculationService.primeLiveRates(
+      rateCache,
+      accounts,
+      categorised.holdingsAccountIds,
+      defaultCurrency,
+    );
 
     // Compute effective cash balances excluding future-dated transactions
     const cashAndStandaloneIds = [
@@ -424,49 +473,62 @@ export class PortfolioService {
   ): Promise<LlmPortfolioSummary> {
     const summary = await this.getPortfolioSummary(userId, accountIds);
 
-    const roundMoney = (v: number | null | undefined): number =>
-      v === null || v === undefined ? 0 : Math.round(Number(v) * 10000) / 10000;
+    const roundMoneyValue = (v: number | null | undefined): number =>
+      v === null || v === undefined ? 0 : roundMoney(Number(v));
     const roundMoneyNullable = (v: number | null | undefined): number | null =>
-      v === null || v === undefined
-        ? null
-        : Math.round(Number(v) * 10000) / 10000;
+      v === null || v === undefined ? null : roundMoney(Number(v));
     const roundPct = (v: number | null | undefined): number | null =>
       v === null || v === undefined ? null : Math.round(Number(v) * 100) / 100;
 
-    const holdings: LlmPortfolioHolding[] = summary.holdings.map((h) => ({
+    const toLlmHolding = (h: HoldingWithMarketValue): LlmPortfolioHolding => ({
       symbol: h.symbol,
       name: h.name,
       securityType: h.securityType,
       currency: h.currencyCode,
       quantity: h.quantity,
       averageCost: roundMoneyNullable(h.averageCost),
-      costBasis: roundMoney(h.costBasis),
+      costBasis: roundMoneyValue(h.costBasis),
       marketValue: roundMoneyNullable(h.marketValue),
       gainLoss: roundMoneyNullable(h.gainLoss),
       gainLossPercent: roundPct(h.gainLossPercent),
-    }));
+    });
+
+    const holdings: LlmPortfolioHolding[] = summary.holdings.map(toLlmHolding);
+
+    const holdingsByAccount: LlmAccountHoldings[] =
+      summary.holdingsByAccount.map((acct) => ({
+        accountName: acct.accountName,
+        currency: acct.currencyCode,
+        cashBalance: roundMoneyValue(acct.cashBalance),
+        totalCostBasis: roundMoneyValue(acct.totalCostBasis),
+        totalMarketValue: roundMoneyValue(acct.totalMarketValue),
+        totalGainLoss: roundMoneyValue(acct.totalGainLoss),
+        totalGainLossPercent: roundPct(acct.totalGainLossPercent) ?? 0,
+        holdings: acct.holdings.map(toLlmHolding),
+      }));
 
     const allocation: LlmPortfolioAllocation[] = summary.allocation.map(
       (a) => ({
         name: a.name,
         symbol: a.symbol,
         type: a.type,
-        value: roundMoney(a.value),
+        value: roundMoneyValue(a.value),
         percentage: roundPct(a.percentage) ?? 0,
       }),
     );
 
     return {
       holdingCount: holdings.length,
-      totalCashValue: roundMoney(summary.totalCashValue),
-      totalHoldingsValue: roundMoney(summary.totalHoldingsValue),
-      totalCostBasis: roundMoney(summary.totalCostBasis),
-      totalPortfolioValue: roundMoney(summary.totalPortfolioValue),
-      totalGainLoss: roundMoney(summary.totalGainLoss),
+      totalCashValue: roundMoneyValue(summary.totalCashValue),
+      totalHoldingsValue: roundMoneyValue(summary.totalHoldingsValue),
+      totalCostBasis: roundMoneyValue(summary.totalCostBasis),
+      totalPortfolioValue: roundMoneyValue(summary.totalPortfolioValue),
+      totalGainLoss: roundMoneyValue(summary.totalGainLoss),
       totalGainLossPercent: roundPct(summary.totalGainLossPercent) ?? 0,
       timeWeightedReturn: roundPct(summary.timeWeightedReturn),
       cagr: roundPct(summary.cagr),
       holdings,
+      holdingsByAccount,
       allocation,
     };
   }
@@ -490,7 +552,13 @@ export class PortfolioService {
     const activeHoldings = holdings.filter(
       (h) =>
         Math.abs(Number(h.quantity)) >= 0.0001 &&
-        h.security?.isActive !== false,
+        h.security?.isActive !== false &&
+        // Exclude securities with no regular price feed (e.g. GICs). Their only
+        // "prices" come from buy/sell transactions, so the latest two closes are
+        // a transaction-to-transaction delta, not a daily market move. The
+        // date-gap check below misses this when two transactions land on
+        // adjacent days, so filter on the flag that marks the security itself.
+        h.security?.skipPriceUpdates !== true,
     );
     if (activeHoldings.length === 0) return [];
 
@@ -505,10 +573,11 @@ export class PortfolioService {
     const priceRows: Array<{
       security_id: string;
       close_price: string;
+      price_date: string;
       rn: string;
     }> = await this.securityPriceRepository.query(
-      `SELECT security_id, close_price, rn FROM (
-         SELECT security_id, close_price,
+      `SELECT security_id, close_price, price_date, rn FROM (
+         SELECT security_id, close_price, price_date,
                 ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY price_date DESC) as rn
          FROM security_prices
          WHERE security_id = ANY($1)
@@ -518,11 +587,11 @@ export class PortfolioService {
       [securityIds],
     );
 
-    // Build a map: securityId -> [latestPrice, previousPrice]
-    const priceMap = new Map<string, number[]>();
+    // Build a map: securityId -> [latest, previous] price points (newest first)
+    const priceMap = new Map<string, Array<{ price: number; date: string }>>();
     for (const row of priceRows) {
       const existing = priceMap.get(row.security_id) || [];
-      existing.push(Number(row.close_price));
+      existing.push({ price: Number(row.close_price), date: row.price_date });
       priceMap.set(row.security_id, existing);
     }
 
@@ -543,9 +612,22 @@ export class PortfolioService {
       const prices = priceMap.get(securityId);
       if (!prices || prices.length < 2) continue;
 
-      const [currentPrice, previousPrice] = prices;
-      if (previousPrice === 0) continue;
+      const [current, previous] = prices;
+      if (previous.price === 0) continue;
 
+      // Skip securities whose two most recent prices are far apart: the
+      // "previous" close isn't an adjacent trading session, so the delta is a
+      // long-period change rather than a daily move. Without this a sparsely
+      // priced holding (e.g. a matured GIC re-bought under the same symbol) or a
+      // weekly-priced fund reports the same stale "daily" change every day.
+      const gapDays = Math.round(
+        (new Date(current.date).getTime() - new Date(previous.date).getTime()) /
+          86_400_000,
+      );
+      if (gapDays >= DAILY_PRICE_GAP_EXCLUSION_DAYS) continue;
+
+      const currentPrice = current.price;
+      const previousPrice = previous.price;
       const dailyChange = currentPrice - previousPrice;
       const dailyChangePercent = (dailyChange / previousPrice) * 100;
       const security = securityLookup.get(securityId);
@@ -595,7 +677,11 @@ export class PortfolioService {
     const activeHoldings = holdings.filter(
       (h) =>
         Math.abs(Number(h.quantity)) >= 0.0001 &&
-        h.security?.isActive !== false,
+        h.security?.isActive !== false &&
+        // Exclude securities with no regular price feed (e.g. GICs); their only
+        // "prices" are buy/sell transactions, not market moves. Same rationale
+        // as getTopMovers.
+        h.security?.skipPriceUpdates !== true,
     );
     if (activeHoldings.length === 0) return [];
 
@@ -754,6 +840,92 @@ export class PortfolioService {
   }
 
   /**
+   * Portfolio "exposure by tag" allocation. Reuses the by-security allocation
+   * from the portfolio summary (values already in the default currency), then
+   * regroups it by each security's user-defined tags. See
+   * `PortfolioCalculationService.buildAllocationByTag` for the multi-tag
+   * (overlapping exposure) semantics.
+   */
+  async getAllocationByTag(
+    userId: string,
+    accountIds?: string[],
+  ): Promise<AssetAllocation> {
+    const summary = await this.getPortfolioSummary(userId, accountIds);
+    const securityItems = summary.allocation.filter(
+      (a) => a.type === "security",
+    );
+    const cashItem = summary.allocation.find((a) => a.type === "cash");
+    const totalCashValue = cashItem?.value ?? 0;
+    const defaultCurrency =
+      cashItem?.currencyCode ??
+      securityItems[0]?.currencyCode ??
+      (await this.resolveDefaultCurrency(userId));
+
+    const symbols = securityItems
+      .map((i) => i.symbol)
+      .filter((s): s is string => Boolean(s));
+    const tagsBySymbol = await this.loadTagsBySymbol(userId, symbols);
+
+    const allocation = this.calculationService.buildAllocationByTag(
+      securityItems,
+      tagsBySymbol,
+      totalCashValue,
+      summary.totalPortfolioValue,
+      defaultCurrency,
+    );
+    return { allocation, totalValue: summary.totalPortfolioValue };
+  }
+
+  /** The user's default display currency, falling back to CAD. */
+  private async resolveDefaultCurrency(userId: string): Promise<string> {
+    const pref = await this.prefRepository.findOne({ where: { userId } });
+    return pref?.defaultCurrency || "CAD";
+  }
+
+  /**
+   * Load the user's tags for the given security symbols, keyed by symbol.
+   * Symbols are unique per user, so a symbol maps to exactly one security.
+   */
+  private async loadTagsBySymbol(
+    userId: string,
+    symbols: string[],
+  ): Promise<
+    Map<string, Array<{ id: string; name: string; color: string | null }>>
+  > {
+    const result = new Map<
+      string,
+      Array<{ id: string; name: string; color: string | null }>
+    >();
+    if (symbols.length === 0) return result;
+
+    const rows: Array<{
+      symbol: string;
+      id: string;
+      name: string;
+      color: string | null;
+    }> = await this.holdingsRepository.manager.query(
+      `SELECT s.symbol AS symbol, t.id AS id, t.name AS name, t.color AS color
+         FROM securities s
+         JOIN security_tags st ON st.security_id = s.id
+         JOIN tags t ON t.id = st.tag_id
+        WHERE s.user_id = $1 AND s.symbol = ANY($2)
+        ORDER BY t.name ASC`,
+      [userId, symbols],
+    );
+
+    for (const row of rows) {
+      const arr = result.get(row.symbol);
+      const tag = { id: row.id, name: row.name, color: row.color };
+      if (arr) {
+        arr.push(tag);
+      } else {
+        result.set(row.symbol, [tag]);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Compute the intraday portfolio value series for the user's current
    * holdings. Pulls live minute/hour bars from Yahoo Finance for each
    * security, aligns them on a unified time grid, and converts each bar to
@@ -890,8 +1062,10 @@ export class PortfolioService {
     const seriesBySecurity = new Map<string, IntradayPoint[]>();
     const failedSymbols: string[] = [];
     const intervalCandidates = [yahooParams, ...RANGE_FALLBACKS[range]];
-    await Promise.all(
-      intradayHoldings.map(async (h) => {
+    await mapWithConcurrency(
+      intradayHoldings,
+      INTRADAY_FETCH_CONCURRENCY,
+      async (h) => {
         // Try the primary interval first, then any range-specific
         // fallbacks (e.g. 1m -> 5m for 1D). The first non-empty series
         // wins; silently degrade to coarser bars rather than treating it
@@ -918,7 +1092,7 @@ export class PortfolioService {
         } else {
           failedSymbols.push(h.symbol);
         }
-      }),
+      },
     );
 
     // If literally every holding failed we have nothing to chart -- assume
@@ -1032,27 +1206,37 @@ export class PortfolioService {
       latest: number;
     };
     const fxByCurrency = new Map<string, FxCursor>();
-    await Promise.all(
-      [...fxCurrencies].map(async (currency) => {
+    await mapWithConcurrency(
+      [...fxCurrencies],
+      INTRADAY_FETCH_CONCURRENCY,
+      async (currency) => {
         const latest = await this.calculationService.convertToDefault(
           1,
           currency,
           displayCurrency,
           rateCache,
         );
+        // Mirror the per-holding price fetch: try the primary interval, then
+        // any range-specific coarser fallbacks. Yahoo's narrowest FX intervals
+        // are the most rate-limited and most likely to return a short or empty
+        // series, which would otherwise leave the whole currency on a flat
+        // fallback rate. Walk up the ladder until one returns bars.
         let series: IntradayPoint[] | null = null;
-        try {
-          series = await this.yahooFinanceService.fetchIntradayFxSeries(
-            currency,
-            displayCurrency,
-            yahooParams,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Failed to fetch intraday FX ${currency}->${displayCurrency}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+        for (const params of intervalCandidates) {
+          try {
+            series = await this.yahooFinanceService.fetchIntradayFxSeries(
+              currency,
+              displayCurrency,
+              params,
+            );
+            if (series && series.length > 0) break;
+          } catch (error) {
+            this.logger.warn(
+              `Failed to fetch intraday FX ${currency}->${displayCurrency} at ${params.interval}: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
         }
         fxByCurrency.set(currency, {
           times: series?.map((p) => p.timestamp.getTime()) ?? [],
@@ -1060,22 +1244,68 @@ export class PortfolioService {
           cursor: -1,
           latest,
         });
-      }),
+      },
     );
 
-    // Walk each FX cursor monotonically as the grid advances; if no
-    // intraday FX series is available (failed fetch or same-currency),
-    // use the latest spot. Backfill the earliest known rate when the
-    // first FX bar arrives after the current grid timestamp.
+    // Stored daily-close FX history, used to value any grid bar the live
+    // intraday FX series does not cover (pre-market before the first bar of the
+    // day, weekend/holiday gaps on 1W/1M, or a currency whose intraday fetch
+    // failed). Without this such bars fall back to a single near-current rate,
+    // which makes the start of the day and earlier multi-day points drift while
+    // only the latest point -- backed by a live intraday bar -- stays correct.
+    // Over-fetch a couple of weeks before the grid so an at-or-before rate
+    // exists even for the first day.
+    const indexStart = formatDateYMD(
+      new Date(timestamps[0] - 14 * 24 * 60 * 60 * 1000),
+    );
+    const indexEnd = formatDateYMD(new Date(now));
+    const dailyRateIndex =
+      fxCurrencies.size > 0
+        ? await this.calculationService.buildDailyRateIndex(
+            fxCurrencies,
+            displayCurrency,
+            indexStart,
+            indexEnd,
+          )
+        : (new Map() as DailyRateIndex);
+    // Memoise the per-currency, per-date daily lookup -- fxAt is called once per
+    // currency per grid bar and the daily rate only changes by date.
+    const dailyRateCache = new Map<string, number | undefined>();
+    const dailyFxAt = (currency: string, ts: number): number | undefined => {
+      const dateStr = formatDateYMD(new Date(ts));
+      const memoKey = `${currency}|${dateStr}`;
+      if (dailyRateCache.has(memoKey)) return dailyRateCache.get(memoKey);
+      const rate = this.calculationService.resolveDailyRate(
+        dailyRateIndex,
+        currency,
+        displayCurrency,
+        dateStr,
+      );
+      dailyRateCache.set(memoKey, rate);
+      return rate;
+    };
+
+    // Walk each FX cursor monotonically as the grid advances. When an intraday
+    // FX bar exists at or before the current timestamp, value the bar at that
+    // live rate. Otherwise (before the first intraday bar, or no intraday series
+    // at all) fall back to the stored daily close for that bar's own date so
+    // historical points are valued at the rate that prevailed then -- not the
+    // first/latest intraday rate -- with the stored latest spot as a last
+    // resort when no daily history exists for the pair.
     const fxAt = (currency: string, ts: number): number => {
       if (currency === displayCurrency) return 1;
       const fx = fxByCurrency.get(currency);
       if (!fx) return rateCache.get(`${currency}->${displayCurrency}`) ?? 1;
-      if (fx.times.length === 0) return fx.latest;
-      while (fx.cursor + 1 < fx.times.length && fx.times[fx.cursor + 1] <= ts) {
-        fx.cursor++;
+      if (fx.times.length > 0) {
+        while (
+          fx.cursor + 1 < fx.times.length &&
+          fx.times[fx.cursor + 1] <= ts
+        ) {
+          fx.cursor++;
+        }
+        if (fx.cursor >= 0) return fx.rates[fx.cursor];
       }
-      return fx.cursor < 0 ? fx.rates[0] : fx.rates[fx.cursor];
+      return dailyFxAt(currency, ts) ?? fx.latest;
     };
 
     // Build per-security ordered timestamp/close arrays and a cursor-based

@@ -1,0 +1,216 @@
+{
+  "chartFlag": {
+    "dismiss": "[XX-Hide this value-XX]"
+  },
+  "appVersion": {
+    "releaseNotes": "[XX-View release notes for v{version}-XX]"
+  },
+  "save": "[XX-Save-XX]",
+  "cancel": "[XX-Cancel-XX]",
+  "delete": "[XX-Delete-XX]",
+  "edit": "[XX-Edit-XX]",
+  "close": "[XX-Close-XX]",
+  "actions": {
+    "edit": "[XX-Edit-XX]",
+    "delete": "[XX-Delete-XX]",
+    "view": "[XX-View-XX]",
+    "duplicate": "[XX-Duplicate-XX]",
+    "merge": "[XX-Merge-XX]",
+    "reactivate": "[XX-Reactivate-XX]",
+    "reconcile": "[XX-Reconcile-XX]",
+    "post": "[XX-Post-XX]",
+    "skip": "[XX-Skip-XX]",
+    "close": "[XX-Close-XX]",
+    "reopen": "[XX-Reopen-XX]",
+    "scheduleRecurring": "[XX-Make recurring-XX]",
+    "more": "[XX-More actions-XX]"
+  },
+  "loading": "[XX-Loading...-XX]",
+  "pagination": {
+    "showing": "[XX-Showing-XX]",
+    "of": "[XX-of-XX]",
+    "firstPage": "[XX-First page-XX]",
+    "lastPage": "[XX-Last page-XX]",
+    "previousPage": "[XX-Previous page-XX]",
+    "nextPage": "[XX-Next page-XX]",
+    "back10Pages": "[XX-Back 10 pages-XX]",
+    "forward10Pages": "[XX-Forward 10 pages-XX]",
+    "enterPageNumber": "[XX-Enter page number-XX]"
+  },
+  "confirmDialog": {
+    "confirm": "[XX-Confirm-XX]"
+  },
+  "unsavedChanges": {
+    "title": "[XX-Unsaved Changes-XX]",
+    "message": "[XX-You have unsaved changes. What would you like to do?-XX]",
+    "discard": "[XX-Discard-XX]"
+  },
+  "exportDropdown": {
+    "export": "[XX-Export-XX]",
+    "exporting": "[XX-Exporting...-XX]",
+    "exportPdf": "[XX-Export PDF-XX]",
+    "exportReport": "[XX-Export report-XX]",
+    "failedPdf": "[XX-Failed to export PDF. Please try again.-XX]"
+  },
+  "dateRange": {
+    "custom": "[XX-Custom-XX]",
+    "startDate": "[XX-Start Date-XX]",
+    "endDate": "[XX-End Date-XX]"
+  },
+  "colorPicker": {
+    "custom": "[XX-Custom:-XX]",
+    "apply": "[XX-Apply-XX]"
+  },
+  "chartDownload": {
+    "downloadAsPng": "[XX-Download {filename} as PNG-XX]",
+    "unableToCapture": "[XX-Unable to capture chart image-XX]",
+    "failedToDownload": "[XX-Failed to download chart-XX]"
+  },
+  "chartViewToggle": {
+    "pieChart": "[XX-Pie Chart-XX]",
+    "barChart": "[XX-Bar Chart-XX]",
+    "stackedChart": "[XX-100% Stacked Bar-XX]",
+    "lineChart": "[XX-Line Chart-XX]",
+    "areaChart": "[XX-Area Chart-XX]",
+    "table": "[XX-Table-XX]"
+  },
+  "formActions": {
+    "cancel": "[XX-Cancel-XX]",
+    "save": "[XX-Save-XX]"
+  },
+  "themeToggle": {
+    "light": "[XX-Light-XX]",
+    "dark": "[XX-Dark-XX]",
+    "system": "[XX-System-XX]",
+    "title": "[XX-Theme: {label}. Click to change.-XX]"
+  },
+  "errorPage": {
+    "title": "[XX-Something went wrong-XX]",
+    "description": "[XX-An unexpected error occurred. Please try again or contact support if the problem persists.-XX]",
+    "errorId": "[XX-Error ID: {digest}-XX]",
+    "tryAgain": "[XX-Try again-XX]",
+    "goToDashboard": "[XX-Go to Dashboard-XX]"
+  },
+  "errorBoundary": {
+    "defaultMessage": "[XX-Something went wrong rendering this component.-XX]"
+  },
+  "calendar": {
+    "clear": "[XX-Clear-XX]",
+    "today": "[XX-Today-XX]"
+  },
+  "multiSelect": {
+    "search": "[XX-Search...-XX]",
+    "selectAll": "[XX-Select All-XX]",
+    "clear": "[XX-Clear-XX]",
+    "noOptions": "[XX-No options found-XX]",
+    "selectedCount": "[XX-{count} selected-XX]"
+  },
+  "combobox": {
+    "createOption": "[XX-Create \"{value}\"-XX]"
+  },
+  "passwordInput": {
+    "show": "[XX-Show input-XX]",
+    "hide": "[XX-Hide input-XX]"
+  },
+  "currencyInput": {
+    "openCalculator": "[XX-Open calculator-XX]",
+    "calculator": "[XX-Calculator-XX]",
+    "toggleSign": "[XX-Change sign-XX]"
+  },
+  "dateInput": {
+    "shortcutsTitle": "[XX-Keyboard shortcuts-XX]",
+    "today": "[XX-Today-XX]",
+    "firstDayOfYear": "[XX-First day of year-XX]",
+    "lastDayOfYear": "[XX-Last day of year-XX]",
+    "firstDayOfMonth": "[XX-First day of month-XX]",
+    "lastDayOfMonth": "[XX-Last day of month-XX]",
+    "nextDay": "[XX-Next day-XX]",
+    "previousDay": "[XX-Previous day-XX]",
+    "nextMonth": "[XX-Next month-XX]",
+    "previousMonth": "[XX-Previous month-XX]"
+  },
+  "accountTypes": {
+    "CHEQUING": "[XX-Chequing-XX]",
+    "SAVINGS": "[XX-Savings-XX]",
+    "CREDIT_CARD": "[XX-Credit Card-XX]",
+    "INVESTMENT": "[XX-Investment-XX]",
+    "LOAN": "[XX-Loan-XX]",
+    "MORTGAGE": "[XX-Mortgage-XX]",
+    "CASH": "[XX-Cash-XX]",
+    "LINE_OF_CREDIT": "[XX-Line of Credit-XX]",
+    "ASSET": "[XX-Asset-XX]",
+    "OTHER": "[XX-Other-XX]"
+  },
+  "accountFilter": {
+    "allAccounts": "[XX-All Accounts-XX]",
+    "allBut": "[XX-All but {names}-XX]"
+  },
+  "passwordRequirements": "[XX-Password must be at least 12 characters and contain an uppercase letter, a lowercase letter, a number, and a special character.-XX]",
+  "passwordValidation": {
+    "min": "[XX-Password must be at least 12 characters-XX]",
+    "max": "[XX-Password must be 100 characters or less-XX]",
+    "lowercase": "[XX-Must contain a lowercase letter-XX]",
+    "uppercase": "[XX-Must contain an uppercase letter-XX]",
+    "number": "[XX-Must contain a number-XX]",
+    "special": "[XX-Must contain a special character-XX]"
+  },
+  "codeValidation": {
+    "length": "[XX-Code must be exactly 6 digits-XX]",
+    "digits": "[XX-Code must be 6 digits-XX]"
+  },
+  "monthsShort": [
+    "[XX-Jan-XX]",
+    "[XX-Feb-XX]",
+    "[XX-Mar-XX]",
+    "[XX-Apr-XX]",
+    "[XX-May-XX]",
+    "[XX-Jun-XX]",
+    "[XX-Jul-XX]",
+    "[XX-Aug-XX]",
+    "[XX-Sep-XX]",
+    "[XX-Oct-XX]",
+    "[XX-Nov-XX]",
+    "[XX-Dec-XX]"
+  ],
+  "weekdaysShort": [
+    "[XX-Sun-XX]",
+    "[XX-Mon-XX]",
+    "[XX-Tue-XX]",
+    "[XX-Wed-XX]",
+    "[XX-Thu-XX]",
+    "[XX-Fri-XX]",
+    "[XX-Sat-XX]"
+  ],
+  "weekdaysMin": [
+    "[XX-Su-XX]",
+    "[XX-Mo-XX]",
+    "[XX-Tu-XX]",
+    "[XX-We-XX]",
+    "[XX-Th-XX]",
+    "[XX-Fr-XX]",
+    "[XX-Sa-XX]"
+  ],
+  "weekdaysNarrow": [
+    "[XX-S-XX]",
+    "[XX-M-XX]",
+    "[XX-T-XX]",
+    "[XX-W-XX]",
+    "[XX-T-XX]",
+    "[XX-F-XX]",
+    "[XX-S-XX]"
+  ],
+  "dateFormat": {
+    "browserAuto": "[XX-Use browser locale (auto-detected as {sample})-XX]",
+    "custom": "[XX-Custom...-XX]"
+  },
+  "emailInvalid": "[XX-Please enter a valid email address-XX]",
+  "noSectionAccess": "[XX-You don't have access to that section.-XX]",
+  "undoRedo": {
+    "nothingToUndo": "[XX-Nothing to undo-XX]",
+    "cannotUndo": "[XX-Cannot undo this action-XX]",
+    "undoFailed": "[XX-Undo failed-XX]",
+    "nothingToRedo": "[XX-Nothing to redo-XX]",
+    "cannotRedo": "[XX-Cannot redo this action-XX]",
+    "redoFailed": "[XX-Redo failed-XX]"
+  }
+}

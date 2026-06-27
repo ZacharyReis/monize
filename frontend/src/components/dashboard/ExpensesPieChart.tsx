@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { Transaction } from '@/types/transaction';
@@ -22,6 +23,7 @@ export function ExpensesPieChart({
   categories,
   isLoading,
 }: ExpensesPieChartProps) {
+  const t = useTranslations('dashboard');
   const router = useRouter();
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
   const { convertToDefault } = useExchangeRates();
@@ -91,7 +93,7 @@ export function ExpensesPieChart({
     if (uncategorizedTotal > 0) {
       categoryMap.set('uncategorized', {
         id: '',
-        name: 'Uncategorized',
+        name: t('expensesPieChart.uncategorized'),
         value: uncategorizedTotal,
         colour: '#9ca3af',
       });
@@ -109,7 +111,7 @@ export function ExpensesPieChart({
       const otherTotal = sorted.slice(MAX_SLICES).reduce((sum, item) => sum + item.value, 0);
       data = [
         ...top,
-        { id: '', name: 'Other', value: otherTotal, colour: '#9ca3af' },
+        { id: '', name: t('expensesPieChart.other'), value: otherTotal, colour: '#9ca3af' },
       ];
     } else {
       data = sorted;
@@ -125,7 +127,7 @@ export function ExpensesPieChart({
     });
 
     return data;
-  }, [transactions, categories, convertToDefault]);
+  }, [transactions, categories, convertToDefault, t]);
 
   const totalExpenses = chartData.reduce((sum, item) => sum + item.value, 0);
 
@@ -157,7 +159,7 @@ export function ExpensesPieChart({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 lg:min-h-[540px]">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Expenses by Category
+          {t('expensesPieChart.title')}
         </h3>
         <div className="h-64 flex items-center justify-center">
           <div className="animate-pulse w-48 h-48 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -170,10 +172,10 @@ export function ExpensesPieChart({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 lg:min-h-[540px]">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Expenses by Category
+          {t('expensesPieChart.title')}
         </h3>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No expense data for this period.
+          {t('expensesPieChart.empty')}
         </p>
       </div>
     );
@@ -183,9 +185,9 @@ export function ExpensesPieChart({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 lg:min-h-[540px] flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Expenses by Category
+          {t('expensesPieChart.title')}
         </h3>
-        <span className="text-sm text-gray-500 dark:text-gray-400">Past 30 days</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{t('expensesPieChart.past30Days')}</span>
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -226,7 +228,7 @@ export function ExpensesPieChart({
         ))}
       </div>
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-center flex-shrink-0">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Total</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">{t('expensesPieChart.total')}</div>
         <div className="font-semibold text-gray-900 dark:text-gray-100">
           {formatCurrency(totalExpenses)}
         </div>

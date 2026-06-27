@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
@@ -15,18 +16,21 @@ import { useAuthStore } from '@/store/authStore';
 import { useDemoStore } from '@/store/demoStore';
 import { authApi, AuthMethods } from '@/lib/auth';
 import { TwoFactorVerify } from '@/components/auth/TwoFactorVerify';
+import { AuthLanguageSwitcher } from '@/components/auth/AuthLanguageSwitcher';
+import { AppVersion } from '@/components/ui/AppVersion';
 import { User } from '@/types/auth';
 import { createLogger } from '@/lib/logger';
+import { buildEmailSchema } from '@/lib/zod-helpers';
 
 const logger = createLogger('Login');
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+const buildLoginSchema = (t: (key: string) => string, tc: (key: string) => string) => z.object({
+  email: buildEmailSchema(tc),
+  password: z.string().min(1, t('signIn.passwordRequired')),
   rememberMe: z.boolean(),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = z.infer<ReturnType<typeof buildLoginSchema>>;
 
 /**
  * Validate a `returnTo` query parameter so we can safely redirect after login.
@@ -42,12 +46,18 @@ function safeReturnTo(value: string | null): string | null {
 }
 
 export default function LoginPage() {
+  const t = useTranslations('auth');
+  const tc = useTranslations('common');
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safeReturnTo(searchParams?.get('returnTo') ?? null);
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [twoFactorState, setTwoFactorState] = useState<{ tempToken: string } | null>(null);
+  // Set when login is rejected because the account's email is unverified. The
+  // password was already accepted, so we can prompt the user to verify/resend.
+  const [emailNotVerified, setEmailNotVerified] = useState<{ email: string } | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const [authMethods, setAuthMethods] = useState<AuthMethods>({ local: true, oidc: false, registration: true, smtp: false, force2fa: false, demo: false });
   const [isLoadingMethods, setIsLoadingMethods] = useState(true);
 
@@ -73,7 +83,7 @@ export default function LoginPage() {
     reset,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(buildLoginSchema(t, tc)),
     defaultValues: { rememberMe: false },
   });
 
@@ -97,12 +107,17 @@ export default function LoginPage() {
         return;
       }
 
+      if (response.emailNotVerified) {
+        setEmailNotVerified({ email: data.email });
+        return;
+      }
+
       // Token is now in httpOnly cookie, not in response body
       login(response.user!, 'httpOnly');
       if (authMethods.demo) {
-        toast.success('Welcome to Monize Demo! Data resets daily at 4:00 AM UTC.', { duration: 6000 });
+        toast.success(t('toasts.welcomeDemo'), { duration: 6000 });
       } else {
-        toast.success('Welcome back!');
+        toast.success(t('toasts.welcomeBack'));
       }
       if (response.user!.mustChangePassword) {
         router.push('/change-password');
@@ -115,7 +130,7 @@ export default function LoginPage() {
       }
     } catch {
       // SECURITY: Use generic error message to prevent account enumeration
-      toast.error('Invalid email or password');
+      toast.error(t('toasts.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
@@ -124,9 +139,9 @@ export default function LoginPage() {
   const handle2FAVerified = (user: User) => {
     login(user, 'httpOnly');
     if (authMethods.demo) {
-      toast.success('Welcome to Monize Demo! Data resets daily at 4:00 AM UTC.', { duration: 6000 });
+      toast.success(t('toasts.welcomeDemo'), { duration: 6000 });
     } else {
-      toast.success('Welcome back!');
+      toast.success(t('toasts.welcomeBack'));
     }
     if (user.mustChangePassword) {
       router.push('/change-password');
@@ -134,6 +149,19 @@ export default function LoginPage() {
       window.location.href = returnTo;
     } else {
       router.push('/dashboard');
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!emailNotVerified) return;
+    setIsResending(true);
+    try {
+      await authApi.resendVerification(emailNotVerified.email);
+      toast.success(t('signIn.resendVerificationSuccess'));
+    } catch {
+      toast.error(t('signIn.resendVerificationError'));
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -156,7 +184,7 @@ export default function LoginPage() {
   if (isLoadingMethods) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-gray-500 dark:text-gray-400">{tc('loading')}</div>
       </div>
     );
   }
@@ -169,11 +197,11 @@ export default function LoginPage() {
           <div>
             <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
             <h2 className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-              Sign in to Monize
+              {t('signIn.title')}
             </h2>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            This application uses Single Sign-On for authentication.
+            {t('signIn.ssoIntro')}
           </p>
           <Button
             type="button"
@@ -194,12 +222,12 @@ export default function LoginPage() {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            Sign in with SSO
+            {t('signIn.ssoButton')}
           </Button>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-6">
-            v{process.env.NEXT_PUBLIC_APP_VERSION}
-          </p>
+          <AuthLanguageSwitcher />
+
+          <AppVersion className="text-xs text-gray-400 dark:text-gray-500 mt-6" />
         </div>
       </div>
     );
@@ -208,6 +236,7 @@ export default function LoginPage() {
   if (twoFactorState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+        <AuthLanguageSwitcher />
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
@@ -222,22 +251,62 @@ export default function LoginPage() {
     );
   }
 
+  if (emailNotVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
+            <h2 className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-gray-100">
+              {t('signIn.notVerifiedTitle')}
+            </h2>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              {t('signIn.notVerifiedMessage')}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              isLoading={isResending}
+              onClick={handleResendVerification}
+              className="w-full"
+            >
+              {t('signIn.resendVerification')}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setEmailNotVerified(null)}
+              className="block w-full text-center font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              {t('backToSignIn')}
+            </button>
+          </div>
+          <AuthLanguageSwitcher />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
           <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
           <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-            Sign in to Monize
+            {t('signIn.title')}
           </h2>
           {authMethods.local && authMethods.registration && !authMethods.demo && (
             <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-              Or{' '}
+              {t('signIn.orPrefix')}{' '}
               <Link
                 href="/register"
                 className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                create a new account
+                {t('signIn.createAccount')}
               </Link>
             </p>
           )}
@@ -245,8 +314,8 @@ export default function LoginPage() {
 
         {authMethods.demo && (
           <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 text-center text-sm text-amber-800 dark:text-amber-200">
-            <p className="font-semibold">Demo Mode</p>
-            <p className="mt-1">Credentials are pre-filled. All data resets daily at 4:00 AM UTC.</p>
+            <p className="font-semibold">{t('demo.badge')}</p>
+            <p className="mt-1">{t('demo.credentialsNote')}</p>
           </div>
         )}
 
@@ -254,7 +323,7 @@ export default function LoginPage() {
           <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-4">
               <Input
-                label="Email address"
+                label={t('signIn.emailLabel')}
                 type="email"
                 autoComplete="email"
                 error={errors.email?.message}
@@ -262,7 +331,7 @@ export default function LoginPage() {
               />
 
               <Input
-                label="Password"
+                label={t('signIn.passwordLabel')}
                 type="password"
                 autoComplete="current-password"
                 error={errors.password?.message}
@@ -282,7 +351,7 @@ export default function LoginPage() {
                   htmlFor="remember-me"
                   className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
                 >
-                  Remember me
+                  {t('signIn.rememberMe')}
                 </label>
               </div>
 
@@ -292,7 +361,7 @@ export default function LoginPage() {
                     href="/forgot-password"
                     className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
                   >
-                    Forgot your password?
+                    {t('signIn.forgotPassword')}
                   </Link>
                 </div>
               )}
@@ -306,7 +375,7 @@ export default function LoginPage() {
                 isLoading={isLoading}
                 className="w-full"
               >
-                {authMethods.demo ? 'Try Demo' : 'Sign in'}
+                {authMethods.demo ? t('signIn.tryDemo') : t('signIn.submit')}
               </Button>
 
               {authMethods.oidc && (
@@ -317,7 +386,7 @@ export default function LoginPage() {
                     </div>
                     <div className="relative flex justify-center text-sm">
                       <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
-                        Or continue with
+                        {t('signIn.orContinueWith')}
                       </span>
                     </div>
                   </div>
@@ -341,7 +410,7 @@ export default function LoginPage() {
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
-                    Sign in with SSO
+                    {t('signIn.ssoButton')}
                   </Button>
                 </>
               )}
@@ -351,13 +420,13 @@ export default function LoginPage() {
 
         {!authMethods.local && !authMethods.oidc && (
           <div className="text-center text-red-600 dark:text-red-400">
-            No authentication methods are configured. Please contact the administrator.
+            {t('signIn.noMethods')}
           </div>
         )}
 
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          v{process.env.NEXT_PUBLIC_APP_VERSION}
-        </p>
+        <AuthLanguageSwitcher />
+
+        <AppVersion className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6" />
       </div>
     </div>
   );

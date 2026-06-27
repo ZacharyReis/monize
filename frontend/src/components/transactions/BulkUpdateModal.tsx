@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
+import { useForm, useWatch, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Modal } from '@/components/ui/Modal';
 import { FormActions } from '@/components/ui/FormActions';
 import { Combobox } from '@/components/ui/Combobox';
@@ -22,13 +26,35 @@ interface BulkUpdateModalProps {
   selectionCount: number;
 }
 
-interface FieldToggle {
-  payee: boolean;
-  category: boolean;
-  description: boolean;
-  status: boolean;
-  tags: boolean;
-}
+const bulkUpdateSchema = z.object({
+  enablePayee: z.boolean(),
+  enableCategory: z.boolean(),
+  enableDescription: z.boolean(),
+  enableStatus: z.boolean(),
+  enableTags: z.boolean(),
+  payeeId: z.string(),
+  payeeName: z.string().max(255),
+  categoryId: z.string(),
+  description: z.string().max(500),
+  status: z.nativeEnum(TransactionStatus),
+  tagIds: z.array(z.string()),
+});
+
+type BulkUpdateFormData = z.infer<typeof bulkUpdateSchema>;
+
+const defaultValues: BulkUpdateFormData = {
+  enablePayee: false,
+  enableCategory: false,
+  enableDescription: false,
+  enableStatus: false,
+  enableTags: false,
+  payeeId: '',
+  payeeName: '',
+  categoryId: '',
+  description: '',
+  status: TransactionStatus.UNRECONCILED,
+  tagIds: [],
+};
 
 export function BulkUpdateModal({
   isOpen,
@@ -36,27 +62,22 @@ export function BulkUpdateModal({
   onSubmit,
   selectionCount,
 }: BulkUpdateModalProps) {
+  const t = useTranslations('transactions');
   const [categories, setCategories] = useState<Category[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Field toggles
-  const [enabled, setEnabled] = useState<FieldToggle>({
-    payee: false,
-    category: false,
-    description: false,
-    status: false,
-    tags: false,
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<BulkUpdateFormData>({
+    resolver: zodResolver(bulkUpdateSchema),
+    defaultValues,
   });
-
-  // Field values
-  const [selectedPayeeId, setSelectedPayeeId] = useState('');
-  const [payeeName, setPayeeName] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.UNRECONCILED);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // Load data when modal opens
   useEffect(() => {
@@ -76,15 +97,9 @@ export function BulkUpdateModal({
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setEnabled({ payee: false, category: false, description: false, status: false, tags: false });
-      setSelectedPayeeId('');
-      setPayeeName('');
-      setSelectedCategoryId('');
-      setDescription('');
-      setStatus(TransactionStatus.UNRECONCILED);
-      setSelectedTagIds([]);
+      reset(defaultValues);
     }
-  }, [isOpen]);
+  }, [isOpen, reset]);
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
 
@@ -106,9 +121,9 @@ export function BulkUpdateModal({
     })), [payees]);
 
   const statusOptions = [
-    { value: TransactionStatus.UNRECONCILED, label: 'Pending' },
-    { value: TransactionStatus.CLEARED, label: 'Cleared' },
-    { value: TransactionStatus.VOID, label: 'Void' },
+    { value: TransactionStatus.UNRECONCILED, label: t('bulk.modal.statusOptions.pending') },
+    { value: TransactionStatus.CLEARED, label: t('bulk.modal.statusOptions.cleared') },
+    { value: TransactionStatus.VOID, label: t('bulk.modal.statusOptions.void') },
   ];
 
   const tagOptions = useMemo(() =>
@@ -119,42 +134,30 @@ export function BulkUpdateModal({
         label: tag.name,
       })), [tags]);
 
-  const toggleField = useCallback((field: keyof FieldToggle) => {
-    setEnabled(prev => ({ ...prev, [field]: !prev[field] }));
-  }, []);
+  const enablePayee = useWatch({ control, name: 'enablePayee' });
+  const enableCategory = useWatch({ control, name: 'enableCategory' });
+  const enableDescription = useWatch({ control, name: 'enableDescription' });
+  const enableStatus = useWatch({ control, name: 'enableStatus' });
+  const enableTags = useWatch({ control, name: 'enableTags' });
 
-  const handlePayeeChange = useCallback((payeeId: string, name: string) => {
-    setSelectedPayeeId(payeeId);
-    setPayeeName(name);
-  }, []);
+  const hasAnyEnabled =
+    enablePayee || enableCategory || enableDescription || enableStatus || enableTags;
 
-  const handlePayeeCreate = useCallback((name: string) => {
-    setSelectedPayeeId('');
-    setPayeeName(name);
-  }, []);
-
-  const handleCategoryChange = useCallback((categoryId: string, _name: string) => {
-    setSelectedCategoryId(categoryId);
-  }, []);
-
-  const hasAnyEnabled = Object.values(enabled).some(Boolean);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (data: BulkUpdateFormData) => {
     if (!hasAnyEnabled) return;
 
     const updateData: Partial<Pick<BulkUpdateData, 'payeeId' | 'payeeName' | 'categoryId' | 'description' | 'status' | 'tagIds'>> = {};
 
-    if (enabled.payee) {
-      if (selectedPayeeId) {
-        updateData.payeeId = selectedPayeeId;
+    if (data.enablePayee) {
+      if (data.payeeId) {
+        updateData.payeeId = data.payeeId;
         // Also send the payee name so the denormalized payeeName field is updated
-        const selectedPayee = payees.find(p => p.id === selectedPayeeId);
+        const selectedPayee = payees.find(p => p.id === data.payeeId);
         if (selectedPayee) {
           updateData.payeeName = selectedPayee.name;
         }
-      } else if (payeeName) {
-        updateData.payeeName = payeeName;
+      } else if (data.payeeName) {
+        updateData.payeeName = data.payeeName;
       } else {
         // Clear payee
         updateData.payeeId = null;
@@ -162,85 +165,97 @@ export function BulkUpdateModal({
       }
     }
 
-    if (enabled.category) {
-      updateData.categoryId = selectedCategoryId || null;
+    if (data.enableCategory) {
+      updateData.categoryId = data.categoryId || null;
     }
 
-    if (enabled.description) {
-      updateData.description = description || null;
+    if (data.enableDescription) {
+      updateData.description = data.description || null;
     }
 
-    if (enabled.status) {
-      updateData.status = status;
+    if (data.enableStatus) {
+      updateData.status = data.status;
     }
 
-    if (enabled.tags) {
-      updateData.tagIds = selectedTagIds;
+    if (data.enableTags) {
+      updateData.tagIds = data.tagIds;
     }
 
-    setIsSubmitting(true);
-    try {
-      await onSubmit(updateData);
-    } finally {
-      setIsSubmitting(false);
-    }
+    await onSubmit(updateData);
   };
 
   // Info notes about what gets skipped
-  const showTransferNote = enabled.payee;
-  const showSplitNote = enabled.category;
+  const showTransferNote = enablePayee;
+  const showSplitNote = enableCategory;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="lg" className="p-6" allowOverflow>
       <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-        Bulk Update Transactions
+        {t('bulk.modal.title')}
       </h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Update {selectionCount} selected transaction{selectionCount !== 1 ? 's' : ''}. Toggle the fields you want to change.
+        {t('bulk.modal.subtitle', { count: selectionCount })}
       </p>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit(submit)}>
         <div className="space-y-4">
           {/* Payee field */}
           <TogglableField
-            label="Payee"
-            enabled={enabled.payee}
-            onToggle={() => toggleField('payee')}
+            label={t('bulk.modal.payee')}
+            enabled={enablePayee}
+            onToggle={() => setValue('enablePayee', !enablePayee)}
           >
-            <Combobox
-              placeholder="Select or type payee name..."
-              options={payeeOptions}
-              value={selectedPayeeId}
-              onChange={handlePayeeChange}
-              onCreateNew={handlePayeeCreate}
-              allowCustomValue
+            <Controller
+              control={control}
+              name="payeeId"
+              render={({ field }) => (
+                <Combobox
+                  placeholder={t('bulk.modal.payeePlaceholder')}
+                  options={payeeOptions}
+                  value={field.value}
+                  onChange={(payeeId, name) => {
+                    field.onChange(payeeId);
+                    setValue('payeeName', name);
+                  }}
+                  onCreateNew={(name) => {
+                    field.onChange('');
+                    setValue('payeeName', name);
+                  }}
+                  allowCustomValue
+                />
+              )}
             />
           </TogglableField>
 
           {/* Category field */}
           <TogglableField
-            label="Category"
-            enabled={enabled.category}
-            onToggle={() => toggleField('category')}
+            label={t('bulk.modal.category')}
+            enabled={enableCategory}
+            onToggle={() => setValue('enableCategory', !enableCategory)}
           >
-            <Combobox
-              placeholder="Select category..."
-              options={categoryOptions}
-              value={selectedCategoryId}
-              onChange={handleCategoryChange}
+            <Controller
+              control={control}
+              name="categoryId"
+              render={({ field }) => (
+                <Combobox
+                  placeholder={t('bulk.modal.categoryPlaceholder')}
+                  options={categoryOptions}
+                  value={field.value}
+                  onChange={(categoryId) => field.onChange(categoryId)}
+                />
+              )}
             />
           </TogglableField>
 
           {/* Description field */}
           <TogglableField
-            label="Description"
-            enabled={enabled.description}
-            onToggle={() => toggleField('description')}
+            label={t('bulk.modal.description')}
+            enabled={enableDescription}
+            onToggle={() => setValue('enableDescription', !enableDescription)}
           >
             <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Enter description (leave empty to clear)"
+              {...register('description')}
+              placeholder={t('bulk.modal.descriptionPlaceholder')}
               rows={2}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             />
@@ -248,28 +263,33 @@ export function BulkUpdateModal({
 
           {/* Status field */}
           <TogglableField
-            label="Status"
-            enabled={enabled.status}
-            onToggle={() => toggleField('status')}
+            label={t('bulk.modal.status')}
+            enabled={enableStatus}
+            onToggle={() => setValue('enableStatus', !enableStatus)}
           >
             <Select
               options={statusOptions}
-              value={status}
-              onChange={e => setStatus(e.target.value as TransactionStatus)}
+              {...register('status')}
             />
           </TogglableField>
 
           {/* Tags field */}
           <TogglableField
-            label="Tags"
-            enabled={enabled.tags}
-            onToggle={() => toggleField('tags')}
+            label={t('bulk.modal.tags')}
+            enabled={enableTags}
+            onToggle={() => setValue('enableTags', !enableTags)}
           >
-            <MultiSelect
-              options={tagOptions}
-              value={selectedTagIds}
-              onChange={setSelectedTagIds}
-              placeholder="Select tags (leave empty to clear all)..."
+            <Controller
+              control={control}
+              name="tagIds"
+              render={({ field }) => (
+                <MultiSelect
+                  options={tagOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder={t('bulk.modal.tagsPlaceholder')}
+                />
+              )}
             />
           </TogglableField>
         </div>
@@ -279,12 +299,12 @@ export function BulkUpdateModal({
           <div className="mt-4 space-y-1">
             {showTransferNote && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Transfer transactions will have their linked counterpart updated as well.
+                {t('bulk.modal.notes.transfer')}
               </p>
             )}
             {showSplitNote && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Split transactions will be skipped for category changes.
+                {t('bulk.modal.notes.split')}
               </p>
             )}
           </div>
@@ -292,7 +312,7 @@ export function BulkUpdateModal({
 
         <FormActions
           onCancel={onClose}
-          submitLabel={`Update ${selectionCount} Transaction${selectionCount !== 1 ? 's' : ''}`}
+          submitLabel={t('bulk.modal.submitLabel', { count: selectionCount })}
           isSubmitting={isSubmitting}
           submitDisabled={!hasAnyEnabled}
         />

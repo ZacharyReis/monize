@@ -111,9 +111,9 @@ describe("Mortgage Amortization Utility", () => {
       expect(payment).toBe(400);
     });
 
-    it("rounds to 2 decimal places", () => {
+    it("rounds to 4 decimal places (storage precision)", () => {
       const payment = calculatePaymentAmount(100000, 0.004, 360);
-      const rounded = Math.round(payment * 100) / 100;
+      const rounded = Math.round(payment * 10000) / 10000;
       expect(payment).toBe(rounded);
     });
 

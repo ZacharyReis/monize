@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { optionalUuid, optionalString, optionalNumber } from './zod-helpers';
+import { optionalUuid, optionalString, optionalNumber, emailSchema } from './zod-helpers';
 
 describe('zod-helpers', () => {
   describe('optionalUuid', () => {
@@ -55,6 +55,20 @@ describe('zod-helpers', () => {
 
     it('accepts zero', () => {
       expect(optionalNumber.parse(0)).toBe(0);
+    });
+  });
+
+  describe('emailSchema', () => {
+    it('accepts a valid email', () => {
+      expect(emailSchema.parse('user@example.com')).toBe('user@example.com');
+    });
+
+    it('rejects an invalid email with a friendly message', () => {
+      const result = emailSchema.safeParse('not-an-email');
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe('Please enter a valid email address');
+      }
     });
   });
 });

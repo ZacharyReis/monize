@@ -9,6 +9,8 @@ import {
   toolError,
   safeToolError,
 } from "../mcp-context";
+import { getCategoriesOutput } from "../tool-output-schemas";
+import { READ_ONLY } from "../mcp-annotations";
 
 @Injectable()
 export class McpCategoriesTools {
@@ -16,10 +18,12 @@ export class McpCategoriesTools {
 
   register(server: McpServer, resolve: UserContextResolver) {
     server.registerTool(
-      "get_categories",
+      "list_categories",
       {
+        title: "List categories",
+        annotations: READ_ONLY,
         description:
-          "List the user's categories with their hierarchy (parent names) and transaction counts. Optionally filter by type or search by name. Returns the same shape as the AI Assistant's get_categories tool.",
+          "List the user's categories with their hierarchy (parent names) and transaction counts. Optionally filter by type or search by name. Returns the same shape as the AI Assistant's list_categories tool.",
         inputSchema: {
           type: z
             .enum(["expense", "income", "all"])
@@ -35,6 +39,7 @@ export class McpCategoriesTools {
               "Optional case-insensitive substring match on category name. Matched subcategories' parents are included so hierarchy stays visible.",
             ),
         },
+        outputSchema: getCategoriesOutput,
       },
       async (args, extra) => {
         const ctx = resolve(extra.sessionId);

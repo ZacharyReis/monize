@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Tags",
+    "subtitle": "Label your transactions with custom tags",
+    "newButton": "+ New Tag",
+    "summary": {
+      "totalTags": "Total Tags",
+      "tagsWithColour": "Tags with Colour",
+      "tagsWithIcon": "Tags with Icon"
+    },
+    "search": {
+      "placeholder": "Search tags..."
+    },
+    "loading": "Loading tags...",
+    "emptyState": {
+      "title": "No tags yet",
+      "body": "Tags help you label and filter your transactions. Create your first tag to get started.",
+      "createButton": "Create Your First Tag"
+    },
+    "modal": {
+      "newTitle": "New Tag",
+      "editTitle": "Edit Tag"
+    },
+    "totalCount": "{count, plural, one {# tag} other {# tags}}",
+    "delete": {
+      "title": "Delete Tag",
+      "withTransactionsMessage": "Are you sure you want to delete \"{name}\"? This tag is used on {count, plural, one {# transaction} other {# transactions}}. The tag will be removed from those transactions.",
+      "simpleMessage": "Are you sure you want to delete \"{name}\"? This action cannot be undone."
+    },
+    "toasts": {
+      "created": "Tag created successfully",
+      "updated": "Tag updated successfully",
+      "deleted": "Tag deleted successfully",
+      "loadFailed": "Failed to load tags",
+      "createFailed": "Failed to create tag",
+      "updateFailed": "Failed to update tag",
+      "deleteFailed": "Failed to delete tag"
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "No tags found",
+      "body": "No tags match your current search."
+    },
+    "density": {
+      "title": "Toggle row density",
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense"
+    },
+    "header": {
+      "name": "Name",
+      "icon": "Icon",
+      "transactions": "Transactions",
+      "actions": "Actions"
+    }
+  },
+  "form": {
+    "nameLabel": "Tag Name",
+    "colourLabel": "Colour",
+    "iconLabel": "Icon",
+    "noColour": "No colour",
+    "submitCreate": "Create Tag",
+    "submitUpdate": "Update Tag",
+    "colours": {
+      "red": "Red",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "green": "Green",
+      "teal": "Teal",
+      "blue": "Blue",
+      "purple": "Purple",
+      "pink": "Pink",
+      "grey": "Grey"
+    }
+  },
+  "validation": {
+    "nameRequired": "Tag name is required"
+  }
+}

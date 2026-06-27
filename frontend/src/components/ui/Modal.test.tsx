@@ -113,6 +113,38 @@ describe('Modal', () => {
     expect(dialog.className).toContain('p-6');
   });
 
+  describe('drawer-left variant', () => {
+    it('renders a full-height left sheet pinned to the left edge', () => {
+      render(<Modal isOpen={true} variant="drawer-left">Content</Modal>);
+      const dialog = screen.getByRole('dialog');
+      // Panel is a full-height sheet, not a centered rounded card.
+      expect(dialog.className).toContain('h-full');
+      expect(dialog.className).not.toContain('rounded-lg');
+      expect(dialog.className).not.toContain('max-w-lg');
+      // Backdrop pins the panel to the left.
+      const backdrop = dialog.parentElement!;
+      expect(backdrop.className).toContain('justify-start');
+      expect(backdrop.className).not.toContain('justify-center');
+    });
+
+    it('animates in from off-screen via the starting-style variant', () => {
+      render(<Modal isOpen={true} variant="drawer-left">Content</Modal>);
+      const dialog = screen.getByRole('dialog');
+      expect(dialog.className).toContain('transition-transform');
+      expect(dialog.className).toContain('translate-x-0');
+      expect(dialog.className).toContain('starting:-translate-x-full');
+    });
+
+    it('still closes on backdrop click in drawer mode', () => {
+      const onClose = vi.fn();
+      render(
+        <Modal isOpen={true} onClose={onClose} variant="drawer-left">Content</Modal>,
+      );
+      fireEvent.click(screen.getByRole('dialog').parentElement!);
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
   describe('body overflow ref counting', () => {
     it('keeps body hidden when stacked modal closes but parent remains open', () => {
       const { rerender } = render(

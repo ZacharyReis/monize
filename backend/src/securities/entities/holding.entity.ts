@@ -12,6 +12,15 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Account } from "../../accounts/entities/account.entity";
 import { Security } from "./security.entity";
 
+/**
+ * Holdings intentionally have no `user_id` column. Every other tenant table
+ * in this schema carries `user_id` and a `idx_*_user` index, but holdings
+ * are scoped exclusively via their owning account: deleting a user cascades
+ * through accounts -> holdings, and every query joins holdings to accounts
+ * (or `investment_transactions`) to filter by user. Adding a denormalized
+ * `user_id` would speed up nothing the current callers do and would
+ * introduce a second source of truth that has to be kept in sync.
+ */
 @Entity("holdings")
 @Unique(["accountId", "securityId"])
 export class Holding {

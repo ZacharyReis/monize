@@ -1,0 +1,58 @@
+{
+  "title": "Conciliar cuenta",
+  "subtitle": "Compara tus registros con el estado de cuenta bancario",
+  "subtitleActive": "Conciliando: {name}",
+  "setup": {
+    "title": "Iniciar conciliación",
+    "intro": "Concilia tu cuenta con un estado de cuenta bancario para asegurarte de que tus registros coincidan.",
+    "accountLabel": "Cuenta",
+    "accountPlaceholder": "Selecciona una cuenta...",
+    "statementDateLabel": "Fecha del estado de cuenta",
+    "statementBalanceLabel": "Saldo final del estado de cuenta",
+    "start": "Iniciar conciliación"
+  },
+  "summary": {
+    "statementBalance": "Saldo del estado de cuenta",
+    "reconciledBalance": "Saldo conciliado",
+    "selected": "Seleccionados ({count})",
+    "difference": "Diferencia"
+  },
+  "list": {
+    "heading": "Transacciones sin conciliar ({count})",
+    "selectAll": "Seleccionar todo",
+    "selectNone": "Deseleccionar todo",
+    "empty": "No se encontraron transacciones sin conciliar para este período.",
+    "colSelect": "Seleccionar",
+    "colDate": "Fecha",
+    "colPayee": "Beneficiario",
+    "colCategory": "Categoría",
+    "colAmount": "Cantidad",
+    "colStatus": "Estado",
+    "finish": "Finalizar conciliación"
+  },
+  "status": {
+    "cleared": "Compensada",
+    "unreconciled": "Sin conciliar",
+    "void": "Anulada",
+    "reconciled": "Conciliada"
+  },
+  "complete": {
+    "title": "Conciliación completada",
+    "message": "Tu cuenta ha sido conciliada correctamente a {date}.",
+    "existingPayment": "Esta cuenta tiene un pago planificado, <b>{name}</b>. ¿Deseas actualizar la próxima instancia al saldo conciliado de <b>{amount}</b>?",
+    "updatePayment": "Actualizar próximo pago",
+    "noPayment": "No se encontró ningún pago planificado para esta cuenta. ¿Deseas crear uno por el saldo conciliado de <b>{amount}</b>?",
+    "createPayment": "Crear pago planificado",
+    "backToAccounts": "Volver a cuentas",
+    "reconcileAnother": "Conciliar otra cuenta"
+  },
+  "toasts": {
+    "loadAccountsFailed": "Error al cargar las cuentas",
+    "fillAllFields": "Por favor, completa todos los campos",
+    "loadDataFailed": "Error al cargar los datos de conciliación",
+    "differenceRequired": "La diferencia debe ser {amount} para finalizar la conciliación",
+    "noneSelected": "No se seleccionaron transacciones para conciliar",
+    "success": "{count, plural, one {Se concilió correctamente # transacción} other {Se conciliaron correctamente # transacciones}}",
+    "reconcileFailed": "Error al conciliar las transacciones"
+  }
+}

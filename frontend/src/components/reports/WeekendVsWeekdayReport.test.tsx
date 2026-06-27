@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@/test/render';
+import { render, screen, waitFor, fireEvent, act, within } from '@/test/render';
 import { WeekendVsWeekdayReport } from './WeekendVsWeekdayReport';
 
 vi.mock('@/hooks/useNumberFormat', () => ({
@@ -32,10 +32,44 @@ vi.mock('recharts', () => ({
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
-  Tooltip: () => null,
+  // Render the custom tooltip content (when provided as a JSX element) with an
+  // active payload so the CustomTooltip branch is exercised during render. The
+  // bar-chart Tooltip uses a `formatter` prop instead of `content`, so that
+  // variant renders nothing.
+  Tooltip: ({ content }: any) => {
+    if (content && content.type) {
+      const C = content.type;
+      const props = content.props || {};
+      return (
+        <div data-testid="tooltip">
+          <C
+            {...props}
+            active={true}
+            label="Mon"
+            payload={[{ name: 'Total Spent', value: 300, color: '#3b82f6' }]}
+          />
+          <C {...props} active={false} payload={[]} />
+        </div>
+      );
+    }
+    return null;
+  },
   Legend: () => null,
   PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
   Pie: () => null,
+}));
+
+const mockExportToPdf = vi.fn();
+vi.mock('@/lib/pdf-export', () => ({
+  exportToPdf: (...args: any[]) => mockExportToPdf(...args),
+}));
+
+vi.mock('@/components/ui/ExportDropdown', () => ({
+  ExportDropdown: ({ onExportPdf }: any) => (
+    <button data-testid="export-pdf" onClick={onExportPdf}>
+      PDF
+    </button>
+  ),
 }));
 
 const mockGetWeekendVsWeekday = vi.fn();
@@ -176,11 +210,63 @@ describe('WeekendVsWeekdayReport', () => {
     });
   });
 
-  it('handles API error gracefully', async () => {
+  it('surfaces a retryable error state when the API fails', async () => {
     mockGetWeekendVsWeekday.mockRejectedValue(new Error('Network error'));
     render(<WeekendVsWeekdayReport />);
     await waitFor(() => {
-      expect(screen.getByText('No expense transactions found for this period.')).toBeInTheDocument();
+      expect(screen.getByText(/failed to load report data/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it('renders the custom tooltip content in the By Day view', async () => {
+    mockGetWeekendVsWeekday.mockResolvedValue({
+      summary: { weekendTotal: 500, weekdayTotal: 1500, weekendCount: 10, weekdayCount: 30 },
+      byDay: [
+        { dayOfWeek: 1, total: 300, count: 7 },
+        { dayOfWeek: 6, total: 200, count: 5 },
+      ],
+      byCategory: [],
+    });
+    render(<WeekendVsWeekdayReport />);
+    await waitFor(() => {
+      expect(screen.getByText('By Day')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('By Day'));
+    await waitFor(() => {
+      expect(screen.getByTestId('tooltip')).toBeInTheDocument();
+    });
+    // CustomTooltip renders the label and the formatted payload entry. The day
+    // label "Mon" also appears in the grid below the chart, so scope the
+    // assertion to the tooltip element itself.
+    const tooltip = screen.getByTestId('tooltip');
+    expect(within(tooltip).getByText('Mon')).toBeInTheDocument();
+    expect(within(tooltip).getByText(/Total Spent: \$300\.00/)).toBeInTheDocument();
+  });
+
+  it('exports a PDF when the export button is clicked', async () => {
+    mockGetWeekendVsWeekday.mockResolvedValue({
+      summary: { weekendTotal: 1000, weekdayTotal: 500, weekendCount: 5, weekdayCount: 25 },
+      byDay: [],
+      byCategory: [],
+    });
+    render(<WeekendVsWeekdayReport />);
+    await waitFor(() => {
+      expect(screen.getByTestId('export-pdf')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('export-pdf'));
+    });
+    await waitFor(() => {
+      expect(mockExportToPdf).toHaveBeenCalledTimes(1);
+    });
+    expect(mockExportToPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Weekend vs Weekday Spending',
+        filename: 'weekend-vs-weekday',
+        summaryCards: expect.any(Array),
+        chartLegend: expect.any(Array),
+      }),
+    );
   });
 });

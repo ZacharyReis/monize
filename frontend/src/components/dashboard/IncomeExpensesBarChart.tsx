@@ -1,7 +1,10 @@
 'use client';
 
 import { useMemo, useRef } from 'react';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   BarChart,
   Bar,
@@ -13,6 +16,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format, startOfWeek, endOfWeek, eachWeekOfInterval, subWeeks } from 'date-fns';
+import { chartColors } from '@/lib/chart-colors';
 import { Transaction } from '@/types/transaction';
 import { parseLocalDate } from '@/lib/utils';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -25,17 +29,19 @@ function IncomeExpensesTooltip({
   payload,
   label,
   formatCurrency,
+  weekOfLabel,
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
   formatCurrency: (v: number) => string;
+  weekOfLabel: (date: string) => string;
 }) {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
         <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-          Week of {label}
+          {weekOfLabel(label ?? '')}
         </p>
         {payload.map((entry, index) => (
           <p
@@ -61,6 +67,7 @@ export function IncomeExpensesBarChart({
   transactions,
   isLoading,
 }: IncomeExpensesBarChartProps) {
+  const t = useTranslations('dashboard');
   const router = useRouter();
   const { formatDate } = useDateFormat();
   const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis } = useNumberFormat();
@@ -178,10 +185,10 @@ export function IncomeExpensesBarChart({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:min-h-[540px]">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Income vs Expenses
+          {t('incomeExpenses.title')}
         </h3>
         <div className="h-64 flex items-center justify-center">
-          <div className="animate-pulse w-full h-full bg-gray-200 dark:bg-gray-700 rounded" />
+          <Skeleton className="w-full h-full" />
         </div>
       </div>
     );
@@ -191,11 +198,11 @@ export function IncomeExpensesBarChart({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:min-h-[540px] flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Income vs Expenses
+          {t('incomeExpenses.title')}
         </h3>
-        <span className="text-sm text-gray-500 dark:text-gray-400">Last 5 weeks</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{t('incomeExpenses.last5Weeks')}</span>
       </div>
-      <div className="h-64">
+      <div className="flex-1 min-h-[16rem]">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart
             data={chartData}
@@ -204,24 +211,20 @@ export function IncomeExpensesBarChart({
             onClick={handleChartClick}
             style={{ cursor: 'pointer' }}
           >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#e5e7eb"
-              className="dark:stroke-gray-700"
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
             <XAxis
               dataKey="name"
-              tick={{ fill: '#6b7280', fontSize: 12 }}
+              tick={{ fill: chartColors.axis, fontSize: 12 }}
               tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
+              axisLine={{ stroke: chartColors.grid }}
             />
             <YAxis
-              tick={{ fill: '#6b7280', fontSize: 12 }}
+              tick={{ fill: chartColors.axis, fontSize: 12 }}
               tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
+              axisLine={{ stroke: chartColors.grid }}
               tickFormatter={formatCurrencyAxis}
             />
-            <Tooltip content={<IncomeExpensesTooltip formatCurrency={formatCurrency} />} />
+            <Tooltip content={<IncomeExpensesTooltip formatCurrency={formatCurrency} weekOfLabel={(date) => t('incomeExpenses.weekOf', { date })} />} />
             <Legend
               wrapperStyle={{ paddingTop: '1rem' }}
               formatter={(value) => (
@@ -230,7 +233,7 @@ export function IncomeExpensesBarChart({
             />
             <Bar
               dataKey="Income"
-              fill="#22c55e"
+              fill={chartColors.income}
               radius={[4, 4, 0, 0]}
               maxBarSize={40}
               cursor="pointer"
@@ -238,7 +241,7 @@ export function IncomeExpensesBarChart({
             />
             <Bar
               dataKey="Expenses"
-              fill="#ef4444"
+              fill={chartColors.expense}
               radius={[4, 4, 0, 0]}
               maxBarSize={40}
               cursor="pointer"
@@ -247,27 +250,23 @@ export function IncomeExpensesBarChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-3 gap-4 text-center">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-3 gap-4 text-center">
         <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Income</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('incomeExpenses.income')}</div>
           <div className="font-semibold text-green-600 dark:text-green-400">
             {formatCurrency(totals.income)}
           </div>
         </div>
         <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Expenses</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('incomeExpenses.expenses')}</div>
           <div className="font-semibold text-red-600 dark:text-red-400">
             {formatCurrency(totals.expenses)}
           </div>
         </div>
         <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Net</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('incomeExpenses.net')}</div>
           <div
-            className={`font-semibold ${
-              totals.income - totals.expenses >= 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
-            }`}
+            className={`font-semibold ${gainLossColor(totals.income - totals.expenses)}`}
           >
             {formatCurrency(totals.income - totals.expenses)}
           </div>

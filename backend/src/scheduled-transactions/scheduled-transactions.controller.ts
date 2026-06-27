@@ -41,6 +41,7 @@ import {
 } from "../delegation/decorators/delegate-access.decorator";
 import { DelegateScheduledTransferMaskInterceptor } from "../delegation/interceptors/delegate-scheduled-transfer-mask.interceptor";
 import { DelegationService } from "../delegation/delegation.service";
+import { tr } from "../i18n/translate";
 
 @ApiTags("Scheduled Transactions")
 @Controller("scheduled-transactions")
@@ -310,7 +311,12 @@ export class ScheduledTransactionsController {
     @Param("date") date: string,
   ) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      throw new BadRequestException("date must be in YYYY-MM-DD format");
+      throw new BadRequestException(
+        tr(
+          "errors.scheduled.dateMustBeYMD",
+          "date must be in YYYY-MM-DD format",
+        ),
+      );
     }
     return this.scheduledTransactionsService.findOverrideByDate(
       req.user.id,

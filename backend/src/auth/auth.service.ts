@@ -15,6 +15,7 @@ import * as crypto from "crypto";
 
 import { User } from "../users/entities/user.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
+import { buildDefaultPreferences } from "../users/user-preference.factory";
 import { TrustedDevice } from "../users/entities/trusted-device.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
 import { RegisterDto } from "./dto/register.dto";
@@ -30,6 +31,11 @@ import { TokenService } from "./token.service";
 import { TwoFactorService } from "./two-factor.service";
 import { AuthEmailService } from "./auth-email.service";
 import { DelegationService } from "../delegation/delegation.service";
+import { tr } from "../i18n/translate";
+import { currentRequestLocale } from "../i18n/request-locale";
+import { I18nService } from "nestjs-i18n";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 
 @Injectable()
 export class AuthService {
@@ -58,6 +64,7 @@ export class AuthService {
     private twoFactorService: TwoFactorService,
     private authEmailService: AuthEmailService,
     private delegationService: DelegationService,
+    private readonly i18n: I18nService,
   ) {
     this.jwtSecret = this.configService.get<string>("JWT_SECRET")!;
     this.csrfKey = derivePurposeKey(this.jwtSecret, "csrf-token");
@@ -102,7 +109,12 @@ export class AuthService {
         (await this.delegationService.isDelegateUser(existingUser.id)) &&
         !(await this.delegationService.isFullAccount(existingUser.id));
       if (!isPureDelegate) {
-        throw new ConflictException("Unable to complete registration");
+        throw new ConflictException(
+          tr(
+            "errors.auth.unableToCompleteRegistration",
+            "Unable to complete registration",
+          ),
+        );
       }
 
       if (existingUser.passwordHash) {
@@ -124,9 +136,12 @@ export class AuthService {
         }
         if (!claimOk) {
           throw new UnauthorizedException(
-            "An account with this email already exists as a shared user. " +
-              "Provide the temporary password your administrator gave you " +
-              "to claim it.",
+            tr(
+              "errors.auth.delegateClaimPasswordRequired",
+              "An account with this email already exists as a shared user. " +
+                "Provide the temporary password your administrator gave you " +
+                "to claim it.",
+            ),
           );
         }
       }
@@ -134,7 +149,10 @@ export class AuthService {
       const breached = await this.passwordBreachService.isBreached(password);
       if (breached) {
         throw new BadRequestException(
-          "This password has been found in a data breach. Please choose a different password.",
+          tr(
+            "errors.auth.passwordBreached",
+            "This password has been found in a data breach. Please choose a different password.",
+          ),
         );
       }
 
@@ -146,6 +164,10 @@ export class AuthService {
       existingUser.resetTokenExpiry = null;
       existingUser.failedLoginAttempts = 0;
       existingUser.lockedUntil = null;
+      // The row being claimed was provisioned by an account owner who invited
+      // this email as a delegate, so the address is already trusted -- the
+      // claimant can sign in immediately without an email-verification step.
+      existingUser.emailVerified = true;
       // Promote out of the owner-managed delegate state -- the user is
       // claiming the row as their own account from here on, so they
       // should show up in admin User Management and see a "self"
@@ -167,7 +189,10 @@ export class AuthService {
     const isBreached = await this.passwordBreachService.isBreached(password);
     if (isBreached) {
       throw new BadRequestException(
-        "This password has been found in a data breach. Please choose a different password.",
+        tr(
+          "errors.auth.passwordBreached",
+          "This password has been found in a data breach. Please choose a different password.",
+        ),
       );
     }
 
@@ -175,22 +200,67 @@ export class AuthService {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
+    // Capture the browser-detected UI language (resolved by the proxy and
+    // forwarded as x-locale) so it is persisted at account creation and the
+    // user keeps it on subsequent logins instead of reverting to English.
+    const language = currentRequestLocale();
+
+    // Email verification is required only for brand-new self-service
+    // registrations, and only when SMTP is configured (without it we cannot
+    // deliver the link). The very first user bootstraps the instance and
+    // becomes admin, so they are auto-verified -- otherwise a misconfigured
+    // SMTP setup could lock the operator out of their own deployment.
+    const smtpConfigured = this.emailService.getStatus().configured;
+
+    // Raw token is kept in memory only long enough to build the email link;
+    // only its hash is persisted (same pattern as password-reset tokens).
+    let rawVerificationToken: string | null = null;
+
     // C9: Use serializable transaction to prevent race condition on first-user admin
-    const user = await this.dataSource.transaction(
+    const { user, requireVerification } = await this.dataSource.transaction(
       "SERIALIZABLE",
       async (manager) => {
         const userCount = await manager.count(User);
+        const isFirstUser = userCount === 0;
+        const needsVerification = smtpConfigured && !isFirstUser;
+
+        let emailVerificationToken: string | null = null;
+        let emailVerificationTokenExpiry: Date | null = null;
+        if (needsVerification) {
+          rawVerificationToken = crypto.randomBytes(32).toString("hex");
+          emailVerificationToken = hashToken(rawVerificationToken);
+          emailVerificationTokenExpiry = new Date(
+            Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+          );
+        }
+
         const newUser = manager.create(User, {
           email: normalizedEmail,
           passwordHash,
           firstName,
           lastName,
           authProvider: "local",
-          role: userCount === 0 ? "admin" : "user",
+          role: isFirstUser ? "admin" : "user",
+          emailVerified: !needsVerification,
+          emailVerificationToken,
+          emailVerificationTokenExpiry,
         });
-        return manager.save(newUser);
+        const savedUser = await manager.save(newUser);
+        await manager.save(buildDefaultPreferences(savedUser.id, language));
+        return { user: savedUser, requireVerification: needsVerification };
       },
     );
+
+    if (requireVerification) {
+      // Account exists but cannot sign in until the email is verified, so we
+      // deliberately do NOT issue tokens here. Hand the raw token back to the
+      // controller, which owns email delivery (mirroring forgot-password).
+      return {
+        verificationRequired: true,
+        user: this.sanitizeUser(user),
+        verificationToken: rawVerificationToken!,
+      };
+    }
 
     const { accessToken, refreshToken } =
       await this.tokenService.generateTokenPair(user);
@@ -216,14 +286,19 @@ export class AuthService {
 
     if (!user || !user.passwordHash) {
       this.logger.warn("Login failed: no matching account");
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidCredentials", "Invalid credentials"),
+      );
     }
 
     // Check account lockout
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       this.logger.warn(`Login failed: account locked for user ${user.id}`);
       throw new ForbiddenException(
-        "Account is temporarily locked due to too many failed login attempts. Please try again later.",
+        tr(
+          "errors.auth.accountTemporarilyLocked",
+          "Account is temporarily locked due to too many failed login attempts. Please try again later.",
+        ),
       );
     }
 
@@ -248,11 +323,13 @@ export class AuthService {
         );
         // Fire-and-forget lockout email
         if (user.email) {
+          const lang = DEFAULT_LOCALE;
+          const t = emailTranslator(this.i18n, lang);
           this.emailService
             .sendMail(
               user.email,
-              "Account Temporarily Locked",
-              accountLockedTemplate(user.firstName || ""),
+              t("emails.accountLocked.subject", "Account Temporarily Locked"),
+              accountLockedTemplate(user.firstName || "", t),
             )
             .catch((err) =>
               this.logger.warn(`Failed to send lockout email: ${err.message}`),
@@ -265,12 +342,16 @@ export class AuthService {
         .set(updateFields)
         .where("id = :id", { id: user.id })
         .execute();
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidCredentials", "Invalid credentials"),
+      );
     }
 
     if (!user.isActive) {
       this.logger.warn(`Login failed: account deactivated for user ${user.id}`);
-      throw new UnauthorizedException("Account is deactivated");
+      throw new UnauthorizedException(
+        tr("errors.auth.accountDeactivated", "Account is deactivated"),
+      );
     }
 
     // Reset failed attempts on successful login
@@ -281,6 +362,16 @@ export class AuthService {
         .set({ failedLoginAttempts: 0, lockedUntil: null })
         .where("id = :id", { id: user.id })
         .execute();
+    }
+
+    // Hard email-verification gate: a local account that self-registered while
+    // SMTP was enabled must confirm its email before it can sign in. The
+    // password is already proven correct at this point, so surfacing the
+    // unverified state is not an enumeration risk. Reported like requires2FA
+    // (HTTP 200, no tokens) so the client can offer to resend the link.
+    if (!user.emailVerified) {
+      this.logger.warn(`Login blocked: email not verified for user ${user.id}`);
+      return { emailNotVerified: true };
     }
 
     // Check if 2FA is enabled
@@ -348,9 +439,21 @@ export class AuthService {
     const rawEmail = userInfo.email as string | undefined;
     // H7: Normalize email before lookups
     const email = rawEmail?.toLowerCase().trim();
-    // SECURITY: Only trust email if verified by the OIDC provider
+    // SECURITY: Only trust the IdP email if it is verified.
+    // OIDC_REQUIRE_VERIFIED_EMAIL (default true) gates this. Set it to "false"
+    // to drop the requirement: Monize then trusts the IdP-provided email even
+    // without an `email_verified` claim and merges directly into an existing
+    // account matching that email -- including a local password account,
+    // skipping the email-confirmation step (so it works without SMTP). This
+    // lowers security; only disable it when you trust your IdP to verify email
+    // ownership.
     const emailVerified = userInfo.email_verified === true;
-    const trustedEmail = emailVerified ? email : undefined;
+    const requireVerifiedEmail =
+      this.configService
+        .get<string>("OIDC_REQUIRE_VERIFIED_EMAIL")
+        ?.toLowerCase() !== "false";
+    const trustedEmail =
+      emailVerified || !requireVerifiedEmail ? email : undefined;
 
     // Handle name claims - try specific claims first, fall back to 'name'
     const fullName = userInfo.name as string | undefined;
@@ -366,7 +469,10 @@ export class AuthService {
 
     if (!sub) {
       throw new UnauthorizedException(
-        "OIDC provider did not return a subject identifier",
+        tr(
+          "errors.auth.oidcNoSubject",
+          "OIDC provider did not return a subject identifier",
+        ),
       );
     }
 
@@ -383,8 +489,8 @@ export class AuthService {
         });
 
         if (existingUser) {
-          if (existingUser.passwordHash) {
-            // SECURITY: Local account requires user confirmation before linking.
+          if (existingUser.passwordHash && requireVerifiedEmail) {
+            // SECURITY: Local account requires user confirmation before merging.
             const linkToken = await this.initiateOidcLink(existingUser, sub);
             this.logger.warn(
               `OIDC link pending confirmation for user ${existingUser.id}`,
@@ -392,7 +498,8 @@ export class AuthService {
             await this.sendOidcLinkEmail(existingUser, linkToken);
             return { user: existingUser, linkPending: true };
           } else {
-            // OIDC-only account -- safe to link directly
+            // OIDC-only account, or OIDC_REQUIRE_VERIFIED_EMAIL=false bypasses
+            // the confirmation step -- merge the OIDC identity in directly.
             existingUser.oidcSubject = sub;
             existingUser.authProvider = "oidc";
             await this.usersRepository.save(existingUser);
@@ -403,8 +510,18 @@ export class AuthService {
 
       if (!user) {
         if (!registrationEnabled) {
-          throw new ForbiddenException("New account registration is disabled.");
+          throw new ForbiddenException(
+            tr(
+              "errors.auth.registrationDisabled",
+              "New account registration is disabled.",
+            ),
+          );
         }
+        // Persist the browser-detected UI language at account creation (same
+        // rationale as local registration) so SSO users also keep their
+        // language across logins.
+        const language = currentRequestLocale();
+
         // C9: Use serializable transaction for first-user admin race prevention
         try {
           user = await this.dataSource.transaction(
@@ -418,9 +535,16 @@ export class AuthService {
                 oidcSubject: sub,
                 authProvider: "oidc",
                 role: userCount === 0 ? "admin" : "user",
+                // OIDC identities are verified by the provider and never use
+                // the local-login gate; create them already verified.
+                emailVerified: true,
               };
               const newUser = manager.create(User, userData);
-              return manager.save(newUser);
+              const savedUser = await manager.save(newUser);
+              await manager.save(
+                buildDefaultPreferences(savedUser.id, language),
+              );
+              return savedUser;
             },
           );
         } catch (err: any) {
@@ -430,7 +554,7 @@ export class AuthService {
               where: { email: trustedEmail },
             });
             if (existingUser) {
-              if (existingUser.passwordHash) {
+              if (existingUser.passwordHash && requireVerifiedEmail) {
                 // SECURITY: Local account requires confirmation
                 const linkToken = await this.initiateOidcLink(
                   existingUser,
@@ -442,7 +566,8 @@ export class AuthService {
                 await this.sendOidcLinkEmail(existingUser, linkToken);
                 return { user: existingUser, linkPending: true };
               } else {
-                // OIDC-only account -- safe to link directly
+                // OIDC-only account, or OIDC_REQUIRE_VERIFIED_EMAIL=false --
+                // merge directly
                 existingUser.oidcSubject = sub;
                 existingUser.authProvider = "oidc";
                 await this.usersRepository.save(existingUser);
@@ -572,10 +697,12 @@ export class AuthService {
         this.configService.get<string>("PUBLIC_APP_URL") ||
         "http://localhost:3000";
       const confirmUrl = `${frontendUrl}/api/v1/auth/oidc/confirm-link?token=${linkToken}`;
-      const html = oidcLinkTemplate(user.firstName || "", confirmUrl);
+      const lang = DEFAULT_LOCALE;
+      const t = emailTranslator(this.i18n, lang);
+      const html = oidcLinkTemplate(user.firstName || "", confirmUrl, t);
       await this.emailService.sendMail(
         user.email,
-        "Monize: Confirm SSO Account Link",
+        t("emails.oidcLink.subject", "Monize: Confirm SSO Account Link"),
         html,
       );
     } catch (err) {
@@ -593,7 +720,12 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException("Invalid or expired link token");
+      throw new BadRequestException(
+        tr(
+          "errors.auth.invalidOrExpiredLinkToken",
+          "Invalid or expired link token",
+        ),
+      );
     }
 
     if (user.oidcLinkExpiresAt && user.oidcLinkExpiresAt < new Date()) {
@@ -603,7 +735,9 @@ export class AuthService {
       user.oidcLinkExpiresAt = null;
       user.pendingOidcSubject = null;
       await this.usersRepository.save(user);
-      throw new BadRequestException("Link token has expired");
+      throw new BadRequestException(
+        tr("errors.auth.linkTokenExpired", "Link token has expired"),
+      );
     }
 
     // Complete the link
@@ -632,6 +766,8 @@ export class AuthService {
       oidcLinkToken,
       oidcLinkExpiresAt,
       pendingOidcSubject,
+      emailVerificationToken,
+      emailVerificationTokenExpiry,
       ...sanitized
     } = user;
     return { ...sanitized, hasPassword: !!passwordHash };
@@ -745,5 +881,17 @@ export class AuthService {
 
   checkForgotPasswordEmailLimit(email: string) {
     return this.authEmailService.checkForgotPasswordEmailLimit(email);
+  }
+
+  async generateVerificationToken(email: string) {
+    return this.authEmailService.generateVerificationToken(email);
+  }
+
+  async verifyEmail(token: string) {
+    return this.authEmailService.verifyEmail(token);
+  }
+
+  checkVerificationEmailLimit(email: string) {
+    return this.authEmailService.checkVerificationEmailLimit(email);
   }
 }

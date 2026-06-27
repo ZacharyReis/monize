@@ -15,6 +15,8 @@ import { SecurityPrice } from "../securities/entities/security-price.entity";
 import { Security } from "../securities/entities/security.entity";
 import { ExchangeRate } from "../currencies/entities/exchange-rate.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
+import { convertWithRateLookup } from "../common/currency-conversion.util";
+import { formatDateYMDLocal } from "../common/date-utils";
 
 const LIABILITY_TYPES: AccountType[] = [
   AccountType.CREDIT_CARD,
@@ -139,7 +141,7 @@ export class NetWorthService {
     if (accounts.length === 0) return;
 
     const populated = await this.mabRepo.find({
-      where: { userId, month: currentMonthStr as any },
+      where: { userId, month: currentMonthStr },
       select: ["accountId"],
     });
     const populatedIds = new Set(populated.map((p) => p.accountId));
@@ -200,9 +202,9 @@ export class NetWorthService {
 
   /**
    * Monthly net worth history shaped for LLM tools. Shared by the AI
-   * Assistant's `get_net_worth_history` tool and the MCP server's matching
-   * tool so both surfaces return the same data with the same default range
-   * (last 12 months if no dates provided).
+   * Assistant and MCP `generate_report` tools (type `net_worth_history`) so
+   * both surfaces return the same data with the same default range (last 12
+   * months if no dates provided).
    */
   async getLlmHistory(
     userId: string,
@@ -323,6 +325,37 @@ export class NetWorthService {
       }));
   }
 
+  /**
+   * Latest-month net worth only. The account summary and the
+   * `get_account_balances` tool need just the most recent month's
+   * assets/liabilities/netWorth, not the whole series. Bounding the snapshot
+   * query and rate index to a single month avoids replaying the entire
+   * monthly_account_balances history just to read the last element. Returns
+   * null when the user has no populated snapshots.
+   */
+  async getLatestNetWorth(
+    userId: string,
+  ): Promise<{ assets: number; liabilities: number; netWorth: number } | null> {
+    await this.ensurePopulated(userId);
+
+    const latestRows: { month: string | Date }[] = await this.dataSource.query(
+      `SELECT MAX(month) AS month FROM monthly_account_balances WHERE user_id = $1`,
+      [userId],
+    );
+    const latestMonth = latestRows[0]?.month;
+    if (!latestMonth) return null;
+
+    const monthStr = this.toDateString(latestMonth);
+    const months = await this.getMonthlyNetWorth(userId, monthStr, monthStr);
+    const latest = months[months.length - 1];
+    if (!latest) return null;
+    return {
+      assets: latest.assets,
+      liabilities: latest.liabilities,
+      netWorth: latest.netWorth,
+    };
+  }
+
   async getMonthlyInvestments(
     userId: string,
     startDate?: string,
@@ -342,18 +375,23 @@ export class NetWorthService {
     const params: any[] = [userId, start, end];
 
     if (accountIds && accountIds.length > 0) {
-      // Resolve linked pairs for each account ID
-      const resolvedIds = new Set<string>();
-      for (const id of accountIds) {
-        const accounts: any[] = await this.dataSource.query(
-          `SELECT id, linked_account_id FROM accounts WHERE (id = $1 OR linked_account_id = $1 OR id = (SELECT linked_account_id FROM accounts WHERE id = $1)) AND user_id = $2`,
-          [id, userId],
-        );
-        for (const a of accounts) {
-          resolvedIds.add(a.id);
-        }
-      }
-      const idArray = [...resolvedIds];
+      // Resolve the requested accounts plus their linked pairs in one query
+      // (an account, anything linked to it, and the account it links to)
+      // instead of one round-trip per id.
+      const resolved: { id: string }[] = await this.dataSource.query(
+        `SELECT id FROM accounts
+         WHERE user_id = $2
+           AND (
+             id = ANY($1)
+             OR linked_account_id = ANY($1)
+             OR id IN (
+               SELECT linked_account_id FROM accounts
+               WHERE id = ANY($1) AND user_id = $2
+             )
+           )`,
+        [accountIds, userId],
+      );
+      const idArray = [...new Set(resolved.map((a) => a.id))];
       if (idArray.length === 0) {
         // No matching accounts found — return empty result
         return [];
@@ -603,17 +641,22 @@ export class NetWorthService {
     const acctParams: any[] = [userId];
 
     if (accountIds && accountIds.length > 0) {
-      const resolvedIds = new Set<string>();
-      for (const id of accountIds) {
-        const accounts: any[] = await this.dataSource.query(
-          `SELECT id, linked_account_id FROM accounts WHERE (id = $1 OR linked_account_id = $1 OR id = (SELECT linked_account_id FROM accounts WHERE id = $1)) AND user_id = $2`,
-          [id, userId],
-        );
-        for (const a of accounts) {
-          resolvedIds.add(a.id);
-        }
-      }
-      const idArray = [...resolvedIds];
+      // Resolve the requested accounts plus their linked pairs in one query
+      // instead of one round-trip per id.
+      const resolved: { id: string }[] = await this.dataSource.query(
+        `SELECT id FROM accounts
+         WHERE user_id = $2
+           AND (
+             id = ANY($1)
+             OR linked_account_id = ANY($1)
+             OR id IN (
+               SELECT linked_account_id FROM accounts
+               WHERE id = ANY($1) AND user_id = $2
+             )
+           )`,
+        [accountIds, userId],
+      );
+      const idArray = [...new Set(resolved.map((a) => a.id))];
       if (idArray.length === 0) return [];
       const placeholders = idArray.map((_, i) => `$${i + 2}`).join(", ");
       accountFilter = `AND a.id IN (${placeholders})`;
@@ -1091,8 +1134,7 @@ export class NetWorthService {
     }
 
     // Load investment transactions for holdings replay (exclude future-dated)
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = formatDateYMDLocal(new Date());
     const invTxs = await this.invTxRepo.find({
       where: {
         accountId: account.id,
@@ -1380,21 +1422,14 @@ export class NetWorthService {
     monthEnd: string,
     rateIndex: RateIndex,
   ): number {
-    if (from === to) return amount;
-
-    const directRates = rateIndex.get(`${from}->${to}`);
-    if (directRates) {
-      const rate = this.findBestRate(directRates, monthEnd);
-      if (rate != null) return amount * rate;
-    }
-
-    const reverseRates = rateIndex.get(`${to}->${from}`);
-    if (reverseRates) {
-      const rate = this.findBestRate(reverseRates, monthEnd);
-      if (rate != null) return amount / rate;
-    }
-
-    return amount;
+    // Date-aware rate lookup: resolve the best rate on or before monthEnd from
+    // the historical index. The direct/inverse decision lives in the shared
+    // convertWithRateLookup helper so reports and net worth stay consistent.
+    const result = convertWithRateLookup(amount, from, to, (f, t) => {
+      const rates = rateIndex.get(`${f}->${t}`);
+      return rates ? this.findBestRate(rates, monthEnd) : undefined;
+    });
+    return result ?? amount;
   }
 
   private findBestRate(

@@ -1,0 +1,136 @@
+{
+  "page": {
+    "welcomePrefix": "Welcome",
+    "welcomeWithName": "Welcome, {name}!",
+    "subtitle": "Here's your financial overview"
+  },
+  "favouriteAccounts": {
+    "title": "Favourite Accounts",
+    "empty": "No favourite accounts yet. Mark accounts as favourites to see them here.",
+    "reorder": "Reorder",
+    "done": "Done",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "marketValue": "Market value",
+    "due": "Due: {ordinal}",
+    "dueTooltip": "The day of each month when your credit card payment is due",
+    "settlement": "Settlement: {ordinal}",
+    "settlementTooltip": "The last day of the billing cycle. Transactions posted on or before this day appear on the current statement."
+  },
+  "upcomingBills": {
+    "title": "Upcoming Bills & Deposits",
+    "empty": "No overdue or upcoming bills, deposits, or transfers within their reminder windows.",
+    "perReminderSettings": "Per reminder settings",
+    "postTransaction": "Post this transaction",
+    "manual": "Manual",
+    "manualTitle": "Requires manual posting",
+    "negativeBalanceWarning": "This transaction will cause the account balance to go below zero",
+    "viewAll": "View all bills & deposits",
+    "totalDue": "Total due",
+    "totalIncoming": "Total incoming",
+    "moreItems": "+{count} more",
+    "overdue": "Overdue",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "daysUntil": "{count} days",
+    "typeBadge": {
+      "bill": "Bill",
+      "deposit": "Deposit",
+      "transfer": "Transfer"
+    }
+  },
+  "gettingStarted": {
+    "title": "Getting Started",
+    "subtitle": "Set up your account in a few quick steps",
+    "dismiss": "Dismiss",
+    "steps": {
+      "settings": {
+        "title": "Review your settings",
+        "description": "Set your currency, date format, and theme"
+      },
+      "categories": {
+        "title": "Set up categories",
+        "description": "Create categories or import a default set"
+      },
+      "account": {
+        "title": "Add your first account",
+        "description": "Create a bank account to start tracking"
+      },
+      "import": {
+        "title": "Import from QIF",
+        "description": "Import accounts and transactions from QIF files"
+      }
+    }
+  },
+  "budgetStatus": {
+    "title": "Budget Status",
+    "noBudget": "No active budget found. Create a budget to track your spending.",
+    "createBudget": "Create Budget",
+    "viewFullBudget": "View full budget",
+    "daysLeft": "{count} days left",
+    "safeToSpend": "Safe to spend today",
+    "topCategories": "Top Categories"
+  },
+  "insights": {
+    "title": "Spending Insights",
+    "empty": "No insights available. Visit the Insights page to generate your first analysis.",
+    "goToInsights": "Go to Insights",
+    "viewAll": "View all insights",
+    "activeCount": "{count} active"
+  },
+  "topMovers": {
+    "title": "Top Movers",
+    "empty": {
+      "noInvestments": "Add investment accounts to track daily movers.",
+      "noPrices": "No price changes available yet.",
+      "noGainers": "No gainers today.",
+      "noLosers": "No losers today."
+    },
+    "dailyChange": "Daily change",
+    "refreshPrices": "Refresh prices",
+    "viewPortfolio": "View portfolio",
+    "filter": {
+      "all": "All",
+      "gainers": "Gainers",
+      "losers": "Losers"
+    }
+  },
+  "favouriteSecurities": {
+    "title": "Favourite Securities",
+    "empty": "No favourite securities yet. Visit the <securitiesLink>Securities page</securitiesLink> and star the securities you want to track here.",
+    "noPriceYet": "No price yet",
+    "dailyChange": "Daily change",
+    "refreshPrices": "Refresh prices",
+    "manage": "Manage securities"
+  },
+  "netWorth": {
+    "title": "Net Worth",
+    "empty": "No net worth data available yet.",
+    "past12Months": "Past 12 months",
+    "viewReport": "View full report"
+  },
+  "assetsVsLiabilities": {
+    "title": "Assets vs Liabilities",
+    "empty": "No net worth data available yet.",
+    "current": "Current",
+    "netWorthLabel": "Net Worth",
+    "assets": "Assets",
+    "liabilities": "Liabilities"
+  },
+  "expensesPieChart": {
+    "title": "Expenses by Category",
+    "empty": "No expense data for this period.",
+    "past30Days": "Past 30 days",
+    "total": "Total",
+    "uncategorized": "Uncategorized",
+    "other": "Other"
+  },
+  "incomeExpenses": {
+    "title": "Income vs Expenses",
+    "last5Weeks": "Last 5 weeks",
+    "weekOf": "Week of {date}",
+    "income": "Income",
+    "expenses": "Expenses",
+    "net": "Net"
+  }
+}

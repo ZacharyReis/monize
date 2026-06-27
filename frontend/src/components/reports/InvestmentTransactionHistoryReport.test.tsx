@@ -34,6 +34,7 @@ vi.mock('@/hooks/useDateRange', () => ({
 
 vi.mock('@/lib/utils', () => ({
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
+  cn: (...inputs: any[]) => inputs.flat(Infinity).filter(Boolean).join(' '),
 }));
 
 vi.mock('@/components/ui/DateRangeSelector', () => ({
@@ -203,6 +204,55 @@ describe('InvestmentTransactionHistoryReport', () => {
     });
     expect(screen.getByText('All Actions')).toBeInTheDocument();
     expect(screen.getByTestId('date-range-selector')).toBeInTheDocument();
+  });
+
+  it('filters transactions by action client-side without re-fetching', async () => {
+    mockGetTransactions.mockResolvedValue({
+      data: [
+        {
+          id: 'tx-1',
+          transactionDate: '2025-06-15',
+          action: 'BUY',
+          totalAmount: 5000,
+          quantity: 50,
+          price: 100,
+          accountId: 'acc-1',
+          security: { symbol: 'AAPL', name: 'Apple Inc.' },
+        },
+        {
+          id: 'tx-2',
+          transactionDate: '2025-08-20',
+          action: 'SELL',
+          totalAmount: -3000,
+          quantity: -30,
+          price: 100,
+          accountId: 'acc-1',
+          security: { symbol: 'MSFT', name: 'Microsoft Corp.' },
+        },
+      ],
+      pagination: { hasMore: false },
+    });
+    mockGetInvestmentAccounts.mockResolvedValue([
+      { id: 'acc-1', name: 'TFSA', currencyCode: 'CAD', accountSubType: 'INVESTMENT_CASH' },
+    ]);
+    render(<InvestmentTransactionHistoryReport />);
+    await waitFor(() => {
+      expect(screen.getByText('AAPL')).toBeInTheDocument();
+    });
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+    const fetchCallsBefore = mockGetTransactions.mock.calls.length;
+
+    // Open the action MultiSelect and select "Buy"
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    const buyLabels = screen.getAllByText('Buy');
+    await act(async () => { fireEvent.click(buyLabels[buyLabels.length - 1]); });
+
+    // SELL row is filtered out without any additional API call
+    await waitFor(() => {
+      expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(mockGetTransactions.mock.calls.length).toBe(fetchCallsBefore);
   });
 
   it('counts unique securities traded', async () => {

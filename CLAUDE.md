@@ -16,6 +16,7 @@ See `backend/CLAUDE.md`, `frontend/CLAUDE.md`, and `database/CLAUDE.md` for laye
 | Forms | react-hook-form + Zod (frontend), class-validator (backend) |
 | Auth | JWT + Passport + OIDC + TOTP 2FA |
 | AI | Anthropic SDK, OpenAI SDK, Ollama (user-configurable) |
+| i18n | next-intl (frontend), nestjs-i18n (backend) -- locales: `de`, `en`,`en-US`, `en-CA`, `en-GB`, `es`, `fr`, `hi`, `id`, `it`, `ja`, `ko`, `nl`, `pl`, `pt`, `pt-BR`, `ru`, `tr`, `uk`, `vi`, `zh-CN`, `zh-TW`, `xx` (pseudo) |
 | Testing | Jest (backend), Vitest (frontend), Playwright (e2e) |
 
 Everything runs in Docker: `docker compose -f docker-compose.dev.yml up`.
@@ -33,6 +34,15 @@ Everything runs in Docker: `docker compose -f docker-compose.dev.yml up`.
 - Put the shared logic on the relevant domain service (e.g., `PortfolioService.getLlmSummary`, `TransactionAnalyticsService.getTransfersByAccount`). The two tool layers become thin adapters that call it.
 - Both surfaces must return the same data shape. The AI tool executor wraps it with `{ summary, sources }`; MCP just `toolResult(data)`s it.
 - Adding a new AI tool means wiring it into both layers in the same PR -- never ship a tool to only one of the two.
+
+### Internationalization (i18n)
+Every user-facing string must be internationalized -- no hardcoded literals in toasts, labels, placeholders, validation messages, or emails. Develop **English-first**: while a change is under development and review, add and edit only the English catalogs and regenerate the pseudo-locale; defer translating the other locales until the code and its copy are functionally accepted. A feature is not *merged* until it is fully internationalized and translated for every supported locale, but that full translation is a single pass done at acceptance as the final commit on the same PR, not continuous work throughout development.
+- **Frontend** (`next-intl`): read strings via `useTranslations('namespace')`; catalogs live in `frontend/src/i18n/messages/{locale}/{namespace}.json` (register new namespaces in `src/i18n/messages.ts`). Use `t.rich` for embedded markup and `t.raw` for template strings.
+- **Backend** (`nestjs-i18n`): wrap exception messages in `tr(key, fallback, args)`; render emails with an `EmailT` translator (`emailTranslator(i18n, recipientLang)`) so copy matches the recipient's stored locale, not the request's. Catalogs live in `backend/src/i18n/locales/{locale}/*.json`.
+- **Supported locales** are defined in `frontend/src/i18n/config.ts` and `backend/src/i18n/config.ts` -- keep the two lists in sync. Currently `de` (German), `en` (English -- Canadian-flavoured base), `en-US` (American English), `en-CA` (Canadian English), `en-GB` (British English), `es` (Spanish), `fr` (French), `hi` (Hindi), `id` (Indonesian), `it` (Italian), `ja` (Japanese), `ko` (Korean), `nl` (Dutch), `pl` (Polish), `pt` (Portuguese), `pt-BR` (Brazilian Portuguese), `ru` (Russian), `tr` (Turkish), `uk` (Ukrainian), `vi` (Vietnamese), `zh-CN` (Simplified Chinese), `zh-TW` (Traditional Chinese), and `xx` (dev-only pseudo-locale for QA). The `en-*` variants are lean regional variants (see their `base` in config): each ships only the strings that differ from `en` and inherits the rest per key.
+- **During development, edit only the English catalogs (`en/*`)** -- do not hand-translate the other locales while the copy is still in flux. Once the change is functionally accepted, run one localization pass that fills every locale. Parity tests (`frontend/src/i18n/messages.parity.test.ts`, `backend/src/i18n/locales.parity.spec.ts`) fail when a locale is missing a key or references a placeholder `en` does not supply -- on a work-in-progress branch that failure is expected until the localization pass, and is not a reason to translate early. `main` still requires full parity, so released code is never partially translated.
+- After editing any `en/*.json`, regenerate the pseudo-locale: `npm run i18n:pseudo` (CI enforces freshness via `npm run i18n:check`).
+- The user's language lives in `user_preferences.language` and is chosen in Settings -> Preferences (`LanguageSelector`); unauthenticated screens offer `AuthLanguageSwitcher` (cookie-only) on login/register. See `frontend/src/i18n/messages/README.md` and `backend/src/i18n/README.md` for the full contributor flow.
 
 ### Code Style
 - No emojis in code, comments, or documentation
@@ -87,9 +97,7 @@ async createSomething(userId: string, dto: CreateDto) {
 }
 ```
 
-Operations that already use QueryRunner correctly: `create()` and `createTransfer()` in transactions, investment transaction CRUD, transfer CRUD, holdings rebuild.
-
-Operations that still need it (see AUDIT_FINDINGS.md): `update()`, `remove()`, split operations, bulk updates.
+Operations that correctly use QueryRunner: in the transactions domain, `create()`, `update()`, `remove()`, transfers, splits, and bulk update/delete; plus investment transaction CRUD and holdings rebuild. The split, bulk, transfer, and reconciliation flows live in dedicated `transaction-*.service.ts` files, each managing its own QueryRunner. When adding a new multi-table or read-modify-write operation, follow the same pattern.
 
 ## Financial Math
 

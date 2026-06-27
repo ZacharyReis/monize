@@ -9,7 +9,9 @@ import { DemoModeBanner } from './DemoModeBanner';
 import { HttpWarningBanner } from './HttpWarningBanner';
 import { SwipeIndicator } from './SwipeIndicator';
 import { UpdateAvailableBanner } from './UpdateAvailableBanner';
+import { AiChatBubble } from '@/components/ai/AiChatBubble';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { useScrollToTopOnNavigation } from '@/hooks/useScrollToTopOnNavigation';
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/setup-2fa', '/change-password'];
 
@@ -21,6 +23,10 @@ interface SwipeShellProps {
 export function SwipeShell({ children, httpsHeadersActive = false }: SwipeShellProps) {
   const pathname = usePathname();
   const { contentRef, currentIndex, totalPages, isSwipePage } = useSwipeNavigation();
+  // Land at the top of the page on forward tab/swipe navigation so the
+  // title and action buttons are always in view. Back/Forward keep their
+  // restored scroll position.
+  useScrollToTopOnNavigation();
 
   const isAuthRoute = AUTH_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'));
 
@@ -46,6 +52,7 @@ export function SwipeShell({ children, httpsHeadersActive = false }: SwipeShellP
       <div ref={contentRef}>
         {children}
       </div>
+      <AiChatBubble />
     </div>
   );
 }

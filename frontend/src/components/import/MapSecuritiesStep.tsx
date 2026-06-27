@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -52,6 +53,7 @@ export function MapSecuritiesStep({
   handleLookupPickerPick,
   handleLookupPickerCancel,
 }: MapSecuritiesStepProps) {
+  const t = useTranslations('import');
   const preferredExchanges = usePreferencesStore((s) => s.preferences?.preferredExchanges) || [];
   const readyCount = securityMappings.filter((m) => m.securityId || (m.createNew && m.securityName)).length;
   const needsAttentionCount = securityMappings.length - readyCount;
@@ -68,24 +70,23 @@ export function MapSecuritiesStep({
     <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Map Securities
+          {t('mapSecurities.heading')}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          The following securities were found in your QIF file. Map them to existing
-          securities or create new ones.
+          {t('mapSecurities.description')}
         </p>
 
         {/* Summary */}
         <div className="flex gap-4 mb-4 text-sm">
           <span className="text-amber-600 dark:text-amber-400">
-            {needsAttentionCount} need attention
+            {t('mapSecurities.needAttention', { count: needsAttentionCount })}
           </span>
           <span className="text-green-600 dark:text-green-400">
-            {readyCount} ready
+            {t('mapSecurities.ready', { count: readyCount })}
           </span>
           {bulkLookupInProgress && (
             <span className="text-blue-600 dark:text-blue-400">
-              Looking up securities...
+              {t('mapSecurities.lookingUp')}
             </span>
           )}
         </div>
@@ -112,12 +113,12 @@ export function MapSecuritiesStep({
                     onClick={() => handleSecurityLookup(index, mapping.createNew || mapping.securityName || mapping.originalName, mapping.exchange)}
                     disabled={lookupLoadingIndex === index}
                   >
-                    {lookupLoadingIndex === index ? 'Looking up...' : 'Lookup'}
+                    {lookupLoadingIndex === index ? t('mapSecurities.lookingUpSingle') : t('mapSecurities.lookup')}
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Select
-                    label="Map to existing"
+                    label={t('mapSecurities.mapToExisting')}
                     options={securityOptions}
                     value={mapping.securityId || ''}
                     onChange={(e) =>
@@ -126,16 +127,16 @@ export function MapSecuritiesStep({
                   />
                   <div className="space-y-2">
                     <Input
-                      label="Or create new (symbol)"
-                      placeholder="e.g., AAPL"
+                      label={t('mapSecurities.orCreateNew')}
+                      placeholder={t('mapSecurities.symbolPlaceholder')}
                       value={mapping.createNew || ''}
                       onChange={(e) =>
                         handleSecurityMappingChange(index, 'createNew', e.target.value)
                       }
                     />
                     <Input
-                      label="Security name"
-                      placeholder="e.g., Apple Inc."
+                      label={t('mapSecurities.securityName')}
+                      placeholder={t('mapSecurities.securityNamePlaceholder')}
                       value={mapping.securityName || ''}
                       onChange={(e) =>
                         handleSecurityMappingChange(index, 'securityName', e.target.value)
@@ -143,7 +144,7 @@ export function MapSecuritiesStep({
                     />
                     <div className="grid grid-cols-3 gap-2">
                       <Select
-                        label="Security type"
+                        label={t('mapSecurities.securityType')}
                         options={securityTypeOptions}
                         value={mapping.securityType || 'STOCK'}
                         onChange={(e) =>
@@ -151,26 +152,26 @@ export function MapSecuritiesStep({
                         }
                       />
                       <Combobox
-                        label="Exchange"
+                        label={t('mapSecurities.exchange')}
                         options={EXCHANGE_OPTIONS}
                         value={mapping.exchange || ''}
                         onChange={(value, label) =>
                           handleSecurityMappingChange(index, 'exchange', value || label)
                         }
-                        placeholder="Search exchanges..."
+                        placeholder={t('mapSecurities.exchangePlaceholder')}
                         allowCustomValue
                         usePortal
                         alwaysShowSubtitle
                         priorityValues={preferredExchanges}
                       />
                       <Combobox
-                        label="Currency"
+                        label={t('mapSecurities.currency')}
                         options={currencyOptions}
                         value={mapping.currencyCode || ''}
                         onChange={(value) =>
                           handleSecurityMappingChange(index, 'currencyCode', value)
                         }
-                        placeholder="Search currencies..."
+                        placeholder={t('mapSecurities.currencyPlaceholder')}
                         usePortal
                       />
                     </div>
@@ -193,14 +194,14 @@ export function MapSecuritiesStep({
               }
             }}
           >
-            Back
+            {t('navigation.back')}
           </Button>
           {isMultiAccountImport ? (
             <Button
               onClick={onMultiAccountImport}
               isLoading={isLoading}
             >
-              Import All
+              {t('mapSecurities.importAll')}
             </Button>
           ) : (
             <Button
@@ -212,7 +213,7 @@ export function MapSecuritiesStep({
                 }
               }}
             >
-              Next
+              {t('navigation.next')}
             </Button>
           )}
         </div>

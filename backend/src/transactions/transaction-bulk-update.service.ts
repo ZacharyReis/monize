@@ -20,11 +20,15 @@ import {
   BulkUpdateFilterDto,
 } from "./dto/bulk-update.dto";
 import { getAllCategoryIdsWithChildren } from "../common/category-tree.util";
-import { isTransactionInFuture } from "../common/date-utils";
+import {
+  isTransactionInFuture,
+  formatDateYMDLocal,
+} from "../common/date-utils";
 import {
   buildTransactionSearchClause,
   escapeLikePattern,
 } from "./transaction-search.util";
+import { tr } from "../i18n/translate";
 
 export interface BulkDeleteResult {
   deleted: number;
@@ -63,7 +67,10 @@ export class TransactionBulkUpdateService {
     const isUpdatingTags = "tagIds" in dto;
     if (Object.keys(updateFields).length === 0 && !isUpdatingTags) {
       throw new BadRequestException(
-        "At least one update field must be provided",
+        tr(
+          "errors.transactions.bulkUpdateNoFields",
+          "At least one update field must be provided",
+        ),
       );
     }
 
@@ -73,7 +80,9 @@ export class TransactionBulkUpdateService {
         where: { id: dto.categoryId, userId },
       });
       if (!cat) {
-        throw new NotFoundException("Category not found");
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
       }
     }
     if ("payeeId" in dto && dto.payeeId) {
@@ -81,7 +90,9 @@ export class TransactionBulkUpdateService {
         where: { id: dto.payeeId, userId },
       });
       if (!payee) {
-        throw new NotFoundException("Payee not found");
+        throw new NotFoundException(
+          tr("errors.transactions.payeeNotFound", "Payee not found"),
+        );
       }
     }
 
@@ -142,16 +153,16 @@ export class TransactionBulkUpdateService {
         );
       }
 
-      // Step 4c: Update tags (many-to-many relation, must be done per-transaction)
+      // Step 4c: Update tags (many-to-many relation). Validates the tag set
+      // once and replaces tags with a single bulk delete + insert across all
+      // eligible transactions.
       if (isUpdatingTags) {
-        for (const txId of eligibleIds) {
-          await this.tagsService.setTransactionTags(
-            txId,
-            dto.tagIds ?? [],
-            userId,
-            queryRunner,
-          );
-        }
+        await this.tagsService.setTransactionTagsBulk(
+          eligibleIds,
+          dto.tagIds ?? [],
+          userId,
+          queryRunner,
+        );
       }
 
       await queryRunner.commitTransaction();
@@ -483,8 +494,7 @@ export class TransactionBulkUpdateService {
       : "transaction.status = :voidStatus";
 
     // Only include non-future transactions in balance changes
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = formatDateYMDLocal(new Date());
 
     const repo = queryRunner
       ? queryRunner.manager.getRepository(Transaction)

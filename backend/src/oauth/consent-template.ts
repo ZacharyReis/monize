@@ -1,4 +1,4 @@
-import { encode } from "he";
+import { escapeHtml } from "../common/escape-html.util";
 
 interface ConsentParams {
   uid: string;
@@ -22,17 +22,13 @@ const SCOPE_LABELS: Record<string, { title: string; description: string }> = {
   },
 };
 
-function escape(value: string): string {
-  // `he.encode` with default options encodes ", ', <, >, & and any non-ASCII
-  // chars as numeric character references — equivalent or stricter than the
-  // OWASP HTML-context escape set. Used instead of a hand-rolled regex so
-  // static analysers don't flag this as manual sanitization (CWE-79).
-  return encode(value, { useNamedReferences: true });
-}
-
 export function renderConsentPage(params: ConsentParams): string {
   const { uid, clientName, clientUri, userEmail, scopes, resource } = params;
 
+  // Scopes are shown as a read-only list, not toggles: the OAuth client fixes
+  // the requested scope set, and node-oidc-provider re-prompts indefinitely if
+  // any requested scope is withheld. The user's choice is Allow (grant all) or
+  // Deny.
   const scopeRows = scopes
     .map((scope) => {
       const meta = SCOPE_LABELS[scope] ?? {
@@ -41,20 +37,17 @@ export function renderConsentPage(params: ConsentParams): string {
       };
       return `
         <li class="scope">
-          <label>
-            <input type="checkbox" name="scopes" value="${escape(scope)}" checked />
-            <div>
-              <strong>${escape(meta.title)}</strong>
-              <p>${escape(meta.description)}</p>
-            </div>
-          </label>
+          <div>
+            <strong>${escapeHtml(meta.title)}</strong>
+            <p>${escapeHtml(meta.description)}</p>
+          </div>
         </li>`;
     })
     .join("\n");
 
   const clientLink = clientUri
-    ? `<a href="${escape(clientUri)}" target="_blank" rel="noopener noreferrer">${escape(clientName)}</a>`
-    : escape(clientName);
+    ? `<a href="${escapeHtml(clientUri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(clientName)}</a>`
+    : escapeHtml(clientName);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -62,7 +55,7 @@ export function renderConsentPage(params: ConsentParams): string {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="robots" content="noindex" />
-<title>Authorize ${escape(clientName)} — Monize</title>
+<title>Authorize ${escapeHtml(clientName)} — Monize</title>
 <style>
   :root {
     --primary: #0284c7;
@@ -125,8 +118,6 @@ export function renderConsentPage(params: ConsentParams): string {
     padding: 12px 14px;
     margin-bottom: 8px;
   }
-  li.scope label { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
-  li.scope input { margin-top: 4px; }
   li.scope strong { display: block; font-size: 14px; }
   li.scope p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
   .meta {
@@ -162,13 +153,13 @@ export function renderConsentPage(params: ConsentParams): string {
     <div class="brand">Monize</div>
     <h1>Authorize ${clientLink}</h1>
     <p class="subtitle">${clientLink} is requesting access to your Monize account.</p>
-    <p class="user">Signed in as <strong>${escape(userEmail)}</strong></p>
+    <p class="user">Signed in as <strong>${escapeHtml(userEmail)}</strong></p>
 
-    <form method="POST" action="/api/v1/oauth-consent/${escape(uid)}/confirm" autocomplete="off">
+    <form method="POST" action="/api/v1/oauth-consent/${escapeHtml(uid)}/confirm" autocomplete="off">
       <ul class="scopes">${scopeRows}</ul>
-      <div class="meta">Resource: ${escape(resource)}</div>
+      <div class="meta">Resource: ${escapeHtml(resource)}</div>
       <div class="actions">
-        <button type="submit" formaction="/api/v1/oauth-consent/${escape(uid)}/abort" class="secondary">Deny</button>
+        <button type="submit" formaction="/api/v1/oauth-consent/${escapeHtml(uid)}/abort" class="secondary">Deny</button>
         <button type="submit" class="primary">Allow access</button>
       </div>
     </form>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -13,10 +14,10 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 
 const FREQUENCY_OPTIONS = [
-  { value: 'every6hours', label: 'Every 6 Hours' },
-  { value: 'every12hours', label: 'Every 12 Hours' },
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
+  { value: 'every6hours', labelKey: 'frequencyOptions.every6hours' },
+  { value: 'every12hours', labelKey: 'frequencyOptions.every12hours' },
+  { value: 'daily', labelKey: 'frequencyOptions.daily' },
+  { value: 'weekly', labelKey: 'frequencyOptions.weekly' },
 ];
 
 function formatDateTime(
@@ -31,6 +32,7 @@ function formatDateTime(
 }
 
 export function AutoBackupSection() {
+  const t = useTranslations('settings.autoBackup');
   const preferences = usePreferencesStore((s) => s.preferences);
   const userTimezone = resolveTimezone(preferences?.timezone);
   const dateFormat = preferences?.dateFormat || 'browser';
@@ -70,11 +72,11 @@ export function AutoBackupSection() {
       setRetentionWeekly(data.retentionWeekly);
       setRetentionMonthly(data.retentionMonthly);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load auto-backup settings'));
+      toast.error(getErrorMessage(error, t('toasts.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadSettings();
@@ -83,7 +85,7 @@ export function AutoBackupSection() {
   const handleValidateFolder = async () => {
     if (!folderPath.trim()) {
       setFolderValid(false);
-      setFolderError('Folder path is required');
+      setFolderError(t('folderErrors.required'));
       return;
     }
     setIsValidating(true);
@@ -94,13 +96,13 @@ export function AutoBackupSection() {
       setFolderValid(result.valid);
       setFolderError(result.error ?? null);
       if (result.valid) {
-        toast.success('Folder is valid and writable');
+        toast.success(t('toasts.folderValid'));
       } else {
-        toast.error(result.error ?? 'Folder validation failed');
+        toast.error(result.error ?? t('folderErrors.validationFailed'));
       }
     } catch (error) {
       setFolderValid(false);
-      setFolderError(getErrorMessage(error, 'Validation failed'));
+      setFolderError(getErrorMessage(error, t('folderErrors.validationError')));
     } finally {
       setIsValidating(false);
     }
@@ -122,9 +124,9 @@ export function AutoBackupSection() {
       const updated = await backupApi.updateAutoBackupSettings(data);
       setSettings(updated);
       setIsDirty(false);
-      toast.success('Auto-backup settings saved');
+      toast.success(t('toasts.saved'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save settings'));
+      toast.error(getErrorMessage(error, t('toasts.saveFailed')));
     } finally {
       setIsSaving(false);
     }
@@ -134,10 +136,10 @@ export function AutoBackupSection() {
     setIsRunning(true);
     try {
       const result = await backupApi.runAutoBackup();
-      toast.success(`Backup created: ${result.filename}`);
+      toast.success(t('toasts.backupCreated', { filename: result.filename }));
       await loadSettings();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to run backup'));
+      toast.error(getErrorMessage(error, t('toasts.runFailed')));
       await loadSettings();
     } finally {
       setIsRunning(false);
@@ -154,7 +156,7 @@ export function AutoBackupSection() {
       setBrowsePath(result.current);
       setBrowseEntries(result.directories);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to browse folders'));
+      toast.error(getErrorMessage(error, t('toasts.browseFailed')));
     } finally {
       setIsBrowsing(false);
     }
@@ -194,9 +196,9 @@ export function AutoBackupSection() {
     return (
       <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Automatic Backup
+          {t('heading')}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('loadingText')}</p>
       </div>
     );
   }
@@ -204,15 +206,10 @@ export function AutoBackupSection() {
   return (
     <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-        Automatic Backup
+        {t('heading')}
       </h2>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Automatically back up your data to a folder on a schedule. Since Monize runs in
-        Docker, you must map a host folder into the container as a volume (e.g.,{' '}
-        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
-          -v /host/backups:/backups
-        </code>
-        ).
+        {t('description')}
       </p>
 
       {/* Enable toggle */}
@@ -224,10 +221,10 @@ export function AutoBackupSection() {
               setEnabled(v);
               markDirty();
             }}
-            label="Enable automatic backups"
+            label={t('enableLabel')}
           />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
-            Enable automatic backups
+            {t('enableLabel')}
           </span>
         </label>
       </div>
@@ -238,7 +235,7 @@ export function AutoBackupSection() {
           htmlFor="auto-backup-folder"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
-          Backup Folder
+          {t('backupFolderLabel')}
         </label>
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="flex-1">
@@ -251,7 +248,7 @@ export function AutoBackupSection() {
                 setFolderError(null);
                 markDirty();
               }}
-              placeholder="/backups"
+              placeholder={t('backupFolderPlaceholder')}
             />
           </div>
           <div className="flex gap-2">
@@ -259,14 +256,14 @@ export function AutoBackupSection() {
               variant="outline"
               onClick={handleOpenBrowse}
             >
-              Browse...
+              {t('browseButton')}
             </Button>
             <Button
               variant="outline"
               onClick={handleValidateFolder}
               disabled={isValidating || !folderPath.trim()}
             >
-              {isValidating ? 'Validating...' : 'Validate'}
+              {isValidating ? t('validatingButton') : t('validateButton')}
             </Button>
           </div>
         </div>
@@ -281,7 +278,7 @@ export function AutoBackupSection() {
                 variant="outline"
                 onClick={handleSelectBrowsedFolder}
               >
-                Select This Folder
+                {t('selectThisFolder')}
               </Button>
               <Button
                 variant="outline"
@@ -323,7 +320,7 @@ export function AutoBackupSection() {
               ))}
               {browseEntries.length === 0 && (
                 <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 italic">
-                  No subdirectories
+                  {t('noSubdirectories')}
                 </p>
               )}
             </div>
@@ -334,7 +331,7 @@ export function AutoBackupSection() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            Folder is valid and writable
+            {t('folderValid')}
           </p>
         )}
         {folderValid === false && folderError && (
@@ -345,13 +342,13 @@ export function AutoBackupSection() {
       {/* Frequency */}
       <div className="mb-6">
         <Select
-          label="Backup Frequency"
+          label={t('frequencyLabel')}
           value={frequency}
           onChange={(e) => {
             setFrequency(e.target.value as AutoBackupSettings['frequency']);
             markDirty();
           }}
-          options={FREQUENCY_OPTIONS}
+          options={FREQUENCY_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         />
       </div>
 
@@ -361,7 +358,7 @@ export function AutoBackupSection() {
           htmlFor="backup-time"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
         >
-          Backup Time ({userTimezone})
+          {t('backupTimeLabel', { timezone: userTimezone })}
         </label>
         <input
           id="backup-time"
@@ -375,19 +372,18 @@ export function AutoBackupSection() {
         />
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {frequency === 'every6hours' || frequency === 'every12hours'
-            ? `First backup of the day starts at this time (${userTimezone}). Subsequent backups follow at the configured interval.`
-            : `Time of day to run the backup in your local timezone (${userTimezone}).`}
+            ? t('backupTimeHelpInterval', { timezone: userTimezone })
+            : t('backupTimeHelpDaily', { timezone: userTimezone })}
         </p>
       </div>
 
       {/* Retention Policy */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Retention Policy
+          {t('retention.heading')}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-          Configure how many backups to keep. Older backups beyond these limits are
-          automatically deleted.
+          {t('retention.description')}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
@@ -395,7 +391,7 @@ export function AutoBackupSection() {
               htmlFor="retention-daily"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Daily backups
+              {t('retention.dailyLabel')}
             </label>
             <input
               id="retention-daily"
@@ -407,7 +403,7 @@ export function AutoBackupSection() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Most recent backups to keep
+              {t('retention.dailyHelp')}
             </p>
           </div>
           <div>
@@ -415,7 +411,7 @@ export function AutoBackupSection() {
               htmlFor="retention-weekly"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Weekly backups
+              {t('retention.weeklyLabel')}
             </label>
             <input
               id="retention-weekly"
@@ -427,7 +423,7 @@ export function AutoBackupSection() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              One per week retained
+              {t('retention.weeklyHelp')}
             </p>
           </div>
           <div>
@@ -435,7 +431,7 @@ export function AutoBackupSection() {
               htmlFor="retention-monthly"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Monthly backups
+              {t('retention.monthlyLabel')}
             </label>
             <input
               id="retention-monthly"
@@ -447,7 +443,7 @@ export function AutoBackupSection() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              One per month retained
+              {t('retention.monthlyHelp')}
             </p>
           </div>
         </div>
@@ -457,22 +453,22 @@ export function AutoBackupSection() {
       {settings && (settings.lastBackupAt || settings.nextBackupAt) && (
         <div className="mb-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-            Status
+            {t('status.heading')}
           </h3>
           <dl className="space-y-1 text-sm">
             {settings.lastBackupAt && (
               <div className="flex justify-between">
-                <dt className="text-gray-600 dark:text-gray-400">Last backup</dt>
+                <dt className="text-gray-600 dark:text-gray-400">{t('status.lastBackup')}</dt>
                 <dd className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
                   {formatDateTime(settings.lastBackupAt, userTimezone, dateFormat, timeFormat)}
                   {settings.lastBackupStatus === 'success' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                      Success
+                      {t('status.success')}
                     </span>
                   )}
                   {settings.lastBackupStatus === 'failed' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                      Failed
+                      {t('status.failed')}
                     </span>
                   )}
                 </dd>
@@ -480,7 +476,7 @@ export function AutoBackupSection() {
             )}
             {settings.lastBackupStatus === 'failed' && settings.lastBackupError && (
               <div className="flex justify-between">
-                <dt className="text-gray-600 dark:text-gray-400">Error</dt>
+                <dt className="text-gray-600 dark:text-gray-400">{t('status.error')}</dt>
                 <dd className="text-red-600 dark:text-red-400 text-right max-w-xs truncate">
                   {settings.lastBackupError}
                 </dd>
@@ -488,7 +484,7 @@ export function AutoBackupSection() {
             )}
             {settings.nextBackupAt && (
               <div className="flex justify-between">
-                <dt className="text-gray-600 dark:text-gray-400">Next backup</dt>
+                <dt className="text-gray-600 dark:text-gray-400">{t('status.nextBackup')}</dt>
                 <dd className="font-medium text-gray-900 dark:text-white">
                   {formatDateTime(settings.nextBackupAt, userTimezone, dateFormat, timeFormat)}
                 </dd>
@@ -504,7 +500,7 @@ export function AutoBackupSection() {
           onClick={handleSave}
           disabled={isSaving || !isDirty}
         >
-          {isSaving ? 'Saving...' : 'Save Settings'}
+          {isSaving ? t('savingButton') : t('saveButton')}
         </Button>
         {settings && settings.folderPath && (
           <Button
@@ -512,7 +508,7 @@ export function AutoBackupSection() {
             onClick={handleRunNow}
             disabled={isRunning}
           >
-            {isRunning ? 'Running Backup...' : 'Run Backup Now'}
+            {isRunning ? t('runningButton') : t('runNowButton')}
           </Button>
         )}
       </div>

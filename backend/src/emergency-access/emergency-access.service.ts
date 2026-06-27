@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
+import { tr } from "../i18n/translate";
 import { EmergencyAccessSettings } from "./entities/emergency-access-settings.entity";
 import { EmergencyAccessContact } from "./entities/emergency-access-contact.entity";
 import { UpsertSettingsDto } from "./dto/upsert-settings.dto";
@@ -140,7 +141,10 @@ export class EmergencyAccessService {
   ): Promise<SettingsView> {
     if (!this.emailService.getStatus().configured) {
       throw new ServiceUnavailableException(
-        "Email is not configured. Emergency access cannot be enabled until SMTP is set up.",
+        tr(
+          "errors.emergencyAccess.smtpNotConfigured",
+          "Email is not configured. Emergency access cannot be enabled until SMTP is set up.",
+        ),
       );
     }
 
@@ -212,7 +216,10 @@ export class EmergencyAccessService {
     const trimmed = message?.trim() ?? null;
     if (trimmed && !this.encryption.isConfigured()) {
       throw new ServiceUnavailableException(
-        "Encryption key is not configured. The free-form message cannot be stored securely until AI_ENCRYPTION_KEY is set.",
+        tr(
+          "errors.emergencyAccess.encryptionNotConfigured",
+          "Encryption key is not configured. The free-form message cannot be stored securely until AI_ENCRYPTION_KEY is set.",
+        ),
       );
     }
 
@@ -252,7 +259,10 @@ export class EmergencyAccessService {
       .getOne();
     if (existing) {
       throw new ConflictException(
-        "An emergency contact with this email already exists.",
+        tr(
+          "errors.emergencyAccess.contactEmailExists",
+          "An emergency contact with this email already exists.",
+        ),
       );
     }
     const contact = this.contactsRepo.create({
@@ -273,7 +283,9 @@ export class EmergencyAccessService {
       where: { id: contactId, ownerUserId: userId },
     });
     if (!contact) {
-      throw new NotFoundException("Contact not found");
+      throw new NotFoundException(
+        tr("errors.emergencyAccess.contactNotFound", "Contact not found"),
+      );
     }
     const normalizedEmail = dto.email.trim().toLowerCase();
     if (normalizedEmail !== contact.email.toLowerCase()) {
@@ -285,7 +297,10 @@ export class EmergencyAccessService {
         .getOne();
       if (dup) {
         throw new ConflictException(
-          "An emergency contact with this email already exists.",
+          tr(
+            "errors.emergencyAccess.contactEmailExists",
+            "An emergency contact with this email already exists.",
+          ),
         );
       }
     }
@@ -304,7 +319,9 @@ export class EmergencyAccessService {
       ownerUserId: userId,
     });
     if (!result.affected) {
-      throw new NotFoundException("Contact not found");
+      throw new NotFoundException(
+        tr("errors.emergencyAccess.contactNotFound", "Contact not found"),
+      );
     }
   }
 
@@ -313,7 +330,12 @@ export class EmergencyAccessService {
       where: { ownerUserId: userId },
     });
     if (!settings) {
-      throw new NotFoundException("Emergency access not configured");
+      throw new NotFoundException(
+        tr(
+          "errors.emergencyAccess.notConfigured",
+          "Emergency access not configured",
+        ),
+      );
     }
     settings.grantedAt = null;
     settings.lastReminderSentAt = null;

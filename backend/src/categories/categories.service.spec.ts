@@ -128,12 +128,20 @@ describe("CategoriesService", () => {
         release: jest.fn(),
         manager: {
           update: jest.fn().mockResolvedValue({ affected: 0 }),
+          find: jest.fn().mockResolvedValue([]),
+          // Mirror real TypeORM: save/remove require an explicit entity target
+          // when the value is a plain object (as findOne returns here). Return
+          // the data arg (2nd) so a single-arg call yields undefined and fails
+          // loudly, matching production's CannotDetermineEntityError.
+          remove: jest
+            .fn()
+            .mockImplementation((_target: unknown, entity: unknown) => entity),
           createQueryBuilder: jest.fn((..._args: unknown[]) =>
             createMockQueryBuilder(),
           ),
           save: jest
             .fn()
-            .mockImplementation((_entity: unknown, data: unknown) => data),
+            .mockImplementation((_target: unknown, data: unknown) => data),
           getRepository: jest.fn().mockReturnValue({
             create: jest.fn().mockImplementation((data: unknown) => ({
               ...(data as Record<string, unknown>),
@@ -877,21 +885,24 @@ describe("CategoriesService", () => {
       });
       categoriesRepository.save.mockImplementation((data) => data);
 
-      // First call: direct children of cat-1
-      // Second call: grandchildren of child-1 (none)
-      // Third call: grandchildren of child-2 (none)
-      categoriesRepository.find
+      // The cascade now runs inside the update transaction via the
+      // queryRunner manager. First call: direct children of cat-1; subsequent
+      // calls: grandchildren (none).
+      const manager = mockDataSource.createQueryRunner().manager;
+      manager.find
         .mockResolvedValueOnce([{ id: "child-1" }, { id: "child-2" }])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
       await service.update("user-1", "cat-1", { isIncome: true });
 
-      expect(categoriesRepository.update).toHaveBeenCalledWith(
+      expect(manager.update).toHaveBeenCalledWith(
+        Category,
         { id: "child-1", userId: "user-1" },
         { isIncome: true },
       );
-      expect(categoriesRepository.update).toHaveBeenCalledWith(
+      expect(manager.update).toHaveBeenCalledWith(
+        Category,
         { id: "child-2", userId: "user-1" },
         { isIncome: true },
       );
@@ -902,12 +913,13 @@ describe("CategoriesService", () => {
         ...mockCategory,
         isIncome: false,
       });
-      categoriesRepository.save.mockImplementation((data) => data);
 
       await service.update("user-1", "cat-1", { name: "Renamed" });
 
       // update should not be called for children
-      expect(categoriesRepository.update).not.toHaveBeenCalled();
+      expect(
+        mockDataSource.createQueryRunner().manager.update,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -932,11 +944,17 @@ describe("CategoriesService", () => {
 
       await service.remove("user-1", "cat-1");
 
-      expect(payeesRepository.update).toHaveBeenCalledWith(
+      const manager = mockDataSource.createQueryRunner().manager;
+      expect(manager.update).toHaveBeenCalledWith(
+        Payee,
         { userId: "user-1", defaultCategoryId: "cat-1" },
         { defaultCategoryId: null },
       );
-      expect(categoriesRepository.remove).toHaveBeenCalledWith(
+      // Must pass the explicit entity target: findOne returns a plain object
+      // (spread with effectiveColor), so the single-arg form throws
+      // CannotDetermineEntityError against real TypeORM.
+      expect(manager.remove).toHaveBeenCalledWith(
+        Category,
         expect.objectContaining({ id: "cat-1" }),
       );
     });

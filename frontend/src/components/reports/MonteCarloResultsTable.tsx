@@ -1,6 +1,7 @@
 'use client';
 
 import { CashFlowEvent, CashFlowLegendSwatch } from './MonteCarloChartParts';
+import { useTranslations } from 'next-intl';
 
 export function SummaryStat({
   label,
@@ -40,18 +41,19 @@ export function ResultsTable({
   }>;
   formatCurrency: (v: number) => string;
 }) {
+  const t = useTranslations('reports');
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-xs">
         <thead className="bg-gray-50 dark:bg-gray-900/40 text-gray-500 dark:text-gray-400">
           <tr>
-            <th className="px-3 py-2 text-left font-medium">Year</th>
-            <th className="px-3 py-2 text-right font-medium">10th</th>
-            <th className="px-3 py-2 text-right font-medium">25th</th>
-            <th className="px-3 py-2 text-right font-medium">Median</th>
-            <th className="px-3 py-2 text-right font-medium">75th</th>
-            <th className="px-3 py-2 text-right font-medium">90th</th>
-            <th className="px-3 py-2 text-left font-medium">Events</th>
+            <th className="px-3 py-2 text-left font-medium">{t('monteCarloResults.colYear')}</th>
+            <th className="px-3 py-2 text-right font-medium">{t('monteCarloResults.col10th')}</th>
+            <th className="px-3 py-2 text-right font-medium">{t('monteCarloResults.col25th')}</th>
+            <th className="px-3 py-2 text-right font-medium">{t('monteCarloResults.colMedian')}</th>
+            <th className="px-3 py-2 text-right font-medium">{t('monteCarloResults.col75th')}</th>
+            <th className="px-3 py-2 text-right font-medium">{t('monteCarloResults.col90th')}</th>
+            <th className="px-3 py-2 text-left font-medium">{t('monteCarloResults.colEvents')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -84,7 +86,7 @@ export function ResultsTable({
                         <CashFlowLegendSwatch role={e.role} income={e.income} />
                         {e.flowType === 'ONE_TIME'
                           ? e.name
-                          : `${e.role === 'start' ? 'Starts' : 'Ends'}: ${e.name}`}
+                          : `${e.role === 'start' ? t('monteCarloResults.starts') : t('monteCarloResults.ends')}: ${e.name}`}
                       </span>
                     ))}
                   </div>

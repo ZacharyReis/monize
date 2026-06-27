@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -12,29 +13,71 @@ import {
   Cell,
 } from 'recharts';
 import { budgetsApi } from '@/lib/budgets';
-import type { Budget, SeasonalPattern } from '@/types/budget';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useTranslations } from 'next-intl';
+import { useReportData } from '@/hooks/useReportData';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportError } from '@/components/reports/ReportError';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('BudgetSeasonalPatternsReport');
+import { chartColors } from '@/lib/chart-colors';
 
 type SeasonalPatternsSortField = 'category' | 'typical' | 'highMonths';
 
 export function BudgetSeasonalPatternsReport() {
+  const t = useTranslations('reports');
+  const tc = useTranslations('common');
+  const monthsShort = tc.raw('monthsShort') as string[];
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
-  const [patterns, setPatterns] = useState<SeasonalPattern[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedBudgetIdState, setSelectedBudgetId] = useState<string>('');
+  const [selectedCategoryState, setSelectedCategory] = useState<string>('');
   const { sortField, sortDirection, handleSort } = useSortableTable<SeasonalPatternsSortField>(
     'reports.budget-seasonal-patterns.sort',
     { field: 'typical', direction: 'desc' },
   );
+
+  const {
+    data: budgetsData,
+    isLoading: budgetsLoading,
+    error: budgetsError,
+    reload: reloadBudgets,
+  } = useReportData(() => budgetsApi.getAll(), []);
+
+  const budgets = useMemo(() => budgetsData ?? [], [budgetsData]);
+
+  // Auto-select the active budget (or first) until the user picks one. Derived
+  // during render rather than via setState-in-effect.
+  const autoSelectedBudgetId = useMemo(() => {
+    const active = budgets.find((b) => b.isActive);
+    return active?.id ?? budgets[0]?.id ?? '';
+  }, [budgets]);
+  const selectedBudgetId = selectedBudgetIdState || autoSelectedBudgetId;
+
+  const {
+    data: patternsData,
+    isLoading: patternsLoading,
+    error: patternsError,
+    reload: reloadPatterns,
+  } = useReportData(
+    () =>
+      selectedBudgetId
+        ? budgetsApi.getSeasonalPatterns(selectedBudgetId)
+        : Promise.resolve(null),
+    [selectedBudgetId],
+  );
+
+  const patterns = useMemo(() => patternsData ?? [], [patternsData]);
+  const isLoading = budgetsLoading || patternsLoading;
+  const error = budgetsError || patternsError;
+  const reload = () => {
+    reloadBudgets();
+    reloadPatterns();
+  };
+
+  // Default to the first pattern's category until the user picks one. Derived
+  // during render rather than via setState-in-effect.
+  const selectedCategory = selectedCategoryState || patterns[0]?.categoryId || '';
 
   const sortedPatterns = useMemo(() => {
     const sorted = [...patterns];
@@ -56,47 +99,6 @@ export function BudgetSeasonalPatternsReport() {
     return sorted;
   }, [patterns, sortField, sortDirection]);
 
-  useEffect(() => {
-    const loadBudgets = async () => {
-      try {
-        const data = await budgetsApi.getAll();
-        setBudgets(data);
-        const active = data.find((b) => b.isActive);
-        if (active) {
-          setSelectedBudgetId(active.id);
-        } else if (data.length > 0) {
-          setSelectedBudgetId(data[0].id);
-        }
-      } catch (error) {
-        logger.error('Failed to load budgets:', error);
-      }
-    };
-    loadBudgets();
-  }, []);
-
-  const loadPatterns = useCallback(async () => {
-    if (!selectedBudgetId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const data = await budgetsApi.getSeasonalPatterns(selectedBudgetId);
-      setPatterns(data);
-      if (data.length > 0 && !selectedCategory) {
-        setSelectedCategory(data[0].categoryId);
-      }
-    } catch (error) {
-      logger.error('Failed to load seasonal patterns:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBudgetId, selectedCategory]);
-
-  useEffect(() => {
-    loadPatterns();
-  }, [loadPatterns]);
-
   const activePattern = useMemo(
     () => patterns.find((p) => p.categoryId === selectedCategory),
     [patterns, selectedCategory],
@@ -113,29 +115,32 @@ export function BudgetSeasonalPatternsReport() {
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const headers = ['Category', 'Typical/Mo', 'High Months'];
+    const headers = [t('budgetSeasonalPatterns.colCategory'), t('budgetSeasonalPatterns.colTypicalPerMo'), t('budgetSeasonalPatterns.colHighMonths')];
     const rows = patterns.map((p) => [
       p.categoryName,
       formatCurrency(p.typicalMonthlySpend),
       p.highMonths.length > 0
-        ? p.highMonths.map((m) => monthNames[m - 1]).join(', ')
-        : 'None detected',
+        ? p.highMonths.map((m) => monthsShort[m - 1]).join(', ')
+        : t('budgetSeasonalPatterns.noneDetected'),
     ]);
     await exportToPdf({
-      title: 'Budget Seasonal Patterns',
+      title: t('budgetSeasonalPatterns.pdfTitle'),
       chartContainer: chartRef.current,
       tableData: { headers, rows },
       filename: 'budget-seasonal-patterns',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -145,7 +150,7 @@ export function BudgetSeasonalPatternsReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No budgets found. Create a budget to see seasonal patterns.
+          {t('budgetSeasonalPatterns.noBudgets')}
         </p>
       </div>
     );
@@ -192,7 +197,7 @@ export function BudgetSeasonalPatternsReport() {
       {patterns.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
           <p className="text-gray-500 dark:text-gray-400">
-            Not enough historical data to detect seasonal patterns.
+            {t('budgetSeasonalPatterns.notEnoughData')}
           </p>
         </div>
       ) : activePattern ? (
@@ -201,10 +206,10 @@ export function BudgetSeasonalPatternsReport() {
           <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {activePattern.categoryName} - Monthly Spending
+                {t('budgetSeasonalPatterns.sectionTitle', { categoryName: activePattern.categoryName })}
               </h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                Typical: {formatCurrency(activePattern.typicalMonthlySpend)}/mo
+                {t('budgetSeasonalPatterns.typical', { amount: formatCurrency(activePattern.typicalMonthlySpend) })}
               </span>
             </div>
             <div className="h-72">
@@ -224,7 +229,7 @@ export function BudgetSeasonalPatternsReport() {
                             {formatCurrency(data.amount)}
                           </p>
                           {data.isHigh && (
-                            <p className="text-xs text-red-500 mt-1">High spending month</p>
+                            <p className="text-xs text-red-500 mt-1">{t('budgetSeasonalPatterns.highSpendingTooltip')}</p>
                           )}
                         </div>
                       );
@@ -234,7 +239,7 @@ export function BudgetSeasonalPatternsReport() {
                     {chartData.map((entry, index) => (
                       <Cell
                         key={index}
-                        fill={entry.isHigh ? '#ef4444' : '#3b82f6'}
+                        fill={entry.isHigh ? chartColors.expense : chartColors.primary}
                       />
                     ))}
                   </Bar>
@@ -244,7 +249,7 @@ export function BudgetSeasonalPatternsReport() {
             {activePattern.highMonths.length > 0 && (
               <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <div className="w-3 h-3 rounded-sm bg-red-500" />
-                <span>High spending months (above typical + 1.5 std dev)</span>
+                <span>{t('budgetSeasonalPatterns.highSpendingLegend')}</span>
               </div>
             )}
           </div>
@@ -252,7 +257,7 @@ export function BudgetSeasonalPatternsReport() {
           {/* All Categories Summary */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              All Category Patterns
+              {t('budgetSeasonalPatterns.allCategoryPatterns')}
             </h2>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -265,7 +270,7 @@ export function BudgetSeasonalPatternsReport() {
                       onSort={handleSort}
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Category
+                      {t('budgetSeasonalPatterns.colCategory')}
                     </SortableHeader>
                     <SortableHeader<SeasonalPatternsSortField>
                       field="typical"
@@ -275,7 +280,7 @@ export function BudgetSeasonalPatternsReport() {
                       align="right"
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Typical/Mo
+                      {t('budgetSeasonalPatterns.colTypicalPerMo')}
                     </SortableHeader>
                     <SortableHeader<SeasonalPatternsSortField>
                       field="highMonths"
@@ -284,7 +289,7 @@ export function BudgetSeasonalPatternsReport() {
                       onSort={handleSort}
                       className="py-2 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      High Months
+                      {t('budgetSeasonalPatterns.colHighMonths')}
                     </SortableHeader>
                   </tr>
                 </thead>
@@ -305,7 +310,7 @@ export function BudgetSeasonalPatternsReport() {
                         {p.highMonths.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {p.highMonths.map((m) => {
-                              const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+                              const monthName = monthsShort[m - 1];
                               return (
                                 <span
                                   key={m}
@@ -317,7 +322,7 @@ export function BudgetSeasonalPatternsReport() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">None detected</span>
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">{t('budgetSeasonalPatterns.noneDetected')}</span>
                         )}
                       </td>
                     </tr>

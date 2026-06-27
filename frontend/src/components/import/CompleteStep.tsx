@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { ImportResult } from '@/lib/import';
@@ -29,6 +30,7 @@ export function CompleteStep({
   bulkImportResult,
   onImportMore,
 }: CompleteStepProps) {
+  const t = useTranslations('import');
   const router = useRouter();
   const hasInvestmentFile = importFiles.some((f) => f.parsedData.accountType === 'INVESTMENT');
 
@@ -98,7 +100,7 @@ export function CompleteStep({
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Import Complete
+            {t('complete.heading')}
           </h2>
         </div>
 
@@ -107,22 +109,22 @@ export function CompleteStep({
           <div className="space-y-4 mb-6">
             {/* Overall summary */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Overall Summary</h3>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{t('complete.overallSummaryHeading')}</h3>
               <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <li><strong>Files imported:</strong> {bulkImportResult.fileResults.length}</li>
-                <li><strong>Total imported:</strong> {bulkImportResult.totalImported} transactions</li>
-                <li><strong>Total skipped:</strong> {bulkImportResult.totalSkipped} duplicate transfers</li>
-                <li><strong>Total errors:</strong> {bulkImportResult.totalErrors}</li>
-                <li><strong>Categories created:</strong> {bulkImportResult.categoriesCreated}</li>
-                <li><strong>Accounts created:</strong> {bulkImportResult.accountsCreated}</li>
-                <li><strong>Payees created:</strong> {bulkImportResult.payeesCreated}</li>
-                <li><strong>Securities created:</strong> {bulkImportResult.securitiesCreated}</li>
+                <li><strong>{t('complete.filesImported')}</strong> {bulkImportResult.fileResults.length}</li>
+                <li><strong>{t('complete.totalImported')}</strong> {bulkImportResult.totalImported} {t('complete.totalImportedSuffix')}</li>
+                <li><strong>{t('complete.totalSkipped')}</strong> {bulkImportResult.totalSkipped} {t('complete.totalSkippedSuffix')}</li>
+                <li><strong>{t('complete.totalErrors')}</strong> {bulkImportResult.totalErrors}</li>
+                <li><strong>{t('complete.categoriesCreated')}</strong> {bulkImportResult.categoriesCreated}</li>
+                <li><strong>{t('complete.accountsCreated')}</strong> {bulkImportResult.accountsCreated}</li>
+                <li><strong>{t('complete.payeesCreated')}</strong> {bulkImportResult.payeesCreated}</li>
+                <li><strong>{t('complete.securitiesCreated')}</strong> {bulkImportResult.securitiesCreated}</li>
               </ul>
             </div>
 
             {/* Per-file results */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Per-File Results</h3>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{t('complete.perFileResultsHeading')}</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {bulkImportResult.fileResults.map((result, index) => (
                   <div
@@ -135,8 +137,8 @@ export function CompleteStep({
                   >
                     <p className="font-medium text-gray-900 dark:text-gray-100">{result.fileName}</p>
                     <p className="text-gray-600 dark:text-gray-400">
-                      {'\u2192'} {result.accountName}: {result.imported} imported, {result.skipped} skipped
-                      {result.errors > 0 && <span className="text-red-600 dark:text-red-400">, {result.errors} errors</span>}
+                      {'\u2192'} {result.accountName}: {result.imported} {t('complete.importedSuffix')}, {result.skipped} {t('complete.totalSkippedSuffix')}
+                      {result.errors > 0 && <span className="text-red-600 dark:text-red-400">, {result.errors} {t('complete.errorsLabel')}</span>}
                     </p>
                     {result.errorMessages.length > 0 && (
                       <ul className="text-xs text-red-500 dark:text-red-400 mt-1">
@@ -144,7 +146,7 @@ export function CompleteStep({
                           <li key={i}>{msg}</li>
                         ))}
                         {result.errorMessages.length > 3 && (
-                          <li>...and {result.errorMessages.length - 3} more errors</li>
+                          <li>{t('complete.andMoreErrors', { count: result.errorMessages.length - 3 })}</li>
                         )}
                       </ul>
                     )}
@@ -160,37 +162,37 @@ export function CompleteStep({
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <li>
-                <strong>File:</strong> {fileName}
+                <strong>{t('complete.fileLabel')}</strong> {fileName}
               </li>
               <li>
-                <strong>Target Account:</strong> {accounts.find(a => a.id === selectedAccountId)?.name || 'Unknown'}
+                <strong>{t('complete.targetAccount')}</strong> {accounts.find(a => a.id === selectedAccountId)?.name || 'Unknown'}
               </li>
               <li>
-                <strong>Imported:</strong> {importResult.imported} transactions
+                <strong>{t('complete.imported')}</strong> {importResult.imported} {t('complete.importedSuffix')}
               </li>
               <li>
-                <strong>Skipped:</strong> {importResult.skipped} duplicate transfers
+                <strong>{t('complete.skipped')}</strong> {importResult.skipped} {t('complete.skippedSuffix')}
               </li>
               <li>
-                <strong>Errors:</strong> {importResult.errors}
+                <strong>{t('complete.errors')}</strong> {importResult.errors}
               </li>
               <li>
-                <strong>Categories created:</strong> {importResult.categoriesCreated}
+                <strong>{t('complete.categoriesCreated')}</strong> {importResult.categoriesCreated}
               </li>
               <li>
-                <strong>Accounts created:</strong> {importResult.accountsCreated}
+                <strong>{t('complete.accountsCreated')}</strong> {importResult.accountsCreated}
               </li>
               <li>
-                <strong>Payees created:</strong> {importResult.payeesCreated}
+                <strong>{t('complete.payeesCreated')}</strong> {importResult.payeesCreated}
               </li>
               <li>
-                <strong>Securities created:</strong> {importResult.securitiesCreated}
+                <strong>{t('complete.securitiesCreated')}</strong> {importResult.securitiesCreated}
               </li>
             </ul>
             {importResult.errorMessages.length > 0 && (
               <div className="mt-4">
                 <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">
-                  Errors:
+                  {t('complete.errorsLabel')}
                 </p>
                 <ul className="text-xs text-red-500 dark:text-red-400 space-y-1 max-h-32 overflow-y-auto">
                   {importResult.errorMessages.map((msg, i) => (
@@ -206,11 +208,10 @@ export function CompleteStep({
         {pendingSetups.length > 0 && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
             <h3 className="font-medium text-amber-900 dark:text-amber-200 mb-2">
-              Set Up Recurring Payments
+              {t('complete.loanSetupHeading')}
             </h3>
             <p className="text-sm text-amber-800 dark:text-amber-300 mb-3">
-              The following loan/mortgage accounts were imported without scheduled payments.
-              Set up recurring payments to continue tracking your loan progress.
+              {t('complete.loanSetupDescription')}
             </p>
             <div className="space-y-2">
               {pendingSetups.map((la) => (
@@ -230,7 +231,7 @@ export function CompleteStep({
                     size="sm"
                     onClick={() => setSetupDialogAccount(la)}
                   >
-                    Set Up Payments
+                    {t('complete.setUpPayments')}
                   </Button>
                 </div>
               ))}
@@ -242,7 +243,7 @@ export function CompleteStep({
         {completedSetups.size > 0 && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-6">
             <p className="text-sm text-green-800 dark:text-green-300">
-              Scheduled payments configured for {completedSetups.size} account{completedSetups.size > 1 ? 's' : ''}.
+              {t('complete.scheduledPaymentsConfigured', { count: completedSetups.size, plural: completedSetups.size > 1 ? 's' : '' })}
             </p>
           </div>
         )}
@@ -252,10 +253,10 @@ export function CompleteStep({
             variant="outline"
             onClick={() => router.push(hasInvestmentFile ? '/investments' : '/transactions')}
           >
-            {hasInvestmentFile ? 'View Investments' : 'View Transactions'}
+            {hasInvestmentFile ? t('complete.viewInvestments') : t('complete.viewTransactions')}
           </Button>
           <Button onClick={onImportMore}>
-            Import More Files
+            {t('complete.importMoreFiles')}
           </Button>
         </div>
       </div>

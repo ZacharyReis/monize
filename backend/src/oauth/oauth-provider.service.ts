@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { tr } from "../i18n/translate";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import type { default as ProviderType } from "oidc-provider";
@@ -55,7 +56,16 @@ export class OAuthProviderService implements OnModuleInit {
 
   private async initialize(): Promise<ProviderType> {
     const publicUrl = this.requirePublicUrl();
-    const issuer = `${publicUrl}/oauth`;
+    // The OAuth issuer is the bare application origin so the RFC 8414 / OIDC
+    // discovery documents are published at the conventional root well-known
+    // URLs (`/.well-known/oauth-authorization-server` and
+    // `/.well-known/openid-configuration`). The provider's actual endpoints are
+    // kept under `/oauth/*` via the `routes` map below — node-oidc-provider
+    // builds endpoint URLs as issuer + routePath, so a root issuer plus a
+    // `/oauth/...` routePath still yields `https://<host>/oauth/<route>`. This
+    // keeps the existing frontend proxy (which forwards `/oauth/*`) working and
+    // avoids colliding with frontend routes such as `/auth/callback`.
+    const issuer = publicUrl;
     const mcpResource = `${publicUrl}/api/v1/mcp`;
     const jwtSecret = this.configService.get<string>("JWT_SECRET");
     if (!jwtSecret || jwtSecret.length < 32) {
@@ -72,6 +82,26 @@ export class OAuthProviderService implements OnModuleInit {
 
     const provider = new Provider(issuer, {
       adapter: adapterFactory,
+      // Pin every provider endpoint under /oauth/* (see issuer comment above).
+      // Discovery (`/.well-known/openid-configuration` and
+      // `/.well-known/oauth-authorization-server`) is NOT in this map — it is
+      // served by the provider at the root because the issuer has no path.
+      routes: {
+        authorization: "/oauth/auth",
+        token: "/oauth/token",
+        jwks: "/oauth/jwks",
+        registration: "/oauth/reg",
+        revocation: "/oauth/token/revocation",
+        userinfo: "/oauth/me",
+        end_session: "/oauth/session/end",
+        // PAR is enabled by default in oidc-provider v9. Its default route is
+        // the bare `/request`, which sits outside the `/oauth/*` namespace that
+        // both the root-mount gate (`isOidcProviderPath`) and the frontend
+        // proxy (`isOAuthPath`) forward — so an advertised PAR endpoint at
+        // `/request` is unreachable and 307s to /login, stalling clients that
+        // push their authorization request. Pin it under /oauth/* like the rest.
+        pushed_authorization_request: "/oauth/request",
+      },
       cookies: {
         keys: [cookieKey],
         // Pin path: '/' so the interaction/session cookies follow the
@@ -263,7 +293,12 @@ export class OAuthProviderService implements OnModuleInit {
 
   getProvider(): ProviderType {
     if (!this.provider) {
-      throw new InternalServerErrorException("OAuth provider not initialized");
+      throw new InternalServerErrorException(
+        tr(
+          "errors.common.oauthProviderNotInitialized",
+          "OAuth provider not initialized",
+        ),
+      );
     }
     return this.provider;
   }
@@ -273,7 +308,10 @@ export class OAuthProviderService implements OnModuleInit {
   }
 
   getIssuerUrl(): string {
-    return `${this.requirePublicUrl()}/oauth`;
+    // Bare origin: the OAuth issuer identifier (see initialize()). Advertised
+    // to MCP clients in the protected-resource metadata as the authorization
+    // server, so clients fetch discovery from the root well-known URLs.
+    return this.requirePublicUrl();
   }
 
   /**

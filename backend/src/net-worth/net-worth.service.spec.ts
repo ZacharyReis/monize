@@ -53,6 +53,8 @@ describe("NetWorthService", () => {
     description: null,
     accountNumber: null,
     institution: null,
+    institutionId: null,
+    institutionRef: null,
     creditLimit: null,
     interestRate: null,
     isFavourite: false,
@@ -1494,6 +1496,60 @@ describe("NetWorthService", () => {
       const result = await service.getMonthlyNetWorth("user-1");
 
       expect(result[0].assets).toBe(32500);
+    });
+  });
+
+  describe("getLatestNetWorth", () => {
+    it("returns only the latest month's totals", async () => {
+      mabRepository.count.mockResolvedValue(5);
+      prefRepository.findOne.mockResolvedValue({ defaultCurrency: "USD" });
+      dataSource.query
+        // MAX(month) lookup
+        .mockResolvedValueOnce([{ month: "2024-03-01" }])
+        // snapshots bounded to that single month
+        .mockResolvedValueOnce([
+          {
+            month: "2024-03-01",
+            balance: 5000,
+            market_value: null,
+            account_id: "checking",
+            account_type: AccountType.CHEQUING,
+            account_sub_type: null,
+            currency_code: "USD",
+          },
+          {
+            month: "2024-03-01",
+            balance: -1500,
+            market_value: null,
+            account_id: "cc",
+            account_type: AccountType.CREDIT_CARD,
+            account_sub_type: null,
+            currency_code: "USD",
+          },
+        ])
+        // buildRateIndex (no foreign currencies)
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getLatestNetWorth("user-1");
+
+      expect(result).toEqual({
+        assets: 5000,
+        liabilities: 1500,
+        netWorth: 3500,
+      });
+      // The month range is bounded to the latest month so the snapshot query
+      // does not replay the whole history.
+      const snapshotCall = dataSource.query.mock.calls[1];
+      expect(snapshotCall[1]).toEqual(["user-1", "2024-03-01", "2024-03-01"]);
+    });
+
+    it("returns null when there are no snapshots", async () => {
+      mabRepository.count.mockResolvedValue(5);
+      dataSource.query.mockResolvedValueOnce([{ month: null }]);
+
+      const result = await service.getLatestNetWorth("user-1");
+
+      expect(result).toBeNull();
     });
   });
 

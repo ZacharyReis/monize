@@ -3,11 +3,13 @@ import {
   buildIntradayCacheKey,
   ChartFlagShadowFilter,
   clearAllIntradayCache,
+  computeMinMaxFlagIndices,
   computeTightYAxisDomain,
   INTRADAY_CACHE_PREFIX,
   niceAxisStep,
   readIntradayCache,
   renderChartFlagDot,
+  renderMinMaxFlagDots,
   writeIntradayCache,
 } from './portfolio-chart-utils';
 
@@ -242,6 +244,24 @@ describe('renderChartFlagDot', () => {
     const el = renderChartFlagDot({ ...baseOpts, side: 'above', gap: 12 });
     expect(el).toBeTruthy();
   });
+
+  it('adds a dismiss control wired to onDismiss when provided', () => {
+    const onDismiss = vi.fn();
+    const el = renderChartFlagDot({ ...baseOpts, side: 'right', onDismiss, dismissLabel: 'Hide' });
+    const children = (el.props as any).children as any[];
+    const closeButton = children.find((c: any) => c && c.props && c.props.role === 'button');
+    expect(closeButton).toBeTruthy();
+    expect(closeButton.props['aria-label']).toBe('Hide');
+    closeButton.props.onClick({ stopPropagation: () => {} });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the dismiss control when onDismiss is absent', () => {
+    const el = renderChartFlagDot({ ...baseOpts, side: 'right' });
+    const children = (el.props as any).children as any[];
+    const closeButton = children.find((c: any) => c && c.props && c.props.role === 'button');
+    expect(closeButton).toBeFalsy();
+  });
 });
 
 describe('ChartFlagShadowFilter', () => {
@@ -249,5 +269,97 @@ describe('ChartFlagShadowFilter', () => {
     const el = ChartFlagShadowFilter();
     expect(el).toBeTruthy();
     expect(typeof el).toBe('object');
+  });
+});
+
+describe('computeMinMaxFlagIndices', () => {
+  it('returns no flags for an empty series', () => {
+    expect(computeMinMaxFlagIndices([])).toEqual({ maxIndex: -1, minIndex: -1, show: false });
+  });
+
+  it('suppresses the flags for a flat series', () => {
+    expect(computeMinMaxFlagIndices([5, 5, 5])).toEqual({ maxIndex: 0, minIndex: 0, show: false });
+  });
+
+  it('finds the max and min indices', () => {
+    expect(computeMinMaxFlagIndices([3, 9, 1, 7])).toEqual({ maxIndex: 1, minIndex: 2, show: true });
+  });
+
+  it('resolves ties to the first occurrence', () => {
+    expect(computeMinMaxFlagIndices([4, 9, 9, 1, 1])).toEqual({ maxIndex: 1, minIndex: 3, show: true });
+  });
+
+  it('handles all-negative values', () => {
+    expect(computeMinMaxFlagIndices([-2, -8, -1])).toEqual({ maxIndex: 2, minIndex: 1, show: true });
+  });
+});
+
+describe('renderMinMaxFlagDots', () => {
+  const flags = { maxIndex: 1, minIndex: 4, show: true };
+  const base = {
+    flags,
+    pointCount: 6,
+    highColor: '#10b981',
+    lowColor: '#ef4444',
+    highLabel: '$9',
+    lowLabel: '$1',
+  };
+
+  it('renders an invisible dot for a non-extreme point', () => {
+    const el = renderMinMaxFlagDots({ ...base, cx: 10, cy: 20, index: 2 });
+    expect(el.type).toBe('circle');
+  });
+
+  it('renders a bubble group for the max point', () => {
+    const el = renderMinMaxFlagDots({ ...base, cx: 10, cy: 20, index: 1 });
+    expect(el.type).toBe('g');
+  });
+
+  it('renders a bubble group for the min point', () => {
+    const el = renderMinMaxFlagDots({ ...base, cx: 10, cy: 20, index: 4 });
+    expect(el.type).toBe('g');
+  });
+
+  it('renders an invisible dot when coordinates are missing', () => {
+    const el = renderMinMaxFlagDots({ ...base, index: 1 });
+    expect(el.type).toBe('circle');
+  });
+
+  it('renders an invisible dot when the flags are suppressed', () => {
+    const el = renderMinMaxFlagDots({
+      ...base,
+      flags: { maxIndex: 0, minIndex: 0, show: false },
+      cx: 10,
+      cy: 20,
+      index: 0,
+    });
+    expect(el.type).toBe('circle');
+  });
+
+  it('hides the high bubble when highDismissed is set', () => {
+    const el = renderMinMaxFlagDots({ ...base, cx: 10, cy: 20, index: 1, highDismissed: true });
+    expect(el.type).toBe('circle');
+  });
+
+  it('hides the low bubble when lowDismissed is set', () => {
+    const el = renderMinMaxFlagDots({ ...base, cx: 10, cy: 20, index: 4, lowDismissed: true });
+    expect(el.type).toBe('circle');
+  });
+
+  it('wires the high bubble dismiss control to onDismissHigh', () => {
+    const onDismissHigh = vi.fn();
+    const el = renderMinMaxFlagDots({
+      ...base,
+      cx: 10,
+      cy: 20,
+      index: 1,
+      onDismissHigh,
+      dismissLabel: 'Hide',
+    });
+    const children = (el.props as any).children as any[];
+    const closeButton = children.find((c: any) => c && c.props && c.props.role === 'button');
+    expect(closeButton).toBeTruthy();
+    closeButton.props.onClick({ stopPropagation: () => {} });
+    expect(onDismissHigh).toHaveBeenCalledTimes(1);
   });
 });

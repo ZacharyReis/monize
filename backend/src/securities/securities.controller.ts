@@ -33,6 +33,7 @@ import {
   SecurityPriceService,
   PriceRefreshSummary,
   HistoricalBackfillSummary,
+  HistoricalBackfillResult,
   SecurityLookupResult,
 } from "./security-price.service";
 import { MsnFinanceService } from "./msn-finance.service";
@@ -117,6 +118,18 @@ export class SecuritiesController {
   })
   getUsedSecurityIds(@Request() req): Promise<string[]> {
     return this.securitiesService.getSecurityIdsWithTransactions(req.user.id);
+  }
+
+  @Get("favourites")
+  @ApiOperation({
+    summary: "Get favourite securities with latest price and daily change",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Favourite securities with price movement",
+  })
+  getFavourites(@Request() req) {
+    return this.securitiesService.getFavouriteSecurities(req.user.id);
   }
 
   @Get("search")
@@ -229,6 +242,55 @@ export class SecuritiesController {
       preferredExchanges,
       providerChoice,
     );
+  }
+
+  @Get("profile-description")
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  @ApiOperation({
+    summary: "Suggest a description for a security from Yahoo Finance",
+    description:
+      "Best-effort pre-fill: stock prose or a synthesized fund one-liner. Advisory only; persists nothing.",
+  })
+  @ApiQuery({ name: "symbol", required: true })
+  @ApiQuery({ name: "exchange", required: false })
+  @ApiResponse({
+    status: 200,
+    description: "Suggested description (null when unavailable)",
+    schema: {
+      type: "object",
+      properties: {
+        symbol: { type: "string" },
+        description: { type: "string", nullable: true },
+      },
+    },
+  })
+  suggestDescription(
+    @Query("symbol") symbol: string,
+    @Query("exchange") exchange?: string,
+  ): Promise<{ symbol: string; description: string | null }> {
+    const sym = assertStringParam(symbol, "symbol");
+    const exch = assertStringParam(exchange, "exchange");
+    const safeSymbol = (sym ?? "").slice(0, 20);
+    const safeExchange = exch ? exch.slice(0, 50) : undefined;
+    return this.securitiesService.getSuggestedDescription(
+      safeSymbol,
+      safeExchange,
+    );
+  }
+
+  @Get("country-options")
+  @ApiOperation({
+    summary: "Country names for the manual ETF/fund allocation picker",
+    description:
+      "Canonical countries plus any custom countries the user has saved on a security, sorted alphabetically with the base-currency country first.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Ordered list of country names",
+    schema: { type: "array", items: { type: "string" } },
+  })
+  getCountryOptions(@Request() req): Promise<string[]> {
+    return this.securitiesService.getCountryOptions(req.user.id);
   }
 
   @Get(":id")
@@ -470,6 +532,37 @@ export class SecuritiesController {
       undefined,
       limit,
     );
+  }
+
+  @Post(":id/prices/backfill")
+  @ApiOperation({
+    summary: "Force-update historical prices for a single security",
+    description:
+      "Re-fetches historical prices across the full period the user has held this security and overwrites existing rows. Useful after correcting an imported security's symbol.",
+  })
+  @ApiResponse({ status: 200, description: "Historical backfill completed" })
+  @ApiResponse({ status: 404, description: "Security not found" })
+  async backfillSecurityPrices(
+    @Request() req,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<HistoricalBackfillResult> {
+    const result =
+      await this.securityPriceService.backfillSecurityHoldingPeriod(
+        req.user.id,
+        id,
+      );
+    if (result.success && (result.pricesLoaded ?? 0) > 0) {
+      // Fire-and-forget: recalculate this user's accounts so holdings and
+      // charts reflect the refreshed history.
+      this.netWorthService
+        .recalculateAllAccounts(req.user.id)
+        .catch((err) =>
+          this.logger.warn(
+            `Background account recalculation failed: ${err.message}`,
+          ),
+        );
+    }
+    return result;
   }
 
   @Post(":id/prices")

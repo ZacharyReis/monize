@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { ScheduledTransaction, ScheduledTransactionOverride, FrequencyType } from '@/types/scheduled-transaction';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
@@ -76,6 +77,8 @@ export function OccurrenceDatePicker({
   onSelect,
   onClose,
 }: OccurrenceDatePickerProps) {
+  const t = useTranslations('scheduledTransactions');
+  const tc = useTranslations('common');
   const { formatDate } = useDateFormat();
 
   const { formatCurrency } = useNumberFormat();
@@ -144,7 +147,7 @@ export function OccurrenceDatePicker({
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="sm" className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-          Select Occurrence Date
+          {t('occurrencePicker.title')}
         </h3>
         <button
           onClick={onClose}
@@ -157,7 +160,7 @@ export function OccurrenceDatePicker({
       </div>
 
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Choose which occurrence of "{scheduledTransaction.name}" to modify:
+        {t('occurrencePicker.description', { name: scheduledTransaction.name })}
       </p>
 
       <div className="space-y-2">
@@ -168,19 +171,19 @@ export function OccurrenceDatePicker({
           const changes: string[] = [];
           if (override) {
             if (override.originalDate !== override.overrideDate) {
-              changes.push(`Date moved from ${formatDate(override.originalDate)}`);
+              changes.push(t('occurrencePicker.dateMoved', { date: formatDate(override.originalDate) }));
             }
             if (override.amount != null && Number(override.amount) !== Number(scheduledTransaction.amount)) {
-              changes.push(`Amount: ${formatCurrency(Math.abs(override.amount), scheduledTransaction.currencyCode)}`);
+              changes.push(t('occurrencePicker.amountChange', { amount: formatCurrency(Math.abs(override.amount), scheduledTransaction.currencyCode) }));
             }
             if (override.category && override.categoryId !== scheduledTransaction.categoryId) {
-              changes.push(`Category: ${override.category.name}`);
+              changes.push(t('occurrencePicker.categoryChange', { category: override.category.name }));
             }
             if (override.description != null && override.description !== (scheduledTransaction.description ?? '')) {
-              changes.push(`Note: ${override.description}`);
+              changes.push(t('occurrencePicker.noteChange', { note: override.description }));
             }
             if (override.isSplit != null && override.isSplit !== scheduledTransaction.isSplit) {
-              changes.push('Split modified');
+              changes.push(t('occurrencePicker.splitModified'));
             }
           }
           return (
@@ -200,12 +203,12 @@ export function OccurrenceDatePicker({
                 <div className="flex items-center space-x-2">
                   {hasOverride && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                      Modified
+                      {t('occurrencePicker.modifiedBadge')}
                     </span>
                   )}
                   {isNextDue && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                      Next Due
+                      {t('occurrencePicker.nextDueBadge')}
                     </span>
                   )}
                 </div>
@@ -227,7 +230,7 @@ export function OccurrenceDatePicker({
           onClick={onClose}
           className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
         >
-          Cancel
+          {tc('cancel')}
         </button>
       </div>
     </Modal>

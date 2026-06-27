@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -61,6 +62,7 @@ interface BackupRestoreSectionProps {
 }
 
 export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
+  const t = useTranslations('settings.backupRestore');
   const isOidc = user.authProvider === 'oidc';
 
   const [encryption, setEncryption] = useState<BackupEncryptionStatus | null>(
@@ -122,11 +124,11 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success('Backup downloaded successfully');
+      toast.success(t('export.toasts.success'));
       setExportPasswordPrompt(false);
       setExportPassword('');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create backup'));
+      toast.error(getErrorMessage(error, t('export.toasts.failed')));
     } finally {
       setIsExporting(false);
     }
@@ -165,11 +167,11 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
 
   const runRestore = async () => {
     if (!restoreFile) {
-      toast.error('Please select a backup file');
+      toast.error(t('restore.toasts.pleaseSelectFile'));
       return;
     }
     if (!isOidc && !restorePassword) {
-      toast.error('Please enter your password to confirm');
+      toast.error(t('restore.toasts.pleaseEnterPassword'));
       return;
     }
 
@@ -194,11 +196,9 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       closeRestoreForm();
     } catch (error) {
       if (isBackupPasswordRequired(error)) {
-        toast.error(
-          'This backup is encrypted. Enter the password it was created with in the "Backup password" field, then try again.',
-        );
+        toast.error(t('restore.toasts.encryptedNeedsPassword'));
       } else {
-        toast.error(getErrorMessage(error, 'Failed to restore backup'));
+        toast.error(getErrorMessage(error, t('restore.toasts.failed')));
       }
     } finally {
       setIsRestoring(false);
@@ -217,9 +217,9 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       setEncryption(status);
       setShowEncryptionSetup(false);
       setSetupPassword('');
-      toast.success('Encrypted backups enabled');
+      toast.success(t('encryption.toasts.enabled'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to enable encryption'));
+      toast.error(getErrorMessage(error, t('encryption.toasts.enableFailed')));
     } finally {
       setSetupSaving(false);
     }
@@ -230,51 +230,51 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       await backupApi.disableEncryption();
       const status = await backupApi.getEncryptionStatus();
       setEncryption(status);
-      toast.success('Encrypted backups disabled');
+      toast.success(t('encryption.toasts.disabled'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to disable encryption'));
+      toast.error(getErrorMessage(error, t('encryption.toasts.disableFailed')));
     }
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-        Backup & Restore
+        {t('heading')}
       </h2>
 
       {/* Encryption Section */}
       <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-          Backup Encryption
+          {t('encryption.heading')}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           {isOidc
-            ? 'Encrypt manual and automatic backups with a dedicated backup password you set here. The password is required to restore.'
-            : 'Encrypt manual and automatic backups with your login password. The password is required to restore.'}
+            ? t('encryption.descriptionOidc')
+            : t('encryption.descriptionLocal')}
         </p>
 
         {encryptionLoading ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('encryption.loading')}</p>
         ) : encryption?.enabled ? (
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-              Enabled
+              {t('encryption.enabledBadge')}
             </span>
             {isOidc && (
               <Button
                 variant="outline"
                 onClick={() => setShowEncryptionSetup(true)}
               >
-                Change Backup Password
+                {t('encryption.changePasswordButton')}
               </Button>
             )}
             <Button variant="outline" onClick={handleDisableEncryption}>
-              Disable
+              {t('encryption.disableButton')}
             </Button>
           </div>
         ) : (
           <Button onClick={() => setShowEncryptionSetup(true)}>
-            {isOidc ? 'Set Backup Password' : 'Enable Encrypted Backups'}
+            {isOidc ? t('encryption.setPasswordButton') : t('encryption.enableEncryptedButton')}
           </Button>
         )}
       </div>
@@ -282,29 +282,26 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       {/* Export Section */}
       <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-          Create Backup
+          {t('export.heading')}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Download a complete backup of your financial data. This includes
-          accounts, transactions, categories, payees, budgets, investments, and all other
-          user data.
+          {t('export.description')}
         </p>
         <Button
           onClick={handleExport}
           disabled={isExporting}
         >
-          {isExporting ? 'Creating Backup...' : 'Download Backup'}
+          {isExporting ? t('export.creatingButton') : t('export.downloadButton')}
         </Button>
       </div>
 
       {/* Restore Section */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-          Restore from Backup
+          {t('restore.heading')}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Replace all your current data with data from a previously exported backup file.
-          This will permanently overwrite your existing data.
+          {t('restore.description')}
         </p>
 
         {!showRestore ? (
@@ -312,7 +309,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
             variant="outline"
             onClick={() => setShowRestore(true)}
           >
-            Restore from Backup...
+            {t('restore.openButton')}
           </Button>
         ) : (
           <div className="space-y-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4">
@@ -331,14 +328,13 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                 />
               </svg>
               <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                Warning: This will delete all your current data and replace it with the
-                backup contents. This action cannot be undone.
+                {t('restore.warning')}
               </p>
             </div>
 
             <div>
               <label htmlFor="backup-file-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Select backup file
+                {t('restore.selectFileLabel')}
               </label>
               <input
                 id="backup-file-input"
@@ -361,15 +357,14 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                   htmlFor="backup-password-input"
                   className="block text-sm font-medium text-amber-700 dark:text-amber-300 mb-2"
                 >
-                  This backup is encrypted. Enter the backup password it was
-                  created with:
+                  {t('restore.encryptedBackupLabel')}
                 </label>
                 <Input
                   id="backup-password-input"
                   type="password"
                   value={restoreBackupPassword}
                   onChange={(e) => setRestoreBackupPassword(e.target.value)}
-                  placeholder="Backup password"
+                  placeholder={t('restore.backupPasswordPlaceholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') runRestore();
                   }}
@@ -380,8 +375,8 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
             <div className="pt-2 border-t border-amber-200 dark:border-amber-800">
               <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-2">
                 {isOidc
-                  ? 'Re-authenticate with your identity provider to confirm:'
-                  : 'Enter your account password to confirm:'}
+                  ? t('restore.oidcConfirmLabel')
+                  : t('restore.passwordConfirmLabel')}
               </p>
               {isOidc ? (
                 <div className="flex gap-2">
@@ -390,7 +385,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                     onClick={() => runRestore()}
                     disabled={isRestoring || !restoreFile}
                   >
-                    {isRestoring ? 'Restoring...' : 'Re-authenticate and Restore'}
+                    {isRestoring ? t('restore.restoringButton') : t('restore.oidcRestoreButton')}
                   </Button>
                   <Button variant="outline" onClick={closeRestoreForm}>
                     Cancel
@@ -402,7 +397,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                     type="password"
                     value={restorePassword}
                     onChange={(e) => setRestorePassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={t('restore.passwordPlaceholder')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && restorePassword && restoreFile) {
                         runRestore();
@@ -415,7 +410,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                       onClick={() => runRestore()}
                       disabled={isRestoring || !restorePassword || !restoreFile}
                     >
-                      {isRestoring ? 'Restoring...' : 'Confirm Restore'}
+                      {isRestoring ? t('restore.restoringButton') : t('restore.confirmRestoreButton')}
                     </Button>
                     <Button variant="outline" onClick={closeRestoreForm}>
                       Cancel
@@ -439,18 +434,18 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       >
         <div className="p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            {isOidc ? 'Set Backup Password' : 'Enable Encrypted Backups'}
+            {isOidc ? t('encryption.setupModal.titleOidc') : t('encryption.setupModal.titleLocal')}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             {isOidc
-              ? 'Choose a password that will be used to encrypt your backups. Save it somewhere safe -- you will need it to restore.'
-              : 'Confirm your login password. It will be used to encrypt all backups (manual and automatic).'}
+              ? t('encryption.setupModal.descriptionOidc')
+              : t('encryption.setupModal.descriptionLocal')}
           </p>
           <Input
             type="password"
             value={setupPassword}
             onChange={(e) => setSetupPassword(e.target.value)}
-            placeholder={isOidc ? 'New backup password (12+ chars)' : 'Your login password'}
+            placeholder={isOidc ? t('encryption.setupModal.placeholderOidc') : t('encryption.setupModal.placeholderLocal')}
           />
           <div className="mt-4 flex justify-end gap-2">
             <Button
@@ -467,7 +462,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
               onClick={handleEnableEncryption}
               disabled={setupSaving || !setupPassword}
             >
-              {setupSaving ? 'Saving...' : 'Confirm'}
+              {setupSaving ? t('encryption.setupModal.savingButton') : t('encryption.setupModal.confirmButton')}
             </Button>
           </div>
         </div>
@@ -484,16 +479,16 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
       >
         <div className="p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Encrypt Backup
+            {t('export.exportPasswordModal.title')}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Enter the password to encrypt this backup. You will need it to restore.
+            {t('export.exportPasswordModal.description')}
           </p>
           <Input
             type="password"
             value={exportPassword}
             onChange={(e) => setExportPassword(e.target.value)}
-            placeholder={isOidc ? 'Backup password' : 'Login password'}
+            placeholder={isOidc ? t('export.exportPasswordModal.placeholderOidc') : t('export.exportPasswordModal.placeholderLocal')}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && exportPassword) {
                 runExport(exportPassword);
@@ -515,7 +510,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
               onClick={() => runExport(exportPassword)}
               disabled={isExporting || !exportPassword}
             >
-              {isExporting ? 'Encrypting...' : 'Download'}
+              {isExporting ? t('export.exportPasswordModal.encryptingButton') : t('export.exportPasswordModal.downloadButton')}
             </Button>
           </div>
         </div>
@@ -535,12 +530,12 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Restore Complete
+                {t('restoreResult.title')}
               </h2>
             </div>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Your data has been restored successfully. Here is a summary of what was restored:
+              {t('restoreResult.description')}
             </p>
 
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 max-h-64 overflow-y-auto">
@@ -561,7 +556,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
             </div>
 
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between text-sm font-medium">
-              <span className="text-gray-900 dark:text-white">Total records</span>
+              <span className="text-gray-900 dark:text-white">{t('restoreResult.totalRecords')}</span>
               <span className="text-gray-900 dark:text-white">
                 {Object.values(restoreResult.restored).reduce((sum, n) => sum + n, 0).toLocaleString()}
               </span>
@@ -569,7 +564,7 @@ export function BackupRestoreSection({ user }: BackupRestoreSectionProps) {
 
             <div className="mt-6 flex justify-end">
               <Button onClick={() => setRestoreResult(null)}>
-                Done
+                {t('restoreResult.doneButton')}
               </Button>
             </div>
           </div>

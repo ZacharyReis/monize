@@ -1,0 +1,179 @@
+{
+  "chartFlag": {
+    "dismiss": "Masquer cette valeur"
+  },
+  "appVersion": {
+    "releaseNotes": "Voir les notes de version de la v{version}"
+  },
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "edit": "Modifier",
+  "close": "Fermer",
+  "actions": {
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "view": "Afficher",
+    "duplicate": "Dupliquer",
+    "merge": "Fusionner",
+    "reactivate": "Réactiver",
+    "reconcile": "Rapprocher",
+    "post": "Comptabiliser",
+    "skip": "Ignorer",
+    "close": "Fermer",
+    "reopen": "Rouvrir",
+    "scheduleRecurring": "Rendre récurrent",
+    "more": "Plus d'actions"
+  },
+  "loading": "Chargement...",
+  "pagination": {
+    "showing": "Affichage",
+    "of": "sur",
+    "firstPage": "Première page",
+    "lastPage": "Dernière page",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "back10Pages": "Reculer de 10 pages",
+    "forward10Pages": "Avancer de 10 pages",
+    "enterPageNumber": "Entrer le numéro de page"
+  },
+  "confirmDialog": {
+    "confirm": "Confirmer"
+  },
+  "unsavedChanges": {
+    "title": "Modifications non enregistrées",
+    "message": "Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?",
+    "discard": "Ignorer"
+  },
+  "exportDropdown": {
+    "export": "Exporter",
+    "exporting": "Exportation...",
+    "exportPdf": "Exporter en PDF",
+    "exportReport": "Exporter le rapport",
+    "failedPdf": "Échec de l'exportation PDF. Veuillez réessayer."
+  },
+  "dateRange": {
+    "custom": "Personnalisé",
+    "startDate": "Date de début",
+    "endDate": "Date de fin"
+  },
+  "colorPicker": {
+    "custom": "Personnalisé :",
+    "apply": "Appliquer"
+  },
+  "chartDownload": {
+    "downloadAsPng": "Télécharger {filename} en PNG",
+    "unableToCapture": "Impossible de capturer l'image du graphique",
+    "failedToDownload": "Échec du téléchargement du graphique"
+  },
+  "chartViewToggle": {
+    "pieChart": "Graphique circulaire",
+    "barChart": "Graphique à barres",
+    "stackedChart": "Graphique à barres empilées 100 %",
+    "lineChart": "Graphique en courbes",
+    "areaChart": "Graphique en aires",
+    "table": "Tableau"
+  },
+  "formActions": {
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "themeToggle": {
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "title": "Thème : {label}. Cliquez pour modifier."
+  },
+  "errorPage": {
+    "title": "Un problème est survenu",
+    "description": "Une erreur inattendue s'est produite. Veuillez réessayer ou contacter l'assistance si le problème persiste.",
+    "errorId": "ID de l'erreur : {digest}",
+    "tryAgain": "Réessayer",
+    "goToDashboard": "Aller au tableau de bord"
+  },
+  "errorBoundary": {
+    "defaultMessage": "Une erreur s'est produite lors du rendu de ce composant."
+  },
+  "calendar": {
+    "clear": "Effacer",
+    "today": "Aujourd'hui"
+  },
+  "multiSelect": {
+    "search": "Rechercher...",
+    "selectAll": "Tout sélectionner",
+    "clear": "Effacer",
+    "noOptions": "Aucune option trouvée",
+    "selectedCount": "{count} sélectionnés"
+  },
+  "combobox": {
+    "createOption": "Créer « {value} »"
+  },
+  "passwordInput": {
+    "show": "Afficher la saisie",
+    "hide": "Masquer la saisie"
+  },
+  "currencyInput": {
+    "openCalculator": "Ouvrir la calculatrice",
+    "calculator": "Calculatrice",
+    "toggleSign": "Changer de signe"
+  },
+  "dateInput": {
+    "shortcutsTitle": "Raccourcis clavier",
+    "today": "Aujourd'hui",
+    "firstDayOfYear": "Premier jour de l'année",
+    "lastDayOfYear": "Dernier jour de l'année",
+    "firstDayOfMonth": "Premier jour du mois",
+    "lastDayOfMonth": "Dernier jour du mois",
+    "nextDay": "Jour suivant",
+    "previousDay": "Jour précédent",
+    "nextMonth": "Mois suivant",
+    "previousMonth": "Mois précédent"
+  },
+  "accountTypes": {
+    "CHEQUING": "Compte courant",
+    "SAVINGS": "Épargne",
+    "CREDIT_CARD": "Carte de crédit",
+    "INVESTMENT": "Investissement",
+    "LOAN": "Prêt",
+    "MORTGAGE": "Hypothèque",
+    "CASH": "Espèces",
+    "LINE_OF_CREDIT": "Ligne de crédit",
+    "ASSET": "Actif",
+    "OTHER": "Autre"
+  },
+  "accountFilter": {
+    "allAccounts": "Tous les comptes",
+    "allBut": "Tous sauf {names}"
+  },
+  "passwordRequirements": "Le mot de passe doit comporter au moins 12 caractères et contenir une majuscule, une minuscule, un chiffre et un caractère spécial.",
+  "passwordValidation": {
+    "min": "Le mot de passe doit comporter au moins 12 caractères",
+    "max": "Le mot de passe ne doit pas dépasser 100 caractères",
+    "lowercase": "Doit contenir une lettre minuscule",
+    "uppercase": "Doit contenir une lettre majuscule",
+    "number": "Doit contenir un chiffre",
+    "special": "Doit contenir un caractère spécial"
+  },
+  "codeValidation": {
+    "length": "Le code doit comporter exactement 6 chiffres",
+    "digits": "Le code doit comporter 6 chiffres"
+  },
+  "monthsShort": ["jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+  "weekdaysShort": ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+  "weekdaysMin": ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"],
+  "weekdaysNarrow": ["D", "L", "M", "M", "J", "V", "S"],
+  "dateFormat": {
+    "browserAuto": "Utiliser les paramètres régionaux du navigateur (détecté automatiquement : {sample})",
+    "custom": "Personnalisé..."
+  },
+  "emailInvalid": "Veuillez saisir une adresse e-mail valide",
+  "noSectionAccess": "Vous n'avez pas accès à cette section.",
+  "undoRedo": {
+    "nothingToUndo": "Rien à annuler",
+    "cannotUndo": "Impossible d'annuler cette action",
+    "undoFailed": "Échec de l'annulation",
+    "nothingToRedo": "Rien à rétablir",
+    "cannotRedo": "Impossible de rétablir cette action",
+    "redoFailed": "Échec du rétablissement"
+  }
+}

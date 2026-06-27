@@ -1,0 +1,292 @@
+{
+  "page": {
+    "title": "Bénéficiaires",
+    "subtitle": "Gérez vos bénéficiaires et leurs catégories par défaut",
+    "deactivateUnused": "Désactiver les inutilisés",
+    "autoAssignCategories": "Attribuer les catégories automatiquement",
+    "autoMergePayees": "Fusionner automatiquement les bénéficiaires",
+    "newPayee": "+ Nouveau bénéficiaire",
+    "searchPlaceholder": "Rechercher des bénéficiaires...",
+    "statusAll": "Tous ({count})",
+    "statusActive": "Actifs ({count})",
+    "statusInactive": "Inactifs ({count})",
+    "categoryFilterAll": "Tous les bénéficiaires ({count})",
+    "categoryFilterNoCategory": "Sans catégorie par défaut ({count})",
+    "categoryFilterUncategorized": "Trans. sans catégorie ({count})",
+    "modalTitleEdit": "Modifier le bénéficiaire",
+    "modalTitleNew": "Nouveau bénéficiaire",
+    "loading": "Chargement des bénéficiaires...",
+    "count": "{count, plural, one {# bénéficiaire} other {# bénéficiaires}}",
+    "toasts": {
+      "loadFailed": "Échec du chargement des données",
+      "updated": "Bénéficiaire mis à jour avec succès",
+      "created": "Bénéficiaire créé avec succès",
+      "reactivated": "Bénéficiaire « {name} » réactivé",
+      "reactivateFailed": "Échec de la réactivation du bénéficiaire",
+      "updateFailed": "Échec de la mise à jour du bénéficiaire",
+      "createFailed": "Échec de la création du bénéficiaire",
+      "categorized": "{count, plural, one {# transaction catégorisée} other {# transactions catégorisées}}"
+    },
+    "summary": {
+      "totalPayees": "Total des bénéficiaires",
+      "active": "Actifs",
+      "inactive": "Inactifs",
+      "withoutCategory": "Sans catégorie"
+    },
+    "applyDefaultCategories": "Appliquer les catégories par défaut"
+  },
+  "list": {
+    "columns": {
+      "name": "Nom",
+      "defaultCategory": "Catégorie par défaut",
+      "count": "Nombre",
+      "aliases": "Alias",
+      "lastUsed": "Dernière utilisation",
+      "created": "Créé le",
+      "status": "Statut",
+      "notes": "Notes",
+      "actions": "Actions"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense",
+      "toggle": "Changer la densité des lignes"
+    },
+    "noCategory": "Aucune",
+    "statusBadge": {
+      "active": "Actif",
+      "inactive": "Inactif"
+    },
+    "actions": {
+      "reactivate": "Réactiver",
+      "reactivateShort": "Re",
+      "merge": "Fusionner",
+      "mergeShort": "F",
+      "edit": "Modifier",
+      "editShort": "M",
+      "delete": "Supprimer",
+      "deleteShort": "X"
+    },
+    "viewTransactionsTitle": "Voir les transactions avec ce bénéficiaire",
+    "uncategorizedBadge": "{count, plural, one {# sans catégorie} other {# sans catégorie}}",
+    "uncategorizedTitle": "{count, plural, one {# transaction de ce bénéficiaire n'a pas de catégorie} other {# transactions de ce bénéficiaire n'ont pas de catégorie}}",
+    "empty": {
+      "title": "Aucun bénéficiaire",
+      "subtitle": "Commencez par créer un nouveau bénéficiaire."
+    },
+    "deleteConfirm": {
+      "title": "Supprimer « {name} » ?",
+      "message": "Cette action est irréversible.",
+      "confirmLabel": "Supprimer",
+      "cancelLabel": "Annuler"
+    },
+    "toasts": {
+      "deleted": "Bénéficiaire supprimé avec succès",
+      "deleteFailed": "Échec de la suppression du bénéficiaire"
+    }
+  },
+  "form": {
+    "nameLabel": "Nom du bénéficiaire",
+    "categoryLabel": "Catégorie par défaut",
+    "notesLabel": "Notes (facultatif)",
+    "submitCreate": "Créer le bénéficiaire",
+    "submitUpdate": "Mettre à jour le bénéficiaire",
+    "applyCategoryLabel": "Appliquer cette catégorie aux transactions existantes",
+    "applyCategoryNone": "Ne pas modifier les transactions existantes",
+    "applyCategoryUncategorized": "Uniquement les transactions sans catégorie ({count})",
+    "applyCategoryAll": "Toutes les transactions ({count})",
+    "applyCategoryHelp": "Les virements et les transactions ventilées ne sont jamais modifiés."
+  },
+  "merge": {
+    "title": "Fusionner le bénéficiaire",
+    "mergeFromLabel": "Fusionner depuis (sera supprimé) :",
+    "transactionCount": "{count, plural, one {# transaction sera migrée} other {# transactions seront migrées}}",
+    "mergeIntoLabel": "Fusionner vers (bénéficiaire cible)",
+    "addAsAliasLabel": "Ajouter « {name} » comme alias sur le bénéficiaire cible",
+    "willLabel": "Cette action va :",
+    "willMoveTransactions": "Déplacer toutes les transactions de « {source} » vers « {target} »",
+    "willAddAlias": "Ajouter « {source} » comme alias pour que les importations futures correspondent automatiquement",
+    "willDelete": "Supprimer le bénéficiaire « {source} »",
+    "merging": "Fusion en cours...",
+    "mergeButton": "Fusionner le bénéficiaire",
+    "toasts": {
+      "merged": "Fusionné dans « {target} » : {details}",
+      "transactionsMigrated": "{count, plural, one {# transaction migrée} other {# transactions migrées}}",
+      "aliasAdded": "alias ajouté",
+      "sourceDeleted": "« {name} » supprimé",
+      "failed": "Échec de la fusion des bénéficiaires"
+    }
+  },
+  "categoryAutoAssign": {
+    "title": "Attribuer automatiquement les catégories par défaut",
+    "howItWorksTitle": "Comment ça fonctionne",
+    "howItWorksBody": "Cette fonctionnalité analyse votre historique de transactions pour suggérer des catégories par défaut aux bénéficiaires. Elle identifie la catégorie la plus fréquemment utilisée pour chaque bénéficiaire et propose de l'attribuer comme catégorie par défaut pour les transactions futures. Vous pouvez toujours modifier la catégorie par défaut si nécessaire.",
+    "minTransactionsLabel": "Transactions minimales : {count}",
+    "minTransactionsHelp": "Ne prendre en compte que les bénéficiaires ayant au moins ce nombre de transactions",
+    "matchPercentageLabel": "Pourcentage de correspondance : {percent} %",
+    "matchPercentageHelp": "La catégorie doit être utilisée dans au moins ce pourcentage de transactions",
+    "onlyWithoutCategoryLabel": "Uniquement les bénéficiaires sans catégorie par défaut",
+    "backfillLabel": "{count, plural, one {Catégoriser aussi # transaction existante sans catégorie} other {Catégoriser aussi # transactions existantes sans catégorie}}",
+    "backfillHelp": "Applique la catégorie choisie aux transactions qui n'en ont pas actuellement. Les catégories existantes, les virements et les transactions ventilées restent inchangés.",
+    "viewUncategorizedTitle": "Afficher {count, plural, one {# transaction sans catégorie} other {# transactions sans catégorie}} pour {name}",
+    "previewButton": "Aperçu des suggestions",
+    "loading": "Chargement...",
+    "suggestionsHeader": "Suggestions ({count} trouvée(s))",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "selectPayeeLabel": "Sélectionner {name}",
+    "empty": {
+      "line1": "Aucun bénéficiaire ne correspond aux critères actuels.",
+      "line2": "Essayez de modifier les paramètres ci-dessus."
+    },
+    "columns": {
+      "payee": "Bénéficiaire",
+      "suggestedCategory": "Catégorie suggérée",
+      "match": "Correspondance"
+    },
+    "selectedCount": "{count, plural, one {# bénéficiaire sélectionné} other {# bénéficiaires sélectionnés}}",
+    "applyButton": "Appliquer à {count, plural, one {# bénéficiaire} other {# bénéficiaires}}",
+    "applying": "Application en cours...",
+    "toasts": {
+      "selectAtLeastOne": "Veuillez sélectionner au moins un bénéficiaire à mettre à jour",
+      "updated": "{count, plural, one {# bénéficiaire mis à jour} other {# bénéficiaires mis à jour}}",
+      "backfilled": "{count, plural, one {# transaction catégorisée} other {# transactions catégorisées}}",
+      "loadFailed": "Échec du chargement des suggestions",
+      "applyFailed": "Échec de l'application des catégories"
+    }
+  },
+  "autoMerge": {
+    "title": "Fusionner automatiquement les bénéficiaires",
+    "howItWorksTitle": "Comment ça marche",
+    "howItWorksBody": "Cette fonction analyse vos bénéficiaires et regroupe les variantes dont un nom prolonge un autre - par exemple \"Lidl\", \"LIDL sp. z o.o.\" et \"LIDL WARSZAWA 0421\" reposent tous sur \"Lidl\". Chaque groupe est fusionné en un seul bénéficiaire canonique, et un alias générique (tel que \"*LIDL*\") est créé afin que les futurs imports soient associés automatiquement. Les bénéficiaires qui ne partagent qu'un mot commun (comme \"Royal Electric\" et \"Royal City Nursery\") restent séparés. Vérifiez et ajustez chaque groupe avant de l'appliquer.",
+    "backupRecommendation": "Recommandé : créez une <link>sauvegarde</link> avant d'effectuer des modifications.",
+    "minGroupSizeLabel": "Taille minimale du groupe : {count}",
+    "minGroupSizeHelp": "Ne suggérer que les groupes comptant au moins ce nombre de bénéficiaires",
+    "similarityLabel": "Seuil de similarité : {percent}%",
+    "similarityHelp": "Tolérance orthographique : abaissez-la pour regrouper aussi les correspondances proches comme LIDL / LIDI ; 100% exige une correspondance exacte du mot-clé.",
+    "minTokenLengthLabel": "Longueur minimale du mot-clé : {count}",
+    "minTokenLengthHelp": "Ignorer les mots-clés plus courts que cela lors du regroupement",
+    "includeInactiveLabel": "Inclure les bénéficiaires inactifs",
+    "previewButton": "Aperçu des groupes",
+    "loading": "Chargement...",
+    "groupsHeader": "Groupes ({count} trouvés)",
+    "empty": {
+      "line1": "Aucun groupe de fusion ne correspond aux critères actuels.",
+      "line2": "Essayez de réduire le seuil de similarité ou la taille du groupe."
+    },
+    "includeGroupLabel": "Inclure ce groupe",
+    "canonicalNameLabel": "Conserver comme bénéficiaire",
+    "aliasLabel": "Alias pour les futurs imports",
+    "defaultCategoryLabel": "Catégorie par défaut (facultatif)",
+    "backfillLabel": "{count, plural, one {Catégoriser aussi # transaction existante sans catégorie} other {Catégoriser aussi # transactions existantes sans catégorie}}",
+    "aliasPlaceholder": "ex. : *LIDL*",
+    "keepLabel": "Conserver ce bénéficiaire",
+    "includeMemberLabel": "Inclure dans la fusion",
+    "keepBadge": "Conserver",
+    "keepColumn": "Conserver",
+    "mergeColumn": "Fusionner",
+    "membersHelp": "Sélectionnez le bénéficiaire à conserver. Les autres y seront fusionnés.",
+    "memberTransactions": "{count, plural, one {# transaction} other {# transactions}}",
+    "selectedCount": "{count, plural, one {# groupe sélectionné} other {# groupes sélectionnés}}",
+    "payeesMergedCount": "{count, plural, one {# bénéficiaire à fusionner} other {# bénéficiaires à fusionner}}",
+    "applyButton": "Fusionner {count, plural, one {# groupe} other {# groupes}}",
+    "applying": "Fusion...",
+    "toasts": {
+      "selectAtLeastOne": "Veuillez sélectionner au moins un groupe à fusionner",
+      "applied": "{groups, plural, one {# groupe fusionné} other {# groupes fusionnés}} ({payees} bénéficiaires combinés)",
+      "backfilled": "{count, plural, one {# transaction catégorisée} other {# transactions catégorisées}}",
+      "aliasesSkipped": "{count, plural, one {# alias a été ignoré en raison d'un conflit} other {# alias ont été ignorés en raison de conflits}}",
+      "loadFailed": "Échec du chargement des groupes de fusion",
+      "applyFailed": "Échec de la fusion des bénéficiaires"
+    },
+    "categoryMatchLabel": "Fusionner uniquement les bénéficiaires de la même catégorie",
+    "categoryMatchHelp": "Sépare les bénéficiaires dont les catégories diffèrent, réduisant les faux positifs.",
+    "granularityLabel": "Niveau de correspondance de catégorie",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "granularity": {
+      "category": "Catégorie",
+      "subcategory": "Sous-catégorie"
+    },
+    "ignoreCommonWordsLabel": "Ignorer les mots courants",
+    "ignoreCommonWordsHelp": "Ne pas regrouper sur des mots génériques (Restaurant, Cafe, noms de pays) ou des mots par lesquels commencent de nombreux bénéficiaires différents.",
+    "commonWordSensitivityLabel": "Sensibilité aux mots courants : {count}+ variantes",
+    "commonWordSensitivityHelp": "Un mot initial est considéré comme courant dès qu'au moins ce nombre de bénéficiaires différents en dérivent. Plus bas = filtrage plus agressif.",
+    "viewUncategorizedTitle": "Afficher {count, plural, one {# transaction sans catégorie} other {# transactions sans catégorie}} pour {name}"
+  },
+  "deactivateUnused": {
+    "title": "Désactiver les bénéficiaires inutilisés",
+    "howItWorksTitle": "Comment ça fonctionne",
+    "howItWorksBody": "Cette fonctionnalité identifie les bénéficiaires rarement utilisés et les désactive. Les bénéficiaires désactivés n'apparaissent plus dans les listes déroulantes lors de la création de transactions, mais leurs transactions historiques sont conservées. Vous pouvez réactiver un bénéficiaire à tout moment depuis la liste des bénéficiaires.",
+    "maxTransactionsLabel": "{count, plural, one {# transaction ou moins} other {# transactions ou moins}}",
+    "maxTransactionsHelp": "N'inclure que les bénéficiaires ayant ce nombre de transactions ou moins",
+    "monthsUnusedLabel": "Dernière utilisation il y a plus de {label}",
+    "monthsUnusedHelp": "N'inclure que les bénéficiaires non utilisés depuis cette durée (ou jamais utilisés)",
+    "previewButton": "Aperçu des bénéficiaires inutilisés",
+    "loading": "Chargement...",
+    "candidatesHeader": "Candidats ({count} trouvé(s))",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "selectPayeeLabel": "Sélectionner {name}",
+    "neverUsed": "Jamais utilisé",
+    "empty": {
+      "line1": "Aucun bénéficiaire ne correspond aux critères actuels.",
+      "line2": "Essayez de modifier les paramètres ci-dessus."
+    },
+    "columns": {
+      "payee": "Bénéficiaire",
+      "transactions": "Transactions",
+      "lastUsed": "Dernière utilisation"
+    },
+    "selectedCount": "{count, plural, one {# bénéficiaire sélectionné} other {# bénéficiaires sélectionnés}}",
+    "deactivateButton": "Désactiver {count, plural, one {# bénéficiaire} other {# bénéficiaires}}",
+    "deactivating": "Désactivation en cours...",
+    "toasts": {
+      "selectAtLeastOne": "Veuillez sélectionner au moins un bénéficiaire à désactiver",
+      "deactivated": "{count, plural, one {# bénéficiaire désactivé} other {# bénéficiaires désactivés}}",
+      "loadFailed": "Échec du chargement de l'aperçu",
+      "deactivateFailed": "Échec de la désactivation des bénéficiaires"
+    }
+  },
+  "reactivate": {
+    "title": "Réactiver le bénéficiaire ?",
+    "message": "Le bénéficiaire « {name} » a été désactivé précédemment. Souhaitez-vous le réactiver pour qu'il apparaisse à nouveau dans les listes déroulantes ?",
+    "keepInactiveButton": "Non, laisser inactif",
+    "reactivateButton": "Réactiver",
+    "reactivating": "Réactivation en cours..."
+  },
+  "aliases": {
+    "heading": "Alias",
+    "description": "Les alias associent les noms de bénéficiaires importés à ce bénéficiaire. Utilisez * comme joker (ex. : « STARBUCKS* »). Non sensible à la casse.",
+    "loading": "Chargement...",
+    "noAliases": "Aucun alias configuré",
+    "removeTitle": "Supprimer l'alias",
+    "removeButton": "Supprimer",
+    "addButton": "Ajouter",
+    "adding": "Ajout en cours...",
+    "placeholder": "ex. : STARBUCKS #*",
+    "toasts": {
+      "alreadyAdded": "L'alias « {alias} » est déjà ajouté",
+      "added": "Alias « {alias} » ajouté",
+      "removed": "Alias « {alias} » supprimé",
+      "loadFailed": "Échec du chargement des alias",
+      "addFailed": "Échec de l'ajout de l'alias",
+      "removeFailed": "Échec de la suppression de l'alias"
+    }
+  },
+  "selectCategoryPlaceholder": "Sélectionner une catégorie...",
+  "validation": {
+    "nameRequired": "Le nom du bénéficiaire est requis"
+  },
+  "defaultCategoryBackfill": {
+    "allConfirmTitle": "Appliquer les catégories par défaut ?",
+    "allConfirmMessage": "Cela catégorisera {transactions, plural, one {# transaction sans catégorie} other {# transactions sans catégorie}} pour {payees, plural, one {# bénéficiaire} other {# bénéficiaires}} en utilisant la catégorie par défaut de chaque bénéficiaire. Les transactions catégorisées manuellement, les virements et les transactions ventilées restent inchangés.",
+    "confirmButton": "Appliquer",
+    "toasts": {
+      "nothingToDo": "Aucune transaction sans catégorie à catégoriser",
+      "applied": "{count, plural, one {# transaction catégorisée} other {# transactions catégorisées}}",
+      "failed": "Échec de la catégorisation des transactions"
+    }
+  }
+}

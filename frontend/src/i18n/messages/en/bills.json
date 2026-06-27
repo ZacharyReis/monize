@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "Bills & Deposits",
+    "subtitle": "Manage your recurring transactions and scheduled payments",
+    "newButton": "+ New Schedule",
+    "summaryActiveBills": "Active Bills",
+    "summaryActiveDeposits": "Active Deposits",
+    "summaryMonthlyNet": "Monthly Net",
+    "summaryDueNow": "Due Now",
+    "loadingText": "Loading scheduled transactions...",
+    "chartUnavailable": "Chart temporarily unavailable"
+  },
+  "viewTabs": {
+    "list": "List",
+    "calendar": "Calendar",
+    "filterAll": "All ({count})",
+    "filterBills": "Bills ({count})",
+    "filterDeposits": "Deposits ({count})",
+    "todayButton": "Today"
+  },
+  "form": {
+    "titleNew": "New Scheduled Transaction",
+    "titleEdit": "Edit Scheduled Transaction"
+  },
+  "overrideConfirm": {
+    "title": "Existing Overrides Found",
+    "message": "This scheduled transaction has {count, plural, one {# individual occurrence} other {# individual occurrences}} with custom modifications.",
+    "question": "What would you like to do with these modifications when you update the base template?",
+    "keepButton": "Keep Modifications",
+    "deleteButton": "Delete All Modifications"
+  },
+  "forecast": {
+    "title": "Cash Flow Forecast",
+    "scheduledCount": "{count, plural, one {# scheduled transaction} other {# scheduled transactions}} in forecast",
+    "tooltipTransactions": "Transactions:",
+    "tooltipMore": "+{count} more",
+    "noData": "No data to display",
+    "noAccounts": "No accounts found",
+    "noScheduled": "No scheduled transactions",
+    "noMatchingAccount": "Select an account with scheduled transactions",
+    "noUpcoming": "No upcoming transactions in this period - showing current balance",
+    "summaryStarting": "Starting",
+    "summaryEnding": "Ending",
+    "summaryLowest": "Lowest",
+    "summaryMinBalance": "Min Balance",
+    "allAccounts": "All Accounts"
+  },
+  "calendar": {
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "more": "+{count} more"
+  },
+  "toasts": {
+    "overridesDeleted": "Overrides deleted",
+    "notFound": "Scheduled payment not found",
+    "loadFailed": "Failed to load scheduled transactions",
+    "overridesDeleteFailed": "Failed to delete overrides"
+  }
+}

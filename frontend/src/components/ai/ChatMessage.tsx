@@ -1,8 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { AssistantMarkdown } from './AssistantMarkdown';
 import { ResultChart } from './ResultChart';
+import { TransactionConfirmationCard } from './TransactionConfirmationCard';
+import { BulkConfirmationCard } from './BulkConfirmationCard';
+import { MessageAttachmentChips } from './AttachmentChips';
+import { useAiChatStore } from '@/store/aiChatStore';
+import type { PendingAction, ChatAttachmentMeta } from '@/types/ai';
 
 interface ToolInfo {
   name: string;
@@ -24,28 +30,37 @@ interface ChartInfo {
 }
 
 interface ChatMessageProps {
+  // Message id, used to route confirm/cancel of pending action cards back to
+  // the store. Always supplied by ChatInterface; optional for simpler tests.
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
+  attachments?: ChatAttachmentMeta[];
   toolsUsed?: ToolInfo[];
   sources?: SourceInfo[];
   charts?: ChartInfo[];
+  pendingActions?: PendingAction[];
   isStreaming?: boolean;
   error?: string;
 }
 
 const TOOL_LABELS: Record<string, string> = {
-  query_transactions: 'Transactions',
-  get_account_balances: 'Account Balances',
-  get_spending_by_category: 'Spending by Category',
-  get_income_summary: 'Income Summary',
-  get_net_worth_history: 'Net Worth History',
+  list_transactions: 'Transactions',
+  list_accounts: 'Accounts',
+  list_investment_transactions: 'Investment Transactions',
   compare_periods: 'Period Comparison',
   get_budget_status: 'Budget Status',
   calculate: 'Calculation',
   render_chart: 'Chart',
+  manage_transactions: 'Manage Transactions',
+  categorize_transaction: 'Categorize Transaction',
+  manage_payees: 'Manage Payees',
+  manage_securities: 'Manage Securities',
+  lookup_securities: 'Look Up Securities',
 };
 
 function ToolDetails({ tool }: { tool: ToolInfo }) {
+  const t = useTranslations('ai');
   const [expanded, setExpanded] = useState(false);
   const label = TOOL_LABELS[tool.name] || tool.name;
   const hasInput = tool.input && Object.keys(tool.input).length > 0;
@@ -83,7 +98,7 @@ function ToolDetails({ tool }: { tool: ToolInfo }) {
               viewBox="0 0 24 24"
               strokeWidth={2}
               stroke="currentColor"
-              aria-label="Tool failed"
+              aria-label={t('toolDetails.toolFailedAriaLabel')}
               role="img"
             >
               <path
@@ -99,7 +114,7 @@ function ToolDetails({ tool }: { tool: ToolInfo }) {
               viewBox="0 0 24 24"
               strokeWidth={2}
               stroke="currentColor"
-              aria-label="Tool succeeded"
+              aria-label={t('toolDetails.toolSucceededAriaLabel')}
               role="img"
             >
               <path
@@ -131,7 +146,7 @@ function ToolDetails({ tool }: { tool: ToolInfo }) {
         <div className={detailsClasses}>
           {hasInput && (
             <div>
-              <div className={labelClasses}>Input</div>
+              <div className={labelClasses}>{t('toolDetails.inputLabel')}</div>
               <pre className="text-[11px] text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words font-mono">
                 {JSON.stringify(tool.input, null, 2)}
               </pre>
@@ -139,7 +154,7 @@ function ToolDetails({ tool }: { tool: ToolInfo }) {
           )}
           {hasSummary && (
             <div>
-              <div className={labelClasses}>Result</div>
+              <div className={labelClasses}>{t('toolDetails.resultLabel')}</div>
               <p className="text-[11px] text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">
                 {tool.summary}
               </p>
@@ -151,20 +166,32 @@ function ToolDetails({ tool }: { tool: ToolInfo }) {
   );
 }
 
-export function ChatMessage({
+// Memoized: the input box and the rest of ChatInterface re-render on every
+// keystroke, but a message only changes when its own (store-stable) props do.
+// Without this, typing re-parses every message's markdown and the box lags.
+export const ChatMessage = memo(function ChatMessage({
+  id,
   role,
   content,
+  attachments,
   toolsUsed,
   sources,
   charts,
+  pendingActions,
   isStreaming,
   error,
 }: ChatMessageProps) {
+  const confirmAction = useAiChatStore((s) => s.confirmAction);
+  const cancelAction = useAiChatStore((s) => s.cancelAction);
+
   if (role === 'user') {
     return (
       <div className="flex justify-end mb-4">
         <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-br-sm bg-blue-600 text-white">
           <p className="text-sm whitespace-pre-wrap">{content}</p>
+          {attachments && attachments.length > 0 && (
+            <MessageAttachmentChips attachments={attachments} />
+          )}
         </div>
       </div>
     );
@@ -210,6 +237,29 @@ export function ChatMessage({
           </div>
         )}
 
+        {/* Human-in-the-loop write actions the assistant proposed */}
+        {pendingActions && pendingActions.length > 0 && (
+          <div className="mt-2 flex flex-col gap-2">
+            {pendingActions.map((action) => {
+              const isBulk =
+                action.type === 'create_transactions' ||
+                action.type === 'create_investment_transactions' ||
+                action.type === 'batch_actions';
+              const Card = isBulk
+                ? BulkConfirmationCard
+                : TransactionConfirmationCard;
+              return (
+                <Card
+                  key={action.actionId}
+                  action={action}
+                  onConfirm={() => confirmAction(id ?? '', action.actionId)}
+                  onCancel={() => cancelAction(id ?? '', action.actionId)}
+                />
+              );
+            })}
+          </div>
+        )}
+
         {/* Sources */}
         {sources && sources.length > 0 && (
           <div className="mt-1.5 px-2">
@@ -230,4 +280,4 @@ export function ChatMessage({
       </div>
     </div>
   );
-}
+});

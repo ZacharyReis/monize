@@ -1,0 +1,136 @@
+{
+  "page": {
+    "welcomePrefix": "Witaj",
+    "welcomeWithName": "Witaj, {name}!",
+    "subtitle": "Oto przegląd Twoich finansów"
+  },
+  "favouriteAccounts": {
+    "title": "Ulubione konta",
+    "empty": "Brak ulubionych kont. Oznacz konta jako ulubione, aby zobaczyć je tutaj.",
+    "reorder": "Zmień kolejność",
+    "done": "Gotowe",
+    "moveUp": "Przesuń w górę",
+    "moveDown": "Przesuń w dół",
+    "marketValue": "Wartość rynkowa",
+    "due": "Termin: {ordinal}",
+    "dueTooltip": "Dzień każdego miesiąca, w którym przypada termin spłaty karty kredytowej",
+    "settlement": "Rozliczenie: {ordinal}",
+    "settlementTooltip": "Ostatni dzień cyklu rozliczeniowego. Transakcje zaksięgowane w tym dniu lub wcześniej pojawiają się na bieżącym wyciągu."
+  },
+  "upcomingBills": {
+    "title": "Nadchodzące rachunki i wpłaty",
+    "empty": "Brak zaległych lub nadchodzących rachunków, wpłat czy przelewów w ich oknach przypomnień.",
+    "perReminderSettings": "Według ustawień przypomnień",
+    "postTransaction": "Zaksięguj tę transakcję",
+    "manual": "Ręczne",
+    "manualTitle": "Wymaga ręcznego zaksięgowania",
+    "negativeBalanceWarning": "Ta transakcja spowoduje, że saldo konta spadnie poniżej zera",
+    "viewAll": "Zobacz wszystkie rachunki i wpłaty",
+    "totalDue": "Łącznie do zapłaty",
+    "totalIncoming": "Łącznie przychodzące",
+    "moreItems": "+{count} więcej",
+    "overdue": "Zaległe",
+    "today": "Dzisiaj",
+    "tomorrow": "Jutro",
+    "daysUntil": "{count} dni",
+    "typeBadge": {
+      "bill": "Rachunek",
+      "deposit": "Wpłata",
+      "transfer": "Przelew"
+    }
+  },
+  "gettingStarted": {
+    "title": "Pierwsze kroki",
+    "subtitle": "Skonfiguruj swoje konto w kilku prostych krokach",
+    "dismiss": "Zamknij",
+    "steps": {
+      "settings": {
+        "title": "Sprawdź swoje ustawienia",
+        "description": "Ustaw walutę, format daty i motyw"
+      },
+      "categories": {
+        "title": "Skonfiguruj kategorie",
+        "description": "Utwórz kategorie lub zaimportuj domyślny zestaw"
+      },
+      "account": {
+        "title": "Dodaj pierwsze konto",
+        "description": "Utwórz konto bankowe, aby rozpocząć śledzenie"
+      },
+      "import": {
+        "title": "Importuj z QIF",
+        "description": "Importuj konta i transakcje z plików QIF"
+      }
+    }
+  },
+  "budgetStatus": {
+    "title": "Stan budżetu",
+    "noBudget": "Nie znaleziono aktywnego budżetu. Utwórz budżet, aby śledzić swoje wydatki.",
+    "createBudget": "Utwórz budżet",
+    "viewFullBudget": "Zobacz pełny budżet",
+    "daysLeft": "Pozostało dni: {count}",
+    "safeToSpend": "Bezpieczna kwota na dziś",
+    "topCategories": "Najważniejsze kategorie"
+  },
+  "insights": {
+    "title": "Analiza wydatków",
+    "empty": "Brak dostępnych analiz. Odwiedź stronę analiz, aby wygenerować pierwszą analizę.",
+    "goToInsights": "Przejdź do analiz",
+    "viewAll": "Zobacz wszystkie analizy",
+    "activeCount": "aktywne: {count}"
+  },
+  "topMovers": {
+    "title": "Największe zmiany",
+    "empty": {
+      "noInvestments": "Dodaj konta inwestycyjne, aby śledzić dzienne zmiany.",
+      "noPrices": "Brak dostępnych zmian cen.",
+      "noGainers": "Brak wzrostów dzisiaj.",
+      "noLosers": "Brak spadków dzisiaj."
+    },
+    "dailyChange": "Zmiana dzienna",
+    "refreshPrices": "Odśwież ceny",
+    "viewPortfolio": "Zobacz portfel",
+    "filter": {
+      "all": "Wszystkie",
+      "gainers": "Wzrosty",
+      "losers": "Spadki"
+    }
+  },
+  "favouriteSecurities": {
+    "title": "Ulubione papiery wartościowe",
+    "empty": "Brak ulubionych papierów wartościowych. Odwiedź <securitiesLink>stronę Papiery wartościowe</securitiesLink> i oznacz gwiazdką te, które chcesz tu śledzić.",
+    "noPriceYet": "Brak ceny",
+    "dailyChange": "Zmiana dzienna",
+    "refreshPrices": "Odśwież ceny",
+    "manage": "Zarządzaj papierami wartościowymi"
+  },
+  "netWorth": {
+    "title": "Wartość netto",
+    "empty": "Brak danych o wartości netto.",
+    "past12Months": "Ostatnie 12 miesięcy",
+    "viewReport": "Zobacz pełny raport"
+  },
+  "assetsVsLiabilities": {
+    "title": "Aktywa a zobowiązania",
+    "empty": "Brak danych o wartości netto.",
+    "current": "Bieżące",
+    "netWorthLabel": "Wartość netto",
+    "assets": "Aktywa",
+    "liabilities": "Zobowiązania"
+  },
+  "expensesPieChart": {
+    "title": "Wydatki według kategorii",
+    "empty": "Brak danych o wydatkach dla tego okresu.",
+    "past30Days": "Ostatnie 30 dni",
+    "total": "Suma",
+    "uncategorized": "Bez kategorii",
+    "other": "Inne"
+  },
+  "incomeExpenses": {
+    "title": "Przychody a wydatki",
+    "last5Weeks": "Ostatnie 5 tygodni",
+    "weekOf": "Tydzień od {date}",
+    "income": "Przychody",
+    "expenses": "Wydatki",
+    "net": "Saldo"
+  }
+}

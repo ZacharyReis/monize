@@ -53,6 +53,65 @@ describe('transactionsApi', () => {
     expect(params.payeeIds).toBe('p1,p2');
   });
 
+  describe('getAllPages', () => {
+    it('returns an empty array when the first page has no results', async () => {
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: { data: [], pagination: { hasMore: false } },
+      });
+      const result = await transactionsApi.getAllPages();
+      expect(result).toEqual([]);
+      expect(apiClient.get).toHaveBeenCalledTimes(1);
+    });
+
+    it('walks until hasMore is false and concatenates pages', async () => {
+      vi.mocked(apiClient.get)
+        .mockResolvedValueOnce({
+          data: { data: [{ id: 't1' }, { id: 't2' }], pagination: { hasMore: true } },
+        })
+        .mockResolvedValueOnce({
+          data: { data: [{ id: 't3' }], pagination: { hasMore: false } },
+        });
+      const result = await transactionsApi.getAllPages();
+      expect(result.map((t) => (t as { id: string }).id)).toEqual(['t1', 't2', 't3']);
+      expect(apiClient.get).toHaveBeenCalledTimes(2);
+      const secondCall = vi.mocked(apiClient.get).mock.calls[1][1]!.params;
+      expect(secondCall.page).toBe(2);
+      expect(secondCall.limit).toBe(200);
+    });
+
+    it('honors caller-supplied pageSize and forwards filter params', async () => {
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: { data: [], pagination: { hasMore: false } },
+      });
+      await transactionsApi.getAllPages({
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+        pageSize: 50,
+      });
+      const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+      expect(params.startDate).toBe('2026-01-01');
+      expect(params.endDate).toBe('2026-01-31');
+      expect(params.limit).toBe(50);
+      // pageSize is consumed by the helper, not forwarded to the backend
+      expect(params).not.toHaveProperty('pageSize');
+    });
+
+    it('stops when a page returns no rows even if hasMore stays true', async () => {
+      // A backend bug could report hasMore=true on an empty page; the helper
+      // must not loop forever accumulating nothing.
+      vi.mocked(apiClient.get)
+        .mockResolvedValueOnce({
+          data: { data: [{ id: 't1' }], pagination: { hasMore: true } },
+        })
+        .mockResolvedValueOnce({
+          data: { data: [], pagination: { hasMore: true } },
+        });
+      const result = await transactionsApi.getAllPages();
+      expect(result.map((t) => (t as { id: string }).id)).toEqual(['t1']);
+      expect(apiClient.get).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('getById fetches /transactions/:id', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { id: 'tx-1' } });
     await transactionsApi.getById('tx-1');

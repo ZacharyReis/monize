@@ -10,6 +10,18 @@ export interface CapturedChart {
 }
 
 /**
+ * Font applied to chart text in the rasterized output.
+ *
+ * On screen, Recharts text (axis ticks, labels, in-chart legends) inherits
+ * `font-family: Inter` from the page stylesheet. The clone we serialize here is
+ * detached from the document, so it has no stylesheet context and the browser's
+ * SVG renderer falls back to its default serif face (Times New Roman). Setting an
+ * explicit sans-serif family on the root SVG (inherited by all text/tspan) keeps
+ * chart text consistent with the Helvetica used by the rest of the PDF report.
+ */
+export const CHART_FONT_FAMILY = 'Helvetica, Arial, sans-serif';
+
+/**
  * Resolves chart dimensions from multiple sources for reliability.
  * Recharts sets width/height attributes on the SVG element, which are the most
  * reliable source. Falls back to getBoundingClientRect and container dimensions.
@@ -38,6 +50,33 @@ function resolveChartDimensions(
   }
 
   return null;
+}
+
+/**
+ * Chart colours are CSS variable references (var(--chart-*), see
+ * src/lib/chart-colors.ts) that resolve against the document's active colour
+ * theme. The serialized standalone SVG has no stylesheet context, so they
+ * would render as black. Bake the computed colours into the clone before
+ * serialization by reading them from the live elements.
+ */
+function inlineCssVariableColors(original: SVGSVGElement, clone: SVGSVGElement): void {
+  const COLOR_ATTRS = ['fill', 'stroke', 'stop-color'] as const;
+  const originalElements = [original, ...Array.from(original.querySelectorAll<SVGElement>('*'))];
+  const cloneElements = [clone, ...Array.from(clone.querySelectorAll<SVGElement>('*'))];
+  if (originalElements.length !== cloneElements.length) return;
+
+  originalElements.forEach((origEl, i) => {
+    const cloneEl = cloneElements[i];
+    for (const attr of COLOR_ATTRS) {
+      const value = origEl.getAttribute(attr);
+      if (value && value.includes('var(')) {
+        const computed = getComputedStyle(origEl).getPropertyValue(attr);
+        if (computed) {
+          cloneEl.setAttribute(attr, computed);
+        }
+      }
+    }
+  });
 }
 
 /**
@@ -72,6 +111,10 @@ function captureSingleSvg(
     (el as SVGElement).removeAttribute('style');
   });
 
+  // Resolve theme CSS variables to concrete colours while both trees still
+  // mirror each other (before the background rect is inserted below).
+  inlineCssVariableColors(svg, svgClone);
+
   // Set the clone to render at scaled resolution natively.
   // viewBox preserves the original coordinate system while width/height
   // at scaled values makes the SVG renderer produce a high-res raster.
@@ -79,6 +122,11 @@ function captureSingleSvg(
   svgClone.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svgClone.setAttribute('width', String(scaledWidth));
   svgClone.setAttribute('height', String(scaledHeight));
+
+  // Pin the font so text renders in sans-serif instead of the renderer's default
+  // serif face once the SVG is detached from the page stylesheet. Inherited by
+  // every text/tspan descendant.
+  svgClone.setAttribute('font-family', CHART_FONT_FAMILY);
 
   // Add white background rect as the first child
   const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');

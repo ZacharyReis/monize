@@ -1,0 +1,132 @@
+{
+  "demoBanner": {
+    "label": "Demo-Modus",
+    "message": "Alle Daten werden täglich um 4:00 Uhr UTC zurückgesetzt. Erkunden Sie alles!"
+  },
+  "delegationBanner": {
+    "viewing": "Anzeige:",
+    "sharedAccount": "Geteiltes Konto",
+    "yourAccount": "Ihr Konto",
+    "switchAccountLabel": "Konto wechseln",
+    "selfSuffix": "{label} (Sie)",
+    "error2fa": "Dieses Konto erfordert Zwei-Faktor-Authentifizierung. Richten Sie 2FA in den Einstellungen ein, bevor Sie wechseln.",
+    "errorSwitch": "Kontowechsel nicht möglich"
+  },
+  "backendDownBanner": {
+    "connectionBlockedLabel": "Verbindung blockiert",
+    "connectionBlockedDetail": "Sicherheits-Header blockieren Anfragen über einfaches HTTP.",
+    "connectionLostLabel": "Verbindung unterbrochen",
+    "connectionLostDetail": "Der Server ist nicht erreichbar. Automatischer Neuversuch...",
+    "httpsHint": "Setzen Sie <code>DISABLE_HTTPS_HEADERS=true</code> in Ihrer Umgebung oder greifen Sie über HTTPS auf die Seite zu."
+  },
+  "httpWarningBanner": {
+    "label": "HTTPS erforderlich",
+    "detail": "Sicherheits-Header sind aktiv, aber auf diese Seite wird über einfaches HTTP zugegriffen. API-Anfragen können fehlschlagen.",
+    "httpsHint": "Setzen Sie <code>DISABLE_HTTPS_HEADERS=true</code> in Ihrer Umgebung oder greifen Sie über HTTPS auf die Seite zu.",
+    "dismiss": "Schließen",
+    "dismissAriaLabel": "HTTPS-Warnung schließen"
+  },
+  "updateBanner": {
+    "availableWithVersion": "Monize v{version} ist verfügbar",
+    "availableGeneric": "Eine neue Version von Monize ist verfügbar",
+    "runningVersion": "(aktuelle Version: v{version})",
+    "releaseNotes": "Versionshinweise",
+    "dismiss": "Schließen",
+    "dismissAriaLabel": "Update-Benachrichtigung schließen"
+  },
+  "actionHistory": {
+    "title": "Aktionsverlauf",
+    "buttonAriaLabel": "Aktionsverlauf",
+    "closeAriaLabel": "Schließen",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "noRecentActions": "Keine kürzlichen Aktionen",
+    "undoneLabel": "Rückgängig gemacht",
+    "nothingToUndo": "Nichts rückgängig zu machen",
+    "nothingToRedo": "Nichts zu wiederholen",
+    "cannotUndoDefault": "Diese Aktion kann nicht rückgängig gemacht werden",
+    "cannotRedoDefault": "Diese Aktion kann nicht wiederholt werden",
+    "undoFailed": "Rückgängig machen fehlgeschlagen",
+    "redoFailed": "Wiederholen fehlgeschlagen",
+    "entityLabels": {
+      "transaction": "Buchung",
+      "transfer": "Überweisung",
+      "investment_transaction": "Investition",
+      "bulk_transaction": "Sammelvorgang",
+      "category": "Kategorie",
+      "payee": "Zahlungsempfänger",
+      "tag": "Etikett",
+      "account": "Konto",
+      "scheduled_transaction": "Terminiert",
+      "security": "Wertpapier",
+      "budget": "Budget",
+      "custom_report": "Bericht"
+    },
+    "actionLabels": {
+      "BUY": "Kauf",
+      "SELL": "Verkauf",
+      "DIVIDEND": "Dividende",
+      "INTEREST": "Zinsen",
+      "CAPITAL_GAIN": "Kapitalertrag",
+      "SPLIT": "Aufteilung",
+      "TRANSFER_IN": "Eingehende Überweisung",
+      "TRANSFER_OUT": "Ausgehende Überweisung",
+      "REINVEST": "Reinvestition",
+      "ADD_SHARES": "Anteile hinzufügen",
+      "REMOVE_SHARES": "Anteile entfernen"
+    },
+    "descriptions": {
+      "createdAccount": "Konto \"{name}\" erstellt",
+      "updatedAccount": "Konto \"{name}\" aktualisiert",
+      "deletedAccount": "Konto \"{name}\" gelöscht",
+      "createdBudget": "Budget \"{name}\" erstellt",
+      "updatedBudget": "Budget \"{name}\" aktualisiert",
+      "deletedBudget": "Budget \"{name}\" gelöscht",
+      "createdCategory": "Kategorie \"{name}\" erstellt",
+      "updatedCategory": "Kategorie \"{name}\" aktualisiert",
+      "deletedCategory": "Kategorie \"{name}\" gelöscht",
+      "createdInstitution": "Institut \"{name}\" erstellt",
+      "updatedInstitution": "Institut \"{name}\" aktualisiert",
+      "deletedInstitution": "Institut \"{name}\" gelöscht",
+      "createdInvestmentReport": "Anlagebericht \"{name}\" erstellt",
+      "updatedInvestmentReport": "Anlagebericht \"{name}\" aktualisiert",
+      "deletedInvestmentReport": "Anlagebericht \"{name}\" gelöscht",
+      "createdPayee": "Zahlungsempfänger \"{name}\" erstellt",
+      "updatedPayee": "Zahlungsempfänger \"{name}\" aktualisiert",
+      "deletedPayee": "Zahlungsempfänger \"{name}\" gelöscht",
+      "createdReport": "Bericht \"{name}\" erstellt",
+      "updatedReport": "Bericht \"{name}\" aktualisiert",
+      "deletedReport": "Bericht \"{name}\" gelöscht",
+      "createdScheduledTransaction": "Geplante Buchung \"{name}\" erstellt",
+      "updatedScheduledTransaction": "Geplante Buchung \"{name}\" aktualisiert",
+      "deletedScheduledTransaction": "Geplante Buchung \"{name}\" gelöscht",
+      "createdSecurity": "Wertpapier \"{symbol}\" erstellt",
+      "updatedSecurity": "Wertpapier \"{symbol}\" aktualisiert",
+      "deletedSecurity": "Wertpapier \"{symbol}\" gelöscht",
+      "createdTag": "Etikett \"{name}\" erstellt",
+      "updatedTag": "Etikett \"{name}\" aktualisiert",
+      "deletedTag": "Etikett \"{name}\" gelöscht",
+      "createdTransaction": "Buchung {payee} {amount} erstellt",
+      "updatedTransaction": "Buchung {payee} {amount} aktualisiert",
+      "deletedTransaction": "Buchung {payee} {amount} gelöscht",
+      "createdTransfer": "Überweisung {amount} von {from} nach {to} erstellt",
+      "createdInvestmentTransaction": "{action}-Transaktion erstellt",
+      "updatedInvestmentTransaction": "{action}-Transaktion aktualisiert",
+      "deletedInvestmentTransaction": "{action}-Transaktion gelöscht",
+      "transferredSecurity": "Wertpapier zwischen Konten übertragen",
+      "updatedSecurityTransfer": "Wertpapierübertragung aktualisiert"
+    },
+    "timeAgo": {
+      "justNow": "gerade eben",
+      "minutes": "vor {count} Min.",
+      "hours": "vor {count} Std.",
+      "days": "vor {count} T."
+    },
+    "undonePrefix": "Rückgängig gemacht: {description}",
+    "redonePrefix": "Wiederholt: {description}"
+  },
+  "pageHeader": {
+    "helpAriaLabel": "Monize-Wiki für Hilfe zu diesem Bereich öffnen",
+    "helpTooltip": "Monize-Wiki für Hilfe zu diesem Bereich öffnen"
+  }
+}

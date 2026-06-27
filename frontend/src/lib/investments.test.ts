@@ -45,6 +45,35 @@ describe('investmentsApi', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/portfolio/top-movers');
   });
 
+  it('getFavouriteSecurities fetches /securities/favourites', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
+    await investmentsApi.getFavouriteSecurities();
+    expect(apiClient.get).toHaveBeenCalledWith('/securities/favourites');
+  });
+
+  it('getFavouriteSecurities returns cached result on second call', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: [{ securityId: '1' }] });
+    await investmentsApi.getFavouriteSecurities();
+    await investmentsApi.getFavouriteSecurities();
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('setSecurityFavourite patches the security and invalidates the cache', async () => {
+    // Prime the favourites cache.
+    vi.mocked(apiClient.get).mockResolvedValue({ data: [{ securityId: '1' }] });
+    await investmentsApi.getFavouriteSecurities();
+
+    vi.mocked(apiClient.patch).mockResolvedValue({ data: { id: 's-1', isFavourite: true } });
+    await investmentsApi.setSecurityFavourite('s-1', true);
+    expect(apiClient.patch).toHaveBeenCalledWith('/securities/s-1', { isFavourite: true });
+
+    // Cache was invalidated, so the next read hits the API again.
+    vi.mocked(apiClient.get).mockClear();
+    vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
+    await investmentsApi.getFavouriteSecurities();
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+  });
+
   it('getHoldings fetches /holdings with optional accountId', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
     await investmentsApi.getHoldings('a1');
@@ -166,6 +195,20 @@ describe('investmentsApi', () => {
       { securityIds: ['s-1', 's-2'] },
       { timeout: 120_000 },
     );
+  });
+
+  it('backfillSecurityPrices posts to the per-security backfill endpoint', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { symbol: 'AAPL', success: true, pricesLoaded: 100 },
+    });
+    const result = await investmentsApi.backfillSecurityPrices('s-1');
+    // Generous timeout: fetches the security's full provider history.
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/securities/s-1/prices/backfill',
+      undefined,
+      { timeout: 120_000 },
+    );
+    expect(result.pricesLoaded).toBe(100);
   });
 
   it('getPriceStatus fetches /securities/prices/status', async () => {
@@ -335,5 +378,37 @@ describe('investmentsApi', () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: {} });
     await investmentsApi.getAssetAllocation([]);
     expect(apiClient.get).toHaveBeenCalledWith('/portfolio/allocation', { params: undefined });
+  });
+
+  it('transferSecurity posts both legs and invalidates the cache', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { transferOut: { id: 'out' }, transferIn: { id: 'in' } },
+    });
+    const data = {
+      fromAccountId: 'a1',
+      toAccountId: 'a2',
+      securityId: 's1',
+      transactionDate: '2025-01-01',
+      quantity: 10,
+      costPerShare: 5,
+    };
+    const result = await investmentsApi.transferSecurity(data);
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/investment-transactions/transfer-security',
+      data,
+    );
+    expect(result).toEqual({
+      transferOut: { id: 'out' },
+      transferIn: { id: 'in' },
+    });
+  });
+
+  it('getSecurityTransactionHistory fetches the security history', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { transactions: [] } });
+    const result = await investmentsApi.getSecurityTransactionHistory('s1');
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/investment-transactions/security/s1/history',
+    );
+    expect(result).toEqual({ transactions: [] });
   });
 });

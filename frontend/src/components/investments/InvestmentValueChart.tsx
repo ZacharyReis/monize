@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   AreaChart,
   Area,
@@ -11,13 +12,16 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format } from 'date-fns';
+import { chartColors } from '@/lib/chart-colors';
 import { netWorthApi } from '@/lib/net-worth';
 import { investmentsApi } from '@/lib/investments';
 import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { gainLossColor } from '@/lib/format';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useDateRange } from '@/hooks/useDateRange';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { DateRangeSelector } from '@/components/ui/DateRangeSelector';
 import { createLogger } from '@/lib/logger';
 import {
@@ -50,10 +54,18 @@ interface InvestmentValueChartProps {
 }
 
 export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix }: InvestmentValueChartProps) {
-  const { formatCurrency, formatCurrencyCompact, formatCurrencyAxis, formatCurrencyFlag } = useNumberFormat();
+  const t = useTranslations('investments');
+  const tc = useTranslations('common');
+  const { formatCurrency, formatCurrencyCompact, formatCurrencyAxis, formatCurrencyFlag, formatSignedPercent } = useNumberFormat();
   const { defaultCurrency } = useExchangeRates();
+  const isMobile = useIsMobile();
   const [chartPoints, setChartPoints] = useState<Array<{ name: string; Value: number }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // High/low value bubbles the user has temporarily dismissed, keyed by the
+  // value they marked so a later data change with a new extreme shows the
+  // bubble again. Component-local (not persisted), so it resets on navigation.
+  const [dismissedHigh, setDismissedHigh] = useState<number | null>(null);
+  const [dismissedLow, setDismissedLow] = useState<number | null>(null);
   const [intradayUnavailable, setIntradayUnavailable] = useState<{
     skipped: string[];
   } | null>(null);
@@ -349,7 +361,7 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
           <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">{data?.name}</p>
           <p className="text-sm text-emerald-600 dark:text-emerald-400">
-            Portfolio: {fmtVal(payload[0].value)}
+            {t('investmentValueChart.portfolioLabel')} {fmtVal(payload[0].value)}
           </p>
         </div>
       );
@@ -378,7 +390,7 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
       {/* Header with title and date range buttons */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-          Portfolio Value Over Time{titleSuffix ? ` (${titleSuffix})` : ''}
+          {t('investmentValueChart.title')}{titleSuffix ? ` (${titleSuffix})` : ''}
           {/* Background-load indicator: chart stays on screen during a refetch
               so Recharts can animate into the new data, but a portfolio with
               many securities can still take a few seconds (the backend pulls
@@ -405,13 +417,13 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Updating…
+              {t('investmentValueChart.updatingLabel')}
             </span>
           )}
           {intradayFallbackNotice && (
             <span
               role="img"
-              aria-label="Detailed intraday pricing unavailable"
+              aria-label={t('investmentValueChart.intradayFallbackWarningAriaLabel')}
               title={`Detailed intraday pricing isn't available because ${intradayFallbackNotice.skipped.length > 0 ? intradayFallbackNotice.skipped.join(', ') : 'one or more holdings'} use MSN Money, which doesn't expose intraday quotes. Showing daily snapshots instead.`}
               className="inline-flex text-amber-500 dark:text-amber-400 cursor-help"
               data-testid="intraday-fallback-warning"
@@ -438,31 +450,27 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Highest Value</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('investmentValueChart.highestValue')}</div>
           <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
             {fmtFull(summary.highest)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Lowest Value</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('investmentValueChart.lowestValue')}</div>
           <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
             {fmtFull(summary.lowest)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Change</div>
-          <div className={`text-lg font-bold ${
-            summary.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-          }`}>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('investmentValueChart.change')}</div>
+          <div className={`text-lg font-bold ${gainLossColor(summary.change)}`}>
             {summary.change >= 0 ? '+' : ''}{fmtFull(summary.change)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Change %</div>
-          <div className={`text-lg font-bold ${
-            summary.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-          }`}>
-            {summary.changePercent >= 0 ? '+' : ''}{summary.changePercent.toFixed(1)}%
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('investmentValueChart.changePercent')}</div>
+          <div className={`text-lg font-bold ${gainLossColor(summary.changePercent)}`}>
+            {formatSignedPercent(summary.changePercent, 1)}
           </div>
         </div>
       </div>
@@ -471,20 +479,18 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
       {intradayUnavailable ? (
         <div className="text-center py-12 px-4">
           <p className="text-sm text-gray-700 dark:text-gray-200 font-medium mb-1">
-            Intraday view unavailable for this account mix
+            {t('investmentValueChart.intradayUnavailableTitle')}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            One or more holdings use a quote provider (MSN Money) that does not
-            expose intraday data
+            {t('investmentValueChart.intradayUnavailableDescription')}
             {intradayUnavailable.skipped.length > 0
               ? `: ${intradayUnavailable.skipped.join(', ')}`
               : ''}
-            . Switch to a longer range to see daily snapshots.
           </p>
         </div>
       ) : chartPoints.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-          No investment data for this period.
+          {t('investmentValueChart.noDataForPeriod')}
         </p>
       ) : (
         <div
@@ -493,15 +499,25 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
           }`}
         >
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <AreaChart data={chartPoints} margin={{ top: 30, right: 30, left: 0, bottom: 30 }}>
+            {/* Tighter margins on mobile to reclaim wasted space. The desktop
+                margins leave generous room around the high/low flag bubbles;
+                on a narrow screen those gutters dwarf the plot, so trim them. */}
+            <AreaChart
+              data={chartPoints}
+              margin={
+                isMobile
+                  ? { top: 16, right: 8, left: 0, bottom: 8 }
+                  : { top: 30, right: 30, left: 0, bottom: 30 }
+              }
+            >
               <defs>
                 <linearGradient id="colorInvestments" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor={chartColors.income} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartColors.income} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <ChartFlagShadowFilter />
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 12 }}
@@ -527,25 +543,26 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
                 domain={yAxisDomain}
                 tickFormatter={fmtAxis}
                 tick={{ fontSize: 12 }}
+                width={isMobile ? 44 : undefined}
               />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
                 dataKey="Value"
-                stroke="#10b981"
+                stroke={chartColors.income}
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorInvestments)"
                 name="Portfolio Value"
                 isAnimationActive={false}
-                activeDot={{ r: 4, fill: '#10b981' }}
+                activeDot={{ r: 4, fill: chartColors.income }}
                 dot={(props: { cx?: number; cy?: number; index?: number }) => {
                   const { cx, cy, index } = props;
                   if (cx == null || cy == null || index == null) {
                     return <circle cx={0} cy={0} r={0} fill="none" />;
                   }
-                  const isHighest = showFlags && index === highestIndex;
-                  const isLowest = showFlags && index === lowestIndex;
+                  const isHighest = showFlags && index === highestIndex && summary.highest !== dismissedHigh;
+                  const isLowest = showFlags && index === lowestIndex && summary.lowest !== dismissedLow;
                   if (!isHighest && !isLowest) {
                     return <circle key={`dot-${index}`} cx={cx} cy={cy} r={0} fill="none" />;
                   }
@@ -555,9 +572,13 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
                     cx,
                     cy,
                     index,
-                    color: isHighest ? '#10b981' : '#ef4444',
+                    color: isHighest ? chartColors.income : chartColors.expense,
                     label: fmtFlag(value),
                     side: isLeftHalf ? 'right' : 'left',
+                    onDismiss: isHighest
+                      ? () => setDismissedHigh(summary.highest)
+                      : () => setDismissedLow(summary.lowest),
+                    dismissLabel: tc('chartFlag.dismiss'),
                   });
                 }}
               />

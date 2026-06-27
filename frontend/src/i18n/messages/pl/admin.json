@@ -1,0 +1,108 @@
+{
+  "createUserModal": {
+    "title": "Dodaj użytkownika",
+    "description": "Utwórz nowe konto. Możesz wysłać zaproszenie e-mail, ustawić hasło samodzielnie lub wygenerować hasło tymczasowe do udostępnienia.",
+    "emailLabel": "E-mail",
+    "emailPlaceholder": "user@example.com",
+    "firstNameLabel": "Imię (opcjonalnie)",
+    "firstNamePlaceholder": "Imię",
+    "lastNameLabel": "Nazwisko (opcjonalnie)",
+    "lastNamePlaceholder": "Nazwisko",
+    "roleLabel": "Uprawnienia",
+    "roleUser": "Użytkownik",
+    "roleAdmin": "Administrator",
+    "credentialsLegend": "Dane logowania",
+    "inviteLabel": "Wyślij zaproszenie e-mail, aby ustawić hasło",
+    "inviteSmtpNote": "Wymaga skonfigurowanego SMTP.",
+    "setPasswordLabel": "Ustaw hasło teraz",
+    "tempPasswordLabel": "Wygeneruj hasło tymczasowe",
+    "tempPasswordNote": "Wyświetlane jednorazowo po utworzeniu. Użytkownik musi je zmienić przy pierwszym logowaniu.",
+    "passwordFieldLabel": "Hasło",
+    "passwordPlaceholder": "Ustaw hasło",
+    "createButton": "Utwórz użytkownika",
+    "validation": {
+      "invalidPassword": "Nieprawidłowe hasło."
+    },
+    "toasts": {
+      "createFailed": "Nie udało się utworzyć użytkownika"
+    }
+  },
+  "resetPasswordModal": {
+    "defaultTitle": "Reset hasła zakończony powodzeniem",
+    "defaultDescription": "Dla użytkownika {userName} ustawiono hasło tymczasowe.",
+    "temporaryPasswordLabel": "Hasło tymczasowe",
+    "copy": "Kopiuj",
+    "copied": "Skopiowano",
+    "notShownAgain": "To hasło nie zostanie wyświetlone ponownie.",
+    "mustChangeOnLogin": "Użytkownik będzie musiał zmienić hasło przy następnym logowaniu.",
+    "toasts": {
+      "copied": "Skopiowano hasło do schowka",
+      "copyFailed": "Nie udało się skopiować do schowka"
+    }
+  },
+  "userTable": {
+    "colUser": "Użytkownik",
+    "colRole": "Uprawnienia",
+    "colProvider": "Dostawca",
+    "colStatus": "Status",
+    "colLastLogin": "Ostatnie logowanie",
+    "colActions": "Akcje",
+    "youSuffix": "(Ty)",
+    "noEmail": "Brak adresu e-mail",
+    "unknown": "Nieznany",
+    "never": "Nigdy",
+    "providerSso": "SSO",
+    "providerLocal": "Lokalny",
+    "roleAdmin": "Administrator",
+    "roleUser": "Użytkownik",
+    "statusActive": "Aktywny",
+    "statusDisabled": "Wyłączony",
+    "clickToDisable": "Kliknij, aby wyłączyć",
+    "clickToEnable": "Kliknij, aby włączyć",
+    "resetPassword": "Zresetuj hasło",
+    "noUsers": "Nie znaleziono użytkowników."
+  },
+  "usersPage": {
+    "title": "Zarządzanie użytkownikami",
+    "userCount": "{count, plural, one {# użytkownik} few {# użytkownicy} many {# użytkowników} other {# użytkownika}}",
+    "newUser": "+ Nowy użytkownik",
+    "loadingUsers": "Wczytywanie użytkowników...",
+    "toasts": {
+      "inviteSent": "Wysłano zaproszenie e-mail na adres {email}",
+      "userCreated": "Utworzono użytkownika {name}",
+      "userUpgraded": "Użytkownik {name} został przekształcony w pełne konto",
+      "roleChanged": "{name} ma teraz rolę: {role}",
+      "roleAdmin": "administrator",
+      "roleUser": "użytkownik",
+      "userEnabled": "Użytkownik {name} został włączony",
+      "userDisabled": "Użytkownik {name} został wyłączony",
+      "userDeleted": "Użytkownik {name} został usunięty",
+      "userDowngraded": "Własne dane użytkownika {name} zostały usunięte; jego dostęp delegowany pozostaje aktywny.",
+      "loadFailed": "Nie udało się wczytać użytkowników",
+      "deleteFailed": "Nie udało się usunąć użytkownika",
+      "disableFailed": "Nie udało się wyłączyć użytkownika",
+      "resetFailed": "Nie udało się zresetować hasła"
+    },
+    "dialogs": {
+      "promoteTitle": "Awansować użytkownika?",
+      "demoteTitle": "Zdegradować użytkownika?",
+      "promoteMessage": "Czy na pewno chcesz awansować użytkownika {name} do roli {role}?",
+      "demoteMessage": "Czy na pewno chcesz zdegradować użytkownika {name} do roli {role}?",
+      "promoteConfirm": "Awansuj na administratora",
+      "demoteConfirm": "Zdegraduj na użytkownika",
+      "disableTitle": "Wyłączyć użytkownika?",
+      "disableMessage": "Czy na pewno chcesz wyłączyć użytkownika {name}? Nie będzie mógł się zalogować.",
+      "disableConfirm": "Wyłącz użytkownika",
+      "resetTitle": "Zresetować hasło?",
+      "resetMessage": "Spowoduje to wygenerowanie nowego hasła tymczasowego dla użytkownika {name}. Przy następnym logowaniu będzie wymagana jego zmiana.",
+      "resetConfirm": "Zresetuj hasło",
+      "deleteTitle": "Usunąć użytkownika?",
+      "deleteMessage": "Czy na pewno chcesz usunąć użytkownika {name}? Spowoduje to trwałe usunięcie jego konta i wszystkich powiązanych danych. Tej operacji nie można cofnąć. Jeśli jest delegatem innego konta, jego własne dane zostaną usunięte, ale login pozostanie zachowany, aby delegacja nadal działała -- stanie się użytkownikiem wyłącznie delegowanym.",
+      "deleteConfirm": "Usuń użytkownika",
+      "tempPasswordTitleCreated": "Utworzono użytkownika",
+      "tempPasswordTitleUpgraded": "Konto zaktualizowane",
+      "tempPasswordDescCreated": "Wygenerowano hasło tymczasowe dla użytkownika {name}. Przekaż mu je, aby mógł się zalogować.",
+      "tempPasswordDescUpgraded": "Istniejący użytkownik współdzielony został przekształcony w pełne konto. Przekaż użytkownikowi {name} to hasło tymczasowe."
+    }
+  }
+}

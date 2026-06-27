@@ -9,15 +9,12 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/hooks/useNumberFormat", () => ({
   useNumberFormat: () => ({
+    formatSignedPercent: (n: number, decimals = 2) => `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
     formatCurrencyCompact: (n: number) => `$${n.toFixed(0)}`,
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
     formatCurrencyAxis: (n: number) => `$${n}`,
     defaultCurrency: "CAD",
   }),
-}));
-
-vi.mock("@/lib/chart-colours", () => ({
-  CHART_COLOURS: ["#3b82f6", "#ef4444", "#22c55e", "#f97316"],
 }));
 
 vi.mock("recharts", () => ({
@@ -120,10 +117,10 @@ describe("YearOverYearReport", () => {
     mockGetYearOverYear.mockResolvedValue({ data: [] });
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("expenses")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Expenses" })).toBeInTheDocument();
     });
-    expect(screen.getByText("income")).toBeInTheDocument();
-    expect(screen.getByText("savings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Income" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Savings" })).toBeInTheDocument();
   });
 
   it("renders year comparison table when multiple years", async () => {
@@ -159,9 +156,9 @@ describe("YearOverYearReport", () => {
     });
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("expenses")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Expenses" })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText("income"));
+    fireEvent.click(screen.getByRole("button", { name: "Income" }));
     expect(screen.getByText("Monthly Income Comparison")).toBeInTheDocument();
   });
 
@@ -177,9 +174,9 @@ describe("YearOverYearReport", () => {
     });
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("expenses")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Expenses" })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText("savings"));
+    fireEvent.click(screen.getByRole("button", { name: "Savings" }));
     expect(screen.getByText("Monthly Savings Comparison")).toBeInTheDocument();
   });
 
@@ -197,8 +194,8 @@ describe("YearOverYearReport", () => {
     await waitFor(() => {
       expect(screen.getByText("2024")).toBeInTheDocument();
     });
-    expect(screen.getByText("Income")).toBeInTheDocument();
-    expect(screen.getByText("Expenses")).toBeInTheDocument();
+    expect(screen.getAllByText("Income").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Expenses").length).toBeGreaterThan(0);
     expect(screen.getByText("Net")).toBeInTheDocument();
   });
 
@@ -230,7 +227,7 @@ describe("YearOverYearReport", () => {
     mockGetYearOverYear.mockRejectedValue(new Error("Network error"));
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("expenses")).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load report data/i)).toBeInTheDocument();
     });
   });
 
@@ -300,7 +297,7 @@ describe("YearOverYearReport", () => {
     mockGetYearOverYear.mockResolvedValue({ data: [] });
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("expenses")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Expenses" })).toBeInTheDocument();
     });
     const select = screen.getByDisplayValue("2 Years");
     await act(async () => {
@@ -391,7 +388,7 @@ describe("YearOverYearReport", () => {
     });
     // savings change is negative -> isPositive false -> red color class
     // Use getAllByText and pick the <td> element (not the button)
-    const savingsElements = screen.getAllByText("savings");
+    const savingsElements = screen.getAllByText("Savings");
     const savingsTd = savingsElements.find((el) => el.tagName === "TD") as HTMLElement;
     const savingsRow = savingsTd.closest("tr") as HTMLElement;
     const changeCell = savingsRow.querySelector("td:last-child div:first-child") as HTMLElement;
@@ -418,7 +415,7 @@ describe("YearOverYearReport", () => {
       expect(screen.getByText("Year-over-Year Change")).toBeInTheDocument();
     });
     // expenses decreased -> isPositive = true (change < 0) -> green
-    const expensesElements = screen.getAllByText("expenses");
+    const expensesElements = screen.getAllByText("Expenses");
     const expensesTd = expensesElements.find((el) => el.tagName === "TD") as HTMLElement;
     const expensesRow = expensesTd.closest("tr") as HTMLElement;
     const changeCell = expensesRow.querySelector("td:last-child div:first-child") as HTMLElement;
@@ -498,10 +495,10 @@ describe("YearOverYearReport", () => {
     });
     render(<YearOverYearReport />);
     await waitFor(() => {
-      expect(screen.getByText("income")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Income" })).toBeInTheDocument();
     });
     await act(async () => {
-      fireEvent.click(screen.getByText("income"));
+      fireEvent.click(screen.getByRole("button", { name: "Income" }));
     });
     await act(async () => {
       fireEvent.click(screen.getByTestId("export-pdf"));

@@ -10,9 +10,12 @@ import { SecuritiesModule } from "../securities/securities.module";
 import { BudgetsModule } from "../budgets/budgets.module";
 import { BuiltInReportsModule } from "../built-in-reports/built-in-reports.module";
 import { OAuthModule } from "../oauth/oauth.module";
+import { AiRelayModule } from "../ai/relay/ai-relay.module";
+import { AiActionBuilderModule } from "../ai/actions/ai-action-builder.module";
 
 import { McpServerService } from "./mcp-server.service";
 import { McpHttpController } from "./mcp-http.controller";
+import { McpWriteLimiter } from "./mcp-write-limiter";
 
 import { McpAccountsTools } from "./tools/accounts.tool";
 import { McpTransactionsTools } from "./tools/transactions.tool";
@@ -20,15 +23,16 @@ import { McpCategoriesTools } from "./tools/categories.tool";
 import { McpPayeesTools } from "./tools/payees.tool";
 import { McpReportsTools } from "./tools/reports.tool";
 import { McpInvestmentsTools } from "./tools/investments.tool";
-import { McpNetWorthTools } from "./tools/net-worth.tool";
 import { McpScheduledTools } from "./tools/scheduled.tool";
 import { McpCalculateTools } from "./tools/calculate.tool";
 import { McpBudgetsTools } from "./tools/budgets.tool";
+import { McpRelayTools } from "./tools/relay.tool";
 
 import { McpAccountListResource } from "./resources/account-list.resource";
 import { McpCategoryTreeResource } from "./resources/category-tree.resource";
 import { McpRecentTransactionsResource } from "./resources/recent-transactions.resource";
 import { McpFinancialSummaryResource } from "./resources/financial-summary.resource";
+import { McpRelayAttachmentResource } from "./resources/relay-attachment.resource";
 
 import { McpFinancialReviewPrompt } from "./prompts/financial-review.prompt";
 import { McpBudgetCheckPrompt } from "./prompts/budget-check.prompt";
@@ -48,16 +52,19 @@ import { McpSpendingAnalysisPrompt } from "./prompts/spending-analysis.prompt";
     forwardRef(() => BudgetsModule),
     BuiltInReportsModule,
     OAuthModule,
+    AiRelayModule,
+    AiActionBuilderModule,
   ],
   providers: [
     McpServerService,
+    McpWriteLimiter,
+    McpRelayTools,
     McpAccountsTools,
     McpTransactionsTools,
     McpCategoriesTools,
     McpPayeesTools,
     McpReportsTools,
     McpInvestmentsTools,
-    McpNetWorthTools,
     McpScheduledTools,
     McpCalculateTools,
     McpBudgetsTools,
@@ -65,6 +72,7 @@ import { McpSpendingAnalysisPrompt } from "./prompts/spending-analysis.prompt";
     McpCategoryTreeResource,
     McpRecentTransactionsResource,
     McpFinancialSummaryResource,
+    McpRelayAttachmentResource,
     McpFinancialReviewPrompt,
     McpBudgetCheckPrompt,
     McpTransactionLookupPrompt,

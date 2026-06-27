@@ -49,11 +49,14 @@ import { MultiSelect } from '@/components/ui/MultiSelect';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { createLogger } from '@/lib/logger';
+import { chartColors } from '@/lib/chart-colors';
 import { useMonteCarloScenarios, MAX_COMPARE_SCENARIOS } from './useMonteCarloScenarios';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('MonteCarloReport');
 
 export function MonteCarloReport() {
+  const t = useTranslations('reports');
   const { formatCurrency, formatCurrencyLabel, defaultCurrency } = useNumberFormat();
   const currencySymbol = useMemo(() => getCurrencySymbol(defaultCurrency), [defaultCurrency]);
   const {
@@ -161,7 +164,7 @@ export function MonteCarloReport() {
       .catch((err) => {
         if (!cancelled) {
           logger.error('Failed to fetch holding stats:', err);
-          showErrorToast(err, 'Failed to load per-holding historical stats.');
+          showErrorToast(err, t('monteCarlo.toasts.holdingStatsFailed'));
           setHoldingStats(null);
         }
       })
@@ -171,7 +174,7 @@ export function MonteCarloReport() {
     return () => {
       cancelled = true;
     };
-  }, [form.useHistoricalReturns, form.accountIds]);
+  }, [form.useHistoricalReturns, form.accountIds, t]);
 
 
   const num = (v: unknown): number =>
@@ -262,13 +265,13 @@ export function MonteCarloReport() {
   const handleExportCsv = useCallback(() => {
     if (!result) return;
     const header = [
-      'Year',
-      '10th percentile',
-      '25th percentile',
-      'Median (50th)',
-      '75th percentile',
-      '90th percentile',
-      'Events',
+      t('monteCarlo.csvColYear'),
+      t('monteCarlo.csvCol10th'),
+      t('monteCarlo.csvCol25th'),
+      t('monteCarlo.csvColMedian'),
+      t('monteCarlo.csvCol75th'),
+      t('monteCarlo.csvCol90th'),
+      t('monteCarlo.csvColEvents'),
     ];
     const eventLabel = (m: CashFlowMarkerData) => {
       // One-time events only ever produce a single marker (role 'start');
@@ -277,15 +280,15 @@ export function MonteCarloReport() {
         m.flowType === 'ONE_TIME'
           ? ''
           : m.role === 'start'
-            ? 'Start: '
-            : 'End: ';
+            ? t('monteCarlo.cashFlowEventStart')
+            : t('monteCarlo.cashFlowEventEnd');
       return `${prefix}${m.name} (${m.income ? '+' : ''}${m.amount}${
-        m.flowType === 'RECURRING' ? '/yr' : ''
+        m.flowType === 'RECURRING' ? t('monteCarlo.cashFlowPerYear') : ''
       })`;
     };
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const lines = [
-      escape('Portfolio Value Percentiles by Year'),
+      escape(t('monteCarlo.csvTitle')),
       header.map(escape).join(','),
       ...tableRows.map((row) =>
         [
@@ -302,7 +305,7 @@ export function MonteCarloReport() {
     if (result.performanceSummary) {
       const summaryRows = buildPerformanceSummaryRows(result.performanceSummary);
       lines.push('');
-      lines.push(escape('Performance Summary'));
+      lines.push(escape(t('monteCarlo.csvPerformanceSummary')));
       lines.push(PERFORMANCE_SUMMARY_HEADERS.map(escape).join(','));
       for (const row of summaryRows) {
         lines.push(
@@ -328,24 +331,24 @@ export function MonteCarloReport() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [result, tableRows, form.name, formatCurrency]);
+  }, [result, tableRows, form.name, formatCurrency, t]);
 
   const handleExportPdf = useCallback(async () => {
     if (!result) return;
     const { exportToPdf } = await import('@/lib/pdf-export');
     await exportToPdf({
-      title: `Monte Carlo: ${form.name || 'Scenario'}`,
+      title: `Monte Carlo: ${form.name || t('monteCarlo.untitledScenario')}`,
       subtitle: result.realValues
-        ? `In ${defaultCurrency} (today's value)`
-        : `In ${defaultCurrency} (nominal)`,
+        ? t('monteCarlo.pdfSubtitleRealValues', { currency: defaultCurrency })
+        : t('monteCarlo.pdfSubtitleNominalValues', { currency: defaultCurrency }),
       summaryCards: [
         {
-          label: 'Median final',
+          label: t('monteCarlo.pdfMedianFinal'),
           value: formatCurrency(result.finalDistribution.median),
           color: '#111827',
         },
         {
-          label: '10th–90th',
+          label: t('monteCarlo.pdfRange10to90'),
           value: `${formatCurrency(
             result.percentiles.p10[result.percentiles.p10.length - 1] ?? 0,
           )} – ${formatCurrency(
@@ -358,15 +361,15 @@ export function MonteCarloReport() {
           widthRatio: 4 / 3,
         },
         {
-          label: 'Probability of Depletion',
+          label: t('monteCarlo.probabilityOfDepletion'),
           value: `${(result.finalDistribution.depletionRate * 100).toFixed(1)}%`,
           color: '#dc2626',
         },
         {
           label:
             form.targetValue != null && Number.isFinite(form.targetValue)
-              ? `Probability Above Target (${formatCurrency(form.targetValue)})`
-              : 'Probability Above Target',
+              ? t('monteCarlo.probabilityAboveTargetValue', { target: formatCurrency(form.targetValue) })
+              : t('monteCarlo.probabilityAboveTarget'),
           value:
             result.successRate == null
               ? '—'
@@ -382,7 +385,7 @@ export function MonteCarloReport() {
         ...(result.performanceSummary
           ? [
               {
-                title: 'Performance Summary',
+                title: t('monteCarlo.pdfPerformanceSummaryTitle'),
                 headers: PERFORMANCE_SUMMARY_HEADERS,
                 rows: buildPerformanceSummaryRows(result.performanceSummary).map(
                   (row) => [
@@ -398,8 +401,8 @@ export function MonteCarloReport() {
             ]
           : []),
         {
-          title: 'Portfolio Value Percentiles by Year',
-          headers: ['Year', '10%', '25%', 'Median', '75%', '90%', 'Events'],
+          title: t('monteCarlo.pdfYearlyTitle'),
+          headers: [t('monteCarlo.pdfYearlyYear'), '10%', '25%', 'Median', '75%', '90%', t('monteCarlo.csvColEvents')],
           rows: tableRows.map((r) => [
             r.year,
             formatCurrency(r.p10),
@@ -413,11 +416,11 @@ export function MonteCarloReport() {
                   e.flowType === 'ONE_TIME'
                     ? ''
                     : e.role === 'start'
-                      ? 'Starts: '
-                      : 'Ends: ';
+                      ? t('monteCarlo.cashFlowEventPdfStarts')
+                      : t('monteCarlo.cashFlowEventPdfEnds');
                 return `${prefix}${e.name} (${e.income ? '+' : ''}${formatCurrency(
                   e.amount,
-                )}${e.flowType === 'RECURRING' ? '/yr' : ''})`;
+                )}${e.flowType === 'RECURRING' ? t('monteCarlo.cashFlowPerYear') : ''})`;
               })
               .join('; '),
           ]),
@@ -431,7 +434,7 @@ export function MonteCarloReport() {
     form.targetValue,
     formatCurrency,
     defaultCurrency,
-    tableRows,
+    tableRows, t,
   ]);
 
   if (isLoading) {
@@ -447,7 +450,7 @@ export function MonteCarloReport() {
       {/* Left: scenarios */}
       <aside className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 h-fit">
         <div className="flex items-center justify-between mb-3 gap-2">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Scenarios</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('monteCarlo.scenarios')}</h3>
           <div className="flex items-center gap-1">
             {scenarios.length > 1 && !selectMode && (
               <button
@@ -458,21 +461,21 @@ export function MonteCarloReport() {
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
-                title={reordering ? 'Done reordering' : 'Reorder scenarios'}
+                title={reordering ? t('monteCarlo.doneReordering') : t('monteCarlo.reorder')}
               >
-                {reordering ? 'Done' : 'Reorder'}
+                {reordering ? t('monteCarlo.doneBtn') : t('monteCarlo.reorder')}
               </button>
             )}
             {!selectMode && (
               <Button size="sm" variant="outline" onClick={newScenario}>
-                New
+                {t('monteCarlo.newBtn')}
               </Button>
             )}
           </div>
         </div>
         {scenarios.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            No saved scenarios. Configure inputs on the right and click Save.
+            {t('monteCarlo.noScenarios')}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -485,7 +488,7 @@ export function MonteCarloReport() {
                       onClick={() => moveScenario(index, -1)}
                       disabled={index === 0}
                       className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move up"
+                      title={t('monteCarlo.reorderMoveUp')}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
@@ -496,7 +499,7 @@ export function MonteCarloReport() {
                       onClick={() => moveScenario(index, 1)}
                       disabled={index === scenarios.length - 1}
                       className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      title="Move down"
+                      title={t('monteCarlo.reorderMoveDown')}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -517,13 +520,13 @@ export function MonteCarloReport() {
                       className="mt-1 flex-shrink-0"
                       checked={selectedForCompare.has(s.id)}
                       onChange={() => toggleForCompare(s.id)}
-                      aria-label={`Select ${s.name} for comparison`}
+                      aria-label={t('monteCarlo.selectForComparison', { name: s.name })}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">{s.name}</div>
                       {s.lastRunAt && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Last run {new Date(s.lastRunAt).toLocaleDateString()}
+                          {t('monteCarlo.lastRun', { date: new Date(s.lastRunAt).toLocaleDateString() })}
                         </div>
                       )}
                     </div>
@@ -544,7 +547,7 @@ export function MonteCarloReport() {
                     <div className="font-medium truncate">{s.name}</div>
                     {s.lastRunAt && (
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Last run {new Date(s.lastRunAt).toLocaleDateString()}
+                        {t('monteCarlo.lastRun', { date: new Date(s.lastRunAt).toLocaleDateString() })}
                       </div>
                     )}
                   </button>
@@ -570,19 +573,18 @@ export function MonteCarloReport() {
                   }}
                   title={
                     selectedForCompare.size < 2
-                      ? 'Select at least 2 scenarios'
-                      : 'Compare selected scenarios'
+                      ? t('monteCarlo.selectAtLeast2')
+                      : t('monteCarlo.compareSelectedTitle')
                   }
                 >
-                  Compare selected ({selectedForCompare.size}/
-                  {MAX_COMPARE_SCENARIOS})
+                  {t('monteCarlo.compareSelected', { count: selectedForCompare.size, max: MAX_COMPARE_SCENARIOS })}
                 </Button>
                 <button
                   type="button"
                   onClick={toggleSelectMode}
                   className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
-                  Cancel
+                  {t('monteCarlo.cancelSelectMode')}
                 </button>
               </>
             ) : (
@@ -591,9 +593,9 @@ export function MonteCarloReport() {
                 variant="primary"
                 className="w-full"
                 onClick={toggleSelectMode}
-                title="Select scenarios to compare"
+                title={t('monteCarlo.compareBtn')}
               >
-                Compare
+                {t('monteCarlo.compareBtn')}
               </Button>
             )}
           </div>
@@ -608,25 +610,24 @@ export function MonteCarloReport() {
               {inputsCollapsed ? (
                 <div className="flex flex-col min-w-0">
                   <div className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {form.name || 'Untitled scenario'}
+                    {form.name || t('monteCarlo.untitledScenario')}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                    <span>Start: {formatCurrency(form.startingValue)}</span>
+                    <span>{t('monteCarlo.collapsedStart')} {formatCurrency(form.startingValue)}</span>
                     <span>
-                      {form.yearsToRetirement}y contrib /{' '}
-                      {form.yearsInRetirement}y withdrawal
+                      {t('monteCarlo.collapsedContribWithdraw', { contrib: form.yearsToRetirement, withdraw: form.yearsInRetirement })}
                     </span>
                     <span>
                       {form.useHistoricalReturns
-                        ? 'Historical returns'
-                        : `${(form.expectedReturn * 100).toFixed(1)}% return, ${(form.volatility * 100).toFixed(1)}% vol`}
+                        ? t('monteCarlo.collapsedHistoricalReturns')
+                        : t('monteCarlo.collapsedCustomReturns', { return: (form.expectedReturn * 100).toFixed(1), vol: (form.volatility * 100).toFixed(1) })}
                     </span>
-                    <span>{form.simulationCount.toLocaleString()} runs</span>
+                    <span>{t('monteCarlo.collapsedRuns', { count: form.simulationCount.toLocaleString() })}</span>
                   </div>
                 </div>
               ) : (
                 <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Scenario inputs
+                  {t('monteCarlo.scenarioInputs')}
                 </h2>
               )}
             </div>
@@ -636,7 +637,7 @@ export function MonteCarloReport() {
                 disabled={isRunning || form.accountIds.length === 0}
                 variant="primary"
               >
-                {isRunning ? 'Running…' : 'Run again'}
+                {isRunning ? t('monteCarlo.running') : t('monteCarlo.runAgain')}
               </Button>
             )}
             <button
@@ -646,7 +647,7 @@ export function MonteCarloReport() {
               aria-controls="mc-inputs-body"
               className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {inputsCollapsed ? 'Edit inputs' : 'Hide inputs'}
+              {inputsCollapsed ? t('monteCarlo.editInputs') : t('monteCarlo.hideInputs')}
               <ChevronDownIcon
                 className={`h-4 w-4 transition-transform ${inputsCollapsed ? '' : 'rotate-180'}`}
               />
@@ -657,28 +658,28 @@ export function MonteCarloReport() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Scenario name
+                {t('monteCarlo.scenarioName')}
               </label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
-                placeholder="e.g. Aggressive 25-year"
+                placeholder={t('monteCarlo.scenarioNamePlaceholder')}
                 className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm"
               />
             </div>
             <MultiSelect
-              label="Investment accounts"
+              label={t('monteCarlo.investmentAccounts')}
               options={accountOptions}
               value={form.accountIds}
               onChange={(v) => updateField('accountIds', v)}
-              placeholder="Select accounts..."
+              placeholder={t('monteCarlo.selectAccountsPlaceholder')}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CurrencyInput
-              label="Starting value"
+              label={t('monteCarlo.startingValue')}
               value={form.startingValue}
               onChange={(v) => updateField('startingValue', v ?? 0)}
               allowNegative={false}
@@ -690,34 +691,34 @@ export function MonteCarloReport() {
                 <ToggleSwitch
                   checked={form.useCurrentBalance}
                   onChange={(v) => updateField('useCurrentBalance', v)}
-                  label="Use current balance on each run"
+                  label={t('monteCarlo.useCurrentBalance')}
                 />
-                Use current balance on each run
+                {t('monteCarlo.useCurrentBalance')}
               </label>
             </div>
           </div>
 
           <fieldset className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
             <legend className="px-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Contribution phase
+              {t('monteCarlo.contributionPhase')}
             </legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <NumericInput
-                label="Years"
+                label={t('monteCarlo.yearsLabel')}
                 value={form.yearsToRetirement}
                 onChange={(v) => updateField('yearsToRetirement', Math.max(0, v ?? 0))}
                 decimalPlaces={0}
                 min={0}
               />
               <CurrencyInput
-                label="Annual contribution"
+                label={t('monteCarlo.annualContribution')}
                 value={form.annualContribution}
                 onChange={(v) => updateField('annualContribution', v ?? 0)}
                 allowNegative={false}
                 prefix={currencySymbol}
               />
               <NumericInput
-                label="Contribution growth"
+                label={t('monteCarlo.contributionGrowth')}
                 value={form.contributionGrowthRate * 100}
                 onChange={(v) =>
                   updateField('contributionGrowthRate', (v ?? 0) / 100)
@@ -731,25 +732,25 @@ export function MonteCarloReport() {
 
           <fieldset className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
             <legend className="px-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Withdrawal phase
+              {t('monteCarlo.withdrawalPhase')}
             </legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <NumericInput
-                label="Years"
+                label={t('monteCarlo.yearsLabel')}
                 value={form.yearsInRetirement}
                 onChange={(v) => updateField('yearsInRetirement', Math.max(0, v ?? 0))}
                 decimalPlaces={0}
                 min={0}
               />
               <CurrencyInput
-                label="Annual withdrawal"
+                label={t('monteCarlo.annualWithdrawal')}
                 value={form.annualWithdrawal}
                 onChange={(v) => updateField('annualWithdrawal', v ?? 0)}
                 allowNegative={false}
                 prefix={currencySymbol}
               />
               <CurrencyInput
-                label="Target (today's value)"
+                label={t('monteCarlo.targetTodayValue')}
                 value={form.targetValue ?? undefined}
                 onChange={(v) => updateField('targetValue', v ?? null)}
                 allowNegative={false}
@@ -757,27 +758,20 @@ export function MonteCarloReport() {
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Annual withdrawal is in today&apos;s value and is grown by the
-              inflation rate each year so purchasing power stays constant
-              throughout the withdrawal phase. The success-rate target is also
-              compared against each path&apos;s final value in today&apos;s
-              terms.
+              {t('monteCarlo.withdrawalNote')}
             </p>
           </fieldset>
 
           <fieldset className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
             <legend className="px-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Additional cash flows
+              {t('monteCarlo.additionalCashFlows')}
             </legend>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              One-time or recurring inflows / outflows that layer on top of
-              the base contribution and withdrawal phases. Use a positive
-              amount for income (pension, sale proceeds, inheritance) and a
-              negative amount for expenses (renovation, college, etc).
+              {t('monteCarlo.cashFlowsNote')}
             </p>
             {form.cashFlows.length === 0 ? (
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                No additional cash flows configured.
+                {t('monteCarlo.noCashFlows')}
               </p>
             ) : (
               <div className="space-y-2 mb-3">
@@ -788,7 +782,7 @@ export function MonteCarloReport() {
                   >
                     <div className="md:col-span-3">
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Name
+                        {t('monteCarlo.cashFlowName')}
                       </label>
                       <input
                         type="text"
@@ -796,13 +790,13 @@ export function MonteCarloReport() {
                         onChange={(e) =>
                           updateCashFlow(idx, { name: e.target.value })
                         }
-                        placeholder="e.g. Pension"
+                        placeholder={t('monteCarlo.cashFlowNamePlaceholder')}
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm text-sm"
                       />
                     </div>
                     <div className="md:col-span-2">
                       <CurrencyInput
-                        label="Amount"
+                        label={t('monteCarlo.cashFlowAmount')}
                         value={cf.amount}
                         onChange={(v) =>
                           updateCashFlow(idx, { amount: v ?? 0 })
@@ -813,7 +807,7 @@ export function MonteCarloReport() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Type
+                        {t('monteCarlo.cashFlowType')}
                       </label>
                       <select
                         value={cf.flowType}
@@ -824,13 +818,13 @@ export function MonteCarloReport() {
                         }
                         className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm text-sm"
                       >
-                        <option value="ONE_TIME">One-time</option>
-                        <option value="RECURRING">Recurring</option>
+                        <option value="ONE_TIME">{t('monteCarlo.cashFlowTypeOneTime')}</option>
+                        <option value="RECURRING">{t('monteCarlo.cashFlowTypeRecurring')}</option>
                       </select>
                     </div>
                     <div className="md:col-span-1">
                       <NumericInput
-                        label="Start"
+                        label={t('monteCarlo.cashFlowStart')}
                         value={cf.startYear}
                         onChange={(v) =>
                           updateCashFlow(idx, {
@@ -844,7 +838,7 @@ export function MonteCarloReport() {
                     {cf.flowType === 'RECURRING' && (
                       <div className="md:col-span-1">
                         <NumericInput
-                          label="End"
+                          label={t('monteCarlo.cashFlowEnd')}
                           value={cf.endYear ?? undefined}
                           onChange={(v) =>
                             updateCashFlow(idx, {
@@ -867,7 +861,7 @@ export function MonteCarloReport() {
                         aria-hidden="true"
                         className="block text-xs font-medium mb-1 select-none invisible"
                       >
-                        Inflate
+                        {t('monteCarlo.cashFlowInflate')}
                       </div>
                       <div className="flex items-center gap-2 h-[2.375rem]">
                         <label className="inline-flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -876,15 +870,15 @@ export function MonteCarloReport() {
                             onChange={(v) =>
                               updateCashFlow(idx, { inflationAdjust: v })
                             }
-                            label="Inflate"
+                            label={t('monteCarlo.cashFlowInflate')}
                           />
-                          Inflate
+                          {t('monteCarlo.cashFlowInflate')}
                         </label>
                         <button
                           type="button"
                           onClick={() => removeCashFlow(idx)}
-                          aria-label="Remove cash flow"
-                          title="Remove"
+                          aria-label={t('monteCarlo.removeCashFlow')}
+                          title={t('monteCarlo.removeTitle')}
                           className="ml-auto inline-flex items-center justify-center h-8 w-8 rounded-md text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         >
                           <svg
@@ -909,13 +903,13 @@ export function MonteCarloReport() {
               </div>
             )}
             <Button variant="outline" size="sm" onClick={addCashFlow}>
-              + Add cash flow
+              {t('monteCarlo.addCashFlow')}
             </Button>
           </fieldset>
 
           <fieldset className="border border-gray-200 dark:border-gray-700 rounded-md p-4">
             <legend className="px-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Return assumptions
+              {t('monteCarlo.returnAssumptions')}
             </legend>
             <div className="flex flex-wrap gap-4 mb-3">
               <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -925,7 +919,7 @@ export function MonteCarloReport() {
                   checked={!form.useHistoricalReturns}
                   onChange={() => updateField('useHistoricalReturns', false)}
                 />
-                Specify expected return
+                {t('monteCarlo.specifyReturn')}
               </label>
               <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
@@ -934,16 +928,13 @@ export function MonteCarloReport() {
                   checked={form.useHistoricalReturns}
                   onChange={() => updateField('useHistoricalReturns', true)}
                 />
-                Use historical returns from selected accounts
+                {t('monteCarlo.useHistoricalReturns')}
               </label>
             </div>
             {form.useHistoricalReturns && (
               <>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Mean and volatility are recomputed from the year-over-year
-                  price history of the holdings in the selected accounts each
-                  time you run. Inflation and simulation count below still
-                  apply.
+                  {t('monteCarlo.historicalNote')}
                 </p>
                 <HoldingStatsTable
                   data={holdingStats}
@@ -955,7 +946,7 @@ export function MonteCarloReport() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className={form.useHistoricalReturns ? 'opacity-50' : ''}>
                 <NumericInput
-                  label="Expected return"
+                  label={t('monteCarlo.expectedReturn')}
                   value={form.expectedReturn * 100}
                   onChange={(v) => updateField('expectedReturn', (v ?? 0) / 100)}
                   decimalPlaces={2}
@@ -966,7 +957,7 @@ export function MonteCarloReport() {
               </div>
               <div className={form.useHistoricalReturns ? 'opacity-50' : ''}>
                 <NumericInput
-                  label="Volatility"
+                  label={t('monteCarlo.volatility')}
                   value={form.volatility * 100}
                   onChange={(v) => updateField('volatility', (v ?? 0) / 100)}
                   decimalPlaces={2}
@@ -975,7 +966,7 @@ export function MonteCarloReport() {
                 />
               </div>
               <NumericInput
-                label="Inflation"
+                label={t('monteCarlo.inflation')}
                 value={form.inflationRate * 100}
                 onChange={(v) => updateField('inflationRate', (v ?? 0) / 100)}
                 decimalPlaces={2}
@@ -983,7 +974,7 @@ export function MonteCarloReport() {
                 suffix="%"
               />
               <NumericInput
-                label="Simulations"
+                label={t('monteCarlo.simulations')}
                 value={form.simulationCount}
                 onChange={(v) =>
                   updateField('simulationCount', Math.max(100, Math.min(50000, v ?? 5000)))
@@ -997,13 +988,13 @@ export function MonteCarloReport() {
                 <ToggleSwitch
                   checked={form.showRealValues}
                   onChange={(v) => updateField('showRealValues', v)}
-                  label="Show in today's value"
+                  label={t('monteCarlo.showRealValues')}
                 />
               </span>
               <span className="flex-1">
-                Show in today&apos;s value (real, inflation-adjusted)
+                {t('monteCarlo.showRealValuesDesc')}
                 <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Applies after the next Run.
+                  {t('monteCarlo.appliesAfterRun')}
                 </span>
               </span>
             </label>
@@ -1011,7 +1002,7 @@ export function MonteCarloReport() {
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={run} disabled={isRunning}>
-              {isRunning ? 'Running…' : 'Run simulation'}
+              {isRunning ? t('monteCarlo.running') : t('monteCarlo.runSimulation')}
             </Button>
             {activeId ? (
               <div ref={saveMenuRef} className="relative inline-flex">
@@ -1030,7 +1021,7 @@ export function MonteCarloReport() {
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  {savedFlash ? 'Saved!' : 'Save changes'}
+                  {savedFlash ? t('monteCarlo.saved') : t('monteCarlo.saveChanges')}
                 </Button>
                 <Button
                   variant={savedFlash ? 'primary' : 'outline'}
@@ -1038,7 +1029,7 @@ export function MonteCarloReport() {
                   disabled={savedFlash}
                   aria-haspopup="menu"
                   aria-expanded={saveMenuOpen}
-                  aria-label="More save options"
+                  aria-label={t('monteCarlo.moreSaveOptions')}
                   className={[
                     'rounded-l-none border-l-0 px-2',
                     savedFlash
@@ -1064,7 +1055,7 @@ export function MonteCarloReport() {
                       }}
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
                     >
-                      Save as...
+                      {t('monteCarlo.saveAs')}
                     </button>
                   </div>
                 )}
@@ -1083,12 +1074,12 @@ export function MonteCarloReport() {
                   .filter(Boolean)
                   .join(' ')}
               >
-                {savedFlash ? 'Saved!' : 'Save scenario'}
+                {savedFlash ? t('monteCarlo.saved') : t('monteCarlo.saveScenario')}
               </Button>
             )}
             {activeId && (
               <Button variant="danger" onClick={requestDelete}>
-                Delete
+                {t('monteCarlo.deleteScenario')}
               </Button>
             )}
           </div>
@@ -1102,11 +1093,11 @@ export function MonteCarloReport() {
                 tablets into 2. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <SummaryStat
-                label="Median final"
+                label={t('monteCarlo.medianFinal')}
                 value={formatCurrency(result.finalDistribution.median)}
               />
               <SummaryStat
-                label="10th–90th percentile"
+                label={t('monteCarlo.percentile10to90')}
                 value={`${formatCurrency(
                   result.percentiles.p10[result.percentiles.p10.length - 1] ?? 0,
                 )} – ${formatCurrency(
@@ -1115,14 +1106,14 @@ export function MonteCarloReport() {
                 className="lg:col-span-2"
               />
               <SummaryStat
-                label="Probability of Depletion"
+                label={t('monteCarlo.probabilityOfDepletion')}
                 value={`${(result.finalDistribution.depletionRate * 100).toFixed(1)}%`}
               />
               <SummaryStat
                 label={
                   form.targetValue != null && Number.isFinite(form.targetValue)
-                    ? `Probability Above Target (${formatCurrency(form.targetValue)})`
-                    : 'Probability Above Target'
+                    ? t('monteCarlo.probabilityAboveTargetValue', { target: formatCurrency(form.targetValue) })
+                    : t('monteCarlo.probabilityAboveTarget')
                 }
                 value={
                   result.successRate == null
@@ -1135,13 +1126,9 @@ export function MonteCarloReport() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                  Projected portfolio value{' '}
+                  {t('monteCarlo.projectedPortfolioValue')}{' '}
                   <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                    (in {defaultCurrency},{' '}
-                    {result.realValues
-                      ? "real / today's value"
-                      : 'nominal / future value'}
-                    )
+                    {t('monteCarlo.projectedPortfolioSubtitle', { currency: defaultCurrency, valueType: result.realValues ? t('monteCarlo.realValues') : t('monteCarlo.nominalValues') })}
                   </span>
                 </h3>
                 <div className="ml-auto flex items-center gap-2">
@@ -1157,7 +1144,7 @@ export function MonteCarloReport() {
                             : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                         }`}
                       >
-                        {m === 'chart' ? 'Chart' : 'Table'}
+                        {m === 'chart' ? t('monteCarlo.viewChart') : t('monteCarlo.viewTable')}
                       </button>
                     ))}
                   </div>
@@ -1214,39 +1201,42 @@ export function MonteCarloReport() {
                       stackId="band"
                       stroke="none"
                       fill="transparent"
-                      name="10th percentile"
+                      name={t('monteCarlo.chart10thPercentile')}
                     />
                     <Area
                       type="monotone"
                       dataKey="band10to25"
                       stackId="band"
                       stroke="none"
-                      fill="#bfdbfe"
-                      name="10–25%"
+                      fill={chartColors.primary}
+                      fillOpacity={0.3}
+                      name={t('monteCarlo.chartBand10to25')}
                     />
                     <Area
                       type="monotone"
                       dataKey="band25to75"
                       stackId="band"
                       stroke="none"
-                      fill="#60a5fa"
-                      name="25–75%"
+                      fill={chartColors.primary}
+                      fillOpacity={0.6}
+                      name={t('monteCarlo.chartBand25to75')}
                     />
                     <Area
                       type="monotone"
                       dataKey="band75to90"
                       stackId="band"
                       stroke="none"
-                      fill="#bfdbfe"
-                      name="75–90%"
+                      fill={chartColors.primary}
+                      fillOpacity={0.3}
+                      name={t('monteCarlo.chartBand75to90')}
                     />
                     <Line
                       type="monotone"
                       dataKey="p50"
-                      stroke="#1d4ed8"
+                      stroke={chartColors.primary}
                       strokeWidth={2}
                       dot={false}
-                      name="Median"
+                      name={t('monteCarlo.chartMedian')}
                     />
                     {/* Phase divider: dotted vertical line at the last
                         contribution year so the user can see exactly where
@@ -1259,7 +1249,7 @@ export function MonteCarloReport() {
                         undefined && (
                         <ReferenceLine
                           x={result.yearLabels[form.yearsToRetirement - 1]}
-                          stroke="#d97706"
+                          stroke={chartColors.warning}
                           strokeDasharray="8 4"
                           strokeWidth={2.5}
                           label={{
@@ -1272,8 +1262,8 @@ export function MonteCarloReport() {
                               form.yearsToRetirement /
                                 result.yearLabels.length >
                               0.5
-                                ? 'Withdrawal phase →'
-                                : '← Withdrawal phase',
+                                ? t('monteCarlo.withdrawalPhaseRight')
+                                : t('monteCarlo.withdrawalPhaseLeft'),
                             // Recharts anchors the label text at the named
                             // position and the text flows away from that
                             // anchor, so 'insideTopRight' anchors on the
@@ -1288,7 +1278,7 @@ export function MonteCarloReport() {
                               0.5
                                 ? 'insideTopRight'
                                 : 'insideTopLeft',
-                            fill: '#d97706',
+                            fill: chartColors.warning,
                             fontSize: 12,
                             fontWeight: 600,
                           }}
@@ -1325,19 +1315,19 @@ export function MonteCarloReport() {
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
                   <span className="inline-flex items-center gap-1">
                     <CashFlowLegendSwatch role="start" income />
-                    Income starts
+                    {t('monteCarlo.legendIncomeStarts')}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <CashFlowLegendSwatch role="end" income />
-                    Income ends
+                    {t('monteCarlo.legendIncomeEnds')}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <CashFlowLegendSwatch role="start" income={false} />
-                    Expense starts
+                    {t('monteCarlo.legendExpenseStarts')}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <CashFlowLegendSwatch role="end" income={false} />
-                    Expense ends
+                    {t('monteCarlo.legendExpenseEnds')}
                   </span>
                 </div>
               )}
@@ -1346,7 +1336,7 @@ export function MonteCarloReport() {
             {result.performanceSummary && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                  Performance Summary
+                  {t('monteCarlo.performanceSummaryTitle')}
                 </h3>
                 <PerformanceSummaryTable
                   summary={result.performanceSummary}
@@ -1360,10 +1350,10 @@ export function MonteCarloReport() {
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}
-        title="Delete scenario?"
-        message={`This will permanently delete "${form.name || 'this scenario'}" and any cash flows attached to it.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('monteCarlo.deleteConfirmTitle')}
+        message={t('monteCarlo.deleteConfirmMessage', { name: form.name || t('monteCarlo.untitledScenario') })}
+        confirmLabel={t('monteCarlo.confirmDelete')}
+        cancelLabel={t('monteCarlo.cancelBtn')}
         variant="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
@@ -1378,10 +1368,10 @@ export function MonteCarloReport() {
 
       <ConfirmDialog
         isOpen={pendingOverwriteName !== null}
-        title="Overwrite existing scenario?"
-        message={`A scenario named "${pendingOverwriteName ?? ''}" already exists. Saving will replace its inputs and cash flows.`}
-        confirmLabel="Overwrite"
-        cancelLabel="Cancel"
+        title={t('monteCarlo.overwriteConfirmTitle')}
+        message={t('monteCarlo.overwriteConfirmMessage', { name: pendingOverwriteName ?? '' })}
+        confirmLabel={t('monteCarlo.confirmOverwrite')}
+        cancelLabel={t('monteCarlo.cancelBtn')}
         variant="warning"
         onConfirm={performOverwrite}
         onCancel={cancelOverwrite}

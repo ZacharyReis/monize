@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, memo } from 'react';
+import { useTranslations } from 'next-intl';
 import { AccountHoldings, HoldingWithMarketValue } from '@/types/investment';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 
 interface GroupedHoldingsListProps {
   holdingsByAccount: AccountHoldings[];
@@ -21,7 +24,8 @@ export function GroupedHoldingsList({
   onSymbolClick,
   onCashClick,
 }: GroupedHoldingsListProps) {
-  const { formatCurrency: formatCurrencyBase, numberFormat } = useNumberFormat();
+  const t = useTranslations('investments');
+  const { formatCurrency: formatCurrencyBase, formatCurrencyPrecise, formatSignedPercent, formatNumber, formatQuantity } = useNumberFormat();
   const { convert, convertToDefault, defaultCurrency } = useExchangeRates();
 
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(
@@ -47,28 +51,19 @@ export function GroupedHoldingsList({
 
   const formatPrice = (value: number | null, currencyCode?: string) => {
     if (value === null) return '-';
-    return formatCurrencyBase(value, currencyCode, 4);
+    // Per-share prices display at 4dp, expanding further only when a sub-penny
+    // value would otherwise read as 0.0000.
+    return formatCurrencyPrecise(value, currencyCode, 4);
   };
 
   const formatPercent = (value: number | null, showSign = true) => {
     if (value === null) return '-';
-    const sign = showSign && value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
-  };
-
-  const formatQuantity = (value: number) => {
-    const locale = numberFormat === 'browser' ? undefined : numberFormat;
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
-    }).format(value);
+    return showSign ? formatSignedPercent(value) : `${formatNumber(value, 2)}%`;
   };
 
   const getGainLossColor = (value: number | null) => {
     if (value === null) return 'text-gray-500 dark:text-gray-400';
-    return value >= 0
-      ? 'text-green-600 dark:text-green-400'
-      : 'text-red-600 dark:text-red-400';
+    return gainLossColor(value);
   };
 
   const getPortfolioPercent = (value: number | null, currencyCode?: string): string => {
@@ -83,17 +78,17 @@ export function GroupedHoldingsList({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Holdings by Account
+          {t('groupedHoldings.title')}
         </h3>
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="animate-pulse">
-              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" />
+            <div key={i}>
+              <Skeleton className="h-6 w-1/3 mb-3" />
               <div className="space-y-2">
                 {[1, 2, 3].map((j) => (
                   <div key={j} className="flex justify-between">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-4 w-1/4" />
                   </div>
                 ))}
               </div>
@@ -115,10 +110,10 @@ export function GroupedHoldingsList({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Holdings by Account
+          {t('groupedHoldings.title')}
         </h3>
         <p className="text-gray-500 dark:text-gray-400">
-          No holdings in your portfolio.
+          {t('groupedHoldings.noHoldings')}
         </p>
       </div>
     );
@@ -128,10 +123,10 @@ export function GroupedHoldingsList({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
       <div className="p-3 sm:p-6 pb-3 sm:pb-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Holdings by Account
+          {t('groupedHoldings.title')}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {holdingsByAccount.length} account{holdingsByAccount.length !== 1 ? 's' : ''} with {totalHoldings} position{totalHoldings !== 1 ? 's' : ''}
+          {t('groupedHoldings.accountSummary', { accounts: holdingsByAccount.length, accountsPlural: holdingsByAccount.length !== 1 ? 's' : '', positions: totalHoldings, positionsPlural: totalHoldings !== 1 ? 's' : '' })}
         </p>
       </div>
 
@@ -166,8 +161,9 @@ export function GroupedHoldingsList({
                       {account.accountName}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {account.holdings.length} position{account.holdings.length !== 1 ? 's' : ''}
-                      {account.cashBalance !== 0 && ' + Cash'}
+                      {account.cashBalance !== 0
+                        ? t('groupedHoldings.positionsWithCash', { count: account.holdings.length, plural: account.holdings.length !== 1 ? 's' : '' })
+                        : t('groupedHoldings.positions', { count: account.holdings.length, plural: account.holdings.length !== 1 ? 's' : '' })}
                     </div>
                   </div>
                 </div>
@@ -193,28 +189,28 @@ export function GroupedHoldingsList({
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-2 sm:px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Symbol
+                          {t('groupedHoldings.symbolColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Shares
+                          {t('groupedHoldings.sharesColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Avg Cost
+                          {t('groupedHoldings.avgCostColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Price
+                          {t('groupedHoldings.priceColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Cost Basis
+                          {t('groupedHoldings.costBasisColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Mkt Value
+                          {t('groupedHoldings.mktValueColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Gain/Loss
+                          {t('groupedHoldings.gainLossColumn')}
                         </th>
                         <th className="px-1.5 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          % Port
+                          {t('groupedHoldings.portfolioPercentColumn')}
                         </th>
                       </tr>
                     </thead>
@@ -244,14 +240,14 @@ export function GroupedHoldingsList({
                             <button
                               onClick={() => account.cashAccountId && onCashClick?.(account.cashAccountId)}
                               className="flex items-center gap-2 text-left hover:underline focus:outline-none focus:underline"
-                              title="Click to view cash account transactions"
+                              title={t('groupedHoldings.cashClickTitle')}
                             >
                               <svg className="h-4 w-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
-                                <div className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">Cash</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Available Balance</div>
+                                <div className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">{t('groupedHoldings.cashLabel')}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t('groupedHoldings.availableBalance')}</div>
                               </div>
                             </button>
                           </td>
@@ -282,7 +278,7 @@ export function GroupedHoldingsList({
                       {/* Account Summary Row */}
                       <tr className="bg-gray-50 dark:bg-gray-700/30 font-medium">
                         <td className="px-2 sm:px-6 py-3 text-sm text-gray-700 dark:text-gray-300" colSpan={4}>
-                          Account Total
+                          {t('groupedHoldings.accountTotal')}
                         </td>
                         <td className="px-1.5 sm:px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">
                           {fmtAcct(account.totalCostBasis + account.cashBalance)}
@@ -348,6 +344,7 @@ const HoldingRow = memo(function HoldingRow({
   getPortfolioPercent,
   onSymbolClick,
 }: HoldingRowProps) {
+  const t = useTranslations('investments');
   const isForeign = holding.currencyCode && holding.currencyCode !== defaultCurrency;
   const isForeignToAccount =
     holding.currencyCode && holding.currencyCode !== accountCurrency;
@@ -389,7 +386,7 @@ const HoldingRow = memo(function HoldingRow({
         <button
           onClick={() => onSymbolClick?.(holding.symbol)}
           className="text-left hover:underline focus:outline-none focus:underline"
-          title="Click to filter transactions by this symbol"
+          title={t('groupedHoldings.symbolClickTitle')}
         >
           <div className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
             {holding.symbol}

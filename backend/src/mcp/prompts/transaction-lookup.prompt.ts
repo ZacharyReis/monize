@@ -8,6 +8,7 @@ export class McpTransactionLookupPrompt {
     server.registerPrompt(
       "transaction-lookup",
       {
+        title: "Transaction lookup",
         description: "Help find specific transactions",
         argsSchema: {
           query: z
@@ -27,7 +28,7 @@ export class McpTransactionLookupPrompt {
                 text: [
                   `Help me find transactions matching: "${args.query}"`,
                   "",
-                  "Use the search_transactions tool with appropriate filters.",
+                  "Use the list_transactions tool with includeTransactions: true and appropriate filters.",
                   "If the query mentions a time period, set the date range accordingly.",
                   "If it mentions a specific payee or category, use those filters too.",
                   "",

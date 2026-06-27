@@ -1,0 +1,108 @@
+{
+  "createUserModal": {
+    "title": "Ajouter un utilisateur",
+    "description": "Créez un nouveau compte. Vous pouvez envoyer une invitation par e-mail, définir un mot de passe vous-même ou en générer un temporaire à partager.",
+    "emailLabel": "E-mail",
+    "emailPlaceholder": "utilisateur@exemple.com",
+    "firstNameLabel": "Prénom (facultatif)",
+    "firstNamePlaceholder": "Prénom",
+    "lastNameLabel": "Nom de famille (facultatif)",
+    "lastNamePlaceholder": "Nom de famille",
+    "roleLabel": "Rôle",
+    "roleUser": "Utilisateur",
+    "roleAdmin": "Administrateur",
+    "credentialsLegend": "Identifiants",
+    "inviteLabel": "Envoyer une invitation par e-mail pour définir un mot de passe",
+    "inviteSmtpNote": "Nécessite la configuration SMTP.",
+    "setPasswordLabel": "Définir un mot de passe maintenant",
+    "tempPasswordLabel": "Générer un mot de passe temporaire",
+    "tempPasswordNote": "Affiché une seule fois après la création. L'utilisateur devra le modifier à la première connexion.",
+    "passwordFieldLabel": "Mot de passe",
+    "passwordPlaceholder": "Définir un mot de passe",
+    "createButton": "Créer l'utilisateur",
+    "validation": {
+      "invalidPassword": "Mot de passe invalide."
+    },
+    "toasts": {
+      "createFailed": "Échec de la création de l'utilisateur"
+    }
+  },
+  "resetPasswordModal": {
+    "defaultTitle": "Réinitialisation du mot de passe réussie",
+    "defaultDescription": "Un mot de passe temporaire a été défini pour {userName}.",
+    "temporaryPasswordLabel": "Mot de passe temporaire",
+    "copy": "Copier",
+    "copied": "Copié",
+    "notShownAgain": "Ce mot de passe ne sera plus affiché.",
+    "mustChangeOnLogin": "L'utilisateur devra modifier son mot de passe à la prochaine connexion.",
+    "toasts": {
+      "copied": "Mot de passe copié dans le presse-papiers",
+      "copyFailed": "Échec de la copie dans le presse-papiers"
+    }
+  },
+  "userTable": {
+    "colUser": "Utilisateur",
+    "colRole": "Rôle",
+    "colProvider": "Fournisseur",
+    "colStatus": "Statut",
+    "colLastLogin": "Dernière connexion",
+    "colActions": "Actions",
+    "youSuffix": "(vous)",
+    "noEmail": "Aucun e-mail",
+    "unknown": "Inconnu",
+    "never": "Jamais",
+    "providerSso": "SSO",
+    "providerLocal": "Local",
+    "roleAdmin": "Administrateur",
+    "roleUser": "Utilisateur",
+    "statusActive": "Actif",
+    "statusDisabled": "Désactivé",
+    "clickToDisable": "Cliquer pour désactiver",
+    "clickToEnable": "Cliquer pour activer",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "noUsers": "Aucun utilisateur trouvé."
+  },
+  "usersPage": {
+    "title": "Gestion des utilisateurs",
+    "userCount": "{count, plural, one {# utilisateur} other {# utilisateurs}}",
+    "newUser": "+ Nouvel utilisateur",
+    "loadingUsers": "Chargement des utilisateurs...",
+    "toasts": {
+      "inviteSent": "E-mail d'invitation envoyé à {email}",
+      "userCreated": "{name} a été créé",
+      "userUpgraded": "{name} a été promu en compte complet",
+      "roleChanged": "{name} est maintenant {role}",
+      "roleAdmin": "administrateur",
+      "roleUser": "utilisateur",
+      "userEnabled": "{name} a été activé",
+      "userDisabled": "{name} a été désactivé",
+      "userDeleted": "{name} a été supprimé",
+      "userDowngraded": "Les données personnelles de {name} ont été supprimées ; son accès délégué est conservé.",
+      "loadFailed": "Échec du chargement des utilisateurs",
+      "deleteFailed": "Échec de la suppression de l'utilisateur",
+      "disableFailed": "Échec de la désactivation de l'utilisateur",
+      "resetFailed": "Échec de la réinitialisation du mot de passe"
+    },
+    "dialogs": {
+      "promoteTitle": "Promouvoir l'utilisateur ?",
+      "demoteTitle": "Rétrograder l'utilisateur ?",
+      "promoteMessage": "Voulez-vous vraiment promouvoir {name} en {role} ?",
+      "demoteMessage": "Voulez-vous vraiment rétrograder {name} en {role} ?",
+      "promoteConfirm": "Promouvoir en administrateur",
+      "demoteConfirm": "Rétrograder en utilisateur",
+      "disableTitle": "Désactiver l'utilisateur ?",
+      "disableMessage": "Voulez-vous vraiment désactiver {name} ? Il ne pourra plus se connecter.",
+      "disableConfirm": "Désactiver l'utilisateur",
+      "resetTitle": "Réinitialiser le mot de passe ?",
+      "resetMessage": "Cela va générer un nouveau mot de passe temporaire pour {name}. Il devra le modifier à la prochaine connexion.",
+      "resetConfirm": "Réinitialiser le mot de passe",
+      "deleteTitle": "Supprimer l'utilisateur ?",
+      "deleteMessage": "Voulez-vous vraiment supprimer {name} ? Cela supprimera définitivement son compte et toutes les données associées. Cette action est irréversible. S'il est le délégué d'un autre compte, ses propres données seront supprimées mais son accès sera conservé afin que la délégation reste fonctionnelle — il deviendra un utilisateur délégué uniquement.",
+      "deleteConfirm": "Supprimer l'utilisateur",
+      "tempPasswordTitleCreated": "Utilisateur créé",
+      "tempPasswordTitleUpgraded": "Compte promu",
+      "tempPasswordDescCreated": "Un mot de passe temporaire a été généré pour {name}. Communiquez-le lui pour se connecter.",
+      "tempPasswordDescUpgraded": "Un utilisateur partagé existant a été promu en compte complet. Communiquez ce mot de passe temporaire à {name}."
+    }
+  }
+}

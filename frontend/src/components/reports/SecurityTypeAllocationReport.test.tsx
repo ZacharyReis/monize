@@ -185,28 +185,24 @@ describe('SecurityTypeAllocationReport', () => {
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     render(<SecurityTypeAllocationReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
 
-    fireEvent.click(screen.getByText('Accounts'));
+    fireEvent.click(trigger);
     expect(screen.getByText('TFSA')).toBeInTheDocument();
     expect(screen.queryByText('Cash Reserve')).not.toBeInTheDocument();
   });
 
-  it('shows clear filters button when filters are selected', async () => {
+  it('reflects the selected account in the filter trigger', async () => {
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     render(<SecurityTypeAllocationReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
 
-    fireEvent.click(screen.getByText('Accounts'));
-    fireEvent.click(screen.getByText('TFSA'));
+    fireEvent.click(trigger);
+    await act(async () => { fireEvent.click(screen.getByText('TFSA')); });
 
     await waitFor(() => {
-      expect(screen.getByText('Clear Filters')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Filter by account' })).toHaveTextContent('TFSA');
     });
   });
 

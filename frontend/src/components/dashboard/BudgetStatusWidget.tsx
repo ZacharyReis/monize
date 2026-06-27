@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { budgetsApi } from '@/lib/budgets';
 import { DashboardBudgetSummary } from '@/types/budget';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
@@ -16,6 +17,7 @@ interface BudgetStatusWidgetProps {
 }
 
 export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWidgetProps) {
+  const t = useTranslations('dashboard');
   const router = useRouter();
   const { formatCurrency } = useNumberFormat();
   const [summary, setSummary] = useState<DashboardBudgetSummary | null>(null);
@@ -39,7 +41,7 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
     loadBudgetSummary();
   }, [parentLoading]);
 
-  const sectionTitle = 'Budget Status';
+  const sectionTitle = t('budgetStatus.title');
 
   if (isLoading || parentLoading) {
     return (
@@ -69,13 +71,13 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
           {sectionTitle}
         </button>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No active budget found. Create a budget to track your spending.
+          {t('budgetStatus.noBudget')}
         </p>
         <button
           onClick={() => router.push('/budgets')}
           className="mt-3 w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
         >
-          Create Budget
+          {t('budgetStatus.createBudget')}
         </button>
       </div>
     );
@@ -91,7 +93,7 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
           {sectionTitle}
         </button>
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          {summary.daysRemaining} days left
+          {t('budgetStatus.daysLeft', { count: summary.daysRemaining })}
         </span>
       </div>
 
@@ -116,7 +118,7 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
       {/* Safe daily spend */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-3 mb-3">
         <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-          Safe to spend today
+          {t('budgetStatus.safeToSpend')}
         </div>
         <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
           {formatCurrency(summary.safeDailySpend)}
@@ -127,7 +129,7 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
       {summary.topCategories.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Top Categories
+            {t('budgetStatus.topCategories')}
           </div>
           {summary.topCategories.map((cat) => (
             <div key={cat.categoryName} className="flex items-center gap-2">
@@ -156,7 +158,7 @@ export function BudgetStatusWidget({ isLoading: parentLoading }: BudgetStatusWid
         onClick={() => router.push(`/budgets/${summary.budgetId}`)}
         className="mt-3 w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
       >
-        View full budget
+        {t('budgetStatus.viewFullBudget')}
       </button>
     </div>
   );

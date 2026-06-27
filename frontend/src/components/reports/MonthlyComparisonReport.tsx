@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -16,17 +18,17 @@ import {
 import { format, subMonths, isAfter, startOfMonth } from 'date-fns';
 import { builtInReportsApi } from '@/lib/built-in-reports';
 import {
-  MonthlyComparisonResponse,
   CategorySpendingSnapshot,
 } from '@/types/monthly-comparison';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { gainLossColor } from '@/lib/format';
 import { CHART_COLOURS } from '@/lib/chart-colours';
+import { chartColors } from '@/lib/chart-colors';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('MonthlyComparisonReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 
 type ComparisonSortField = 'category' | 'current' | 'previous' | 'change' | 'changePercent';
 type TopMoversSortField = 'symbol' | 'name' | 'price' | 'change' | 'changePercent';
@@ -62,11 +64,14 @@ function DeltaBadge({ value, percent, invert = false }: { value: number; percent
 }
 
 export function MonthlyComparisonReport() {
-  const { formatCurrency, formatCurrencyCompact, formatCurrencyAxis } = useNumberFormat();
+  const t = useTranslations('reports');
+  const { formatCurrency, formatCurrencyCompact, formatCurrencyAxis, formatSignedPercent } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
   const [month, setMonth] = useState(getDefaultMonth);
-  const [data, setData] = useState<MonthlyComparisonResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, isLoading, error, reload } = useReportData(
+    () => builtInReportsApi.getMonthlyComparison(month),
+    [month],
+  );
   const comparisonSort = useSortableTable<ComparisonSortField>(
     'reports.monthly-comparison.expenses.sort',
     { field: 'current', direction: 'desc' },
@@ -130,22 +135,6 @@ export function MonthlyComparisonReport() {
     return sorted;
   }, [data, topMoversSort.sortField, topMoversSort.sortDirection]);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await builtInReportsApi.getMonthlyComparison(month);
-      setData(response);
-    } catch (error) {
-      logger.error('Failed to load monthly comparison:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [month]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   const handleExportPdf = async () => {
     if (!data) return;
     const { exportToPdf } = await import('@/lib/pdf-export');
@@ -165,13 +154,13 @@ export function MonthlyComparisonReport() {
 
     // Monthly Expenses Comparison (main table - renders right after legend)
     const comparisonTable = exp.comparison.length > 0 ? {
-      headers: ['Category', data.currentMonthLabel, data.previousMonthLabel, 'Change', 'Change %'],
+      headers: [t('monthlyComparison.colCategory'), data.currentMonthLabel, data.previousMonthLabel, t('monthlyComparison.colChange'), t('monthlyComparison.colChangePercent')],
       rows: exp.comparison.map((item) => [
         item.categoryName,
         formatCurrency(item.currentTotal, cur),
         formatCurrency(item.previousTotal, cur),
         `${item.change >= 0 ? '+' : ''}${formatCurrency(item.change, cur)}`,
-        `${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(1)}%`,
+        formatSignedPercent(item.changePercent, 1),
       ]),
     } : undefined;
 
@@ -181,8 +170,8 @@ export function MonthlyComparisonReport() {
     // Top 5 categories
     if (topCats.currentMonth.length > 0) {
       additionalTables.push({
-        title: `Top 5 Categories - ${data.currentMonthLabel}`,
-        headers: ['#', 'Category', 'Amount'],
+        title: t('monthlyComparison.pdfTop5Categories', { month: data.currentMonthLabel }),
+        headers: [t('monthlyComparison.pdfColHash'), t('monthlyComparison.colCategory'), t('monthlyComparison.colAmount')],
         rows: topCats.currentMonth.map((cat, i) => [
           i + 1,
           cat.categoryName,
@@ -192,8 +181,8 @@ export function MonthlyComparisonReport() {
     }
     if (topCats.previousMonth.length > 0) {
       additionalTables.push({
-        title: `Top 5 Categories - ${data.previousMonthLabel}`,
-        headers: ['#', 'Category', 'Amount'],
+        title: t('monthlyComparison.pdfTop5Categories', { month: data.previousMonthLabel }),
+        headers: [t('monthlyComparison.pdfColHash'), t('monthlyComparison.colCategory'), t('monthlyComparison.colAmount')],
         rows: topCats.previousMonth.map((cat, i) => [
           i + 1,
           cat.categoryName,
@@ -206,12 +195,12 @@ export function MonthlyComparisonReport() {
     if (netW.monthlyHistory.length > 0) {
       const changeSign = netW.netWorthChange >= 0 ? '+' : '';
       additionalTables.push({
-        title: 'Net Worth',
-        headers: ['Period', 'Net Worth'],
+        title: t('monthlyComparison.pdfNetWorth'),
+        headers: [t('monthlyComparison.pdfPeriod'), t('monthlyComparison.pdfNetWorth')],
         rows: [
           [data.currentMonthLabel, formatCurrency(netW.currentNetWorth, cur)],
           [data.previousMonthLabel, formatCurrency(netW.currentNetWorth - netW.netWorthChange, cur)],
-          ['Change', `${changeSign}${formatCurrency(netW.netWorthChange, cur)} (${changeSign}${netW.netWorthChangePercent.toFixed(1)}%)`],
+          [t('monthlyComparison.pdfChange'), `${changeSign}${formatCurrency(netW.netWorthChange, cur)} (${changeSign}${netW.netWorthChangePercent.toFixed(1)}%)`],
         ],
       });
     }
@@ -219,26 +208,26 @@ export function MonthlyComparisonReport() {
     // Top Movers
     if (inv.topMovers.length > 0) {
       additionalTables.push({
-        title: 'Top Movers',
-        headers: ['Symbol', 'Name', 'Price', 'Change', 'Change %'],
+        title: t('monthlyComparison.topMovers'),
+        headers: [t('monthlyComparison.colSymbol'), t('monthlyComparison.colName'), t('monthlyComparison.colPrice'), t('monthlyComparison.colChange'), t('monthlyComparison.colChangePercent')],
         rows: inv.topMovers.map((mover) => [
           mover.symbol,
           mover.name,
           formatCurrency(mover.currentPrice, cur),
           `${mover.change >= 0 ? '+' : ''}${formatCurrency(mover.change, cur)}`,
-          `${mover.changePercent >= 0 ? '+' : ''}${mover.changePercent.toFixed(2)}%`,
+          formatSignedPercent(mover.changePercent, 2),
         ]),
       });
     }
 
     await exportToPdf({
-      title: 'Monthly Comparison',
-      subtitle: `${data.currentMonthLabel} vs ${data.previousMonthLabel}`,
+      title: t('monthlyComparison.pdfTitle'),
+      subtitle: t('monthlyComparison.pdfSubtitle', { current: data.currentMonthLabel, previous: data.previousMonthLabel }),
       description: descriptionParts.length > 0 ? descriptionParts.join('\n') : undefined,
       summaryCards: [
-        { label: 'Income', value: formatCurrencyCompact(incomeExpenses.currentIncome, cur), color: '#16a34a' },
-        { label: 'Expenses', value: formatCurrencyCompact(incomeExpenses.currentExpenses, cur), color: '#dc2626' },
-        { label: 'Savings', value: formatCurrencyCompact(incomeExpenses.currentSavings, cur), color: savingsColor },
+        { label: t('monthlyComparison.income'), value: formatCurrencyCompact(incomeExpenses.currentIncome, cur), color: '#16a34a' },
+        { label: t('monthlyComparison.expenses'), value: formatCurrencyCompact(incomeExpenses.currentExpenses, cur), color: '#dc2626' },
+        { label: t('monthlyComparison.savings'), value: formatCurrencyCompact(incomeExpenses.currentSavings, cur), color: savingsColor },
       ],
       chartContainer: chartRef.current,
       chartColumns: 2,
@@ -271,6 +260,10 @@ export function MonthlyComparisonReport() {
     return isAfter(startOfMonth(next), startOfMonth(maxMonth));
   })();
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -282,9 +275,9 @@ export function MonthlyComparisonReport() {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </div>
       </div>
@@ -294,7 +287,7 @@ export function MonthlyComparisonReport() {
   if (!data) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-8 text-center">
-        <p className="text-gray-500 dark:text-gray-400">Failed to load report data.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('monthlyComparison.loadError')}</p>
       </div>
     );
   }
@@ -321,7 +314,7 @@ export function MonthlyComparisonReport() {
                 {data.currentMonthLabel}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                vs {data.previousMonthLabel}
+                {t('monthlyComparison.vsMonth', { month: data.previousMonthLabel })}
               </div>
             </div>
             <button
@@ -340,30 +333,30 @@ export function MonthlyComparisonReport() {
 
       {/* Income vs Expenses Summary */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Income vs Expenses</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('monthlyComparison.incomeVsExpenses')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Income */}
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-            <div className="text-sm text-green-600 dark:text-green-400 mb-1">Income</div>
+            <div className="text-sm text-green-600 dark:text-green-400 mb-1">{t('monthlyComparison.income')}</div>
             <div className="text-2xl font-bold text-green-700 dark:text-green-300">
               {formatCurrencyCompact(ie.currentIncome, currency)}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatCurrencyCompact(ie.previousIncome, currency)} in {data.previousMonthLabel}
+                {t('monthlyComparison.inMonth', { amount: formatCurrencyCompact(ie.previousIncome, currency), month: data.previousMonthLabel })}
               </span>
               <DeltaBadge value={ie.incomeChange} percent={ie.incomeChangePercent} />
             </div>
           </div>
           {/* Expenses */}
           <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-            <div className="text-sm text-red-600 dark:text-red-400 mb-1">Expenses</div>
+            <div className="text-sm text-red-600 dark:text-red-400 mb-1">{t('monthlyComparison.expenses')}</div>
             <div className="text-2xl font-bold text-red-700 dark:text-red-300">
               {formatCurrencyCompact(ie.currentExpenses, currency)}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatCurrencyCompact(ie.previousExpenses, currency)} in {data.previousMonthLabel}
+                {t('monthlyComparison.inMonth', { amount: formatCurrencyCompact(ie.previousExpenses, currency), month: data.previousMonthLabel })}
               </span>
               <DeltaBadge value={ie.expensesChange} percent={ie.expensesChangePercent} invert />
             </div>
@@ -371,14 +364,14 @@ export function MonthlyComparisonReport() {
           {/* Savings */}
           <div className={`rounded-lg p-4 ${ie.currentSavings >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
             <div className={`text-sm mb-1 ${ie.currentSavings >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
-              Savings
+              {t('monthlyComparison.savings')}
             </div>
             <div className={`text-2xl font-bold ${ie.currentSavings >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-orange-700 dark:text-orange-300'}`}>
               {formatCurrencyCompact(ie.currentSavings, currency)}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatCurrencyCompact(ie.previousSavings, currency)} in {data.previousMonthLabel}
+                {t('monthlyComparison.inMonth', { amount: formatCurrencyCompact(ie.previousSavings, currency), month: data.previousMonthLabel })}
               </span>
               <DeltaBadge value={ie.savingsChange} percent={ie.savingsChangePercent} />
             </div>
@@ -388,7 +381,7 @@ export function MonthlyComparisonReport() {
 
       {/* Summary Notes */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Summary</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('monthlyComparison.summary')}</h2>
         <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
           <p>{notes.savingsNote}</p>
           <p>{notes.incomeNote}</p>
@@ -397,22 +390,24 @@ export function MonthlyComparisonReport() {
 
       {/* Monthly Expenses Compared */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Monthly Expenses Compared</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('monthlyComparison.monthlyExpenses')}</h2>
         {/* Pie Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <ExpensePieChart
             title={data.currentMonthLabel}
             data={expenses.currentMonth}
-            total={expenses.currentTotal}
             currency={currency}
             formatCurrency={formatCurrencyCompact}
+            noDataLabel={t('monthlyComparison.noExpenseData')}
+            totalLabel={t('monthlyComparison.netWorthTotal', { amount: formatCurrencyCompact(expenses.currentTotal, currency) })}
           />
           <ExpensePieChart
             title={data.previousMonthLabel}
             data={expenses.previousMonth}
-            total={expenses.previousTotal}
             currency={currency}
             formatCurrency={formatCurrencyCompact}
+            noDataLabel={t('monthlyComparison.noExpenseData')}
+            totalLabel={t('monthlyComparison.netWorthTotal', { amount: formatCurrencyCompact(expenses.previousTotal, currency) })}
           />
         </div>
         {/* Comparison Table */}
@@ -428,7 +423,7 @@ export function MonthlyComparisonReport() {
                     onSort={comparisonSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Category
+                    {t('monthlyComparison.colCategory')}
                   </SortableHeader>
                   <SortableHeader<ComparisonSortField>
                     field="current"
@@ -458,7 +453,7 @@ export function MonthlyComparisonReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Change
+                    {t('monthlyComparison.colChange')}
                   </SortableHeader>
                   <SortableHeader<ComparisonSortField>
                     field="changePercent"
@@ -468,7 +463,7 @@ export function MonthlyComparisonReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Change %
+                    {t('monthlyComparison.colChangePercent')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -491,7 +486,7 @@ export function MonthlyComparisonReport() {
                       {item.change >= 0 ? '+' : ''}{formatCurrency(item.change, currency)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${item.changePercent <= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {item.changePercent >= 0 ? '+' : ''}{item.changePercent.toFixed(1)}%
+                      {formatSignedPercent(item.changePercent, 1)}
                     </td>
                   </tr>
                 ))}
@@ -503,26 +498,34 @@ export function MonthlyComparisonReport() {
 
       {/* Top 5 Expense Categories */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 5 Expense Categories</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('monthlyComparison.topExpenseCategories')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <TopCategoriesTable
             title={data.currentMonthLabel}
             categories={topCategories.currentMonth}
             currency={currency}
             formatCurrency={formatCurrency}
+            noDataLabel={t('monthlyComparison.noData')}
+            colCategory={t('monthlyComparison.colCategory')}
+            colAmount={t('monthlyComparison.colAmount')}
+            colHash={t('monthlyComparison.pdfColHash')}
           />
           <TopCategoriesTable
             title={data.previousMonthLabel}
             categories={topCategories.previousMonth}
             currency={currency}
             formatCurrency={formatCurrency}
+            noDataLabel={t('monthlyComparison.noData')}
+            colCategory={t('monthlyComparison.colCategory')}
+            colAmount={t('monthlyComparison.colAmount')}
+            colHash={t('monthlyComparison.pdfColHash')}
           />
         </div>
       </div>
 
       {/* Net Worth */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Your Net Worth</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('monthlyComparison.netWorth')}</h2>
         {nw.monthlyHistory.length > 0 ? (
           <>
             <div className="h-72">
@@ -531,36 +534,39 @@ export function MonthlyComparisonReport() {
                   name: format(parseMonth(p.month), 'MMM yy'),
                   netWorth: Math.round(p.netWorth),
                 }))} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={formatCurrencyAxis} tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value) => [formatCurrencyCompact(Number(value), currency), 'Net Worth']}
-                    contentStyle={{ backgroundColor: 'var(--tooltip-bg, #fff)', borderColor: 'var(--tooltip-border, #e5e7eb)' }}
+                    formatter={(value) => [formatCurrencyCompact(Number(value), currency), t('monthlyComparison.tooltipNetWorth')]}
+                    contentStyle={{ backgroundColor: 'var(--tooltip-bg, var(--color-white))', borderColor: 'var(--tooltip-border, var(--color-gray-200))' }}
                   />
-                  <Bar dataKey="netWorth" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="netWorth" fill={chartColors.primary} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                Your net worth in {data.currentMonthLabel} was <span className="font-semibold">{formatCurrency(nw.currentNetWorth, currency)}</span>, which was{' '}
-                <span className={`font-semibold ${nw.netWorthChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {nw.netWorthChange >= 0 ? '+' : ''}{formatCurrency(nw.netWorthChange, currency)} ({nw.netWorthChange >= 0 ? '+' : ''}{nw.netWorthChangePercent.toFixed(1)}%)
-                </span>{' '}
-                compared to {data.previousMonthLabel}.
+                {t.rich('monthlyComparison.netWorthSummary', {
+                  currentMonth: data.currentMonthLabel,
+                  netWorth: formatCurrency(nw.currentNetWorth, currency),
+                  changeAmount: `${nw.netWorthChange >= 0 ? '+' : ''}${formatCurrency(nw.netWorthChange, currency)} (${formatSignedPercent(nw.netWorthChangePercent, 1)})`,
+                  previousMonth: data.previousMonthLabel,
+                  strong: (chunks) => <span className="font-semibold">{chunks}</span>,
+                  delta: (chunks) => <span className={`font-semibold ${gainLossColor(nw.netWorthChange)}`}>{chunks}</span>,
+                })}
               </p>
             </div>
           </>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">No net worth data available.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('monthlyComparison.noNetWorthData')}</p>
         )}
       </div>
 
       {/* Investment Performance */}
       {(investments.accountPerformance.length > 0 || investments.topMovers.length > 0) && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Investment Performance</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('monthlyComparison.investmentPerformance')}</h2>
 
           {investments.accountPerformance.length > 0 && (
             <>
@@ -574,10 +580,10 @@ export function MonthlyComparisonReport() {
                     margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
                     layout="vertical"
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis type="number" tickFormatter={(v: number) => `${v}%`} tick={{ fontSize: 12 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={90} />
-                    <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Annualized Return']} />
+                    <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, t('monthlyComparison.pdfAnnualizedReturn')]} />
                     <Bar
                       dataKey="return"
                       radius={[0, 4, 4, 0]}
@@ -585,7 +591,7 @@ export function MonthlyComparisonReport() {
                       {investments.accountPerformance.map((_, i) => (
                         <Cell
                           key={i}
-                          fill={investments.accountPerformance[i].annualizedReturn >= 0 ? '#22c55e' : '#ef4444'}
+                          fill={investments.accountPerformance[i].annualizedReturn >= 0 ? chartColors.income : chartColors.expense}
                         />
                       ))}
                     </Bar>
@@ -597,7 +603,7 @@ export function MonthlyComparisonReport() {
 
           {investments.topMovers.length > 0 && (
             <div>
-              <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-3">Top Movers</h3>
+              <h3 className="text-base font-medium text-gray-900 dark:text-gray-100 mb-3">{t('monthlyComparison.topMovers')}</h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
@@ -609,7 +615,7 @@ export function MonthlyComparisonReport() {
                         onSort={topMoversSort.handleSort}
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Symbol
+                        {t('monthlyComparison.colSymbol')}
                       </SortableHeader>
                       <SortableHeader<TopMoversSortField>
                         field="name"
@@ -618,7 +624,7 @@ export function MonthlyComparisonReport() {
                         onSort={topMoversSort.handleSort}
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Name
+                        {t('monthlyComparison.colName')}
                       </SortableHeader>
                       <SortableHeader<TopMoversSortField>
                         field="price"
@@ -628,7 +634,7 @@ export function MonthlyComparisonReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Price
+                        {t('monthlyComparison.colPrice')}
                       </SortableHeader>
                       <SortableHeader<TopMoversSortField>
                         field="change"
@@ -638,7 +644,7 @@ export function MonthlyComparisonReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Change
+                        {t('monthlyComparison.colChange')}
                       </SortableHeader>
                       <SortableHeader<TopMoversSortField>
                         field="changePercent"
@@ -648,7 +654,7 @@ export function MonthlyComparisonReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Change %
+                        {t('monthlyComparison.colChangePercent')}
                       </SortableHeader>
                     </tr>
                   </thead>
@@ -660,11 +666,11 @@ export function MonthlyComparisonReport() {
                         <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-gray-100">
                           {formatCurrency(mover.currentPrice, currency)}
                         </td>
-                        <td className={`px-4 py-3 text-sm text-right font-medium ${mover.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        <td className={`px-4 py-3 text-sm text-right font-medium ${gainLossColor(mover.change)}`}>
                           {mover.change >= 0 ? '+' : ''}{formatCurrency(mover.change, currency)}
                         </td>
-                        <td className={`px-4 py-3 text-sm text-right font-medium ${mover.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {mover.changePercent >= 0 ? '+' : ''}{mover.changePercent.toFixed(2)}%
+                        <td className={`px-4 py-3 text-sm text-right font-medium ${gainLossColor(mover.changePercent)}`}>
+                          {formatSignedPercent(mover.changePercent, 2)}
                         </td>
                       </tr>
                     ))}
@@ -682,21 +688,23 @@ export function MonthlyComparisonReport() {
 function ExpensePieChart({
   title,
   data,
-  total,
   currency,
   formatCurrency,
+  noDataLabel,
+  totalLabel,
 }: {
   title: string;
   data: CategorySpendingSnapshot[];
-  total: number;
   currency: string;
   formatCurrency: (amount: number, currency?: string) => string;
+  noDataLabel: string;
+  totalLabel: string;
 }) {
   if (data.length === 0) {
     return (
       <div className="text-center">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</h3>
-        <p className="text-gray-500 dark:text-gray-400 text-sm py-8">No expense data</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm py-8">{noDataLabel}</p>
       </div>
     );
   }
@@ -727,7 +735,7 @@ function ExpensePieChart({
         </ResponsiveContainer>
       </div>
       <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-        Total: {formatCurrency(total, currency)}
+        {totalLabel}
       </div>
     </div>
   );
@@ -738,24 +746,32 @@ function TopCategoriesTable({
   categories,
   currency,
   formatCurrency,
+  noDataLabel,
+  colCategory,
+  colAmount,
+  colHash,
 }: {
   title: string;
   categories: CategorySpendingSnapshot[];
   currency: string;
   formatCurrency: (amount: number, currency?: string) => string;
+  noDataLabel: string;
+  colCategory: string;
+  colAmount: string;
+  colHash: string;
 }) {
   return (
     <div>
       <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</h3>
       {categories.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No data</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{noDataLabel}</p>
       ) : (
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead>
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{colHash}</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{colCategory}</th>
+              <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{colAmount}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">

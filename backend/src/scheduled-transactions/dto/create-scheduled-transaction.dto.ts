@@ -16,6 +16,7 @@ import {
 import { Type } from "class-transformer";
 import { CreateScheduledTransactionSplitDto } from "./create-scheduled-transaction-split.dto";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
+import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
 import { InvestmentAction } from "../../securities/entities/investment-transaction.entity";
 
 export enum FrequencyType {
@@ -58,8 +59,7 @@ export class CreateScheduledTransactionDto {
   @Max(999999999999)
   amount: number;
 
-  @IsString()
-  @MaxLength(3)
+  @IsCurrencyCode()
   currencyCode: string;
 
   @IsOptional()

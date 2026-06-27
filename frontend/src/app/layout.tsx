@@ -2,11 +2,14 @@ import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { PreferencesLoader } from '@/components/providers/PreferencesLoader';
 import { ServiceWorkerRegistrar } from '@/components/providers/ServiceWorkerRegistrar';
 import { PwaLifecycleHandler } from '@/components/providers/PwaLifecycleHandler';
 import { SwipeShell } from '@/components/layout/SwipeShell';
+import { getLocaleDir } from '@/i18n/config';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -50,43 +53,48 @@ export default async function RootLayout({
   // to its generated inline scripts.
   const headersList = await headers();
   const httpsHeadersActive = headersList.get('x-https-headers-active') === 'true';
+  const locale = await getLocale();
+  const messages = await getMessages();
+  const dir = getLocaleDir(locale);
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={inter.className}>
         <ServiceWorkerRegistrar />
         <PwaLifecycleHandler />
-        <ThemeProvider>
-          <PreferencesLoader>
-            <SwipeShell httpsHeadersActive={httpsHeadersActive}>
-              {children}
-            </SwipeShell>
-          </PreferencesLoader>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
-              },
-              error: {
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider>
+            <PreferencesLoader>
+              <SwipeShell httpsHeadersActive={httpsHeadersActive}>
+                {children}
+              </SwipeShell>
+            </PreferencesLoader>
+            <Toaster
+              position="top-right"
+              toastOptions={{
                 duration: 4000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                style: {
+                  background: '#363636',
+                  color: '#fff',
                 },
-              },
-            }}
-          />
-        </ThemeProvider>
+                success: {
+                  duration: 3000,
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  duration: 4000,
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

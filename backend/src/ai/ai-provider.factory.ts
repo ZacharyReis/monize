@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { AiEncryptionService } from "./ai-encryption.service";
 import { AiProviderConfig } from "./entities/ai-provider-config.entity";
 import { AiProvider } from "./providers/ai-provider.interface";
@@ -37,7 +38,10 @@ export class AiProviderFactory {
       case "ollama-cloud":
         if (!apiKey) {
           throw new BadRequestException(
-            "apiKey is required for ollama-cloud provider",
+            tr(
+              "errors.ai.ollamaCloudApiKeyRequired",
+              "apiKey is required for ollama-cloud provider",
+            ),
           );
         }
         // Ollama Cloud uses a fixed SaaS endpoint; any user-supplied
@@ -51,7 +55,10 @@ export class AiProviderFactory {
       case "openai-compatible":
         if (!config.baseUrl) {
           throw new BadRequestException(
-            "baseUrl is required for openai-compatible provider",
+            tr(
+              "errors.ai.openaiCompatibleBaseUrlRequired",
+              "baseUrl is required for openai-compatible provider",
+            ),
           );
         }
         return new OpenAiCompatibleProvider(
@@ -62,7 +69,11 @@ export class AiProviderFactory {
 
       default:
         throw new BadRequestException(
-          `Unknown AI provider: ${config.provider}`,
+          tr(
+            "errors.ai.unknownProvider",
+            `Unknown AI provider: ${config.provider}`,
+            { provider: config.provider },
+          ),
         );
     }
   }

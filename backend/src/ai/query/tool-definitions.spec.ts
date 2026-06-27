@@ -1,8 +1,8 @@
 import { FINANCIAL_TOOLS } from "./tool-definitions";
 
 describe("FINANCIAL_TOOLS", () => {
-  it("defines exactly 14 tools", () => {
-    expect(FINANCIAL_TOOLS).toHaveLength(14);
+  it("defines exactly 18 tools", () => {
+    expect(FINANCIAL_TOOLS).toHaveLength(18);
   });
 
   it("has unique tool names", () => {
@@ -11,21 +11,31 @@ describe("FINANCIAL_TOOLS", () => {
   });
 
   const expectedTools = [
-    "query_transactions",
-    "get_account_balances",
-    "get_categories",
-    "get_spending_by_category",
-    "get_income_summary",
-    "get_net_worth_history",
+    "list_transactions",
+    "list_accounts",
+    "list_categories",
     "compare_periods",
     "get_portfolio_summary",
-    "query_investment_transactions",
-    "get_capital_gains",
-    "get_transfers",
+    "list_investment_transactions",
+    "list_capital_gains",
+    "list_upcoming_bills",
     "get_budget_status",
     "calculate",
     "render_chart",
+    "manage_transactions",
+    "manage_payees",
+    "lookup_securities",
+    "manage_securities",
+    "manage_investment_transactions",
+    "list_payees",
+    "generate_report",
   ];
+
+  it("matches the expected tool set exactly", () => {
+    expect(FINANCIAL_TOOLS.map((t) => t.name).sort()).toEqual(
+      [...expectedTools].sort(),
+    );
+  });
 
   it.each(expectedTools)("includes the %s tool", (toolName) => {
     const tool = FINANCIAL_TOOLS.find((t) => t.name === toolName);
@@ -35,18 +45,14 @@ describe("FINANCIAL_TOOLS", () => {
     expect(tool!.inputSchema.type).toBe("object");
   });
 
-  describe("query_transactions", () => {
+  describe("list_transactions", () => {
     it("has no required fields (dates default to last 30 days)", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_transactions",
-      )!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_transactions")!;
       expect(tool.inputSchema.required).toBeUndefined();
     });
 
-    it("supports groupBy with valid enum values", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_transactions",
-      )!;
+    it("supports groupBy with valid enum values including none", () => {
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_transactions")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
@@ -57,33 +63,38 @@ describe("FINANCIAL_TOOLS", () => {
         "year",
         "month",
         "week",
+        "none",
       ]);
     });
 
     it("supports direction filtering", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_transactions",
-      )!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_transactions")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
       >;
       expect(props.direction.enum).toEqual(["expenses", "income", "both"]);
     });
+
+    it("exposes includeTransactions and transfersOnly flags", () => {
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_transactions")!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.includeTransactions.type).toBe("boolean");
+      expect(props.transfersOnly.type).toBe("boolean");
+    });
   });
 
-  describe("get_account_balances", () => {
+  describe("list_accounts", () => {
     it("has no required fields", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_account_balances",
-      )!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_accounts")!;
       expect(tool.inputSchema.required).toBeUndefined();
     });
 
     it("supports status filter with open/closed/all", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_account_balances",
-      )!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_accounts")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
@@ -91,10 +102,18 @@ describe("FINANCIAL_TOOLS", () => {
       expect(props.status.enum).toEqual(["open", "closed", "all"]);
     });
 
+    it("supports accountIds and nameQuery filters", () => {
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_accounts")!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.accountIds.type).toBe("array");
+      expect(props.nameQuery.type).toBe("string");
+    });
+
     it("exposes every AccountType in the accountTypes enum", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_account_balances",
-      )!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_accounts")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
@@ -115,14 +134,14 @@ describe("FINANCIAL_TOOLS", () => {
     });
   });
 
-  describe("get_categories", () => {
+  describe("list_categories", () => {
     it("has no required fields (type defaults to all)", () => {
-      const tool = FINANCIAL_TOOLS.find((t) => t.name === "get_categories")!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_categories")!;
       expect(tool.inputSchema.required).toBeUndefined();
     });
 
     it("supports type filter with expense/income/all", () => {
-      const tool = FINANCIAL_TOOLS.find((t) => t.name === "get_categories")!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_categories")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
@@ -131,55 +150,13 @@ describe("FINANCIAL_TOOLS", () => {
     });
 
     it("exposes an optional search parameter", () => {
-      const tool = FINANCIAL_TOOLS.find((t) => t.name === "get_categories")!;
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "list_categories")!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
       >;
       expect(props.search).toBeDefined();
       expect(props.search.type).toBe("string");
-    });
-  });
-
-  describe("get_spending_by_category", () => {
-    it("has no required fields (dates default to last 30 days, topN to 10)", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_spending_by_category",
-      )!;
-      expect(tool.inputSchema.required).toBeUndefined();
-    });
-
-    it("supports topN parameter", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_spending_by_category",
-      )!;
-      const props = tool.inputSchema.properties as Record<
-        string,
-        Record<string, unknown>
-      >;
-      expect(props.topN.type).toBe("integer");
-    });
-  });
-
-  describe("get_income_summary", () => {
-    it("supports groupBy with category, payee, and month", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_income_summary",
-      )!;
-      const props = tool.inputSchema.properties as Record<
-        string,
-        Record<string, unknown>
-      >;
-      expect(props.groupBy.enum).toEqual(["category", "payee", "month"]);
-    });
-  });
-
-  describe("get_net_worth_history", () => {
-    it("has no required fields (defaults to 12 months)", () => {
-      const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "get_net_worth_history",
-      )!;
-      expect(tool.inputSchema.required).toBeUndefined();
     });
   });
 
@@ -196,6 +173,18 @@ describe("FINANCIAL_TOOLS", () => {
         Record<string, unknown>
       >;
       expect(props.groupBy.enum).toEqual(["category", "payee"]);
+    });
+  });
+
+  describe("generate_report", () => {
+    it("exposes net_worth_history among the report types", () => {
+      const tool = FINANCIAL_TOOLS.find((t) => t.name === "generate_report")!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.type.enum).toContain("net_worth_history");
+      expect(props.type.enum).toContain("month_comparison");
     });
   });
 
@@ -220,17 +209,17 @@ describe("FINANCIAL_TOOLS", () => {
     });
   });
 
-  describe("query_investment_transactions", () => {
+  describe("list_investment_transactions", () => {
     it("has no required fields", () => {
       const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_investment_transactions",
+        (t) => t.name === "list_investment_transactions",
       )!;
       expect(tool.inputSchema.required).toBeUndefined();
     });
 
     it("supports groupBy with account, date, security, and action", () => {
       const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_investment_transactions",
+        (t) => t.name === "list_investment_transactions",
       )!;
       const props = tool.inputSchema.properties as Record<
         string,
@@ -246,7 +235,7 @@ describe("FINANCIAL_TOOLS", () => {
 
     it("exposes the full set of investment actions in the actions enum", () => {
       const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_investment_transactions",
+        (t) => t.name === "list_investment_transactions",
       )!;
       const props = tool.inputSchema.properties as Record<
         string,
@@ -270,7 +259,7 @@ describe("FINANCIAL_TOOLS", () => {
 
     it("supports optional accountNames and symbols array filters", () => {
       const tool = FINANCIAL_TOOLS.find(
-        (t) => t.name === "query_investment_transactions",
+        (t) => t.name === "list_investment_transactions",
       )!;
       const props = tool.inputSchema.properties as Record<
         string,
@@ -281,14 +270,35 @@ describe("FINANCIAL_TOOLS", () => {
     });
   });
 
-  describe("get_transfers", () => {
-    it("has no required fields (dates default to last 30 days)", () => {
-      const tool = FINANCIAL_TOOLS.find((t) => t.name === "get_transfers")!;
+  describe("list_upcoming_bills", () => {
+    it("has no required fields (days defaults to 30)", () => {
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "list_upcoming_bills",
+      )!;
       expect(tool.inputSchema.required).toBeUndefined();
     });
 
+    it("supports kind with bill/deposit/transfer/investment/all", () => {
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "list_upcoming_bills",
+      )!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.kind.enum).toEqual([
+        "bill",
+        "deposit",
+        "transfer",
+        "investment",
+        "all",
+      ]);
+    });
+
     it("supports optional accountNames filter", () => {
-      const tool = FINANCIAL_TOOLS.find((t) => t.name === "get_transfers")!;
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "list_upcoming_bills",
+      )!;
       const props = tool.inputSchema.properties as Record<
         string,
         Record<string, unknown>
@@ -374,6 +384,39 @@ describe("FINANCIAL_TOOLS", () => {
       const items = props.data.items as Record<string, unknown>;
       expect(items.type).toBe("object");
       expect(items.required).toEqual(["label", "value"]);
+    });
+  });
+
+  describe("manage_investment_transactions", () => {
+    it("requires operation and items", () => {
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "manage_investment_transactions",
+      )!;
+      expect(tool.inputSchema.required).toEqual(["operation", "items"]);
+    });
+
+    it("supports the create/update/delete operation enum", () => {
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "manage_investment_transactions",
+      )!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.operation.enum).toEqual(["create", "update", "delete"]);
+    });
+
+    it("exposes an items array and approvalMode enum", () => {
+      const tool = FINANCIAL_TOOLS.find(
+        (t) => t.name === "manage_investment_transactions",
+      )!;
+      const props = tool.inputSchema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(props.items.type).toBe("array");
+      expect(props.items.maxItems).toBe(25);
+      expect(props.approvalMode.enum).toEqual(["bulk", "individual"]);
     });
   });
 

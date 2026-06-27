@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { DataSource, IsNull } from "typeorm";
 import { PayeesService } from "./payees.service";
 import { Payee } from "./entities/payee.entity";
 import { PayeeAlias } from "./entities/payee-alias.entity";
@@ -22,6 +22,7 @@ describe("PayeesService", () => {
   let scheduledTransactionsRepository: Record<string, jest.Mock>;
   let categoriesRepository: Record<string, jest.Mock>;
   let mockDataSource: Record<string, jest.Mock>;
+  let mockQueryRunner: any;
 
   const userId = "user-1";
 
@@ -48,6 +49,7 @@ describe("PayeesService", () => {
   };
 
   let queryBuilderMock: Record<string, jest.Mock>;
+  let categoryQueryBuilderMock: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     queryBuilderMock = {
@@ -78,6 +80,11 @@ describe("PayeesService", () => {
       count: jest.fn(),
       update: jest.fn(),
       createQueryBuilder: jest.fn(() => ({ ...queryBuilderMock })),
+      // The uncategorized-count backfill helper queries through the entity
+      // manager; default it to an empty result set.
+      manager: {
+        createQueryBuilder: jest.fn(() => ({ ...queryBuilderMock })),
+      } as any,
     };
 
     transactionsRepository = {
@@ -89,9 +96,18 @@ describe("PayeesService", () => {
       update: jest.fn(),
     };
 
+    categoryQueryBuilderMock = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+
     categoriesRepository = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
+      createQueryBuilder: jest.fn(() => categoryQueryBuilderMock),
     };
 
     const aliasQueryBuilderMock = {
@@ -122,13 +138,14 @@ describe("PayeesService", () => {
       },
     };
 
-    const mockQueryRunner = {
+    mockQueryRunner = {
       connect: jest.fn(),
       startTransaction: jest.fn(),
       commitTransaction: jest.fn(),
       rollbackTransaction: jest.fn(),
       release: jest.fn(),
       manager: {
+        find: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({ affected: 0 }),
         create: jest.fn().mockImplementation((_, data) => data),
         save: jest.fn().mockImplementation((data) => data),
@@ -257,6 +274,30 @@ describe("PayeesService", () => {
       const result = await service.findAll(userId);
 
       expect(result[0].transactionCount).toBe(0);
+      expect(result[0].uncategorizedCount).toBe(0);
+    });
+
+    it("should include each payee's uncategorized transaction count", async () => {
+      payeesRepository.find.mockResolvedValue([mockPayee, mockPayeeNoCategory]);
+      payeesRepository.createQueryBuilder.mockReturnValue({
+        ...queryBuilderMock,
+        getRawMany: jest.fn().mockResolvedValue([]),
+      });
+      // The backfill-scope count query runs through the entity manager.
+      (payeesRepository.manager as any).createQueryBuilder.mockReturnValue({
+        ...queryBuilderMock,
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ payeeId: "payee-2", cnt: "4" }]),
+      });
+
+      const result = await service.findAll(userId);
+
+      expect(result[0].uncategorizedCount).toBe(0);
+      expect(result[1]).toMatchObject({
+        id: "payee-2",
+        uncategorizedCount: 4,
+      });
     });
   });
 
@@ -434,7 +475,11 @@ describe("PayeesService", () => {
 
       expect(result.name).toBe("New Name");
       expect(result.notes).toBe("Updated notes");
-      expect(payeesRepository.save).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Payee,
+        { id: "payee-1", userId },
+        { name: "New Name", notes: "Updated notes" },
+      );
     });
 
     it("should throw NotFoundException when payee not found", async () => {
@@ -465,11 +510,14 @@ describe("PayeesService", () => {
 
       await service.update(userId, "payee-1", { name: "NewName" });
 
-      expect(transactionsRepository.update).toHaveBeenCalledWith(
+      const manager = mockDataSource.createQueryRunner().manager;
+      expect(manager.update).toHaveBeenCalledWith(
+        Transaction,
         { payeeId: "payee-1", userId },
         { payeeName: "NewName" },
       );
-      expect(scheduledTransactionsRepository.update).toHaveBeenCalledWith(
+      expect(manager.update).toHaveBeenCalledWith(
+        ScheduledTransaction,
         { payeeId: "payee-1", userId },
         { payeeName: "NewName" },
       );
@@ -483,8 +531,23 @@ describe("PayeesService", () => {
 
       await service.update(userId, "payee-1", { notes: "Just updating notes" });
 
-      expect(transactionsRepository.update).not.toHaveBeenCalled();
-      expect(scheduledTransactionsRepository.update).not.toHaveBeenCalled();
+      // The payee row itself is updated, but the name-change cascade to
+      // transactions and scheduled transactions must not run.
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Payee,
+        { id: "payee-1", userId },
+        { notes: "Just updating notes" },
+      );
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalledWith(
+        Transaction,
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalledWith(
+        ScheduledTransaction,
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it("should skip name conflict check when name is unchanged", async () => {
@@ -499,8 +562,123 @@ describe("PayeesService", () => {
       expect(payeesRepository.findOne).toHaveBeenCalledTimes(2);
     });
 
-    it("should update defaultCategoryId via explicit mapping", async () => {
+    it("applies the new default category to uncategorized transactions when requested", async () => {
+      const existingPayee = {
+        ...mockPayee,
+        defaultCategoryId: null,
+        defaultCategory: null,
+      };
+      const refreshedPayee = { ...mockPayee, defaultCategoryId: "cat-99" };
+      payeesRepository.findOne
+        .mockResolvedValueOnce(existingPayee)
+        .mockResolvedValueOnce(refreshedPayee);
+      mockQueryRunner.manager.update.mockResolvedValue({ affected: 4 });
+
+      const result = await service.update(userId, "payee-1", {
+        defaultCategoryId: "cat-99",
+        applyCategoryToTransactions: "uncategorized",
+      });
+
+      expect(result.transactionsCategorized).toBe(4);
+      // Uncategorized-only backfill: rows with no category, excluding
+      // transfers and split parents.
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Transaction,
+        {
+          userId,
+          payeeId: "payee-1",
+          categoryId: IsNull(),
+          isTransfer: false,
+          isSplit: false,
+        },
+        { categoryId: "cat-99" },
+      );
+    });
+
+    it("applies the new default category to all transactions when requested", async () => {
+      const existingPayee = {
+        ...mockPayee,
+        defaultCategoryId: null,
+        defaultCategory: null,
+      };
+      const refreshedPayee = { ...mockPayee, defaultCategoryId: "cat-99" };
+      payeesRepository.findOne
+        .mockResolvedValueOnce(existingPayee)
+        .mockResolvedValueOnce(refreshedPayee);
+      mockQueryRunner.manager.update.mockResolvedValue({ affected: 9 });
+
+      const result = await service.update(userId, "payee-1", {
+        defaultCategoryId: "cat-99",
+        applyCategoryToTransactions: "all",
+      });
+
+      expect(result.transactionsCategorized).toBe(9);
+      // "all" overwrites every non-transfer, non-split row (no categoryId filter).
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Transaction,
+        {
+          userId,
+          payeeId: "payee-1",
+          isTransfer: false,
+          isSplit: false,
+        },
+        { categoryId: "cat-99" },
+      );
+    });
+
+    it("does not touch transactions when no apply mode is given", async () => {
+      const existingPayee = {
+        ...mockPayee,
+        defaultCategoryId: null,
+        defaultCategory: null,
+      };
+      const refreshedPayee = { ...mockPayee, defaultCategoryId: "cat-99" };
+      payeesRepository.findOne
+        .mockResolvedValueOnce(existingPayee)
+        .mockResolvedValueOnce(refreshedPayee);
+
+      const result = await service.update(userId, "payee-1", {
+        defaultCategoryId: "cat-99",
+      });
+
+      expect(result.transactionsCategorized).toBe(0);
+      // The payee row is updated, but no backfill runs against transactions.
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalledWith(
+        Transaction,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it("does not apply a category when the payee ends up without one", async () => {
       const existingPayee = { ...mockPayee };
+      const refreshedPayee = { ...mockPayee, defaultCategoryId: null };
+      payeesRepository.findOne
+        .mockResolvedValueOnce(existingPayee)
+        .mockResolvedValueOnce(refreshedPayee);
+
+      const result = await service.update(userId, "payee-1", {
+        defaultCategoryId: null,
+        applyCategoryToTransactions: "all",
+      });
+
+      expect(result.transactionsCategorized).toBe(0);
+      // Clearing the category writes null to the payee but runs no backfill.
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalledWith(
+        Transaction,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it("should update defaultCategoryId via explicit mapping", async () => {
+      // Existing payee already has a loaded relation pointing at the old
+      // category -- this is the scenario that exposed the persistence bug.
+      const existingPayee = {
+        ...mockPayee,
+        defaultCategoryId: "cat-1",
+        defaultCategory: { id: "cat-1", name: "Food" },
+      };
       const refreshedPayee = { ...mockPayee, defaultCategoryId: "cat-99" };
       payeesRepository.findOne
         .mockResolvedValueOnce(existingPayee)
@@ -511,7 +689,15 @@ describe("PayeesService", () => {
       });
 
       expect(result.defaultCategoryId).toBe("cat-99");
-      expect(payeesRepository.save).toHaveBeenCalled();
+      // Persist with a column-level update keyed by id+userId so the FK is
+      // written from the scalar. save() on the loaded entity would re-derive
+      // the FK from its hydrated defaultCategory relation and clobber it.
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Payee,
+        { id: "payee-1", userId },
+        { defaultCategoryId: "cat-99" },
+      );
+      expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
     });
 
     it("should clear defaultCategoryId when set to null", async () => {
@@ -533,11 +719,12 @@ describe("PayeesService", () => {
       });
 
       expect(result.defaultCategoryId).toBeNull();
-      // Verify the relation object is also nulled so TypeORM save() doesn't
-      // re-derive the FK from the stale loaded relation entity
-      const savedPayee = payeesRepository.save.mock.calls[0][0];
-      expect(savedPayee.defaultCategoryId).toBeNull();
-      expect(savedPayee.defaultCategory).toBeNull();
+      // Clearing writes null to the FK column directly.
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Payee,
+        { id: "payee-1", userId },
+        { defaultCategoryId: null },
+      );
     });
   });
 
@@ -1004,7 +1191,7 @@ describe("PayeesService", () => {
 
   describe("applyCategorySuggestions", () => {
     it("should bulk update payee categories and return count", async () => {
-      payeesRepository.find.mockResolvedValue([
+      mockQueryRunner.manager.find.mockResolvedValue([
         { ...mockPayeeNoCategory },
         { ...mockPayee },
       ]);
@@ -1023,9 +1210,9 @@ describe("PayeesService", () => {
         assignments,
       );
 
-      expect(result).toEqual({ updated: 2 });
-      expect(payeesRepository.save).toHaveBeenCalledTimes(1);
-      expect(payeesRepository.save).toHaveBeenCalledWith(
+      expect(result).toEqual({ updated: 2, transactionsBackfilled: 0 });
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             id: "payee-2",
@@ -1037,11 +1224,12 @@ describe("PayeesService", () => {
           }),
         ]),
       );
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });
 
     it("should skip assignments for payees not belonging to user", async () => {
       // Batch find only returns payees belonging to the user (not "other-user-payee")
-      payeesRepository.find.mockResolvedValue([{ ...mockPayee }]);
+      mockQueryRunner.manager.find.mockResolvedValue([{ ...mockPayee }]);
       categoriesRepository.find.mockResolvedValue([
         { id: "cat-1" },
         { id: "cat-2" },
@@ -1057,9 +1245,9 @@ describe("PayeesService", () => {
         assignments,
       );
 
-      expect(result).toEqual({ updated: 1 });
-      expect(payeesRepository.save).toHaveBeenCalledTimes(1);
-      expect(payeesRepository.save).toHaveBeenCalledWith(
+      expect(result).toEqual({ updated: 1, transactionsBackfilled: 0 });
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             id: "payee-1",
@@ -1071,29 +1259,29 @@ describe("PayeesService", () => {
 
     it("should return zero updated when no valid assignments", async () => {
       // Batch find returns empty: no payees match the requested IDs for this user
-      payeesRepository.find.mockResolvedValue([]);
+      mockQueryRunner.manager.find.mockResolvedValue([]);
       categoriesRepository.find.mockResolvedValue([{ id: "cat-1" }]);
 
       const result = await service.applyCategorySuggestions(userId, [
         { payeeId: "bad-1", categoryId: "cat-1" },
       ]);
 
-      expect(result).toEqual({ updated: 0 });
-      expect(payeesRepository.save).not.toHaveBeenCalled();
+      expect(result).toEqual({ updated: 0, transactionsBackfilled: 0 });
+      expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
     });
 
     it("should handle empty assignments array", async () => {
-      payeesRepository.find.mockResolvedValue([]);
+      mockQueryRunner.manager.find.mockResolvedValue([]);
 
       const result = await service.applyCategorySuggestions(userId, []);
 
-      expect(result).toEqual({ updated: 0 });
-      expect(payeesRepository.save).not.toHaveBeenCalled();
+      expect(result).toEqual({ updated: 0, transactionsBackfilled: 0 });
+      expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
     });
 
     it("should set defaultCategoryId on the payee entity before saving", async () => {
       const payee = { ...mockPayeeNoCategory, defaultCategoryId: null };
-      payeesRepository.find.mockResolvedValue([payee]);
+      mockQueryRunner.manager.find.mockResolvedValue([payee]);
       categoriesRepository.find.mockResolvedValue([{ id: "cat-new" }]);
 
       await service.applyCategorySuggestions(userId, [
@@ -1101,11 +1289,64 @@ describe("PayeesService", () => {
       ]);
 
       expect(payee.defaultCategoryId).toBe("cat-new");
-      expect(payeesRepository.save).toHaveBeenCalledWith(
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({ defaultCategoryId: "cat-new" }),
         ]),
       );
+    });
+
+    it("should backfill uncategorized transactions when requested and report the count", async () => {
+      const payee = { ...mockPayeeNoCategory, defaultCategoryId: null };
+      mockQueryRunner.manager.find.mockResolvedValue([payee]);
+      categoriesRepository.find.mockResolvedValue([{ id: "cat-new" }]);
+      // The backfill update reports three rows affected.
+      mockQueryRunner.manager.update.mockResolvedValue({ affected: 3 });
+
+      const result = await service.applyCategorySuggestions(userId, [
+        {
+          payeeId: "payee-2",
+          categoryId: "cat-new",
+          backfillTransactions: true,
+        },
+      ]);
+
+      expect(result).toEqual({ updated: 1, transactionsBackfilled: 3 });
+      // The transaction update is scoped to the payee with no existing category.
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Transaction,
+        expect.objectContaining({
+          userId,
+          payeeId: "payee-2",
+          isTransfer: false,
+          isSplit: false,
+        }),
+        { categoryId: "cat-new" },
+      );
+    });
+
+    it("should not backfill transactions when the flag is omitted", async () => {
+      const payee = { ...mockPayeeNoCategory, defaultCategoryId: null };
+      mockQueryRunner.manager.find.mockResolvedValue([payee]);
+      categoriesRepository.find.mockResolvedValue([{ id: "cat-new" }]);
+
+      const result = await service.applyCategorySuggestions(userId, [
+        { payeeId: "payee-2", categoryId: "cat-new" },
+      ]);
+
+      expect(result).toEqual({ updated: 1, transactionsBackfilled: 0 });
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalled();
+    });
+
+    it("should roll back when the category ownership check fails", async () => {
+      // No owned categories returned -> invalid category id -> throws.
+      categoriesRepository.find.mockResolvedValue([]);
+
+      await expect(
+        service.applyCategorySuggestions(userId, [
+          { payeeId: "payee-2", categoryId: "not-mine" },
+        ]),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -1227,6 +1468,129 @@ describe("PayeesService", () => {
       const result = await service.findInactiveByName(userId, "Unknown");
 
       expect(result).toBeNull();
+    });
+  });
+
+  // ─── resolveByName ─────────────────────────────────────────────────
+
+  describe("resolveByName", () => {
+    it("matches an existing payee by case-insensitive name", async () => {
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(mockPayee);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+
+      const result = await service.resolveByName(userId, "  starbucks ");
+
+      expect(result).toEqual(mockPayee);
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
+        "LOWER(payee.name) = LOWER(:name)",
+        { name: "starbucks" },
+      );
+      // Direct name match short-circuits the alias lookup.
+      expect(aliasRepository.manager.find).not.toHaveBeenCalled();
+    });
+
+    it("falls back to alias matching when no name matches", async () => {
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest
+        .fn()
+        .mockResolvedValue([{ alias: "SBUX*", payee: mockPayee }]);
+
+      const result = await service.resolveByName(userId, "SBUX #123");
+
+      expect(result).toEqual(mockPayee);
+    });
+
+    it("returns null when neither name nor alias matches", async () => {
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+      payeesRepository.find.mockResolvedValue([
+        { ...mockPayee, name: "Amazon" },
+      ]);
+
+      const result = await service.resolveByName(userId, "Unknown Vendor");
+
+      expect(result).toBeNull();
+    });
+
+    it("matches a single active payee by partial name (abbreviation)", async () => {
+      const fullPayee = { ...mockPayee, name: "Buon Gusto Restaurant" };
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+      payeesRepository.find.mockResolvedValue([
+        fullPayee,
+        { ...mockPayee, id: "payee-z", name: "Amazon" },
+      ]);
+
+      const result = await service.resolveByName(userId, "Buon Gusto");
+
+      expect(result).toEqual(fullPayee);
+      expect(payeesRepository.find).toHaveBeenCalledWith({
+        where: { userId, isActive: true },
+        relations: ["defaultCategory"],
+      });
+    });
+
+    it("matches across apostrophe differences (Zehrs -> Zehr's Supermarket)", async () => {
+      const zehrs = { ...mockPayee, name: "Zehr's Supermarket" };
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+      payeesRepository.find.mockResolvedValue([zehrs]);
+
+      const result = await service.resolveByName(userId, "Zehrs");
+
+      expect(result).toEqual(zehrs);
+    });
+
+    it("prefers an exact normalized match over a longer sibling", async () => {
+      const exact = { ...mockPayee, name: "Zehr's Supermarket" };
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+      payeesRepository.find.mockResolvedValue([
+        exact,
+        { ...mockPayee, id: "payee-y", name: "Zehr's Supermarket Pharmacy" },
+      ]);
+
+      const result = await service.resolveByName(userId, "Zehrs Supermarket");
+
+      expect(result).toEqual(exact);
+    });
+
+    it("does not guess when multiple payees match a partial name", async () => {
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+      payeesRepository.find.mockResolvedValue([
+        { ...mockPayee, name: "Buon Gusto Restaurant" },
+        { ...mockPayee, id: "payee-x", name: "Buon Gusto Pizzeria" },
+      ]);
+
+      const result = await service.resolveByName(userId, "Buon Gusto");
+
+      expect(result).toBeNull();
+    });
+
+    it("does not partial-match input shorter than 3 characters", async () => {
+      queryBuilderMock.getOne = jest.fn().mockResolvedValue(null);
+      payeesRepository.createQueryBuilder.mockReturnValue(queryBuilderMock);
+      aliasRepository.manager.find = jest.fn().mockResolvedValue([]);
+
+      const result = await service.resolveByName(userId, "AB");
+
+      expect(result).toBeNull();
+      // A 2-char term must not even scan the payee list.
+      expect(payeesRepository.find).not.toHaveBeenCalled();
+    });
+
+    it("returns null for a blank name without querying", async () => {
+      const result = await service.resolveByName(userId, "   ");
+
+      expect(result).toBeNull();
+      expect(payeesRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 
@@ -1421,7 +1785,11 @@ describe("PayeesService", () => {
       });
 
       expect(result.isActive).toBe(false);
-      expect(payeesRepository.save).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Payee,
+        { id: "payee-1", userId },
+        { isActive: false },
+      );
     });
 
     it("should not modify isActive when not included in DTO", async () => {
@@ -1770,6 +2138,152 @@ describe("PayeesService", () => {
       });
 
       expect(result.aliasAdded).toBe(false);
+    });
+  });
+
+  describe("previewCreate", () => {
+    it("resolves the default category and returns a preview without persisting", async () => {
+      payeesRepository.findOne.mockResolvedValue(null);
+      categoriesRepository.findOne.mockResolvedValue({
+        id: "cat-1",
+        userId,
+        name: "Dining",
+      });
+
+      const preview = await service.previewCreate(userId, {
+        name: "Acme <b>",
+        defaultCategoryId: "cat-1",
+      });
+
+      expect(preview.name).not.toContain("<");
+      expect(preview).toMatchObject({
+        defaultCategoryId: "cat-1",
+        defaultCategoryName: "Dining",
+      });
+      expect(payeesRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("rejects a duplicate payee name", async () => {
+      payeesRepository.findOne.mockResolvedValue({ id: "p1", name: "Acme" });
+      await expect(
+        service.previewCreate(userId, { name: "Acme" }),
+      ).rejects.toThrow();
+    });
+
+    it("rejects an unowned default category", async () => {
+      payeesRepository.findOne.mockResolvedValue(null);
+      categoriesRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.previewCreate(userId, {
+          name: "Acme",
+          defaultCategoryId: "cat-x",
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("manage payee previews", () => {
+    it("previewCreatePayee resolves the category by name", async () => {
+      payeesRepository.findOne.mockResolvedValue(null); // no duplicate
+      categoryQueryBuilderMock.getOne.mockResolvedValue({
+        id: "cat-9",
+        name: "Utilities",
+      });
+      // previewCreate re-validates the resolved category id by primary key.
+      categoriesRepository.findOne.mockResolvedValue({
+        id: "cat-9",
+        name: "Utilities",
+      });
+
+      const preview = await service.previewCreatePayee(userId, {
+        name: "Hydro",
+        categoryName: "Utilities",
+      });
+
+      expect(preview).toEqual({
+        name: "Hydro",
+        defaultCategoryId: "cat-9",
+        defaultCategoryName: "Utilities",
+      });
+    });
+
+    it("previewUpdatePayee renames and resolves a new category", async () => {
+      payeesRepository.findOne.mockImplementation(
+        async ({ where }: { where: { name: string } }) =>
+          where.name === "Old"
+            ? {
+                id: "p1",
+                name: "Old",
+                defaultCategoryId: null,
+                defaultCategory: null,
+              }
+            : null,
+      );
+      categoryQueryBuilderMock.getOne.mockResolvedValue({
+        id: "cat-2",
+        name: "Bills",
+      });
+
+      const preview = await service.previewUpdatePayee(userId, {
+        name: "Old",
+        newName: "New",
+        categoryName: "Bills",
+      });
+
+      expect(preview).toEqual({
+        payeeId: "p1",
+        name: "New",
+        defaultCategoryId: "cat-2",
+        defaultCategoryName: "Bills",
+      });
+    });
+
+    it("previewUpdatePayee rejects a rename that collides with another payee", async () => {
+      payeesRepository.findOne.mockImplementation(
+        async ({ where }: { where: { name: string } }) =>
+          where.name === "Old"
+            ? { id: "p1", name: "Old", defaultCategoryId: null }
+            : { id: "p2", name: "Taken" },
+      );
+
+      await expect(
+        service.previewUpdatePayee(userId, { name: "Old", newName: "Taken" }),
+      ).rejects.toThrow();
+    });
+
+    it("previewUpdatePayee clears the category for an empty categoryName", async () => {
+      payeesRepository.findOne.mockResolvedValue({
+        id: "p1",
+        name: "Old",
+        defaultCategoryId: "cat-1",
+        defaultCategory: { id: "cat-1", name: "Food" },
+      });
+
+      const preview = await service.previewUpdatePayee(userId, {
+        name: "Old",
+        categoryName: "",
+      });
+
+      expect(preview.defaultCategoryId).toBeNull();
+      expect(preview.defaultCategoryName).toBeNull();
+    });
+
+    it("previewDeletePayee throws when the payee is not found", async () => {
+      payeesRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.previewDeletePayee(userId, { name: "Ghost" }),
+      ).rejects.toThrow();
+    });
+
+    it("previewCreatePayee throws when the category name is unknown", async () => {
+      payeesRepository.findOne.mockResolvedValue(null);
+      categoryQueryBuilderMock.getOne.mockResolvedValue(null);
+      await expect(
+        service.previewCreatePayee(userId, {
+          name: "Hydro",
+          categoryName: "Nonexistent",
+        }),
+      ).rejects.toThrow();
     });
   });
 });

@@ -1,6 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@/test/render";
+import { render, screen, waitFor, fireEvent, act } from "@/test/render";
 import { UncategorizedTransactionsReport } from "./UncategorizedTransactionsReport";
+
+const mockExportToCsv = vi.fn();
+vi.mock("@/lib/csv-export", () => ({
+  exportToCsv: (...args: any[]) => mockExportToCsv(...args),
+}));
+
+const mockExportToPdf = vi.fn();
+vi.mock("@/lib/pdf-export", () => ({
+  exportToPdf: (...args: any[]) => mockExportToPdf(...args),
+}));
+
+vi.mock("@/components/ui/ExportDropdown", () => ({
+  ExportDropdown: ({ onExportCsv, onExportPdf }: any) => (
+    <div data-testid="export-dropdown">
+      <button data-testid="export-csv" onClick={onExportCsv}>
+        CSV
+      </button>
+      <button data-testid="export-pdf" onClick={onExportPdf}>
+        PDF
+      </button>
+    </div>
+  ),
+}));
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -437,13 +460,129 @@ describe("UncategorizedTransactionsReport", () => {
     });
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetUncategorizedTransactions.mockRejectedValue(
       new Error("Network error"),
     );
     render(<UncategorizedTransactionsReport />);
     await waitFor(() => {
-      expect(screen.getByText("Total Uncategorized")).toBeInTheDocument();
+      expect(screen.getByText(/failed to load report data/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it("sorts by account column", async () => {
+    mockGetUncategorizedTransactions.mockResolvedValue({
+      transactions: [
+        {
+          id: "tx-1",
+          transactionDate: "2025-02-15",
+          payeeName: "Store A",
+          description: "",
+          accountName: "Zeta Account",
+          accountId: "acc-1",
+          amount: -50,
+        },
+        {
+          id: "tx-2",
+          transactionDate: "2025-02-16",
+          payeeName: "Store B",
+          description: "",
+          accountName: "Alpha Account",
+          accountId: "acc-2",
+          amount: -100,
+        },
+      ],
+      summary: {
+        totalCount: 2,
+        expenseCount: 2,
+        expenseTotal: 150,
+        incomeCount: 0,
+        incomeTotal: 0,
+      },
+    });
+    render(<UncategorizedTransactionsReport />);
+    await waitFor(() => {
+      expect(screen.getByText("Store A")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Account"));
+    expect(screen.getByText("Zeta Account")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Account")).toBeInTheDocument();
+  });
+
+  it("exports CSV with the current transaction data", async () => {
+    mockGetUncategorizedTransactions.mockResolvedValue({
+      transactions: [
+        {
+          id: "tx-1",
+          transactionDate: "2025-02-15",
+          payeeName: "Store A",
+          description: "Coffee",
+          accountName: "Chequing",
+          accountId: "acc-1",
+          amount: -50,
+        },
+      ],
+      summary: {
+        totalCount: 1,
+        expenseCount: 1,
+        expenseTotal: 50,
+        incomeCount: 0,
+        incomeTotal: 0,
+      },
+    });
+    render(<UncategorizedTransactionsReport />);
+    await waitFor(() => {
+      expect(screen.getByTestId("export-csv")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("export-csv"));
+    expect(mockExportToCsv).toHaveBeenCalledWith(
+      "uncategorized-transactions",
+      expect.arrayContaining(["Date", "Payee", "Description", "Account", "Amount"]),
+      expect.any(Array),
+    );
+  });
+
+  it("exports PDF with the current transaction data", async () => {
+    mockGetUncategorizedTransactions.mockResolvedValue({
+      transactions: [
+        {
+          id: "tx-1",
+          transactionDate: "2025-02-15",
+          payeeName: null,
+          description: null,
+          accountName: null,
+          accountId: "acc-1",
+          amount: -50,
+        },
+      ],
+      summary: {
+        totalCount: 1,
+        expenseCount: 1,
+        expenseTotal: 50,
+        incomeCount: 0,
+        incomeTotal: 0,
+      },
+    });
+    render(<UncategorizedTransactionsReport />);
+    await waitFor(() => {
+      expect(screen.getByTestId("export-pdf")).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("export-pdf"));
+    });
+    await waitFor(() => {
+      expect(mockExportToPdf).toHaveBeenCalledTimes(1);
+    });
+    expect(mockExportToPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Uncategorized Transactions",
+        filename: "uncategorized-transactions",
+        tableData: expect.objectContaining({
+          headers: expect.any(Array),
+          rows: expect.any(Array),
+        }),
+      }),
+    );
   });
 });

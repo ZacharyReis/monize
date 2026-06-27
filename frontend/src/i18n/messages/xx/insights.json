@@ -1,0 +1,44 @@
+{
+  "page": {
+    "title": "[XX-Spending Insights-XX]",
+    "subtitle": "[XX-AI-powered analysis of your spending patterns and anomalies-XX]"
+  },
+  "list": {
+    "lastUpdated": "[XX-Last updated: {date} {time}-XX]",
+    "refreshButton": "[XX-Refresh Insights-XX]",
+    "generating": "[XX-Generating...-XX]",
+    "allTypes": "[XX-All Types-XX]",
+    "allSeverities": "[XX-All Severities-XX]",
+    "showDismissed": "[XX-Show dismissed-XX]",
+    "emptyNoInsights": "[XX-No insights generated yet. Click \"Refresh Insights\" to analyze your spending patterns.-XX]",
+    "emptyFiltered": "[XX-No insights match your current filters.-XX]",
+    "generateButton": "[XX-Generate Insights-XX]",
+    "alertCount": "[XX-{count, plural, one {# alert} other {# alerts}}-XX]",
+    "warningCount": "[XX-{count, plural, one {# warning} other {# warnings}}-XX]",
+    "errorLoadFailed": "[XX-Failed to load insights. Please try again.-XX]",
+    "errorGenerateFailed": "[XX-Failed to generate insights. Make sure you have an AI provider configured.-XX]",
+    "errorTimeout": "[XX-Insight generation is taking longer than expected. Please wait or refresh the page.-XX]"
+  },
+  "card": {
+    "dismiss": "[XX-Dismiss-XX]",
+    "dismissing": "[XX-Dismissing...-XX]"
+  },
+  "notConfigured": {
+    "heading": "[XX-AI Not Configured-XX]",
+    "message": "[XX-No AI provider is configured. To use Spending Insights, please {link} in your settings.-XX]",
+    "linkText": "[XX-configure an AI provider-XX]"
+  },
+  "insightTypes": {
+    "anomaly": "[XX-Anomaly-XX]",
+    "trend": "[XX-Trend-XX]",
+    "subscription": "[XX-Subscription-XX]",
+    "budget_pace": "[XX-Budget Pace-XX]",
+    "seasonal": "[XX-Seasonal-XX]",
+    "new_recurring": "[XX-New Recurring-XX]"
+  },
+  "insightSeverities": {
+    "info": "[XX-Info-XX]",
+    "warning": "[XX-Warning-XX]",
+    "alert": "[XX-Alert-XX]"
+  }
+}

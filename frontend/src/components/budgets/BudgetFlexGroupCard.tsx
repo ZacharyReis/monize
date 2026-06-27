@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { BudgetProgressBar } from './BudgetProgressBar';
 import type { CategoryBreakdown, BudgetCategory } from '@/types/budget';
 
@@ -73,6 +74,7 @@ export function BudgetFlexGroupCard({
   budgetCategories,
   formatCurrency,
 }: BudgetFlexGroupCardProps) {
+  const t = useTranslations('budgets');
   const flexGroups = computeFlexGroups(categories, budgetCategories);
 
   if (flexGroups.length === 0) {
@@ -82,7 +84,7 @@ export function BudgetFlexGroupCard({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-        Flex Groups
+        {t('flexGroups.title')}
       </h2>
       <div className="space-y-4">
         {flexGroups.map((group) => (

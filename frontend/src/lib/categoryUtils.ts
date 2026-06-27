@@ -1,4 +1,5 @@
 import { Category } from '@/types/category';
+import type { MultiSelectOption } from '@/components/ui/MultiSelect';
 
 interface CategoryOption {
   value: string;
@@ -119,4 +120,58 @@ export function buildCategoryLabelMap(
       return [c.id, parent ? `${parent.name}: ${c.name}` : c.name];
     }),
   );
+}
+
+/**
+ * The special pseudo-category filter options. Selecting "Uncategorized"
+ * matches records with no category (and that are neither transfers nor
+ * splits); "Transfers" matches transfer records. Shared by the Transactions
+ * and Bills & Deposits filter panels.
+ */
+export const SPECIAL_CATEGORY_FILTER_OPTIONS: MultiSelectOption[] = [
+  { value: 'uncategorized', label: 'Uncategorized' },
+  { value: 'transfer', label: 'Transfers' },
+];
+
+/**
+ * Build the category filter options used by the filter panels: the special
+ * pseudo-options followed by the category hierarchy (parents with their
+ * children nested), sorted alphabetically at each level. Selecting a parent
+ * selects all of its descendants (handled by MultiSelect).
+ */
+export function buildCategoryFilterOptions(categories: Category[]): MultiSelectOption[] {
+  const buildOptions = (parentId: string | null = null): MultiSelectOption[] =>
+    categories
+      .filter((c) => c.parentId === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .flatMap((cat) => {
+        const children = buildOptions(cat.id);
+        return [
+          {
+            value: cat.id,
+            label: cat.name,
+            parentId: cat.parentId,
+            children: children.length > 0 ? children : undefined,
+          },
+        ];
+      });
+  return [...SPECIAL_CATEGORY_FILTER_OPTIONS, ...buildOptions()];
+}
+
+/**
+ * Resolve selected category filter IDs (including the special
+ * "uncategorized"/"transfer" pseudo-IDs) to Category-like records for chip
+ * display.
+ */
+export function resolveSelectedCategories(
+  categoryIds: string[],
+  categories: Category[],
+): Category[] {
+  return categoryIds
+    .map((id) => {
+      if (id === 'uncategorized') return { id, name: 'Uncategorized', color: null } as Category;
+      if (id === 'transfer') return { id, name: 'Transfers', color: null } as Category;
+      return categories.find((c) => c.id === id);
+    })
+    .filter((c): c is Category => c !== undefined);
 }

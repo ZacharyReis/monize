@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Etiquetas",
+    "subtitle": "Etiqueta tus transacciones con etiquetas personalizadas",
+    "newButton": "+ Nueva etiqueta",
+    "summary": {
+      "totalTags": "Total de etiquetas",
+      "tagsWithColour": "Etiquetas con color",
+      "tagsWithIcon": "Etiquetas con icono"
+    },
+    "search": {
+      "placeholder": "Buscar etiquetas..."
+    },
+    "loading": "Cargando etiquetas...",
+    "emptyState": {
+      "title": "Aún no hay etiquetas",
+      "body": "Las etiquetas te ayudan a etiquetar y filtrar tus transacciones. Crea tu primera etiqueta para comenzar.",
+      "createButton": "Crear tu primera etiqueta"
+    },
+    "modal": {
+      "newTitle": "Nueva etiqueta",
+      "editTitle": "Editar etiqueta"
+    },
+    "totalCount": "{count, plural, one {# etiqueta} other {# etiquetas}}",
+    "delete": {
+      "title": "Eliminar etiqueta",
+      "withTransactionsMessage": "¿Seguro que quieres eliminar \"{name}\"? Esta etiqueta se usa en {count, plural, one {# transacción} other {# transacciones}}. La etiqueta se eliminará de esas transacciones.",
+      "simpleMessage": "¿Seguro que quieres eliminar \"{name}\"? Esta acción no se puede deshacer."
+    },
+    "toasts": {
+      "created": "Etiqueta creada correctamente",
+      "updated": "Etiqueta actualizada correctamente",
+      "deleted": "Etiqueta eliminada correctamente",
+      "loadFailed": "Error al cargar las etiquetas",
+      "createFailed": "Error al crear la etiqueta",
+      "updateFailed": "Error al actualizar la etiqueta",
+      "deleteFailed": "Error al eliminar la etiqueta"
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "No se encontraron etiquetas",
+      "body": "Ninguna etiqueta coincide con tu búsqueda actual."
+    },
+    "density": {
+      "title": "Cambiar densidad de filas",
+      "normal": "Normal",
+      "compact": "Compacto",
+      "dense": "Denso"
+    },
+    "header": {
+      "name": "Nombre",
+      "icon": "Icono",
+      "transactions": "Transacciones",
+      "actions": "Acciones"
+    }
+  },
+  "form": {
+    "nameLabel": "Nombre de la etiqueta",
+    "colourLabel": "Color",
+    "iconLabel": "Icono",
+    "noColour": "Sin color",
+    "submitCreate": "Crear etiqueta",
+    "submitUpdate": "Actualizar etiqueta",
+    "colours": {
+      "red": "Rojo",
+      "orange": "Naranja",
+      "yellow": "Amarillo",
+      "green": "Verde",
+      "teal": "Turquesa",
+      "blue": "Azul",
+      "purple": "Morado",
+      "pink": "Rosa",
+      "grey": "Gris"
+    }
+  },
+  "validation": {
+    "nameRequired": "El nombre de la etiqueta es obligatorio"
+  }
+}

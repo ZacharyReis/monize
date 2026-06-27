@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { BudgetsService } from "./budgets.service";
 import { Budget, BudgetType, BudgetStrategy } from "./entities/budget.entity";
@@ -30,6 +31,7 @@ describe("BudgetsService", () => {
   let scheduledTransactionsRepository: Record<string, jest.Mock>;
   let overridesRepository: Record<string, jest.Mock>;
   let mockActionHistoryService: Record<string, jest.Mock>;
+  let mockDataSource: Record<string, jest.Mock>;
 
   const mockBudget: Budget = {
     id: "budget-1",
@@ -188,9 +190,23 @@ describe("BudgetsService", () => {
       record: jest.fn().mockResolvedValue(null),
     };
 
+    mockDataSource = {
+      createQueryRunner: jest.fn().mockReturnValue({
+        connect: jest.fn(),
+        startTransaction: jest.fn(),
+        commitTransaction: jest.fn(),
+        rollbackTransaction: jest.fn(),
+        release: jest.fn(),
+        manager: {
+          save: jest.fn().mockImplementation((data) => data),
+        },
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BudgetsService,
+        { provide: DataSource, useValue: mockDataSource },
         { provide: getRepositoryToken(Budget), useValue: budgetsRepository },
         {
           provide: getRepositoryToken(BudgetCategory),
@@ -612,10 +628,10 @@ describe("BudgetsService", () => {
   describe("bulkUpdateCategories", () => {
     it("updates multiple category amounts", async () => {
       budgetsRepository.findOne.mockResolvedValue({ ...mockBudget });
-      budgetCategoriesRepository.findOne
-        .mockResolvedValueOnce({ ...mockBudgetCategory, id: "bc-1" })
-        .mockResolvedValueOnce({ ...mockBudgetCategory, id: "bc-2" });
-      budgetCategoriesRepository.save.mockImplementation((data) => data);
+      budgetCategoriesRepository.find.mockResolvedValue([
+        { ...mockBudgetCategory, id: "bc-1" },
+        { ...mockBudgetCategory, id: "bc-2" },
+      ]);
 
       const result = await service.bulkUpdateCategories("user-1", "budget-1", [
         { id: "bc-1", amount: 600 },
@@ -629,7 +645,7 @@ describe("BudgetsService", () => {
 
     it("throws NotFoundException when a category is not found", async () => {
       budgetsRepository.findOne.mockResolvedValue({ ...mockBudget });
-      budgetCategoriesRepository.findOne.mockResolvedValue(null);
+      budgetCategoriesRepository.find.mockResolvedValue([]);
 
       await expect(
         service.bulkUpdateCategories("user-1", "budget-1", [

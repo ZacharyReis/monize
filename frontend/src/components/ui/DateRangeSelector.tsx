@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { DateInput } from './DateInput';
 
@@ -47,6 +48,7 @@ export function DateRangeSelector({
   size = 'md',
   className,
 }: DateRangeSelectorProps) {
+  const t = useTranslations('common');
   const sizeClasses = size === 'sm'
     ? 'px-3 py-1 text-xs'
     : 'px-3 py-1.5 text-sm';
@@ -82,20 +84,20 @@ export function DateRangeSelector({
                 : inactiveClasses
             )}
           >
-            Custom
+            {t('dateRange.custom')}
           </button>
         )}
       </div>
       {showCustom && value === 'custom' && (
         <div className="flex gap-4 mt-4">
           <DateInput
-            label="Start Date"
+            label={t('dateRange.startDate')}
             value={customStartDate}
             onDateChange={(date) => onCustomStartDateChange?.(date)}
             onChange={(e) => onCustomStartDateChange?.(e.target.value)}
           />
           <DateInput
-            label="End Date"
+            label={t('dateRange.endDate')}
             value={customEndDate}
             onDateChange={(date) => onCustomEndDateChange?.(date)}
             onChange={(e) => onCustomEndDateChange?.(e.target.value)}

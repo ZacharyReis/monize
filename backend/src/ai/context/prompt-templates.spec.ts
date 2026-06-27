@@ -32,9 +32,10 @@ describe("prompt-templates", () => {
       expect(QUERY_SYSTEM_PROMPT).toMatch(/\$[\d,]+\.\d{2}/);
     });
 
-    it("forbids revealing individual transaction details", () => {
+    it("discourages dumping individual transaction details unprompted", () => {
+      expect(QUERY_SYSTEM_PROMPT).toMatch(/aggregated summaries/i);
       expect(QUERY_SYSTEM_PROMPT).toMatch(
-        /never reveal individual transaction/i,
+        /do not otherwise list raw transaction-by-transaction details/i,
       );
     });
 

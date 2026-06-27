@@ -20,11 +20,20 @@ export async function registerUser(
   await page.getByLabel(/confirm password/i).fill(password);
   await page.getByRole('button', { name: /create account|register|sign up/i }).click();
 
-  // After registration, a 2FA setup screen may appear — skip it
+  // After submitting we either land on the dashboard directly or pass through
+  // optional onboarding steps before it: a 2FA-setup step and a preferences
+  // step, each offering a "Skip for now" button. Race the dashboard against the
+  // skip button and skip whichever step appears until we reach the dashboard.
   const skipButton = page.getByRole('button', { name: /skip for now/i });
-  await skipButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-  if (await skipButton.isVisible()) {
-    await skipButton.click();
+  for (let step = 0; step < 2; step++) {
+    await Promise.race([
+      page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {}),
+      skipButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {}),
+    ]);
+    if (/\/dashboard/.test(page.url())) break;
+    if (await skipButton.isVisible().catch(() => false)) {
+      await skipButton.click();
+    }
   }
 
   await page.waitForURL(/\/dashboard/, { timeout: 15000 });
@@ -37,7 +46,14 @@ export async function loginUser(
   email: string,
   password: string,
 ) {
-  await page.goto('/login');
+  // loginUser may run while the app is still finishing its own redirect to
+  // /login (e.g. immediately after logout). A second goto would race that and
+  // Playwright rejects it as an interrupted navigation, so only navigate when
+  // we are not already on the login page, then let it settle.
+  if (!new URL(page.url()).pathname.startsWith('/login')) {
+    await page.goto('/login');
+  }
+  await page.waitForURL(/\/login/, { timeout: 15000 });
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
@@ -45,11 +61,11 @@ export async function loginUser(
 }
 
 export async function logout(page: Page) {
-  // Navigate to settings or click logout
+  // The Logout button lives in the app header on every authenticated page.
+  // Use an auto-waiting click rather than a non-waiting isVisible() guard:
+  // isVisible() can run before the client header hydrates, silently skip the
+  // click, and leave waitForURL with no navigation to wait for.
   await page.goto('/settings');
-  const logoutButton = page.getByRole('button', { name: /log\s?out|sign\s?out/i });
-  if (await logoutButton.isVisible()) {
-    await logoutButton.click();
-  }
+  await page.getByRole('button', { name: /log\s?out|sign\s?out/i }).first().click();
   await page.waitForURL(/\/login/, { timeout: 10000 });
 }

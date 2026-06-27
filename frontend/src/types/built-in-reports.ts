@@ -73,6 +73,33 @@ export interface ReportQueryParams {
   endDate: string;
 }
 
+// Monthly category breakdown types
+export interface MonthlyBreakdownCategoryRow {
+  categoryId: string | null;
+  categoryName: string;
+  parentId: string | null;
+  parentName: string | null;
+  parentIsIncome: boolean | null;
+  isIncome: boolean;
+  valuesByMonth: Record<string, number>;
+  depositTotal: number;
+  withdrawalTotal: number;
+}
+
+export interface MonthlyBreakdownTransferRow {
+  accountId: string;
+  accountName: string;
+  direction: 'from' | 'to';
+  valuesByMonth: Record<string, number>;
+}
+
+export interface MonthlyCategoryBreakdownResponse {
+  months: string[];
+  data: MonthlyBreakdownCategoryRow[];
+  transfers: MonthlyBreakdownTransferRow[];
+  currency: string;
+}
+
 // Year-over-year types
 export interface YearMonthData {
   month: number;

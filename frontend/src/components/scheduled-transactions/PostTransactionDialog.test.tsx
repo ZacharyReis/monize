@@ -309,6 +309,19 @@ describe('PostTransactionDialog', () => {
     expect(screen.queryByLabelText('Split this transaction')).not.toBeInTheDocument();
   });
 
+  it('shows the category on a categorized transfer (#743)', () => {
+    const categorizedTransfer = { ...transferTransaction, categoryId: 'c1' };
+    render(<PostTransactionDialog {...defaultProps} scheduledTransaction={categorizedTransfer} />);
+    expect(screen.getByText(/Transfer:/)).toBeInTheDocument();
+    expect(screen.getByText(/Category:\s*Entertainment/)).toBeInTheDocument();
+  });
+
+  it('omits the category line on an uncategorized transfer', () => {
+    render(<PostTransactionDialog {...defaultProps} scheduledTransaction={transferTransaction} />);
+    expect(screen.getByText(/Transfer:/)).toBeInTheDocument();
+    expect(screen.queryByText(/Category:/)).not.toBeInTheDocument();
+  });
+
   // --- Regular transaction display ---
   it('shows non-transfer description for regular transactions', () => {
     render(<PostTransactionDialog {...defaultProps} />);
@@ -327,11 +340,11 @@ describe('PostTransactionDialog', () => {
     expect(screen.getByLabelText('Split this transaction')).toBeInTheDocument();
   });
 
-  it('shows split editor when split checkbox is checked', () => {
+  it('shows split editor when split toggle is enabled', () => {
     render(<PostTransactionDialog {...defaultProps} />);
 
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    fireEvent.click(splitCheckbox);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    fireEvent.click(splitToggle);
 
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
@@ -341,8 +354,8 @@ describe('PostTransactionDialog', () => {
 
     expect(screen.getByTestId('combobox-category')).toBeInTheDocument();
 
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    fireEvent.click(splitCheckbox);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    fireEvent.click(splitToggle);
 
     expect(screen.queryByTestId('combobox-category')).not.toBeInTheDocument();
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
@@ -352,8 +365,8 @@ describe('PostTransactionDialog', () => {
   it('initializes split state from split transaction', () => {
     render(<PostTransactionDialog {...defaultProps} scheduledTransaction={splitTransaction} />);
 
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -722,8 +735,8 @@ describe('PostTransactionDialog', () => {
     // Since the mock is already set up with 2 splits, we test directly via UI
     // Toggle split on a regular transaction, then verify the SplitEditor is shown
     render(<PostTransactionDialog {...defaultProps} />);
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    fireEvent.click(splitCheckbox);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    fireEvent.click(splitToggle);
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -740,8 +753,8 @@ describe('PostTransactionDialog', () => {
     } as any;
 
     render(<PostTransactionDialog {...defaultProps} scheduledTransaction={splitTx} />);
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
 
     // Post the transaction — splits total matches, should succeed
     const buttons = screen.getAllByText('Post Transaction');
@@ -790,8 +803,8 @@ describe('PostTransactionDialog', () => {
 
     render(<PostTransactionDialog {...defaultProps} scheduledTransaction={overrideWithSplits} />);
     // isSplit should be true and split editor shown
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -814,8 +827,8 @@ describe('PostTransactionDialog', () => {
     } as any;
 
     render(<PostTransactionDialog {...defaultProps} scheduledTransaction={overrideNoSplits} />);
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -835,8 +848,8 @@ describe('PostTransactionDialog', () => {
     } as any;
 
     render(<PostTransactionDialog {...defaultProps} scheduledTransaction={overrideNoSplitsNoBase} />);
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
-    expect(splitCheckbox.checked).toBe(true);
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
+    expect(splitToggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
   });
 
@@ -969,15 +982,15 @@ describe('PostTransactionDialog', () => {
   // --- Split toggle: unchecking hides SplitEditor ---
   it('hides SplitEditor and shows category combobox when split is unchecked', () => {
     render(<PostTransactionDialog {...defaultProps} />);
-    const splitCheckbox = screen.getByLabelText('Split this transaction') as HTMLInputElement;
+    const splitToggle = screen.getByLabelText('Split this transaction') as HTMLElement;
 
     // Enable split
-    fireEvent.click(splitCheckbox);
+    fireEvent.click(splitToggle);
     expect(screen.getByTestId('split-editor')).toBeInTheDocument();
     expect(screen.queryByTestId('combobox-category')).not.toBeInTheDocument();
 
     // Disable split
-    fireEvent.click(splitCheckbox);
+    fireEvent.click(splitToggle);
     expect(screen.queryByTestId('split-editor')).not.toBeInTheDocument();
     expect(screen.getByTestId('combobox-category')).toBeInTheDocument();
   });
@@ -1448,6 +1461,183 @@ describe('PostTransactionDialog', () => {
       );
       // Override qty 3 * price 100 = -300 → 5000 - 300 = 4700
       expect(screen.getByText('$4700.00')).toBeInTheDocument();
+    });
+
+    it('rejects post when quantity is empty for a qty+price action', async () => {
+      const emptyQtyTx = {
+        ...investmentTransaction,
+        investmentQuantity: null,
+        investmentPrice: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={emptyQtyTx}
+        />,
+      );
+      const buttons = screen.getAllByText('Post Transaction');
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Quantity must be greater than zero');
+      });
+      expect(mockPostApi).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when price is empty for a qty+price action', async () => {
+      const noPriceTx = {
+        ...investmentTransaction,
+        investmentPrice: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={noPriceTx}
+        />,
+      );
+      // qty is 10 (valid), but price is empty -> price validation fails
+      const buttons = screen.getAllByText('Post Transaction');
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Price must be greater than zero');
+      });
+      expect(mockPostApi).not.toHaveBeenCalled();
+    });
+
+    it('rejects post when total amount is empty for an amount-only action', async () => {
+      const dividendNoTotal = {
+        ...investmentTransaction,
+        investmentAction: 'DIVIDEND',
+        investmentQuantity: null,
+        investmentPrice: null,
+        investmentTotalAmount: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={dividendNoTotal}
+        />,
+      );
+      const buttons = screen.getAllByText('Post Transaction');
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Total amount is required');
+      });
+      expect(mockPostApi).not.toHaveBeenCalled();
+    });
+
+    it('renders Quantity field for a quantity-only action (ADD_SHARES)', () => {
+      const addSharesTx = {
+        ...investmentTransaction,
+        investmentAction: 'ADD_SHARES',
+        investmentQuantity: 5,
+        investmentPrice: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={addSharesTx}
+        />,
+      );
+      expect(screen.getByLabelText('Quantity (shares)')).toBeInTheDocument();
+      // No price/total inputs for quantity-only actions
+      expect(screen.queryByLabelText('Price per share')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Total Price')).not.toBeInTheDocument();
+    });
+
+    it('edits quantity directly for a quantity-only action and posts it', async () => {
+      const addSharesTx = {
+        ...investmentTransaction,
+        investmentAction: 'ADD_SHARES',
+        investmentQuantity: 5,
+        investmentPrice: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={addSharesTx}
+        />,
+      );
+      const qtyInput = screen.getByLabelText('Quantity (shares)') as HTMLInputElement;
+      fireEvent.change(qtyInput, { target: { value: '8' } });
+      expect(Number(qtyInput.value)).toBe(8);
+
+      const buttons = screen.getAllByText('Post Transaction');
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => {
+        expect(mockPostApi).toHaveBeenCalledWith('inv1', expect.objectContaining({
+          investmentQuantity: 8,
+        }));
+      });
+    });
+
+    it('clears quantity to empty for quantity-only action', () => {
+      const addSharesTx = {
+        ...investmentTransaction,
+        investmentAction: 'ADD_SHARES',
+        investmentQuantity: 5,
+        investmentPrice: null,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={addSharesTx}
+        />,
+      );
+      const qtyInput = screen.getByLabelText('Quantity (shares)') as HTMLInputElement;
+      fireEvent.change(qtyInput, { target: { value: '' } });
+      expect(qtyInput.value).toBe('');
+    });
+
+    it('shows manual-price hint when security has no price history', async () => {
+      mockGetSecurityPrices.mockResolvedValue([]);
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={investmentTransaction}
+        />,
+      );
+      await waitFor(() => {
+        expect(
+          screen.getByText(/No price history yet for this security/),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('handles a getSecurityPrices rejection without crashing', async () => {
+      mockGetSecurityPrices.mockRejectedValueOnce(new Error('network'));
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={investmentTransaction}
+        />,
+      );
+      await act(async () => {});
+      await waitFor(() => {
+        expect(screen.getByLabelText('Price per share')).toBeInTheDocument();
+      });
+    });
+
+    it('posts an amount-only DIVIDEND with the total amount', async () => {
+      const dividendTx = {
+        ...investmentTransaction,
+        investmentAction: 'DIVIDEND',
+        investmentQuantity: null,
+        investmentPrice: null,
+        investmentTotalAmount: 75,
+      };
+      render(
+        <PostTransactionDialog
+          {...defaultProps}
+          scheduledTransaction={dividendTx}
+        />,
+      );
+      const buttons = screen.getAllByText('Post Transaction');
+      fireEvent.click(buttons[buttons.length - 1]);
+      await waitFor(() => {
+        expect(mockPostApi).toHaveBeenCalledWith('inv1', expect.objectContaining({
+          investmentTotalAmount: 75,
+        }));
+      });
     });
   });
 });

@@ -15,6 +15,7 @@ import { TaxRecurringReportsService } from "./tax-recurring-reports.service";
 import { DataQualityReportsService } from "./data-quality-reports.service";
 import { MonthlyComparisonService } from "./monthly-comparison.service";
 import { SpendingTrendsService } from "./spending-trends.service";
+import { MonthlyCategoryBreakdownService } from "./monthly-category-breakdown.service";
 
 describe("BuiltInReportsService", () => {
   let service: BuiltInReportsService;
@@ -156,6 +157,7 @@ describe("BuiltInReportsService", () => {
           provide: SpendingTrendsService,
           useValue: { getSpendingTrends: jest.fn() },
         },
+        MonthlyCategoryBreakdownService,
       ],
     }).compile();
 
@@ -902,8 +904,8 @@ describe("BuiltInReportsService", () => {
 
       const result = await service.getYearOverYear(mockUserId, 1);
 
-      expect(yearData(result, currentYear).totals.income).toBe(100.33);
-      expect(yearData(result, currentYear).totals.expenses).toBe(50.67);
+      expect(yearData(result, currentYear).totals.income).toBe(100.333);
+      expect(yearData(result, currentYear).totals.expenses).toBe(50.666);
     });
 
     it("sorts year data in ascending order", async () => {
@@ -1446,8 +1448,8 @@ describe("BuiltInReportsService", () => {
       // USD: 100 + EUR: 50 * 1.1 = 155
       expect(result.data[0].totalAmount).toBe(155);
       expect(result.data[0].occurrences).toBe(6);
-      // Average: 155 / 6 = 25.83
-      expect(result.data[0].averageAmount).toBe(25.83);
+      // Average: 155 / 6 = 25.8333 (4dp storage precision)
+      expect(result.data[0].averageAmount).toBe(25.8333);
     });
 
     it("calculates summary correctly", async () => {
@@ -2060,6 +2062,55 @@ describe("BuiltInReportsService", () => {
       );
 
       expect(result.data[0].total).toBe(250);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getMonthlyCategoryBreakdown
+  // ---------------------------------------------------------------------------
+  describe("getMonthlyCategoryBreakdown", () => {
+    it("returns empty data when no transactions exist", async () => {
+      transactionsRepository.query.mockResolvedValue([]);
+      categoriesRepository.find.mockResolvedValue([]);
+
+      const result = await service.getMonthlyCategoryBreakdown(
+        mockUserId,
+        "2025-01-01",
+        "2025-12-31",
+      );
+
+      expect(result.months).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.currency).toBe("USD");
+    });
+
+    it("delegates through the facade to produce category rows", async () => {
+      transactionsRepository.query.mockResolvedValue([
+        {
+          month: "2025-01",
+          category_id: "cat-child",
+          currency_code: "USD",
+          deposits: "0.00",
+          withdrawals: "100.00",
+        },
+      ]);
+      categoriesRepository.find.mockResolvedValue([
+        mockParentCategory,
+        mockChildCategory,
+      ]);
+
+      const result = await service.getMonthlyCategoryBreakdown(
+        mockUserId,
+        "2025-01-01",
+        "2025-12-31",
+      );
+
+      expect(result.months).toEqual(["2025-01"]);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].categoryName).toBe("Groceries");
+      expect(result.data[0].parentName).toBe("Food & Dining");
+      expect(result.data[0].isIncome).toBe(false);
+      expect(result.data[0].valuesByMonth["2025-01"]).toBe(100);
     });
   });
 });

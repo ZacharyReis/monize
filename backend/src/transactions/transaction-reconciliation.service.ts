@@ -5,10 +5,14 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { Transaction, TransactionStatus } from "./entities/transaction.entity";
 import { AccountsService } from "../accounts/accounts.service";
-import { isTransactionInFuture } from "../common/date-utils";
+import {
+  isTransactionInFuture,
+  formatDateYMDLocal,
+} from "../common/date-utils";
+import { tr } from "../i18n/translate";
 
 @Injectable()
 export class TransactionReconciliationService {
@@ -17,6 +21,7 @@ export class TransactionReconciliationService {
     private transactionsRepository: Repository<Transaction>,
     @Inject(forwardRef(() => AccountsService))
     private accountsService: AccountsService,
+    private dataSource: DataSource,
   ) {}
 
   async updateStatus(
@@ -30,43 +35,62 @@ export class TransactionReconciliationService {
     const wasVoid = oldStatus === TransactionStatus.VOID;
     const isVoid = status === TransactionStatus.VOID;
 
-    if (isTransactionInFuture(transaction.transactionDate)) {
-      if (wasVoid !== isVoid) {
-        await this.transactionsRepository.update(transaction.id, { status });
-        await this.accountsService.recalculateCurrentBalance(
-          transaction.accountId,
-        );
+    // The status change and the matching balance adjustment touch two tables
+    // (transactions + accounts) and must commit atomically, otherwise a failure
+    // between the two leaves the account balance out of sync with the status.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      if (isTransactionInFuture(transaction.transactionDate)) {
+        await queryRunner.manager.update(Transaction, transaction.id, {
+          status,
+        });
+        if (wasVoid !== isVoid) {
+          await this.accountsService.recalculateCurrentBalance(
+            transaction.accountId,
+            queryRunner,
+          );
+        }
       } else {
-        await this.transactionsRepository.update(transaction.id, { status });
+        if (wasVoid && !isVoid) {
+          await this.accountsService.updateBalance(
+            transaction.accountId,
+            Number(transaction.amount),
+            queryRunner,
+          );
+        } else if (!wasVoid && isVoid) {
+          await this.accountsService.updateBalance(
+            transaction.accountId,
+            -Number(transaction.amount),
+            queryRunner,
+          );
+        }
+        await queryRunner.manager.update(Transaction, transaction.id, {
+          status,
+        });
       }
-    } else {
-      if (wasVoid && !isVoid) {
-        await this.accountsService.updateBalance(
-          transaction.accountId,
-          Number(transaction.amount),
-        );
-      } else if (!wasVoid && isVoid) {
-        await this.accountsService.updateBalance(
-          transaction.accountId,
-          -Number(transaction.amount),
-        );
+
+      if (
+        status === TransactionStatus.RECONCILED &&
+        oldStatus !== TransactionStatus.RECONCILED
+      ) {
+        const reconciledDate = formatDateYMDLocal(new Date());
+        await queryRunner.manager.update(Transaction, transaction.id, {
+          reconciledDate,
+        });
       }
-      await this.transactionsRepository.update(transaction.id, { status });
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
 
     if (wasVoid !== isVoid) {
       triggerNetWorthRecalc(transaction.accountId, userId);
-    }
-
-    if (
-      status === TransactionStatus.RECONCILED &&
-      oldStatus !== TransactionStatus.RECONCILED
-    ) {
-      const now = new Date();
-      const reconciledDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      await this.transactionsRepository.update(transaction.id, {
-        reconciledDate,
-      });
     }
 
     return findOne(userId, transaction.id);
@@ -84,7 +108,10 @@ export class TransactionReconciliationService {
       transaction.status === TransactionStatus.VOID
     ) {
       throw new BadRequestException(
-        "Cannot change cleared status of reconciled or void transactions",
+        tr(
+          "errors.transactions.cannotChangeClearedStatusOfReconciledOrVoid",
+          "Cannot change cleared status of reconciled or void transactions",
+        ),
       );
     }
 
@@ -107,11 +134,21 @@ export class TransactionReconciliationService {
     findOne: (userId: string, id: string) => Promise<Transaction>,
   ): Promise<Transaction> {
     if (transaction.status === TransactionStatus.RECONCILED) {
-      throw new BadRequestException("Transaction is already reconciled");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.alreadyReconciled",
+          "Transaction is already reconciled",
+        ),
+      );
     }
 
     if (transaction.status === TransactionStatus.VOID) {
-      throw new BadRequestException("Cannot reconcile a void transaction");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.cannotReconcileVoid",
+          "Cannot reconcile a void transaction",
+        ),
+      );
     }
 
     return this.updateStatus(
@@ -129,7 +166,12 @@ export class TransactionReconciliationService {
     findOne: (userId: string, id: string) => Promise<Transaction>,
   ): Promise<Transaction> {
     if (transaction.status !== TransactionStatus.RECONCILED) {
-      throw new BadRequestException("Transaction is not reconciled");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.notReconciled",
+          "Transaction is not reconciled",
+        ),
+      );
     }
 
     await this.transactionsRepository.update(transaction.id, {
@@ -235,7 +277,10 @@ export class TransactionReconciliationService {
 
     if (transactions.length !== transactionIds.length) {
       throw new BadRequestException(
-        "Some transactions were not found or do not belong to the specified account",
+        tr(
+          "errors.transactions.bulkReconcileNotFound",
+          "Some transactions were not found or do not belong to the specified account",
+        ),
       );
     }
 
@@ -243,7 +288,12 @@ export class TransactionReconciliationService {
       (t) => t.status === TransactionStatus.VOID,
     );
     if (voidTransactions.length > 0) {
-      throw new BadRequestException("Cannot reconcile void transactions");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.cannotReconcileVoidPlural",
+          "Cannot reconcile void transactions",
+        ),
+      );
     }
 
     await this.transactionsRepository

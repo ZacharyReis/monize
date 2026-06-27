@@ -1,0 +1,324 @@
+{
+  "priceRefresh": {
+    "noneToUpdate": "No securities to update",
+    "updated": "{count, plural, one {# security price updated} other {# security prices updated}}",
+    "partialFailure": "Prices updated: {updated} succeeded, {failed} failed{symbols}",
+    "failed": "Failed to refresh prices"
+  },
+  "page": {
+    "title": "Securities",
+    "subtitle": "Manage your stocks, ETFs, mutual funds, and other securities",
+    "newSecurity": "+ New Security",
+    "searchPlaceholder": "Search by symbol or name...",
+    "statusAll": "All ({count})",
+    "statusActive": "Active ({count})",
+    "statusInactive": "Inactive ({count})",
+    "modalTitleEdit": "Edit Security",
+    "modalTitleNew": "New Security",
+    "loading": "Loading securities...",
+    "count": "{count, plural, one {# security} other {# securities}}",
+    "toasts": {
+      "loadFailed": "Failed to load securities",
+      "updated": "Security updated successfully",
+      "created": "Security created successfully",
+      "deactivated": "Security deactivated",
+      "activated": "Security activated",
+      "statusFailed": "Failed to update security status",
+      "deleted": "Security \"{symbol}\" deleted",
+      "deleteFailed": "Failed to delete security",
+      "favouriteFailed": "Failed to update favourite",
+      "updateFailed": "Failed to update security",
+      "createFailed": "Failed to create security"
+    },
+    "deleteConfirm": {
+      "title": "Delete Security",
+      "message": "Are you sure you want to delete \"{symbol}\"? All price history will also be deleted. This action cannot be undone.",
+      "confirmLabel": "Delete",
+      "cancelLabel": "Cancel"
+    }
+  },
+  "summary": {
+    "totalSecurities": "Total Securities",
+    "types": "Types",
+    "exchanges": "Exchanges",
+    "currencies": "Currencies"
+  },
+  "list": {
+    "columns": {
+      "symbol": "Symbol",
+      "name": "Name",
+      "type": "Type",
+      "shares": "Shares",
+      "exchange": "Exchange",
+      "currency": "Currency",
+      "provider": "Provider",
+      "source": "Source",
+      "status": "Status",
+      "actions": "Actions",
+      "favourite": "Favourite"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense",
+      "toggle": "Toggle row density"
+    },
+    "statusBadge": {
+      "active": "Active",
+      "activeShort": "Act",
+      "inactive": "Inactive",
+      "inactiveShort": "Ina"
+    },
+    "providerTitle": {
+      "override": "Per-security provider override",
+      "inherited": "Inherited from your default Quote Provider preference"
+    },
+    "columnTitles": {
+      "shares": "Current shares held across all accounts",
+      "source": "Source of the most recent price"
+    },
+    "actions": {
+      "history": "History",
+      "prices": "Prices",
+      "edit": "Edit",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "delete": "Delete"
+    },
+    "favouriteButton": {
+      "add": "Add to favourites",
+      "remove": "Remove from favourites"
+    },
+    "empty": {
+      "title": "No securities",
+      "subtitle": "Get started by adding your first security."
+    },
+    "contextMenu": {
+      "transactionHistory": "Transaction History",
+      "viewPrices": "View Prices",
+      "editSecurity": "Edit Security",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "delete": "Delete"
+    }
+  },
+  "typeLabels": {
+    "STOCK": "Stock",
+    "ETF": "ETF",
+    "MUTUAL_FUND": "Mutual Fund",
+    "BOND": "Bond",
+    "OPTION": "Option",
+    "CRYPTO": "Crypto",
+    "OTHER": "Other",
+    "STOCK_short": "Stk",
+    "ETF_short": "ETF",
+    "MUTUAL_FUND_short": "MF",
+    "BOND_short": "Bnd",
+    "OPTION_short": "Opt",
+    "CRYPTO_short": "Cry",
+    "OTHER_short": "Oth"
+  },
+  "form": {
+    "symbolLabel": "Symbol",
+    "nameLabel": "Name",
+    "typeLabel": "Type",
+    "exchangeLabel": "Exchange",
+    "currencyLabel": "Currency",
+    "quoteProviderLabel": "Quote Provider",
+    "msnIdLabel": "MSN Instrument ID (advanced)",
+    "lookupProviderAriaLabel": "Lookup provider",
+    "lookupButton": "Lookup",
+    "revertButton": "Revert",
+    "clearButton": "Clear",
+    "revertTitle": "Revert to original values",
+    "clearTitle": "Clear all fields",
+    "favouriteLabel": "Favourite",
+    "addToFavourites": "Add to favourites",
+    "removeFromFavourites": "Remove from favourites",
+    "submitCreate": "Create Security",
+    "submitUpdate": "Update Security",
+    "toasts": {
+      "lookupTooShort": "Enter a symbol or name (at least 2 characters) to lookup",
+      "notFound": "No security found for \"{query}\"",
+      "found": "Found: {details}",
+      "lookupFailed": "Lookup failed - please try again",
+      "tagCreated": "Tag \"{name}\" created"
+    },
+    "msnNotConfigured": "MSN is selected as the default quote provider, but MSN_API_KEY is not configured on the server. MSN quotes will fail until an administrator sets the env var and restarts the backend.",
+    "providers": {
+      "auto": "Auto",
+      "yahoo": "Yahoo",
+      "msn": "MSN"
+    },
+    "types": {
+      "select": "Select type...",
+      "stock": "Stock",
+      "etf": "ETF",
+      "mutualFund": "Mutual Fund",
+      "bond": "Bond",
+      "option": "Option",
+      "crypto": "Cryptocurrency",
+      "other": "Other"
+    },
+    "quoteProviderUseDefault": "Use default ({provider})",
+    "symbolPlaceholder": "e.g., AAPL, XEQT, BTC",
+    "namePlaceholder": "e.g., Apple Inc., iShares Core Equity ETF",
+    "exchangeSearchPlaceholder": "Search exchanges...",
+    "exchangePlaceholder": "Auto-resolved from ticker; override only if wrong",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Notes about this security.",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Select tags",
+    "createNewTag": "Create new tag",
+    "newTagTitle": "New Tag",
+    "allocation": {
+      "help": "Price providers don't supply country exposure for ETFs and funds. Add it manually as percentages. Anything under 100% is shown as \"Other\". You can paste a breakdown into the AI Assistant to fill this in.",
+      "sectionTitle": "Geographical Allocation",
+      "countryPlaceholder": "Select or type a country",
+      "addRow": "Add country",
+      "removeRow": "Remove row",
+      "other": "Other",
+      "total": "Total: {total}%",
+      "overError": "Allocation adds up to more than 100%.",
+      "nameAriaLabel": "Country",
+      "weightAriaLabel": "Percentage"
+    }
+  },
+  "priceForm": {
+    "dateLabel": "Date",
+    "closePriceLabel": "Close Price",
+    "openPriceLabel": "Open Price",
+    "highPriceLabel": "High Price",
+    "lowPriceLabel": "Low Price",
+    "volumeLabel": "Volume",
+    "optionalPlaceholder": "Optional",
+    "submitCreate": "Add Price",
+    "submitUpdate": "Update Price"
+  },
+  "priceHistory": {
+    "title": "{symbol} - Price History",
+    "forceUpdateButton": "Force Update Prices",
+    "forceUpdateTitle": "Re-fetch historical prices for the entire period you've held this security",
+    "addPriceButton": "+ Add Price",
+    "addPriceSection": "Add Price",
+    "editPriceSection": "Edit Price",
+    "loading": "Loading prices...",
+    "empty": "No price history available",
+    "columns": {
+      "date": "Date",
+      "close": "Close",
+      "open": "Open",
+      "high": "High",
+      "low": "Low",
+      "volume": "Volume",
+      "source": "Source",
+      "actions": "Actions"
+    },
+    "toasts": {
+      "added": "Price added",
+      "updated": "Price updated",
+      "deleted": "Price deleted",
+      "loadFailed": "Failed to load price history",
+      "addFailed": "Failed to add price",
+      "updateFailed": "Failed to update price",
+      "deleteFailed": "Failed to delete price",
+      "updatedCount": "{count, plural, one {Updated # price for {symbol}} other {Updated # prices for {symbol}}}",
+      "noPricesFound": "No prices found for {symbol}",
+      "updatePricesFailed": "Failed to update prices for {symbol}",
+      "updateFetchFailed": "Failed to update prices"
+    },
+    "closeButton": "Close",
+    "deleteConfirm": {
+      "title": "Delete Price",
+      "confirmLabel": "Delete"
+    }
+  },
+  "transactionHistory": {
+    "inactiveBadge": "Inactive",
+    "currentShares": "Current shares",
+    "accountLabel": "Account",
+    "allAccounts": "All accounts ({shares})",
+    "accountClosed": "{name} (closed)",
+    "addTransaction": "+ Add transaction",
+    "loading": "Loading transactions...",
+    "emptyAll": "No transactions for this security.",
+    "emptyAccount": "No transactions for this security in the selected account.",
+    "editTransactionTitle": "Edit Transaction",
+    "columns": {
+      "date": "Date",
+      "account": "Account",
+      "action": "Action",
+      "quantity": "Quantity",
+      "runningTotal": "Running Total",
+      "price": "Price",
+      "amount": "Amount",
+      "actionsLabel": "Actions"
+    },
+    "actionLabels": {
+      "BUY": "Buy",
+      "SELL": "Sell",
+      "DIVIDEND": "Dividend",
+      "INTEREST": "Interest",
+      "CAPITAL_GAIN": "Capital Gain",
+      "SPLIT": "Split",
+      "TRANSFER_IN": "Transfer In",
+      "TRANSFER_OUT": "Transfer Out",
+      "REINVEST": "Reinvest",
+      "ADD_SHARES": "Add Shares",
+      "REMOVE_SHARES": "Remove Shares"
+    },
+    "toasts": {
+      "loadHistoryFailed": "Failed to load history",
+      "loadTransactionFailed": "Failed to load transaction"
+    }
+  },
+  "shareAdjustment": {
+    "heading": "Adjust shares",
+    "accountLabel": "Account",
+    "accountPlaceholder": "Select account...",
+    "actionLabel": "Action",
+    "quantityLabel": "Quantity (Shares)",
+    "dateLabel": "Date",
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "e.g. Clean up residual shares",
+    "saving": "Saving...",
+    "submitButton": "Record adjustment",
+    "accountClosed": "{name} (closed)",
+    "adjustmentActions": {
+      "REMOVE_SHARES": "Remove Shares",
+      "ADD_SHARES": "Add Shares"
+    },
+    "toasts": {
+      "selectAccount": "Select an account",
+      "quantityRequired": "Quantity must be greater than zero",
+      "recorded": "Adjustment recorded",
+      "failed": "Failed to record adjustment"
+    }
+  },
+  "lookupPicker": {
+    "title": "Multiple matches for \"{query}\"",
+    "subtitle": "Select the security you want to use.",
+    "columns": {
+      "symbol": "Symbol",
+      "name": "Name",
+      "exchange": "Exchange",
+      "currency": "Currency",
+      "type": "Type",
+      "source": "Source"
+    },
+    "selectButton": "Select"
+  },
+  "validation": {
+    "symbolRequired": "Symbol is required",
+    "symbolMax": "Symbol must be 20 characters or less",
+    "nameRequired": "Name is required",
+    "nameMax": "Name must be 255 characters or less",
+    "currencyRequired": "Currency is required",
+    "descriptionMax": "Description must be 5000 characters or fewer"
+  },
+  "priceValidation": {
+    "dateRequired": "Date is required",
+    "priceRequired": "Price is required",
+    "priceNonNegative": "Price must be a non-negative number"
+  }
+}

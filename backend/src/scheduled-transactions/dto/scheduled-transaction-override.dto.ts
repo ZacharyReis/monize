@@ -10,6 +10,8 @@ import {
   ValidateNested,
   IsDateString,
   MaxLength,
+  Min,
+  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
@@ -42,7 +44,9 @@ export class OverrideSplitDto {
   investment?: InvestmentSplitDto;
 
   @ApiProperty({ description: "Amount for this split" })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   amount: number;
 
   @ApiPropertyOptional({ description: "Memo for this split" })
@@ -70,7 +74,9 @@ export class CreateScheduledTransactionOverrideDto {
 
   @ApiPropertyOptional({ description: "Overridden amount" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   amount?: number | null;
 
   @ApiPropertyOptional({ description: "Overridden category ID" })
@@ -104,12 +110,16 @@ export class CreateScheduledTransactionOverrideDto {
 
   @ApiPropertyOptional({ description: "Per-occurrence investment quantity" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 8 })
+  @Min(0)
+  @Max(999999999999)
   investmentQuantity?: number | null;
 
   @ApiPropertyOptional({ description: "Per-occurrence investment price" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  @Max(999999999999)
   investmentPrice?: number | null;
 
   @ApiPropertyOptional({
@@ -117,14 +127,18 @@ export class CreateScheduledTransactionOverrideDto {
       "Per-occurrence investment total amount (for DIVIDEND/INTEREST/CAPITAL_GAIN)",
   })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   investmentTotalAmount?: number | null;
 }
 
 export class UpdateScheduledTransactionOverrideDto {
   @ApiPropertyOptional({ description: "Overridden amount" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   amount?: number | null;
 
   @ApiPropertyOptional({ description: "Overridden category ID" })
@@ -158,12 +172,16 @@ export class UpdateScheduledTransactionOverrideDto {
 
   @ApiPropertyOptional({ description: "Per-occurrence investment quantity" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 8 })
+  @Min(0)
+  @Max(999999999999)
   investmentQuantity?: number | null;
 
   @ApiPropertyOptional({ description: "Per-occurrence investment price" })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  @Max(999999999999)
   investmentPrice?: number | null;
 
   @ApiPropertyOptional({
@@ -171,7 +189,9 @@ export class UpdateScheduledTransactionOverrideDto {
       "Per-occurrence investment total amount (for DIVIDEND/INTEREST/CAPITAL_GAIN)",
   })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(-999999999999)
+  @Max(999999999999)
   investmentTotalAmount?: number | null;
 }
 

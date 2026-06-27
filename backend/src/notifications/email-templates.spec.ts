@@ -2,6 +2,7 @@ import {
   testEmailTemplate,
   billReminderTemplate,
   passwordResetTemplate,
+  emailVerificationTemplate,
   accountInviteTemplate,
   budgetMonthlySummaryTemplate,
   mortgageReminderTemplate,
@@ -11,6 +12,7 @@ import {
   accountLockedTemplate,
   emergencyAccessReminderTemplate,
   emergencyAccessGrantTemplate,
+  emergencyAccessGrantRevokedTemplate,
 } from "./email-templates";
 
 describe("Email Templates", () => {
@@ -310,6 +312,55 @@ describe("Email Templates", () => {
       );
 
       expect(html).toContain("Password Reset Request");
+    });
+  });
+
+  describe("emailVerificationTemplate()", () => {
+    it("includes the verify url in the verify button link", () => {
+      const html = emailVerificationTemplate(
+        "Alice",
+        "https://monize.app/verify-email?token=abc123",
+      );
+
+      expect(html).toContain(
+        'href="https://monize.app/verify-email?token=abc123"',
+      );
+    });
+
+    it("includes the name in the greeting", () => {
+      const html = emailVerificationTemplate(
+        "Bob",
+        "https://monize.app/verify-email?token=xyz",
+      );
+
+      expect(html).toContain("Hi Bob,");
+    });
+
+    it('falls back to "there" when name is empty', () => {
+      const html = emailVerificationTemplate(
+        "",
+        "https://monize.app/verify-email?token=abc123",
+      );
+
+      expect(html).toContain("Hi there,");
+    });
+
+    it("includes the 24-hour expiration notice", () => {
+      const html = emailVerificationTemplate(
+        "Alice",
+        "https://monize.app/verify-email?token=abc123",
+      );
+
+      expect(html).toContain("This link will expire in 24 hours");
+    });
+
+    it("escapes HTML in the verify url to prevent injection", () => {
+      const html = emailVerificationTemplate(
+        "Alice",
+        'https://monize.app/verify-email?token="><script>alert(1)</script>',
+      );
+
+      expect(html).not.toContain("<script>alert(1)</script>");
     });
   });
 
@@ -1084,6 +1135,37 @@ describe("Email Templates", () => {
     it("shows the expiry date in ISO-day form", () => {
       const html = emergencyAccessGrantTemplate(baseData);
       expect(html).toContain("2030-01-01");
+    });
+  });
+
+  describe("emergencyAccessGrantRevokedTemplate()", () => {
+    it("greets the owner and explains the links were revoked", () => {
+      const html = emergencyAccessGrantRevokedTemplate({
+        ownerFirstName: "Owner",
+        appUrl: "https://app.example.com",
+      });
+      expect(html).toContain("Hi Owner");
+      expect(html).toContain("revoked");
+      expect(html).toContain(
+        "https://app.example.com/settings/emergency-access",
+      );
+    });
+
+    it('falls back to "there" for a blank name', () => {
+      const html = emergencyAccessGrantRevokedTemplate({
+        ownerFirstName: "",
+        appUrl: "https://app.example.com",
+      });
+      expect(html).toContain("Hi there");
+    });
+
+    it("escapes HTML in the owner name", () => {
+      const html = emergencyAccessGrantRevokedTemplate({
+        ownerFirstName: "<img src=x onerror=alert(1)>",
+        appUrl: "https://app.example.com",
+      });
+      expect(html).not.toContain("<img src=x onerror=alert(1)>");
+      expect(html).toContain("&lt;img");
     });
   });
 });

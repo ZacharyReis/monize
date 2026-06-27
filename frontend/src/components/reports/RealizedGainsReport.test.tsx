@@ -36,6 +36,7 @@ vi.mock('@/hooks/useDateRange', () => {
 
 vi.mock('@/lib/utils', () => ({
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
+  cn: (...inputs: any[]) => inputs.flat(Infinity).filter(Boolean).join(' '),
 }));
 
 vi.mock('@/components/ui/DateRangeSelector', () => ({
@@ -402,7 +403,7 @@ describe('RealizedGainsReport', () => {
     expect(screen.getByText('Unknown Security')).toBeInTheDocument();
   });
 
-  it('filters out INVESTMENT_BROKERAGE accounts from select', async () => {
+  it('filters out INVESTMENT_BROKERAGE accounts from the account filter', async () => {
     mockGetRealizedGains.mockResolvedValue([]);
     mockGetInvestmentAccounts.mockResolvedValue([
       { id: 'acc-cash', name: 'TFSA Cash', currencyCode: 'CAD', accountSubType: 'INVESTMENT_CASH' },
@@ -412,18 +413,20 @@ describe('RealizedGainsReport', () => {
     await waitFor(() => {
       expect(screen.getByText('No sell transactions found for this period.')).toBeInTheDocument();
     });
-    // Cash account appears; brokerage should not
+    // Open the account filter: cash account appears; brokerage should not
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by account' }));
     expect(screen.getByText('TFSA Cash')).toBeInTheDocument();
     expect(screen.queryByText('TFSA Brokerage')).not.toBeInTheDocument();
   });
 
-  it('handles API error for realized gains gracefully', async () => {
+  it('shows a retryable error when realized gains fail to load', async () => {
     mockGetRealizedGains.mockRejectedValue(new Error('Network error'));
     mockGetInvestmentAccounts.mockResolvedValue([]);
     render(<RealizedGainsReport />);
     await waitFor(() => {
-      expect(screen.getByText('No sell transactions found for this period.')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load report data/)).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument();
   });
 
   it('handles API error for accounts gracefully', async () => {
@@ -441,12 +444,11 @@ describe('RealizedGainsReport', () => {
     ]);
     mockGetRealizedGains.mockResolvedValue([gainEntry({ accountCurrencyCode: 'USD' })]);
     render(<RealizedGainsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('US Brokerage')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
     // Select the USD account to trigger isForeign = true path
+    await act(async () => { fireEvent.click(trigger); });
     await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'acc-usd' } });
+      fireEvent.click(screen.getByText('US Brokerage'));
     });
     await waitFor(() => {
       // When isForeign, fmtValue appends the currency code

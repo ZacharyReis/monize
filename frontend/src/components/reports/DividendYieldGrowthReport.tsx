@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 import {
   BarChart,
   Bar,
@@ -16,11 +19,16 @@ import { InvestmentTransaction, HoldingWithMarketValue } from '@/types/investmen
 import { Account } from '@/types/account';
 import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { gainLossColor } from '@/lib/format';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
 import { createLogger } from '@/lib/logger';
+import { chartColors, CHART_SERIES } from '@/lib/chart-colors';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('DividendYieldGrowthReport');
 
@@ -51,30 +59,15 @@ interface FrequencyBucket {
   totalDividends: number;
 }
 
-function detectFrequency(dates: Date[]): string {
-  if (dates.length < 2) return 'Unknown';
-  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
-  const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
-    gaps.push((sorted[i].getTime() - sorted[i - 1].getTime()) / (1000 * 60 * 60 * 24));
-  }
-  const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
-  if (avgGap <= 45) return 'Monthly';
-  if (avgGap <= 120) return 'Quarterly';
-  if (avgGap <= 210) return 'Semi-Annual';
-  return 'Annual';
-}
-
 export function DividendYieldGrowthReport() {
-  const { formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
+  const t = useTranslations('reports');
+  const { formatCurrency: formatCurrencyFull, formatCurrencyAxis, formatSignedPercent } = useNumberFormat();
   const { defaultCurrency, convertToDefault } = useExchangeRates();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [transactions, setTransactions] = useState<InvestmentTransaction[]>([]);
-  const [holdings, setHoldings] = useState<HoldingWithMarketValue[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [viewType, setViewType] = useState<'yield' | 'growth' | 'frequency'>('yield');
+  const isSingleAccount = selectedAccountIds.length === 1;
   const yieldSort = useSortableTable<YieldSortField>(
     'reports.dividend-yield-growth.yield.sort',
     { field: 'yield', direction: 'desc' },
@@ -94,21 +87,38 @@ export function DividendYieldGrowthReport() {
     return map;
   }, [accounts]);
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = isSingleAccount
+    ? accounts.find((a) => a.id === selectedAccountIds[0])
+    : undefined;
   const displayCurrency = selectedAccount?.currencyCode || defaultCurrency;
 
   const getTxAmount = useCallback((tx: InvestmentTransaction): number => {
     const amount = Math.abs(tx.totalAmount);
-    if (selectedAccountId) return amount;
+    if (isSingleAccount) return amount;
     const txCurrency = accountCurrencyMap.get(tx.accountId) || defaultCurrency;
     return convertToDefault(amount, txCurrency);
-  }, [selectedAccountId, accountCurrencyMap, defaultCurrency, convertToDefault]);
+  }, [isSingleAccount, accountCurrencyMap, defaultCurrency, convertToDefault]);
 
   const fmtValue = useCallback((value: number): string => {
     const isForeign = displayCurrency !== defaultCurrency;
     if (isForeign) return `${formatCurrencyFull(value, displayCurrency)} ${displayCurrency}`;
     return formatCurrencyFull(value);
   }, [displayCurrency, defaultCurrency, formatCurrencyFull]);
+
+  const detectFrequency = useCallback((dates: Date[]): string => {
+    if (dates.length < 2) return t('dividendYieldGrowth.freqUnknown');
+    const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+    const gaps: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      gaps.push((sorted[i].getTime() - sorted[i - 1].getTime()) / (1000 * 60 * 60 * 24));
+    }
+    const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+    if (avgGap <= 45) return t('dividendYieldGrowth.freqMonthly');
+    if (avgGap <= 120) return t('dividendYieldGrowth.freqQuarterly');
+    if (avgGap <= 210) return t('dividendYieldGrowth.freqSemiAnnual');
+    return t('dividendYieldGrowth.freqAnnual');
+     
+  }, [t]);
 
   // Fetch accounts once on mount (they don't change with filters)
   useEffect(() => {
@@ -117,48 +127,54 @@ export function DividendYieldGrowthReport() {
       .catch((error) => logger.error('Failed to load accounts:', error));
   }, []);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const accountIds = selectedAccountId || undefined;
+  // `reload` (a stable callback) is wired to the RefreshPricesButton so a
+  // manual price refresh re-fetches the dividend data.
+  const { data: response, isLoading, error, reload } = useReportData(
+    async () => {
+      const accountIds = selectedAccountIds.length > 0 ? selectedAccountIds.join(',') : undefined;
 
-        const fetchAllPages = async (action: string): Promise<InvestmentTransaction[]> => {
-          const results: InvestmentTransaction[] = [];
-          let page = 1;
-          let hasMore = true;
-          while (hasMore && page <= MAX_PAGES) {
-            const result = await investmentsApi.getTransactions({
-              accountIds,
-              action,
-              limit: 200,
-              page,
-            });
-            results.push(...result.data);
-            hasMore = result.pagination.hasMore;
-            page++;
-          }
-          return results;
-        };
+      const fetchAllPages = async (action: string): Promise<InvestmentTransaction[]> => {
+        const results: InvestmentTransaction[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore && page <= MAX_PAGES) {
+          const result = await investmentsApi.getTransactions({
+            accountIds,
+            action,
+            limit: 200,
+            page,
+          });
+          results.push(...result.data);
+          hasMore = result.pagination.hasMore;
+          page++;
+        }
+        return results;
+      };
 
-        const [summaryData, dividendTx, reinvestTx] = await Promise.all([
-          investmentsApi.getPortfolioSummary(
-            selectedAccountId ? [selectedAccountId] : undefined,
-          ),
-          fetchAllPages('DIVIDEND'),
-          fetchAllPages('REINVEST'),
-        ]);
+      const [summaryData, dividendTx, reinvestTx] = await Promise.all([
+        investmentsApi.getPortfolioSummary(
+          selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
+        ),
+        fetchAllPages('DIVIDEND'),
+        fetchAllPages('REINVEST'),
+      ]);
 
-        setTransactions([...dividendTx, ...reinvestTx]);
-        setHoldings(summaryData.holdings);
-      } catch (error) {
-        logger.error('Failed to load data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [selectedAccountId]);
+      return {
+        transactions: [...dividendTx, ...reinvestTx],
+        holdings: summaryData.holdings,
+      };
+    },
+    [selectedAccountIds],
+  );
+
+  const transactions = useMemo<InvestmentTransaction[]>(
+    () => response?.transactions ?? [],
+    [response],
+  );
+  const holdings = useMemo<HoldingWithMarketValue[]>(
+    () => response?.holdings ?? [],
+    [response],
+  );
 
   // Trailing 12-month portfolio yield
   const trailing12mTotal = useMemo(() => {
@@ -220,7 +236,8 @@ export function DividendYieldGrowthReport() {
     });
 
     return results;
-  }, [transactions, holdings, getTxAmount, convertToDefault]);
+     
+  }, [transactions, holdings, getTxAmount, convertToDefault, detectFrequency]);
 
   const sortedSecurityYields = useMemo(() => {
     const sorted = [...securityYields];
@@ -334,7 +351,7 @@ export function DividendYieldGrowthReport() {
 
     if (viewType === 'yield') {
       tableData = {
-        headers: ['Security', '12M Dividends', 'Market Value', 'Yield', 'Frequency'],
+        headers: [t('dividendYieldGrowth.colSecurity'), t('dividendYieldGrowth.col12mDividends'), t('dividendYieldGrowth.colMarketValue'), t('dividendYieldGrowth.colYield'), t('dividendYieldGrowth.colFrequency')],
         rows: securityYields.map((sy) => [
           `${sy.symbol} - ${sy.name}`,
           fmtValue(sy.trailing12mDividends),
@@ -346,17 +363,17 @@ export function DividendYieldGrowthReport() {
     } else if (viewType === 'growth') {
       chartContainer = chartRef.current;
       tableData = {
-        headers: ['Year', 'Dividend Income', 'YoY Growth'],
+        headers: [t('dividendYieldGrowth.colYear'), t('dividendYieldGrowth.colDividendIncome'), t('dividendYieldGrowth.colYoYGrowth')],
         rows: annualData.map((row) => [
           row.year,
           fmtValue(row.amount),
-          row.growth !== null ? `${row.growth >= 0 ? '+' : ''}${row.growth.toFixed(1)}%` : '-',
+          row.growth !== null ? formatSignedPercent(row.growth, 1) : '-',
         ]),
       };
     } else {
       chartContainer = chartRef.current;
       tableData = {
-        headers: ['Frequency', 'Securities', 'Total Dividends'],
+        headers: [t('dividendYieldGrowth.colFrequencyLabel'), t('dividendYieldGrowth.colSecurities'), t('dividendYieldGrowth.colTotalDividends')],
         rows: frequencyData.map((row) => [
           row.frequency,
           String(row.count),
@@ -365,15 +382,15 @@ export function DividendYieldGrowthReport() {
       };
     }
 
-    const viewLabel = viewType === 'yield' ? 'Per-Security Yield' : viewType === 'growth' ? 'Year-over-Year' : 'Frequency';
+    const viewLabel = viewType === 'yield' ? t('dividendYieldGrowth.pdfSubtitleYield') : viewType === 'growth' ? t('dividendYieldGrowth.pdfSubtitleGrowth') : t('dividendYieldGrowth.pdfSubtitleFrequency');
     await exportToPdf({
-      title: 'Dividend Yield & Growth',
+      title: t('dividendYieldGrowth.pdfTitle'),
       subtitle: viewLabel,
       summaryCards: [
-        { label: 'Portfolio Yield', value: `${portfolioYield.toFixed(2)}%`, color: '#16a34a' },
-        { label: 'Trailing 12M', value: fmtValue(trailing12mTotal), color: '#2563eb' },
-        { label: 'Portfolio Value', value: fmtValue(totalPortfolioValue), color: '#9333ea' },
-        { label: 'Dividend Payers', value: String(securityYields.length), color: '#111827' },
+        { label: t('dividendYieldGrowth.portfolioYield'), value: `${portfolioYield.toFixed(2)}%`, color: '#16a34a' },
+        { label: t('dividendYieldGrowth.trailing12mDividends'), value: fmtValue(trailing12mTotal), color: '#2563eb' },
+        { label: t('dividendYieldGrowth.portfolioValue'), value: fmtValue(totalPortfolioValue), color: '#9333ea' },
+        { label: t('dividendYieldGrowth.dividendPayers'), value: String(securityYields.length), color: '#111827' },
       ],
       chartContainer,
       tableData,
@@ -381,12 +398,16 @@ export function DividendYieldGrowthReport() {
     });
   };
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && !response) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -397,25 +418,25 @@ export function DividendYieldGrowthReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-          <div className="text-sm text-green-600 dark:text-green-400">Portfolio Yield</div>
+          <div className="text-sm text-green-600 dark:text-green-400">{t('dividendYieldGrowth.portfolioYield')}</div>
           <div className="text-xl font-bold text-green-700 dark:text-green-300">
             {portfolioYield.toFixed(2)}%
           </div>
         </div>
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <div className="text-sm text-blue-600 dark:text-blue-400">Trailing 12M Dividends</div>
+          <div className="text-sm text-blue-600 dark:text-blue-400">{t('dividendYieldGrowth.trailing12mDividends')}</div>
           <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
             {fmtValue(trailing12mTotal)}
           </div>
         </div>
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-          <div className="text-sm text-purple-600 dark:text-purple-400">Portfolio Value</div>
+          <div className="text-sm text-purple-600 dark:text-purple-400">{t('dividendYieldGrowth.portfolioValue')}</div>
           <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
             {fmtValue(totalPortfolioValue)}
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Dividend Payers</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">{t('dividendYieldGrowth.dividendPayers')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {securityYields.length}
           </div>
@@ -425,21 +446,11 @@ export function DividendYieldGrowthReport() {
       {/* Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-4 items-center justify-between">
-          <select
-            value={selectedAccountId}
-            onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
-          >
-            <option value="">All Accounts</option>
-            {accounts
-              .filter((a) => a.accountSubType !== 'INVESTMENT_BROKERAGE')
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name.replace(/ - (Brokerage|Cash)$/, '')}
-                </option>
-              ))}
-          </select>
+          <ReportAccountMultiSelect
+            accounts={accounts}
+            value={selectedAccountIds}
+            onChange={setSelectedAccountIds}
+          />
           <div className="flex gap-2 items-center">
             <button
               onClick={() => setViewType('yield')}
@@ -447,7 +458,7 @@ export function DividendYieldGrowthReport() {
                 viewType === 'yield' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Per-Security Yield
+              {t('dividendYieldGrowth.viewPerSecurity')}
             </button>
             <button
               onClick={() => setViewType('growth')}
@@ -455,7 +466,7 @@ export function DividendYieldGrowthReport() {
                 viewType === 'growth' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Year-over-Year
+              {t('dividendYieldGrowth.viewYearOverYear')}
             </button>
             <button
               onClick={() => setViewType('frequency')}
@@ -463,10 +474,11 @@ export function DividendYieldGrowthReport() {
                 viewType === 'frequency' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Frequency
+              {t('dividendYieldGrowth.viewFrequency')}
             </button>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2 items-center">
+            <RefreshPricesButton onRefreshComplete={reload} />
             <ExportDropdown onExportPdf={handleExportPdf} />
           </div>
         </div>
@@ -475,7 +487,7 @@ export function DividendYieldGrowthReport() {
       {transactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No dividend transactions found. Record dividend transactions to see yield and growth analysis.
+            {t('dividendYieldGrowth.empty')}
           </p>
         </div>
       ) : viewType === 'yield' ? (
@@ -483,7 +495,7 @@ export function DividendYieldGrowthReport() {
         <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Per-Security Dividend Yield (Trailing 12 Months)
+              {t('dividendYieldGrowth.perSecurityTitle')}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -497,7 +509,7 @@ export function DividendYieldGrowthReport() {
                     onSort={yieldSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Security
+                    {t('dividendYieldGrowth.colSecurity')}
                   </SortableHeader>
                   <SortableHeader<YieldSortField>
                     field="dividends"
@@ -507,7 +519,7 @@ export function DividendYieldGrowthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    12M Dividends
+                    {t('dividendYieldGrowth.col12mDividends')}
                   </SortableHeader>
                   <SortableHeader<YieldSortField>
                     field="marketValue"
@@ -517,7 +529,7 @@ export function DividendYieldGrowthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Market Value
+                    {t('dividendYieldGrowth.colMarketValue')}
                   </SortableHeader>
                   <SortableHeader<YieldSortField>
                     field="yield"
@@ -527,7 +539,7 @@ export function DividendYieldGrowthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Yield
+                    {t('dividendYieldGrowth.colYield')}
                   </SortableHeader>
                   <SortableHeader<YieldSortField>
                     field="frequency"
@@ -537,7 +549,7 @@ export function DividendYieldGrowthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Frequency
+                    {t('dividendYieldGrowth.colFrequency')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -570,14 +582,14 @@ export function DividendYieldGrowthReport() {
         /* Year-over-Year Growth */
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Annual Dividend Income
+            {t('dividendYieldGrowth.annualIncomeTitle')}
           </h3>
           {annualData.length > 0 ? (
             <>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={annualData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis dataKey="year" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={formatCurrencyAxis} />
                     <Tooltip
@@ -588,18 +600,18 @@ export function DividendYieldGrowthReport() {
                           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
                             <p className="font-medium text-gray-900 dark:text-gray-100">{label}</p>
                             <p className="text-sm text-green-600 dark:text-green-400">
-                              Dividends: {fmtValue(d.amount)}
+                              {t('dividendYieldGrowth.tooltipDividends')} {fmtValue(d.amount)}
                             </p>
                             {d.growth !== null && (
-                              <p className={`text-sm ${d.growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                Growth: {d.growth >= 0 ? '+' : ''}{d.growth.toFixed(1)}%
+                              <p className={`text-sm ${gainLossColor(d.growth)}`}>
+                                {t('dividendYieldGrowth.tooltipGrowth')} {formatSignedPercent(d.growth, 1)}
                               </p>
                             )}
                           </div>
                         );
                       }}
                     />
-                    <Bar dataKey="amount" fill="#22c55e" name="Dividends" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="amount" fill={chartColors.income} name={t('dividendYieldGrowth.barDividends')} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -615,7 +627,7 @@ export function DividendYieldGrowthReport() {
                         onSort={growthSort.handleSort}
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Year
+                        {t('dividendYieldGrowth.colYear')}
                       </SortableHeader>
                       <SortableHeader<GrowthSortField>
                         field="amount"
@@ -625,7 +637,7 @@ export function DividendYieldGrowthReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Dividend Income
+                        {t('dividendYieldGrowth.colDividendIncome')}
                       </SortableHeader>
                       <SortableHeader<GrowthSortField>
                         field="growth"
@@ -635,7 +647,7 @@ export function DividendYieldGrowthReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        YoY Growth
+                        {t('dividendYieldGrowth.colYoYGrowth')}
                       </SortableHeader>
                     </tr>
                   </thead>
@@ -644,8 +656,8 @@ export function DividendYieldGrowthReport() {
                       <tr key={row.year} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.year}</td>
                         <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">{fmtValue(row.amount)}</td>
-                        <td className={`px-4 py-3 text-sm text-right ${row.growth !== null ? (row.growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-gray-400'}`}>
-                          {row.growth !== null ? `${row.growth >= 0 ? '+' : ''}${row.growth.toFixed(1)}%` : '-'}
+                        <td className={`px-4 py-3 text-sm text-right ${row.growth !== null ? (gainLossColor(row.growth)) : 'text-gray-400'}`}>
+                          {row.growth !== null ? formatSignedPercent(row.growth, 1) : '-'}
                         </td>
                       </tr>
                     ))}
@@ -654,21 +666,21 @@ export function DividendYieldGrowthReport() {
               </div>
             </>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No annual data available.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('dividendYieldGrowth.noAnnualData')}</p>
           )}
         </div>
       ) : (
         /* Frequency Analysis */
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Dividend Frequency Analysis
+            {t('dividendYieldGrowth.frequencyTitle')}
           </h3>
           {frequencyData.length > 0 ? (
             <>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={frequencyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis dataKey="frequency" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={formatCurrencyAxis} />
                     <Tooltip
@@ -678,13 +690,13 @@ export function DividendYieldGrowthReport() {
                         return (
                           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
                             <p className="font-medium text-gray-900 dark:text-gray-100">{label}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{d.count} securities</p>
-                            <p className="text-sm text-green-600 dark:text-green-400">Total: {fmtValue(d.totalDividends)}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{t('dividendYieldGrowth.tooltipSecurities', { count: d.count })}</p>
+                            <p className="text-sm text-green-600 dark:text-green-400">{t('dividendYieldGrowth.tooltipTotal')} {fmtValue(d.totalDividends)}</p>
                           </div>
                         );
                       }}
                     />
-                    <Bar dataKey="totalDividends" fill="#8b5cf6" name="Total Dividends" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="totalDividends" fill={CHART_SERIES[4]} name={t('dividendYieldGrowth.barTotalDividends')} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -699,7 +711,7 @@ export function DividendYieldGrowthReport() {
                         onSort={frequencySort.handleSort}
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Frequency
+                        {t('dividendYieldGrowth.colFrequencyLabel')}
                       </SortableHeader>
                       <SortableHeader<FrequencySortField>
                         field="count"
@@ -709,7 +721,7 @@ export function DividendYieldGrowthReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Securities
+                        {t('dividendYieldGrowth.colSecurities')}
                       </SortableHeader>
                       <SortableHeader<FrequencySortField>
                         field="totalDividends"
@@ -719,7 +731,7 @@ export function DividendYieldGrowthReport() {
                         align="right"
                         className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                       >
-                        Total Dividends
+                        {t('dividendYieldGrowth.colTotalDividends')}
                       </SortableHeader>
                     </tr>
                   </thead>
@@ -736,7 +748,7 @@ export function DividendYieldGrowthReport() {
               </div>
             </>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No frequency data available.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('dividendYieldGrowth.noFrequencyData')}</p>
           )}
         </div>
       )}

@@ -3,6 +3,10 @@ import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThan, IsNull, Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
+import { getMonthEndYMD } from "../common/date-utils";
 import { Budget } from "./entities/budget.entity";
 import {
   BudgetAlert,
@@ -29,6 +33,7 @@ import {
   resolveCategorySpent,
 } from "./budget-spending.util";
 import { formatCurrency } from "../common/format-currency.util";
+import { roundMoney, sumMoney } from "../common/round.util";
 
 interface SeasonalProfile {
   budgetCategoryId: string;
@@ -84,6 +89,7 @@ export class BudgetAlertService {
     private scheduledTransactionsRepository: Repository<ScheduledTransaction>,
     private emailService: EmailService,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Cron("0 7 * * *")
@@ -428,9 +434,9 @@ export class BudgetAlertService {
         message: `At your current pace, ${cat.categoryName} is projected to reach ${formatCurrency(projectedTotal, cat.currencyCode)} by the end of the period (budget: ${formatCurrency(cat.budgeted, cat.currencyCode)}).`,
         data: {
           categoryName: cat.categoryName,
-          projectedTotal: Math.round(projectedTotal * 100) / 100,
+          projectedTotal: roundMoney(projectedTotal),
           budgeted: cat.budgeted,
-          dailyRate: Math.round(dailyRate * 100) / 100,
+          dailyRate: roundMoney(dailyRate),
           projectedPercent: Math.round(projectedPercent * 10) / 10,
         },
       };
@@ -491,10 +497,7 @@ export class BudgetAlertService {
   ): AlertCandidate | null {
     if (periodProgress < 0.5) return null;
 
-    const totalActualIncome = incomeActuals.reduce(
-      (sum, cat) => sum + cat.spent,
-      0,
-    );
+    const totalActualIncome = sumMoney(incomeActuals.map((cat) => cat.spent));
     const expectedSoFar = expectedIncome * periodProgress;
     const incomeRatio = totalActualIncome / expectedSoFar;
 
@@ -525,8 +528,8 @@ export class BudgetAlertService {
   ): AlertCandidate[] {
     if (periodProgress < 0.5 || daysRemaining <= 0) return [];
 
-    const totalBudgeted = actuals.reduce((sum, c) => sum + c.budgeted, 0);
-    const totalSpent = actuals.reduce((sum, c) => sum + c.spent, 0);
+    const totalBudgeted = sumMoney(actuals.map((c) => c.budgeted));
+    const totalSpent = sumMoney(actuals.map((c) => c.spent));
 
     if (totalBudgeted <= 0) return [];
 
@@ -611,16 +614,28 @@ export class BudgetAlertService {
         categoryName: (a.data?.categoryName as string) || "",
       }));
 
+      const lang = prefs?.language || DEFAULT_LOCALE;
+      const t = emailTranslator(this.i18n, lang);
+
       const html = budgetAlertImmediateTemplate(
         user.firstName || "",
         alertData,
         appUrl,
+        t,
       );
 
       const subject =
         alerts.length === 1
-          ? `Monize: Alert - ${alerts[0].title}`
-          : `Monize: ${alerts.length} alerts need attention`;
+          ? t(
+              "emails.budgetAlertImmediate.subject",
+              `Monize: Alert - ${alerts[0].title}`,
+              { title: alerts[0].title },
+            )
+          : t(
+              "emails.budgetAlertImmediate.subjectPlural",
+              `Monize: ${alerts.length} alerts need attention`,
+              { count: alerts.length },
+            );
 
       await this.emailService.sendMail(user.email, subject, html);
       return true;
@@ -716,14 +731,21 @@ export class BudgetAlertService {
 
     const budgetNames = budgets.map((b) => b.name);
 
+    const lang = prefs?.language || DEFAULT_LOCALE;
+    const t = emailTranslator(this.i18n, lang);
+
     const html = budgetWeeklyDigestTemplate(
       user.firstName || "",
       alertData,
       budgetNames,
       appUrl,
+      t,
     );
 
-    const subject = "Monize: Your weekly budget summary";
+    const subject = t(
+      "emails.budgetWeeklyDigest.subject",
+      "Monize: Your weekly budget summary",
+    );
     await this.emailService.sendMail(user.email, subject, html);
     return true;
   }
@@ -773,10 +795,9 @@ export class BudgetAlertService {
             highMonthName: monthName,
             typicalMonthlySpend: profile.typicalMonthlySpend,
             typicalIncrease: profile.typicalIncrease,
-            suggestedBudget:
-              Math.round(
-                profile.typicalMonthlySpend * profile.typicalIncrease * 100,
-              ) / 100,
+            suggestedBudget: roundMoney(
+              profile.typicalMonthlySpend * profile.typicalIncrease,
+            ),
           },
         });
       }
@@ -798,7 +819,10 @@ export class BudgetAlertService {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 12);
     const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-01`;
-    const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+    const endStr = getMonthEndYMD(
+      endDate.getFullYear(),
+      endDate.getMonth() + 1,
+    );
 
     const directSpending = await this.transactionsRepository
       .createQueryBuilder("t")
@@ -868,7 +892,7 @@ export class BudgetAlertService {
       const nonZero = amounts.filter((a) => a > 0);
       if (nonZero.length < 3) continue;
 
-      const mean = nonZero.reduce((s, v) => s + v, 0) / nonZero.length;
+      const mean = sumMoney(nonZero) / nonZero.length;
       const stdDev = this.standardDeviation(nonZero);
       const threshold = mean + 1.5 * stdDev;
 
@@ -893,7 +917,7 @@ export class BudgetAlertService {
         categoryId: catId,
         categoryName: info.name,
         highMonths,
-        typicalMonthlySpend: Math.round(mean * 100) / 100,
+        typicalMonthlySpend: roundMoney(mean),
         typicalIncrease: Math.round(maxIncrease * 10) / 10,
       });
     }

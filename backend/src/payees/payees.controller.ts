@@ -11,6 +11,7 @@ import {
   Request,
   ParseUUIDPipe,
   ParseIntPipe,
+  ParseFloatPipe,
   ParseBoolPipe,
   DefaultValuePipe,
 } from "@nestjs/common";
@@ -24,10 +25,15 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import { assertStringParam } from "../common/query-param-utils";
 import { PayeesService } from "./payees.service";
+import {
+  PayeeAutoMergeService,
+  CategoryMatchMode,
+} from "./payee-auto-merge.service";
 import { CreatePayeeDto } from "./dto/create-payee.dto";
 import { UpdatePayeeDto } from "./dto/update-payee.dto";
 import { CreatePayeeAliasDto } from "./dto/create-payee-alias.dto";
 import { MergePayeeDto } from "./dto/merge-payee.dto";
+import { ApplyAutoMergeDto } from "./dto/apply-auto-merge.dto";
 import { ApplyCategorySuggestionsDto } from "./dto/apply-category-suggestions.dto";
 import { DeactivatePayeesDto } from "./dto/deactivate-payees.dto";
 import { Payee } from "./entities/payee.entity";
@@ -42,7 +48,10 @@ import {
 @UseGuards(AuthGuard("jwt"))
 @Controller("payees")
 export class PayeesController {
-  constructor(private readonly payeesService: PayeesService) {}
+  constructor(
+    private readonly payeesService: PayeesService,
+    private readonly payeeAutoMergeService: PayeeAutoMergeService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: "Create a new payee" })
@@ -217,6 +226,97 @@ export class PayeesController {
   @ApiResponse({ status: 404, description: "Payee not found" })
   mergePayees(@Request() req, @Body() dto: MergePayeeDto) {
     return this.payeesService.mergePayees(req.user.id, dto);
+  }
+
+  @Get("auto-merge/preview")
+  @ApiOperation({
+    summary:
+      "Preview auto-merge groups of near-duplicate payees (token + fuzzy clustering)",
+  })
+  @ApiQuery({
+    name: "minGroupSize",
+    required: false,
+    type: Number,
+    description: "Minimum payees per merge group (default: 2)",
+  })
+  @ApiQuery({
+    name: "similarityThreshold",
+    required: false,
+    type: Number,
+    description: "Fuzzy similarity threshold 0.5-1 (default: 0.85)",
+  })
+  @ApiQuery({
+    name: "minTokenLength",
+    required: false,
+    type: Number,
+    description: "Minimum significant token length (default: 3)",
+  })
+  @ApiQuery({
+    name: "includeInactive",
+    required: false,
+    type: Boolean,
+    description: "Include inactive payees (default: false)",
+  })
+  @ApiQuery({
+    name: "categoryMatch",
+    required: false,
+    enum: ["off", "category", "subcategory"],
+    description:
+      "Only merge payees sharing a category/subcategory (default: off)",
+  })
+  @ApiQuery({
+    name: "ignoreCommonWords",
+    required: false,
+    type: Boolean,
+    description: "Exclude payees anchored on a common word (default: false)",
+  })
+  @ApiQuery({
+    name: "commonWordMinVariants",
+    required: false,
+    type: Number,
+    description: "Auto-detect threshold for common leading words (default: 5)",
+  })
+  @ApiResponse({ status: 200, description: "Suggested merge groups" })
+  previewAutoMerge(
+    @Request() req,
+    @Query("minGroupSize", new DefaultValuePipe(2), ParseIntPipe)
+    minGroupSize: number,
+    @Query("similarityThreshold", new DefaultValuePipe(0.85), ParseFloatPipe)
+    similarityThreshold: number,
+    @Query("minTokenLength", new DefaultValuePipe(3), ParseIntPipe)
+    minTokenLength: number,
+    @Query("includeInactive", new DefaultValuePipe(false), ParseBoolPipe)
+    includeInactive: boolean,
+    @Query("categoryMatch", new DefaultValuePipe("off"))
+    categoryMatch: string,
+    @Query("ignoreCommonWords", new DefaultValuePipe(false), ParseBoolPipe)
+    ignoreCommonWords: boolean,
+    @Query("commonWordMinVariants", new DefaultValuePipe(5), ParseIntPipe)
+    commonWordMinVariants: number,
+  ) {
+    const categoryMatchMode: CategoryMatchMode =
+      categoryMatch === "category" || categoryMatch === "subcategory"
+        ? categoryMatch
+        : "off";
+    return this.payeeAutoMergeService.previewAutoMerge(req.user.id, {
+      minGroupSize: Math.min(Math.max(minGroupSize, 2), 50),
+      similarityThreshold: Math.min(Math.max(similarityThreshold, 0.5), 1),
+      minTokenLength: Math.min(Math.max(minTokenLength, 2), 10),
+      includeInactive,
+      categoryMatch: categoryMatchMode,
+      ignoreCommonWords,
+      commonWordMinVariants: Math.min(Math.max(commonWordMinVariants, 2), 50),
+    });
+  }
+
+  @Post("auto-merge/apply")
+  @ApiOperation({
+    summary:
+      "Apply auto-merge groups: merge each group into its canonical payee and create wildcard aliases",
+  })
+  @ApiResponse({ status: 201, description: "Auto-merge applied successfully" })
+  applyAutoMerge(@Request() req, @Body() dto: ApplyAutoMergeDto) {
+    return this.payeeAutoMergeService.applyAutoMerge(req.user.id, dto.groups);
   }
 
   @Get("category-suggestions/preview")

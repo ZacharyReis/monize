@@ -1,0 +1,132 @@
+{
+  "demoBanner": {
+    "label": "Demomodus",
+    "message": "Alle gegevens worden dagelijks om 4:00 UTC gereset. Verken vrijuit!"
+  },
+  "delegationBanner": {
+    "viewing": "Bekijken:",
+    "sharedAccount": "Gedeeld account",
+    "yourAccount": "Jouw account",
+    "switchAccountLabel": "Account wisselen",
+    "selfSuffix": "{label} (jij)",
+    "error2fa": "Dat account vereist tweefactorauthenticatie. Stel 2FA in via Instellingen voordat je wisselt.",
+    "errorSwitch": "Account wisselen niet mogelijk"
+  },
+  "backendDownBanner": {
+    "connectionBlockedLabel": "Verbinding geblokkeerd",
+    "connectionBlockedDetail": "Beveiligingsheaders blokkeren verzoeken via gewone HTTP.",
+    "connectionLostLabel": "Verbinding verbroken",
+    "connectionLostDetail": "De server is niet bereikbaar. Opnieuw verbinden...",
+    "httpsHint": "Stel <code>DISABLE_HTTPS_HEADERS=true</code> in je omgeving in of open de site via HTTPS."
+  },
+  "httpWarningBanner": {
+    "label": "HTTPS vereist",
+    "detail": "Beveiligingsheaders zijn actief, maar de site wordt benaderd via gewone HTTP. API-verzoeken kunnen mislukken.",
+    "httpsHint": "Stel <code>DISABLE_HTTPS_HEADERS=true</code> in je omgeving in of open de site via HTTPS.",
+    "dismiss": "Sluiten",
+    "dismissAriaLabel": "HTTPS-waarschuwing sluiten"
+  },
+  "updateBanner": {
+    "availableWithVersion": "Monize v{version} is beschikbaar",
+    "availableGeneric": "Er is een nieuwe versie van Monize beschikbaar",
+    "runningVersion": "(actief: v{version})",
+    "releaseNotes": "Release-opmerkingen",
+    "dismiss": "Sluiten",
+    "dismissAriaLabel": "Updatemelding sluiten"
+  },
+  "actionHistory": {
+    "title": "Actiegeschiedenis",
+    "buttonAriaLabel": "Actiegeschiedenis",
+    "closeAriaLabel": "Sluiten",
+    "undo": "Ongedaan maken",
+    "redo": "Opnieuw",
+    "noRecentActions": "Geen recente acties",
+    "undoneLabel": "Ongedaan gemaakt",
+    "nothingToUndo": "Niets om ongedaan te maken",
+    "nothingToRedo": "Niets om opnieuw te doen",
+    "cannotUndoDefault": "Deze actie kan niet ongedaan worden gemaakt",
+    "cannotRedoDefault": "Deze actie kan niet opnieuw worden gedaan",
+    "undoFailed": "Ongedaan maken mislukt",
+    "redoFailed": "Opnieuw doen mislukt",
+    "entityLabels": {
+      "transaction": "Transactie",
+      "transfer": "Overboeking",
+      "investment_transaction": "Belegging",
+      "bulk_transaction": "Bulkactie",
+      "category": "Categorie",
+      "payee": "Begunstigde",
+      "tag": "Label",
+      "account": "Rekening",
+      "scheduled_transaction": "Gepland",
+      "security": "Waardepapier",
+      "budget": "Budget",
+      "custom_report": "Rapport"
+    },
+    "actionLabels": {
+      "BUY": "Kopen",
+      "SELL": "Verkopen",
+      "DIVIDEND": "Dividend",
+      "INTEREST": "Rente",
+      "CAPITAL_GAIN": "Kapitaalwinst",
+      "SPLIT": "Splitsing",
+      "TRANSFER_IN": "Inkomend",
+      "TRANSFER_OUT": "Uitgaand",
+      "REINVEST": "Herinvesteren",
+      "ADD_SHARES": "Aandelen toevoegen",
+      "REMOVE_SHARES": "Aandelen verwijderen"
+    },
+    "descriptions": {
+      "createdAccount": "Rekening \"{name}\" aangemaakt",
+      "updatedAccount": "Rekening \"{name}\" bijgewerkt",
+      "deletedAccount": "Rekening \"{name}\" verwijderd",
+      "createdBudget": "Budget \"{name}\" aangemaakt",
+      "updatedBudget": "Budget \"{name}\" bijgewerkt",
+      "deletedBudget": "Budget \"{name}\" verwijderd",
+      "createdCategory": "Categorie \"{name}\" aangemaakt",
+      "updatedCategory": "Categorie \"{name}\" bijgewerkt",
+      "deletedCategory": "Categorie \"{name}\" verwijderd",
+      "createdInstitution": "Instelling \"{name}\" aangemaakt",
+      "updatedInstitution": "Instelling \"{name}\" bijgewerkt",
+      "deletedInstitution": "Instelling \"{name}\" verwijderd",
+      "createdInvestmentReport": "Beleggingsrapport \"{name}\" aangemaakt",
+      "updatedInvestmentReport": "Beleggingsrapport \"{name}\" bijgewerkt",
+      "deletedInvestmentReport": "Beleggingsrapport \"{name}\" verwijderd",
+      "createdPayee": "Begunstigde \"{name}\" aangemaakt",
+      "updatedPayee": "Begunstigde \"{name}\" bijgewerkt",
+      "deletedPayee": "Begunstigde \"{name}\" verwijderd",
+      "createdReport": "Rapport \"{name}\" aangemaakt",
+      "updatedReport": "Rapport \"{name}\" bijgewerkt",
+      "deletedReport": "Rapport \"{name}\" verwijderd",
+      "createdScheduledTransaction": "Geplande transactie \"{name}\" aangemaakt",
+      "updatedScheduledTransaction": "Geplande transactie \"{name}\" bijgewerkt",
+      "deletedScheduledTransaction": "Geplande transactie \"{name}\" verwijderd",
+      "createdSecurity": "Waardepapier \"{symbol}\" aangemaakt",
+      "updatedSecurity": "Waardepapier \"{symbol}\" bijgewerkt",
+      "deletedSecurity": "Waardepapier \"{symbol}\" verwijderd",
+      "createdTag": "Label \"{name}\" aangemaakt",
+      "updatedTag": "Label \"{name}\" bijgewerkt",
+      "deletedTag": "Label \"{name}\" verwijderd",
+      "createdTransaction": "Transactie {payee} {amount} aangemaakt",
+      "updatedTransaction": "Transactie {payee} {amount} bijgewerkt",
+      "deletedTransaction": "Transactie {payee} {amount} verwijderd",
+      "createdTransfer": "Overboeking {amount} van {from} naar {to} aangemaakt",
+      "createdInvestmentTransaction": "{action}-transactie aangemaakt",
+      "updatedInvestmentTransaction": "{action}-transactie bijgewerkt",
+      "deletedInvestmentTransaction": "{action}-transactie verwijderd",
+      "transferredSecurity": "Waardepapier overgeboekt tussen rekeningen",
+      "updatedSecurityTransfer": "Waardepapieroverboeking bijgewerkt"
+    },
+    "timeAgo": {
+      "justNow": "zojuist",
+      "minutes": "{count} min geleden",
+      "hours": "{count} u geleden",
+      "days": "{count} d geleden"
+    },
+    "undonePrefix": "Ongedaan gemaakt: {description}",
+    "redonePrefix": "Opnieuw gedaan: {description}"
+  },
+  "pageHeader": {
+    "helpAriaLabel": "Open de Monize-wiki voor hulp bij dit gedeelte",
+    "helpTooltip": "Open de Monize-wiki voor hulp bij dit gedeelte"
+  }
+}

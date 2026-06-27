@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 
@@ -42,14 +43,16 @@ export function SecurityLookupPicker({
   onPick,
   onCancel,
 }: SecurityLookupPickerProps) {
+  const t = useTranslations('securities');
+  const tc = useTranslations('common');
   return (
     <Modal isOpen={isOpen} onClose={onCancel} maxWidth="6xl">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Multiple matches for &quot;{query}&quot;
+          {t('lookupPicker.title', { query })}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Select the security you want to use.
+          {t('lookupPicker.subtitle')}
         </p>
       </div>
       <div className="max-h-[60vh] overflow-y-auto">
@@ -57,22 +60,22 @@ export function SecurityLookupPicker({
           <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Symbol
+                {t('lookupPicker.columns.symbol')}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Name
+                {t('lookupPicker.columns.name')}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Exchange
+                {t('lookupPicker.columns.exchange')}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Currency
+                {t('lookupPicker.columns.currency')}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Type
+                {t('lookupPicker.columns.type')}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Source
+                {t('lookupPicker.columns.source')}
               </th>
               <th className="px-4 py-2" />
             </tr>
@@ -112,7 +115,7 @@ export function SecurityLookupPicker({
                       onPick(c);
                     }}
                   >
-                    Select
+                    {t('lookupPicker.selectButton')}
                   </Button>
                 </td>
               </tr>
@@ -122,7 +125,7 @@ export function SecurityLookupPicker({
       </div>
       <div className="p-4 flex justify-end gap-2 border-t border-gray-200 dark:border-gray-700">
         <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
+          {tc('cancel')}
         </Button>
       </div>
     </Modal>

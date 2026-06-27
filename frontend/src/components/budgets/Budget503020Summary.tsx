@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import type { BudgetCategory, CategoryBreakdown } from '@/types/budget';
 
 interface Budget503020SummaryProps {
@@ -10,9 +11,9 @@ interface Budget503020SummaryProps {
 }
 
 const GROUPS = [
-  { key: 'NEED', label: 'Needs', target: 50, color: 'bg-blue-500 dark:bg-blue-400' },
-  { key: 'WANT', label: 'Wants', target: 30, color: 'bg-purple-500 dark:bg-purple-400' },
-  { key: 'SAVING', label: 'Savings', target: 20, color: 'bg-green-500 dark:bg-green-400' },
+  { key: 'NEED', target: 50, color: 'bg-blue-500 dark:bg-blue-400' },
+  { key: 'WANT', target: 30, color: 'bg-purple-500 dark:bg-purple-400' },
+  { key: 'SAVING', target: 20, color: 'bg-green-500 dark:bg-green-400' },
 ] as const;
 
 export function Budget503020Summary({
@@ -21,6 +22,7 @@ export function Budget503020Summary({
   totalIncome,
   formatCurrency,
 }: Budget503020SummaryProps) {
+  const t = useTranslations('budgets');
   // Build a map from budgetCategoryId to categoryGroup
   const groupMap = new Map<string, string>();
   for (const bc of budgetCategories) {
@@ -50,7 +52,7 @@ export function Budget503020Summary({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-        50/30/20 Allocation
+        {t('summary503020.title')}
       </h3>
       <div className="space-y-4">
         {GROUPS.map((group) => {
@@ -81,10 +83,10 @@ export function Budget503020Summary({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {group.label}
+                    {t(`summary503020.groups.${group.key}`)}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Target: {group.target}%
+                    {t('summary503020.target', { percent: group.target })}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -105,11 +107,11 @@ export function Budget503020Summary({
                 <div
                   className="absolute top-0 h-full w-px bg-gray-500/60 dark:bg-gray-400/60"
                   style={{ left: `${group.target}%` }}
-                  title={`Target: ${group.target}%`}
+                  title={t('summary503020.target', { percent: group.target })}
                 />
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Budgeted: {budgetedPercent}% ({formatCurrency(data.budgeted)})
+                {t('summary503020.budgeted', { percent: budgetedPercent, amount: formatCurrency(data.budgeted) })}
               </div>
             </div>
           );

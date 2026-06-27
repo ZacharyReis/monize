@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -17,13 +18,13 @@ import {
 import { format, parseISO } from 'date-fns';
 import { accountsApi } from '@/lib/accounts';
 import { transactionsApi } from '@/lib/transactions';
-import { Account } from '@/types/account';
 import { Transaction } from '@/types/transaction';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useReportData } from '@/hooks/useReportData';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('DebtPayoffTimelineReport');
+import { ReportError } from '@/components/reports/ReportError';
+import { chartColors } from '@/lib/chart-colors';
+import { useTranslations } from 'next-intl';
 
 interface PayoffScheduleItem {
   date: string;
@@ -110,69 +111,72 @@ function advanceDate(date: Date, frequency: string): Date {
 }
 
 export function DebtPayoffTimelineReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedAccountIdState, setSelectedAccountId] = useState<string>('');
   const [viewType, setViewType] = useState<'balance' | 'breakdown' | 'distribution'>('balance');
 
-  useEffect(() => {
-    const loadAccounts = async () => {
-      setIsLoading(true);
-      try {
-        const allAccounts = await accountsApi.getAll(true);
-        const debtAccounts = allAccounts.filter(
-          (a) => a.accountType === 'LOAN' || a.accountType === 'MORTGAGE' || a.accountType === 'LINE_OF_CREDIT'
-        );
-        setAccounts(debtAccounts);
-        if (debtAccounts.length > 0) {
-          setSelectedAccountId(debtAccounts[0].id);
-        }
-      } catch (error) {
-        logger.error('Failed to load accounts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadAccounts();
-  }, []);
+  const {
+    data: accountsData,
+    isLoading: accountsLoading,
+    error: accountsError,
+    reload: reloadAccounts,
+  } = useReportData(
+    () =>
+      accountsApi.getAll(true).then((allAccounts) =>
+        allAccounts.filter(
+          (a) =>
+            a.accountType === 'LOAN' ||
+            a.accountType === 'MORTGAGE' ||
+            a.accountType === 'LINE_OF_CREDIT',
+        ),
+      ),
+    [],
+  );
 
+  const accounts = useMemo(() => accountsData ?? [], [accountsData]);
+
+  // Auto-select the first debt account until the user picks one. Derived during
+  // render rather than via setState-in-effect.
+  const selectedAccountId = selectedAccountIdState || accounts[0]?.id || '';
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
-  // Load transactions from the loan account
-  useEffect(() => {
-    const loadTransactions = async () => {
-      if (!selectedAccountId) {
-        setTransactions([]);
-        return;
+  // Load transactions from the loan account, paginating through all pages
+  // (API limit is 200 per page).
+  const {
+    data: transactionsData,
+    isLoading: transactionsLoading,
+    error: transactionsError,
+    reload: reloadTransactions,
+  } = useReportData(
+    async () => {
+      if (!selectedAccountId) return [] as Transaction[];
+      let allTransactions: Transaction[] = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const result = await transactionsApi.getAll({
+          accountId: selectedAccountId,
+          limit: 200,
+          page,
+        });
+        allTransactions = allTransactions.concat(result.data);
+        hasMore = result.pagination.hasMore;
+        page++;
       }
+      return allTransactions;
+    },
+    [selectedAccountId],
+  );
 
-      try {
-        // Paginate through all transactions (API limit is 200 per page)
-        let allTransactions: Transaction[] = [];
-        let page = 1;
-        let hasMore = true;
-        while (hasMore) {
-          const result = await transactionsApi.getAll({
-            accountId: selectedAccountId,
-            limit: 200,
-            page,
-          });
-          allTransactions = allTransactions.concat(result.data);
-          hasMore = result.pagination.hasMore;
-          page++;
-        }
-        setTransactions(allTransactions);
-      } catch (error) {
-        logger.error('Failed to load transactions:', error);
-        setTransactions([]);
-      }
-    };
-
-    loadTransactions();
-  }, [selectedAccountId]);
+  const transactions = useMemo<Transaction[]>(() => transactionsData ?? [], [transactionsData]);
+  const isLoading = accountsLoading || transactionsLoading;
+  const error = accountsError || transactionsError;
+  const reload = () => {
+    reloadAccounts();
+    reloadTransactions();
+  };
 
   // Build payment timeline from actual transactions + projected future payments
   const { payoffSchedule, projectionStartLabel } = useMemo((): {
@@ -412,7 +416,7 @@ export function DebtPayoffTimelineReport() {
       return (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
           <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-            {label} {isProjected && <span className="text-xs text-blue-500 dark:text-blue-400">(Projected)</span>}
+            {label} {isProjected && <span className="text-xs text-blue-500 dark:text-blue-400">{t('debtPayoff.projected')}</span>}
           </p>
           {deduped.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
@@ -427,23 +431,23 @@ export function DebtPayoffTimelineReport() {
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Account', 'Type', 'Current Balance', 'Interest Rate', 'Payment Amount'];
+    const headers = [t('debtPayoff.colAccountType'), t('debtPayoff.colAccountType'), t('debtPayoff.currentBalance'), t('debtPayoff.colInterestRate'), t('debtPayoff.colPaymentsMade')];
     const rows = selectedAccount ? [[
       selectedAccount.name,
       selectedAccount.accountType === 'LINE_OF_CREDIT'
-        ? 'Line of Credit'
+        ? t('accountBalances.accountTypes.LINE_OF_CREDIT' as Parameters<typeof t>[0])
         : selectedAccount.accountType.charAt(0) + selectedAccount.accountType.slice(1).toLowerCase(),
       formatCurrency(Math.abs(selectedAccount.currentBalance)),
-      selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : 'Not set',
-      selectedAccount.paymentAmount ? formatCurrency(selectedAccount.paymentAmount) : 'Not set',
+      selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : t('debtPayoff.notSet'),
+      selectedAccount.paymentAmount ? formatCurrency(selectedAccount.paymentAmount) : t('debtPayoff.notSet'),
     ]] : [];
     await exportToPdf({
-      title: 'Debt Payoff Timeline',
+      title: t('page.names.debt-payoff-timeline' as Parameters<typeof t>[0]),
       summaryCards: summary ? [
-        { label: 'Current Balance', value: formatCurrency(summary.currentBalance), color: '#dc2626' },
-        { label: 'Principal Paid', value: formatCurrency(summary.totalPrincipalPaid), color: '#16a34a' },
-        { label: summary.hasProjection ? 'Est. Total Interest' : 'Interest Paid', value: formatCurrency(summary.totalInterest), color: '#ea580c' },
-        { label: 'Progress', value: `${summary.percentPaid.toFixed(1)}%`, color: '#2563eb' },
+        { label: t('debtPayoff.currentBalance'), value: formatCurrency(summary.currentBalance), color: '#dc2626' },
+        { label: t('debtPayoff.principalPaid'), value: formatCurrency(summary.totalPrincipalPaid), color: '#16a34a' },
+        { label: summary.hasProjection ? t('debtPayoff.estTotalInterest') : t('debtPayoff.interestPaid'), value: formatCurrency(summary.totalInterest), color: '#ea580c' },
+        { label: t('debtPayoff.progress'), value: `${summary.percentPaid.toFixed(1)}%`, color: '#2563eb' },
       ] : undefined,
       chartContainer: chartRef.current,
       tableData: { headers, rows },
@@ -451,12 +455,16 @@ export function DebtPayoffTimelineReport() {
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -466,7 +474,7 @@ export function DebtPayoffTimelineReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-          No debt accounts found. Add a loan, mortgage, or line of credit to see the payoff timeline.
+          {t('debtPayoff.empty')}
         </p>
       </div>
     );
@@ -479,7 +487,7 @@ export function DebtPayoffTimelineReport() {
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Select Account
+              {t('debtPayoff.labelSelectAccount')}
             </label>
             <select
               value={selectedAccountId}
@@ -505,7 +513,7 @@ export function DebtPayoffTimelineReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Balance Over Time
+              {t('debtPayoff.balanceOverTime')}
             </button>
             <button
               onClick={() => setViewType('breakdown')}
@@ -515,7 +523,7 @@ export function DebtPayoffTimelineReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Payment Breakdown
+              {t('debtPayoff.paymentBreakdown')}
             </button>
             <button
               onClick={() => setViewType('distribution')}
@@ -525,7 +533,7 @@ export function DebtPayoffTimelineReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              Principal vs Interest
+              {t('debtPayoff.viewPrincipalVsInterest')}
             </button>
             <ExportDropdown onExportPdf={handleExportPdf} />
           </div>
@@ -536,34 +544,34 @@ export function DebtPayoffTimelineReport() {
       {summary && (
         <div className={`grid grid-cols-2 ${summary.hasProjection ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4`}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Current Balance</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('debtPayoff.currentBalance')}</div>
             <div className="text-xl font-bold text-red-600 dark:text-red-400">
               {formatCurrency(summary.currentBalance)}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Principal Paid</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('debtPayoff.principalPaid')}</div>
             <div className="text-xl font-bold text-green-600 dark:text-green-400">
               {formatCurrency(summary.totalPrincipalPaid)}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {summary.hasProjection ? 'Est. Total Interest' : 'Interest Paid'}
+              {summary.hasProjection ? t('debtPayoff.estTotalInterest') : t('debtPayoff.interestPaid')}
             </div>
             <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
               {formatCurrency(summary.totalInterest)}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Progress</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('debtPayoff.progress')}</div>
             <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
               {summary.percentPaid.toFixed(1)}%
             </div>
           </div>
           {summary.hasProjection && summary.projectedPayoffDate && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-              <div className="text-sm text-gray-500 dark:text-gray-400">Est. Payoff</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('debtPayoff.estPayoff')}</div>
               <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
                 {summary.projectedPayoffDate}
               </div>
@@ -576,7 +584,7 @@ export function DebtPayoffTimelineReport() {
       <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
         {payoffSchedule.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No payment history found. Make payments to your debt account to see the timeline.
+            {t('debtPayoff.noPaymentHistory')}
           </p>
         ) : (
           <>
@@ -584,7 +592,7 @@ export function DebtPayoffTimelineReport() {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <AreaChart data={payoffSchedule}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis
                       dataKey="label"
                       tick={{ fontSize: 11 }}
@@ -598,9 +606,10 @@ export function DebtPayoffTimelineReport() {
                     <Area
                       type="monotone"
                       dataKey="historicalBalance"
-                      stroke="#ef4444"
-                      fill="#fecaca"
-                      name="Remaining Balance"
+                      stroke={chartColors.expense}
+                      fill={chartColors.expense}
+                      fillOpacity={0.3}
+                      name={t('debtPayoff.seriesRemainingBalance')}
                       strokeWidth={2}
                       connectNulls={false}
                     />
@@ -608,25 +617,25 @@ export function DebtPayoffTimelineReport() {
                       <Area
                         type="monotone"
                         dataKey="projectedBalance"
-                        stroke="#3b82f6"
-                        fill="#dbeafe"
-                        name="Projected Balance"
+                        stroke={chartColors.primary}
+                        fill={chartColors.primary}
+                        name={t('debtPayoff.seriesProjectedBalance')}
                         strokeWidth={2}
                         strokeDasharray="6 3"
-                        fillOpacity={0.4}
+                        fillOpacity={0.15}
                         connectNulls={false}
                       />
                     )}
                     {projectionStartLabel && (
                       <ReferenceLine
                         x={projectionStartLabel}
-                        stroke="#6b7280"
+                        stroke={chartColors.axis}
                         strokeDasharray="4 4"
                         strokeWidth={2}
                         label={{
-                          value: 'Today',
+                          value: t('debtPayoff.today'),
                           position: 'top',
-                          fill: '#6b7280',
+                          fill: chartColors.axis,
                           fontSize: 12,
                           fontWeight: 600,
                         }}
@@ -640,7 +649,7 @@ export function DebtPayoffTimelineReport() {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={payoffSchedule}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis
                       dataKey="label"
                       tick={{ fontSize: 11 }}
@@ -655,25 +664,25 @@ export function DebtPayoffTimelineReport() {
                     <Bar
                       dataKey="cumulativePrincipal"
                       stackId="a"
-                      fill="#22c55e"
-                      name="Principal Paid"
+                      fill={chartColors.income}
+                      name={t('debtPayoff.seriesPrincipalPaid')}
                     />
                     <Bar
                       dataKey="cumulativeInterest"
                       stackId="a"
-                      fill="#f97316"
-                      name="Interest Paid"
+                      fill={chartColors.warning}
+                      name={t('debtPayoff.seriesInterestPaid')}
                     />
                     {projectionStartLabel && (
                       <ReferenceLine
                         x={projectionStartLabel}
-                        stroke="#6b7280"
+                        stroke={chartColors.axis}
                         strokeDasharray="4 4"
                         strokeWidth={2}
                         label={{
-                          value: 'Today',
+                          value: t('debtPayoff.today'),
                           position: 'top',
-                          fill: '#6b7280',
+                          fill: chartColors.axis,
                           fontSize: 12,
                           fontWeight: 600,
                         }}
@@ -687,7 +696,7 @@ export function DebtPayoffTimelineReport() {
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={distributionData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                     <XAxis
                       dataKey="label"
                       tick={{ fontSize: 11 }}
@@ -707,14 +716,14 @@ export function DebtPayoffTimelineReport() {
                               <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
                                 {tooltipLabel}{' '}
                                 {data?.isProjected && (
-                                  <span className="text-xs text-blue-500 dark:text-blue-400">(Projected)</span>
+                                  <span className="text-xs text-blue-500 dark:text-blue-400">{t('debtPayoff.projected')}</span>
                                 )}
                               </p>
                               <p className="text-sm text-green-600 dark:text-green-400">
-                                Principal: {data?.principalPercent.toFixed(1)}% ({formatCurrency(data?.principalPaid ?? 0)})
+                                {t('debtPayoff.seriesPrincipal')}: {data?.principalPercent.toFixed(1)}% ({formatCurrency(data?.principalPaid ?? 0)})
                               </p>
                               <p className="text-sm text-orange-500 dark:text-orange-400">
-                                Interest: {data?.interestPercent.toFixed(1)}% ({formatCurrency(data?.interestPaid ?? 0)})
+                                {t('debtPayoff.seriesInterest')}: {data?.interestPercent.toFixed(1)}% ({formatCurrency(data?.interestPaid ?? 0)})
                               </p>
                             </div>
                           );
@@ -726,25 +735,25 @@ export function DebtPayoffTimelineReport() {
                     <Bar
                       dataKey="principalPercent"
                       stackId="a"
-                      fill="#22c55e"
-                      name="Principal"
+                      fill={chartColors.income}
+                      name={t('debtPayoff.seriesPrincipal')}
                     />
                     <Bar
                       dataKey="interestPercent"
                       stackId="a"
-                      fill="#f97316"
-                      name="Interest"
+                      fill={chartColors.warning}
+                      name={t('debtPayoff.seriesInterest')}
                     />
                     {projectionStartLabel && (
                       <ReferenceLine
                         x={projectionStartLabel}
-                        stroke="#6b7280"
+                        stroke={chartColors.axis}
                         strokeDasharray="4 4"
                         strokeWidth={2}
                         label={{
-                          value: 'Today',
+                          value: t('debtPayoff.today'),
                           position: 'top',
-                          fill: '#6b7280',
+                          fill: chartColors.axis,
                           fontSize: 12,
                           fontWeight: 600,
                         }}
@@ -756,7 +765,7 @@ export function DebtPayoffTimelineReport() {
             )}
             {projectionStartLabel && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                Dashed line marks today. Values after this point are projected based on current payment settings.
+                {t('debtPayoff.projectionNote')}
               </p>
             )}
           </>
@@ -767,31 +776,31 @@ export function DebtPayoffTimelineReport() {
       {selectedAccount && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Account Details
+            {t('debtPayoff.accountDetails')}
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Account Type</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('debtPayoff.colAccountType')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
                 {selectedAccount.accountType === 'LINE_OF_CREDIT'
-                    ? 'Line of Credit'
+                    ? t('accountBalances.accountTypes.LINE_OF_CREDIT' as Parameters<typeof t>[0])
                     : selectedAccount.accountType.charAt(0) + selectedAccount.accountType.slice(1).toLowerCase()}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Original Amount</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('debtPayoff.colOriginalAmount')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
                 {formatCurrency(Math.abs(selectedAccount.openingBalance))}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Interest Rate</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('debtPayoff.colInterestRate')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
-                {selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : 'Not set'}
+                {selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : t('debtPayoff.notSet')}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Payments Made</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('debtPayoff.colPaymentsMade')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
                 {payoffSchedule.filter((p) => !p.isProjected).length}
               </p>

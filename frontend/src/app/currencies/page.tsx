@@ -20,6 +20,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
+import { useTranslations } from 'next-intl';
 import { useFormModal } from '@/hooks/useFormModal';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import { PAGE_SIZE } from '@/lib/constants';
@@ -35,6 +36,7 @@ export default function CurrenciesPage() {
 }
 
 function CurrenciesContent() {
+  const t = useTranslations('currencies');
   const [allCurrencies, setAllCurrencies] = useState<CurrencyInfo[]>([]);
   const [usage, setUsage] = useState<CurrencyUsage>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -60,12 +62,12 @@ function CurrenciesContent() {
       setAllCurrencies(currenciesData);
       setUsage(usageData);
     } catch (error) {
-      toast.error('Failed to load currencies');
+      toast.error(t('page.toasts.loadFailed'));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -84,16 +86,23 @@ function CurrenciesContent() {
   const handleFormSubmit = async (data: CreateCurrencyData) => {
     try {
       if (editingCurrency) {
-        await exchangeRatesApi.updateCurrency(editingCurrency.code, data);
-        toast.success('Currency updated successfully');
+        // `code` is immutable: the backend's UpdateCurrencyDto omits it and
+        // rejects unknown fields (forbidNonWhitelisted), so send only the
+        // editable fields rather than the whole create payload.
+        await exchangeRatesApi.updateCurrency(editingCurrency.code, {
+          name: data.name,
+          symbol: data.symbol,
+          decimalPlaces: data.decimalPlaces,
+        });
+        toast.success(t('page.toasts.updated'));
       } else {
         await exchangeRatesApi.createCurrency(data);
-        toast.success('Currency created successfully');
+        toast.success(t('page.toasts.created'));
       }
       close();
       loadData();
     } catch (error) {
-      toast.error(getErrorMessage(error, `Failed to ${editingCurrency ? 'update' : 'create'} currency`));
+      toast.error(getErrorMessage(error, editingCurrency ? t('page.toasts.updateFailed') : t('page.toasts.createFailed')));
       throw error;
     }
   };
@@ -102,17 +111,17 @@ function CurrenciesContent() {
     try {
       if (currency.isActive) {
         await exchangeRatesApi.deactivateCurrency(currency.code);
-        toast.success('Currency deactivated');
+        toast.success(t('page.toasts.deactivated'));
       } else {
         await exchangeRatesApi.activateCurrency(currency.code);
-        toast.success('Currency activated');
+        toast.success(t('page.toasts.activated'));
       }
       // Update inline without full reload to preserve scroll position
       setAllCurrencies(prev =>
         prev.map(c => c.code === currency.code ? { ...c, isActive: !currency.isActive } : c)
       );
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update currency status'));
+      toast.error(getErrorMessage(error, t('page.toasts.statusFailed')));
     }
   };
 
@@ -123,14 +132,14 @@ function CurrenciesContent() {
       const updated = summary?.updated ?? 0;
       const failed = summary?.failed ?? 0;
       if (failed > 0) {
-        toast.success(`Exchange rates refreshed: ${updated} updated, ${failed} failed`);
+        toast.success(t('page.toasts.ratesRefreshedWithFailed', { updated, failed }));
       } else {
-        toast.success(`Exchange rates refreshed: ${updated} pairs updated`);
+        toast.success(t('page.toasts.ratesRefreshed', { updated }));
       }
       // Reload rates and currency data so the list reflects updated values
       await Promise.all([refreshRates(), loadData()]);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to refresh exchange rates'));
+      toast.error(getErrorMessage(error, t('page.toasts.ratesFailed')));
     } finally {
       setIsRefreshingRates(false);
     }
@@ -213,8 +222,8 @@ function CurrenciesContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Currencies"
-          subtitle="Manage currencies used across your accounts and securities"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Currency-Management"
           actions={
             <div className="flex gap-2">
@@ -223,25 +232,25 @@ function CurrenciesContent() {
                 onClick={handleRefreshRates}
                 disabled={isRefreshingRates}
               >
-                {isRefreshingRates ? 'Refreshing...' : 'Refresh Rates'}
+                {isRefreshingRates ? t('page.refreshing') : t('page.refreshRates')}
               </Button>
-              <Button onClick={handleCreateNew}>+ New Currency</Button>
+              <Button onClick={handleCreateNew}>{t('page.newCurrency')}</Button>
             </div>
           }
         />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <SummaryCard label="Total Currencies" value={allCurrencies.length} icon={SummaryIcons.barChart} />
-          <SummaryCard label="Active" value={activeCount} icon={SummaryIcons.checkCircle} valueColor="green" />
-          <SummaryCard label="Inactive" value={inactiveCount} icon={SummaryIcons.ban} />
+          <SummaryCard label={t('page.summary.totalCurrencies')} value={allCurrencies.length} icon={SummaryIcons.barChart} />
+          <SummaryCard label={t('page.summary.active')} value={activeCount} icon={SummaryIcons.checkCircle} valueColor="green" />
+          <SummaryCard label={t('page.summary.inactive')} value={inactiveCount} icon={SummaryIcons.ban} />
         </div>
 
         {/* Search and Status Filter */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
-            placeholder="Search by code or name..."
+            placeholder={t('page.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="block w-full sm:max-w-md rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-400"
@@ -263,9 +272,9 @@ function CurrenciesContent() {
                   status !== 'all' ? '-ml-px' : ''
                 }`}
               >
-                {status === 'active' ? `Active (${activeCount})` :
-                 status === 'inactive' ? `Inactive (${inactiveCount})` :
-                 `All (${allCurrencies.length})`}
+                {status === 'active' ? t('page.statusActive', { count: activeCount }) :
+                 status === 'inactive' ? t('page.statusInactive', { count: inactiveCount }) :
+                 t('page.statusAll', { count: allCurrencies.length })}
               </button>
             ))}
           </div>
@@ -274,7 +283,7 @@ function CurrenciesContent() {
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={close} {...modalProps} maxWidth="lg" className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {isEditing ? 'Edit Currency' : 'New Currency'}
+            {isEditing ? t('page.modalTitleEdit') : t('page.modalTitleNew')}
           </h2>
           <CurrencyForm
             currency={editingCurrency}
@@ -289,7 +298,7 @@ function CurrenciesContent() {
         {/* Currencies List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading ? (
-            <LoadingSpinner text="Loading currencies..." />
+            <LoadingSpinner text={t('page.loading')} />
           ) : (
             <CurrencyList
               currencies={paginatedCurrencies}
@@ -325,7 +334,7 @@ function CurrenciesContent() {
         {/* Show total count when only one page */}
         {totalPages <= 1 && sortedCurrencies.length > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {sortedCurrencies.length} currenc{sortedCurrencies.length !== 1 ? 'ies' : 'y'}
+            {t('page.count', { count: sortedCurrencies.length })}
           </div>
         )}
       </main>

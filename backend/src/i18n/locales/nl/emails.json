@@ -1,0 +1,165 @@
+{
+  "test": {
+    "subject": "Monize testmail",
+    "heading": "Monize testmail",
+    "greeting": "Hoi {{ name }},",
+    "body": "Dit is een testmail van Monize. Als je dit hebt ontvangen, werken je e-mailmeldingen correct."
+  },
+  "billReminder": {
+    "subjectOne": "Monize: 1 aankomende rekening vereist aandacht",
+    "subjectMany": "Monize: {{ count }} aankomende rekeningen vereisen aandacht",
+    "heading": "Herinnering aankomende rekening",
+    "greeting": "Hoi {{ name }},",
+    "introOne": "Je hebt 1 aankomende rekening die aandacht vereist:",
+    "introMany": "Je hebt {{ count }} aankomende rekeningen die aandacht vereisen:",
+    "colPayee": "Begunstigde",
+    "colDueDate": "Vervaldatum",
+    "colType": "Type",
+    "colAmount": "Bedrag",
+    "typeIncome": "Inkomsten",
+    "typeExpense": "Uitgaven",
+    "button": "Facturen &amp; Stortingen bekijken"
+  },
+  "mortgageReminder": {
+    "subject": "Monize: 1 aankomende hypotheekverlenging",
+    "subjectPlural": "Monize: {{ count }} aankomende hypotheekverlengingen",
+    "heading": "Herinnering hypotheekverlenging",
+    "greeting": "Hoi {{ name }},",
+    "introOne": "Je hebt 1 hypotheek met een aankomende termijnverlenging. Neem contact op met je geldverstrekker om verlengingsopties te bespreken voordat de termijn afloopt:",
+    "introMany": "Je hebt {{ count }} hypotheken met een aankomende termijnverlenging. Neem contact op met je geldverstrekker om verlengingsopties te bespreken voordat de termijn afloopt:",
+    "colMortgage": "Hypotheek",
+    "colTermEndDate": "Einddatum looptijd",
+    "colTimeRemaining": "Resterende tijd",
+    "daysRemainingOne": "1 dag",
+    "daysRemainingMany": "{{ count }} dagen",
+    "button": "Rekeningen bekijken"
+  },
+  "severity": {
+    "critical": "Kritiek",
+    "warning": "Waarschuwing",
+    "success": "Goed nieuws",
+    "info": "Info"
+  },
+  "budgetAlertImmediate": {
+    "subject": "Monize: Melding - {{ title }}",
+    "subjectPlural": "Monize: {{ count }} meldingen vereisen aandacht",
+    "heading": "Melding",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Je budget vereist aandacht:",
+    "colSeverity": "Ernst",
+    "colAlert": "Melding",
+    "colDetails": "Details",
+    "button": "Budget bekijken"
+  },
+  "budgetWeeklyDigest": {
+    "subject": "Monize: Je wekelijkse budgetoverzicht",
+    "heading": "Wekelijks budgetoverzicht",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Hier is je wekelijkse budgetoverzicht voor: <strong>{{ budgets }}</strong>",
+    "criticalOne": "kritiek",
+    "criticalMany": "kritiek",
+    "warningOne": "waarschuwing",
+    "warningMany": "waarschuwingen",
+    "positiveOne": "positief",
+    "positiveMany": "positief",
+    "thisWeek": "Deze week:",
+    "noAlerts": "Geen meldingen",
+    "totalAlerts": "Totaal meldingen: {{ count }}",
+    "topAlertsHeading": "Topmeldingen",
+    "andMore": "...en {{ count }} meer",
+    "button": "Budget-dashboard bekijken"
+  },
+  "budgetMonthlySummary": {
+    "subject": "Monize: Maandelijks budgetoverzicht - {{ period }}",
+    "subjectPlural": "Monize: Maandelijks budgetoverzicht voor {{ count }} budgetten",
+    "heading": "Maandelijks budgetoverzicht",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Hier is je maandelijks budgetoverzicht voor de zojuist afgesloten periode:",
+    "overBudget": "Over budget",
+    "healthScore": "Gezondheidsscore:",
+    "labelBudgeted": "Gebudgetteerd",
+    "labelSpent": "Uitgegeven",
+    "labelRemaining": "Resterend",
+    "percentUsed": "{{ percent }}% gebruikt",
+    "topCategories": "Topcategorieën",
+    "button": "Budget-dashboard bekijken"
+  },
+  "oidcLink": {
+    "subject": "Monize: Bevestig SSO-accountkoppeling",
+    "heading": "Koppel je SSO-account",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Iemand heeft geprobeerd in te loggen via SSO met een e-mailadres dat overeenkomt met je bestaande Monize-account. Klik op de onderstaande knop om je SSO-identiteit aan dit account te koppelen:",
+    "button": "Accountkoppeling bevestigen",
+    "disclaimer": "Als je dit verzoek niet hebt geïnitieerd, kun je deze e-mail veilig negeren. De koppeling verloopt over 1 uur."
+  },
+  "accountLocked": {
+    "subject": "Account tijdelijk vergrendeld",
+    "heading": "Account tijdelijk vergrendeld",
+    "greeting": "Hoi {{ name }},",
+    "body1": "Je Monize-account is tijdelijk vergrendeld vanwege meerdere mislukte inlogpogingen. Dit is een beveiligingsmaatregel om je account te beschermen.",
+    "body2": "De vergrendeling verloopt automatisch. Als jij niet hebt geprobeerd in te loggen, raden we aan je wachtwoord onmiddellijk opnieuw in te stellen."
+  },
+  "passwordReset": {
+    "subject": "Monize wachtwoordherstel",
+    "heading": "Verzoek tot wachtwoordherstel",
+    "greeting": "Hoi {{ name }},",
+    "intro": "We hebben een verzoek ontvangen om je wachtwoord opnieuw in te stellen. Klik op de onderstaande knop om een nieuw wachtwoord in te stellen:",
+    "button": "Wachtwoord herstellen",
+    "disclaimer": "Deze koppeling verloopt over 1 uur. Als je geen wachtwoordherstel hebt aangevraagd, kun je deze e-mail veilig negeren."
+  },
+  "emailVerification": {
+    "subject": "Bevestig je Monize-e-mailadres",
+    "heading": "Bevestig je e-mailadres",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Bedankt voor je registratie bij Monize. Bevestig je e-mailadres om je account te activeren en in te loggen:",
+    "button": "E-mail bevestigen",
+    "disclaimer": "Deze koppeling verloopt over 24 uur. Als je geen Monize-account hebt aangemaakt, kun je deze e-mail veilig negeren."
+  },
+  "accountInvite": {
+    "subject": "Je Monize-account is klaar",
+    "heading": "Je Monize-account is klaar",
+    "greeting": "Hoi {{ name }},",
+    "intro": "Een beheerder heeft een Monize-account voor je aangemaakt. Klik op de onderstaande knop om je wachtwoord in te stellen en in te loggen:",
+    "button": "Stel je wachtwoord in",
+    "disclaimer": "Deze koppeling verloopt over 24 uur. Als je dit niet verwachtte, kun je deze e-mail veilig negeren."
+  },
+  "delegateInvite": {
+    "subject": "Je bent uitgenodigd voor Monize",
+    "heading": "Je bent uitgenodigd voor Monize",
+    "greeting": "Hoi {{ name }},",
+    "intro": "{{ owner }} heeft je uitgenodigd om toegang te krijgen tot hun Monize-account als gedelegeerde. Klik op de onderstaande knop om je wachtwoord in te stellen en aan de slag te gaan:",
+    "button": "Stel je wachtwoord in",
+    "disclaimer": "Deze koppeling verloopt over 24 uur. Als je deze uitnodiging niet verwachtte, kun je deze e-mail veilig negeren."
+  },
+  "emergencyAccessReminder": {
+    "subjectOne": "Monize: je account is 1 dag inactief",
+    "subjectMany": "Monize: je account is {{ daysSinceLogin }} dagen inactief",
+    "heading": "Monize noodtoegangherinnering",
+    "greeting": "Hoi {{ name }},",
+    "grantPhraseToday": "vandaag",
+    "grantPhraseFutureOne": "over 1 dag",
+    "grantPhraseFutureMany": "over {{ count }} dagen",
+    "bodyOne": "Je hebt je <strong>1 dag</strong> niet aangemeld bij Monize. Als je inactief blijft, krijgen je aangewezen noodcontacten volledige toegang tot je account {{ grantPhrase }}.",
+    "bodyMany": "Je hebt je <strong>{{ daysSinceLogin }} dagen</strong> niet aangemeld bij Monize. Als je inactief blijft, krijgen je aangewezen noodcontacten volledige toegang tot je account {{ grantPhrase }}.",
+    "contactsLabel": "Aangewezen contacten:",
+    "button": "Nu inloggen",
+    "footer": "Inloggen stelt de timer opnieuw in. Als je deze functie niet meer wilt gebruiken, kun je deze uitschakelen via Instellingen → Noodtoegang."
+  },
+  "emergencyAccessGrant": {
+    "subject": "Je hebt noodtoegang gekregen tot het Monize-account van {{ owner }}",
+    "heading": "Noodtoegang verleend",
+    "greeting": "Hoi {{ name }},",
+    "body": "<strong>{{ owner }}</strong> heeft je eerder aangewezen als noodcontact op hun Monize-account. Omdat ze zich gedurende een langere periode niet hebben aangemeld, wordt je nu volledige toegang verleend om het account over te nemen.",
+    "claimIntro": "Klik op de onderstaande koppeling om toegang te claimen en stel een nieuw wachtwoord in. Je wordt ingelogd als de rekeninghouder.",
+    "button": "Noodtoegang claimen",
+    "expiry": "Deze koppeling is geldig tot <strong>{{ expiry }}</strong> en kan slechts één keer worden gebruikt. Als meerdere contacten deze e-mail hebben ontvangen, neemt degene die als eerste claimt het account over."
+  },
+  "emergencyAccessGrantRevoked": {
+    "subject": "Monize: noodtoegang is verleend terwijl je afwezig was",
+    "heading": "Noodtoegang is verleend terwijl je afwezig was",
+    "greeting": "Hoi {{ name }},",
+    "body1": "Omdat je account inactief was, zijn je aangewezen noodcontacten links gestuurd om je account over te nemen. Je hebt je nu weer aangemeld, dus <strong>die links zijn ingetrokken</strong> en de beveiliging is opnieuw geactiveerd.",
+    "body2": "Als dit verwacht was, hoef je niets te doen. Als je dit niet verwachtte, controleer dan je aanmeldingsactiviteit en je noodtoeganginstellingen.",
+    "button": "Noodtoegang bekijken"
+  }
+}

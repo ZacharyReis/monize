@@ -1,0 +1,98 @@
+# Self-contained stack for end-to-end (Playwright) tests.
+#
+# Unlike docker-compose.dev.yml this file:
+#   - inlines every env value (no .env required) using throwaway test defaults
+#   - does NOT bind-mount host source; the development image targets already
+#     bake in the source + node_modules, so runs are reproducible in CI
+#   - exposes healthchecks on every service so `docker compose up --wait`
+#     blocks until the app is actually ready to serve traffic
+#
+# The values below are non-secret, test-only defaults. Never reuse them
+# outside throwaway E2E runs.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: monize
+      POSTGRES_USER: monize_user
+      POSTGRES_PASSWORD: monize_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    networks:
+      - e2e-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monize_user -d monize"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: monize
+      DATABASE_USER: monize_user
+      DATABASE_PASSWORD: monize_password
+      JWT_SECRET: test-jwt-secret-for-ci-minimum-32-characters-long
+      JWT_EXPIRATION: 15m
+      PUBLIC_APP_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3001
+      LOCAL_AUTH_ENABLED: "true"
+      REGISTRATION_ENABLED: "true"
+      FORCE_2FA: "false"
+      DEMO_MODE: "false"
+      AI_ENCRYPTION_KEY: ""
+      # Raise rate limits so a full suite of registrations/logins from one IP
+      # doesn't trip the brute-force throttles. E2E-only; prod keeps defaults.
+      RATE_LIMIT_MAX: "100000"
+    ports:
+      - "3000:3000"
+    networks:
+      - e2e-network
+    # Build once, then run the compiled output directly. `start:dev` (nest
+    # --watch) would recompile the whole app a second time, roughly doubling
+    # boot time on a 2-core CI runner -- and E2E needs no file watching.
+    command: sh -c "npm run build && node dist/db-init.js && node dist/db-migrate.js && node dist/main.js"
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 50
+      start_period: 120s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      INTERNAL_API_URL: http://backend:3000
+      PUBLIC_APP_URL: http://localhost:3001
+    ports:
+      - "3001:3000"
+    networks:
+      - e2e-network
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/login || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 50
+      start_period: 60s
+
+networks:
+  e2e-network:
+    driver: bridge

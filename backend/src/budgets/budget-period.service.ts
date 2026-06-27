@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource } from "typeorm";
 import { Budget } from "./entities/budget.entity";
@@ -13,6 +14,7 @@ import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
 import { BudgetsService } from "./budgets.service";
 import { getCurrentMonthPeriodDates } from "./budget-date.utils";
+import { roundMoney, sumMoney } from "../common/round.util";
 
 @Injectable()
 export class BudgetPeriodService {
@@ -56,7 +58,11 @@ export class BudgetPeriodService {
 
     if (!period) {
       throw new NotFoundException(
-        `Budget period with ID ${periodId} not found`,
+        tr(
+          "errors.budgets.periodNotFound",
+          `Budget period with ID ${periodId} not found`,
+          { id: periodId },
+        ),
       );
     }
 
@@ -72,7 +78,9 @@ export class BudgetPeriodService {
     });
 
     if (!openPeriod) {
-      throw new BadRequestException("No open period to close");
+      throw new BadRequestException(
+        tr("errors.budgets.noOpenPeriod", "No open period to close"),
+      );
     }
 
     const actuals = await this.computePeriodActuals(
@@ -158,9 +166,11 @@ export class BudgetPeriodService {
 
     const budgetCategories = budget.categories || [];
 
-    const totalBudgeted = budgetCategories
-      .filter((bc) => !bc.isIncome)
-      .reduce((sum, bc) => sum + Number(bc.amount), 0);
+    const totalBudgeted = sumMoney(
+      budgetCategories
+        .filter((bc) => !bc.isIncome)
+        .map((bc) => Number(bc.amount)),
+    );
 
     const periodsRepo = queryRunner
       ? queryRunner.manager.getRepository(BudgetPeriod)
@@ -228,7 +238,7 @@ export class BudgetPeriodService {
       rollover = Math.min(rollover, Number(budgetCategory.rolloverCap));
     }
 
-    return Math.round(rollover * 10000) / 10000;
+    return roundMoney(rollover);
   }
 
   private async createNextPeriod(

@@ -9,11 +9,13 @@ import { BudgetPeriod, PeriodStatus } from "./entities/budget-period.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
 import { BudgetsService } from "./budgets.service";
+import { getMonthEndYMD } from "../common/date-utils";
 import {
   HealthScoreResult,
   HealthScoreHistoryPoint,
   SavingsRatePoint,
 } from "./budget-reports.service";
+import { roundMoney, roundToDecimals } from "../common/round.util";
 
 const MONTH_NAMES = [
   "January",
@@ -101,7 +103,7 @@ export class BudgetHealthReportsService {
         categoryId: cat.categoryId || "",
         categoryName: cat.categoryName,
         percentUsed: cat.percentUsed,
-        impact: this.round(impact),
+        impact: roundToDecimals(impact, 2),
         categoryGroup: group,
       });
     }
@@ -124,10 +126,10 @@ export class BudgetHealthReportsService {
       label,
       breakdown: {
         baseScore,
-        overBudgetDeductions: this.round(overBudgetDeductions),
-        underBudgetBonus: this.round(underBudgetBonus),
-        trendBonus: this.round(trendBonus),
-        essentialWeightPenalty: this.round(essentialWeightPenalty),
+        overBudgetDeductions: roundToDecimals(overBudgetDeductions, 2),
+        underBudgetBonus: roundToDecimals(underBudgetBonus, 2),
+        trendBonus: roundToDecimals(trendBonus, 2),
+        essentialWeightPenalty: roundToDecimals(essentialWeightPenalty, 2),
       },
       categoryScores,
     };
@@ -248,12 +250,7 @@ export class BudgetHealthReportsService {
       1,
     );
     const rangeStart = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      0,
-    ).getDate();
-    const rangeEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const rangeEnd = getMonthEndYMD(today.getFullYear(), today.getMonth() + 1);
 
     // Batch queries: group by month across entire range
     const incomeByMonth = new Map<string, number>();
@@ -436,13 +433,14 @@ export class BudgetHealthReportsService {
       const income = incomeByMonth.get(monthKey) || 0;
       const expenses = expenseByMonth.get(monthKey) || 0;
       const savings = income - expenses;
-      const savingsRate = income > 0 ? this.round((savings / income) * 100) : 0;
+      const savingsRate =
+        income > 0 ? roundToDecimals((savings / income) * 100, 2) : 0;
 
       result.push({
         month: monthLabel,
-        income: this.round(income),
-        expenses: this.round(expenses),
-        savings: this.round(savings),
+        income: roundMoney(income),
+        expenses: roundMoney(expenses),
+        savings: roundMoney(savings),
         savingsRate,
       });
     }
@@ -533,9 +531,5 @@ export class BudgetHealthReportsService {
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
     return `${MONTH_NAMES[month - 1].substring(0, 3)} ${year}`;
-  }
-
-  private round(value: number): number {
-    return Math.round(value * 100) / 100;
   }
 }

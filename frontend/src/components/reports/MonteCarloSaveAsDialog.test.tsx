@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@/test/render';
 import { MonteCarloSaveAsDialog } from './MonteCarloSaveAsDialog';
 import { __resetModalStateForTesting } from '@/components/ui/Modal';
 
@@ -66,7 +66,7 @@ describe('MonteCarloSaveAsDialog', () => {
     expect(screen.getByLabelText(/^Name$/)).toHaveValue('Second');
   });
 
-  it('submits the trimmed name', () => {
+  it('submits the trimmed name', async () => {
     const onSubmit = vi.fn();
     render(
       <MonteCarloSaveAsDialog
@@ -79,10 +79,11 @@ describe('MonteCarloSaveAsDialog', () => {
     const input = screen.getByLabelText(/^Name$/);
     fireEvent.change(input, { target: { value: '  Trimmed Name  ' } });
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
-    expect(onSubmit).toHaveBeenCalledWith('Trimmed Name');
+    // react-hook-form validation resolves asynchronously.
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Trimmed Name'));
   });
 
-  it('truncates the submitted name at 255 characters', () => {
+  it('truncates the submitted name at 255 characters', async () => {
     const onSubmit = vi.fn();
     render(
       <MonteCarloSaveAsDialog
@@ -100,6 +101,7 @@ describe('MonteCarloSaveAsDialog', () => {
     Object.defineProperty(input, 'value', { value: long, configurable: true });
     fireEvent.change(input);
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toHaveLength(255);
   });
 

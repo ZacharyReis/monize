@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   Inject,
   forwardRef,
   Logger,
@@ -38,24 +39,125 @@ import { ActionHistoryService } from "../action-history/action-history.service";
 import { getAllCategoryIdsWithChildren } from "../common/category-tree.util";
 import { formatCurrency } from "../common/format-currency.util";
 import {
+  buildPaginationMeta,
+  clampPagination,
+  PaginatedResult,
+} from "../common/dto/pagination-query.dto";
+import {
   buildTransactionSearchClause,
   escapeLikePattern,
 } from "./transaction-search.util";
+import { tr } from "../i18n/translate";
+import { stripHtml } from "../common/sanitization.util";
+import {
+  BulkCreateResult,
+  BulkCreateSkip,
+  bulkSkipReason,
+} from "../common/bulk-create.types";
 
 export interface TransactionWithInvestmentLink extends Transaction {
   linkedInvestmentTransactionId?: string | null;
 }
 
-export interface PaginatedTransactions {
-  data: TransactionWithInvestmentLink[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+export interface PaginatedTransactions extends PaginatedResult<TransactionWithInvestmentLink> {
   startingBalance?: number;
+}
+
+export interface LlmTransactionRow {
+  id: string;
+  splitId?: string;
+  date: string;
+  payeeName: string | null;
+  categoryName?: string;
+  amount: number;
+  accountName?: string;
+  description: string | null;
+  status: string;
+  isSplit?: boolean;
+}
+
+export interface LlmTransactionSearch {
+  transactions: LlmTransactionRow[];
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Resolved, sanitized preview of a transaction the assistant proposes to
+ * create. Shared by the MCP `create_transaction` dry-run and the AI Assistant's
+ * human-in-the-loop confirmation flow so both surfaces validate ownership and
+ * resolve names identically.
+ */
+export interface CreateTransactionPreview {
+  accountId: string;
+  accountName: string;
+  amount: number;
+  transactionDate: string;
+  /**
+   * Existing payee the name resolved to (so create() links the transaction to
+   * the payee record), or null when no payee matched the given name.
+   */
+  payeeId: string | null;
+  payeeName: string | null;
+  /** True when payeeName matched an existing payee; false for a new name. */
+  payeeMatched: boolean;
+  /**
+   * True when confirming this transaction will create a new payee: an unmatched
+   * name with createPayeeIfMissing left enabled. False when the name matched an
+   * existing payee, no name was given, or the name will be stored as free text.
+   */
+  payeeWillBeCreated: boolean;
+  categoryId: string | null;
+  categoryName: string | null;
+  description: string | null;
+  currencyCode: string;
+}
+
+/** Resolved preview of a proposed transaction re-categorization. */
+export interface CategorizeTransactionPreview {
+  transactionId: string;
+  payeeName: string | null;
+  amount: number;
+  transactionDate: string;
+  accountName: string | null;
+  currentCategoryName: string | null;
+  categoryId: string;
+  newCategoryName: string;
+}
+
+/**
+ * Resolved, sanitized preview of an edit the assistant proposes to an existing
+ * transaction. Carries the full resulting state (every field as it will be
+ * persisted) so the confirmation card matches the create flow and the signed
+ * descriptor can apply an idempotent overwrite. Shared by the MCP
+ * `update_transaction` dry-run and the AI Assistant confirmation flow.
+ */
+export interface UpdateTransactionPreview {
+  transactionId: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  transactionDate: string;
+  payeeId: string | null;
+  payeeName: string | null;
+  payeeMatched: boolean;
+  payeeWillBeCreated: boolean;
+  categoryId: string | null;
+  categoryName: string | null;
+  description: string | null;
+  currencyCode: string;
+}
+
+/** Resolved preview of a proposed transaction deletion (display-only). */
+export interface DeleteTransactionPreview {
+  transactionId: string;
+  accountName: string;
+  amount: number;
+  transactionDate: string;
+  payeeName: string | null;
+  categoryName: string | null;
+  description: string | null;
+  currencyCode: string;
 }
 
 export { TransferResult };
@@ -91,6 +193,7 @@ export class TransactionsService {
   async create(
     userId: string,
     createTransactionDto: CreateTransactionDto,
+    options?: { createPayeeIfMissing?: boolean },
   ): Promise<Transaction> {
     await this.accountsService.findOne(userId, createTransactionDto.accountId);
 
@@ -101,26 +204,42 @@ export class TransactionsService {
       this.splitService.validateSplits(splits, createTransactionDto.amount);
     }
 
-    // Validate ownership of referenced payee and category
+    // Validate ownership of a referenced payee, or -- when the caller opts in
+    // (createPayeeIfMissing) and only a free-text name was given -- find or
+    // create a reusable payee from that name so the transaction links to a
+    // payee record. Callers that want a one-off free-text payee leave the
+    // option unset, in which case the name is stored verbatim.
+    let resolvedPayeeId = transactionData.payeeId;
+    let resolvedPayeeName = transactionData.payeeName;
     if (transactionData.payeeId) {
       await this.payeesService.findOne(userId, transactionData.payeeId);
+    } else if (
+      options?.createPayeeIfMissing &&
+      typeof transactionData.payeeName === "string" &&
+      transactionData.payeeName.trim().length > 0
+    ) {
+      const payee = await this.payeesService.findOrCreate(
+        userId,
+        transactionData.payeeName.trim(),
+      );
+      resolvedPayeeId = payee.id;
+      resolvedPayeeName = payee.name;
     }
     if (transactionData.categoryId) {
       const cat = await this.categoriesRepository.findOne({
         where: { id: transactionData.categoryId, userId },
       });
       if (!cat) {
-        throw new NotFoundException("Category not found");
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
       }
     }
 
     let categoryId = transactionData.categoryId;
-    if (!hasSplits && !categoryId && transactionData.payeeId) {
+    if (!hasSplits && !categoryId && resolvedPayeeId) {
       try {
-        const payee = await this.payeesService.findOne(
-          userId,
-          transactionData.payeeId,
-        );
+        const payee = await this.payeesService.findOne(userId, resolvedPayeeId);
         if (payee.defaultCategoryId) {
           categoryId = payee.defaultCategoryId;
         }
@@ -138,6 +257,8 @@ export class TransactionsService {
     try {
       const transaction = queryRunner.manager.create(Transaction, {
         ...transactionData,
+        payeeId: resolvedPayeeId,
+        payeeName: resolvedPayeeName,
         categoryId: hasSplits ? null : categoryId,
         isSplit: hasSplits,
         userId,
@@ -217,6 +338,304 @@ export class TransactionsService {
     return result;
   }
 
+  /**
+   * Create many cash transactions in one go for the "paste a table" bulk
+   * approval flow. Best-effort: each row is created through the single-row
+   * `create()` (its own QueryRunner, atomic balance update, action history) so a
+   * failing row is collected into `skipped` rather than aborting the batch. The
+   * per-row `createPayee` flag is forwarded so unmatched payee names are created
+   * or stored as free text exactly as the user approved on the card.
+   */
+  async createBulk(
+    userId: string,
+    rows: Array<{ dto: CreateTransactionDto; createPayeeIfMissing: boolean }>,
+  ): Promise<BulkCreateResult<Transaction>> {
+    const created: Transaction[] = [];
+    const skipped: BulkCreateSkip[] = [];
+    for (let index = 0; index < rows.length; index++) {
+      const { dto, createPayeeIfMissing } = rows[index];
+      try {
+        created.push(await this.create(userId, dto, { createPayeeIfMissing }));
+      } catch (error) {
+        skipped.push({ index, reason: bulkSkipReason(error) });
+        this.logger.warn(
+          `Bulk transaction row ${index} skipped: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }
+    return { created, skipped };
+  }
+
+  /**
+   * Validate and resolve a proposed transaction WITHOUT persisting it. Used by
+   * the MCP `create_transaction` dry-run and the AI Assistant confirmation
+   * flow. Validates account + category ownership and sanitizes user strings so
+   * the returned preview is exactly what `create()` would persist.
+   */
+  async previewCreate(
+    userId: string,
+    input: {
+      accountId: string;
+      amount: number;
+      transactionDate: string;
+      payeeName?: string;
+      categoryId?: string;
+      description?: string;
+      /** Auto-create a payee for an unmatched name. Defaults to true. */
+      createPayeeIfMissing?: boolean;
+    },
+  ): Promise<CreateTransactionPreview> {
+    const account = await this.accountsService.findOne(userId, input.accountId);
+
+    let categoryId: string | null = input.categoryId ?? null;
+    let categoryName: string | null = null;
+    if (categoryId) {
+      const cat = await this.categoriesRepository.findOne({
+        where: { id: categoryId, userId },
+      });
+      if (!cat) {
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
+      }
+      categoryName = cat.name;
+    }
+
+    // Resolve the payee name to an existing payee so the created transaction
+    // links to the payee record instead of recording a detached free-text name.
+    // When nothing matches, payeeId stays null and the caller can offer to
+    // create the payee.
+    const inputPayeeName = stripHtml(input.payeeName) || null;
+    let payeeId: string | null = null;
+    let payeeName: string | null = inputPayeeName;
+    let payeeMatched = false;
+    if (inputPayeeName) {
+      const payee = await this.payeesService.resolveByName(
+        userId,
+        inputPayeeName,
+      );
+      if (payee) {
+        payeeId = payee.id;
+        payeeMatched = true;
+        // Use the matched payee's canonical name so the transaction links
+        // cleanly and the preview shows which payee the name resolved to
+        // (e.g. "Buon Gusto" -> "Buon Gusto Restaurant").
+        payeeName = payee.name;
+        // Mirror create(): when the caller gave no category, adopt the matched
+        // payee's default so the preview equals what create() will persist.
+        if (!categoryId && payee.defaultCategoryId) {
+          categoryId = payee.defaultCategoryId;
+          categoryName = payee.defaultCategory?.name ?? null;
+        }
+      }
+    }
+
+    // An unmatched name becomes a new payee on confirm unless the caller
+    // explicitly opted out (createPayeeIfMissing === false), in which case it is
+    // recorded as a free-text name.
+    const payeeWillBeCreated =
+      !!payeeName && !payeeMatched && input.createPayeeIfMissing !== false;
+
+    return {
+      accountId: input.accountId,
+      accountName: account.name,
+      amount: input.amount,
+      transactionDate: input.transactionDate,
+      payeeId,
+      payeeName,
+      payeeMatched,
+      payeeWillBeCreated,
+      categoryId,
+      categoryName,
+      description: stripHtml(input.description) || null,
+      currencyCode: account.currencyCode,
+    };
+  }
+
+  /**
+   * Validate and resolve a proposed re-categorization WITHOUT persisting it.
+   * Confirms ownership of both the transaction and the target category and
+   * returns a preview (payee/amount/date plus current and new category names).
+   */
+  async previewCategorize(
+    userId: string,
+    transactionId: string,
+    categoryId: string,
+  ): Promise<CategorizeTransactionPreview> {
+    const transaction = await this.findOne(userId, transactionId);
+    const cat = await this.categoriesRepository.findOne({
+      where: { id: categoryId, userId },
+    });
+    if (!cat) {
+      throw new NotFoundException(
+        tr("errors.transactions.categoryNotFound", "Category not found"),
+      );
+    }
+
+    return {
+      transactionId,
+      payeeName: transaction.payeeName ?? null,
+      amount: Number(transaction.amount),
+      transactionDate: transaction.transactionDate,
+      accountName: transaction.account?.name ?? null,
+      currentCategoryName: transaction.category?.name ?? null,
+      categoryId,
+      newCategoryName: cat.name,
+    };
+  }
+
+  /**
+   * Validate and resolve a proposed edit to an existing transaction WITHOUT
+   * persisting it. Only the provided fields change; every other field is kept
+   * from the stored transaction so the returned preview is the exact resulting
+   * state `update()` will write. Validates account ownership implicitly (the
+   * transaction is loaded by owner), validates a changed category, and resolves
+   * a changed payee name to an existing payee exactly like `previewCreate`.
+   *
+   * Transfers and split transactions are rejected here: their linked legs and
+   * child splits need the dedicated edit flows, so this single-record path
+   * would leave them inconsistent.
+   */
+  async previewUpdate(
+    userId: string,
+    transactionId: string,
+    input: {
+      amount?: number;
+      transactionDate?: string;
+      payeeName?: string;
+      categoryId?: string;
+      description?: string;
+      /** Auto-create a payee for an unmatched name. Defaults to true. */
+      createPayeeIfMissing?: boolean;
+    },
+  ): Promise<UpdateTransactionPreview> {
+    const existing = await this.findOne(userId, transactionId);
+
+    if (existing.isTransfer) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.cannotEditTransfer",
+          "Transfers can't be edited here. Edit the transfer from the Transactions screen.",
+        ),
+      );
+    }
+    if (existing.isSplit) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.cannotEditSplit",
+          "Split transactions can't be edited here. Edit the split from the Transactions screen.",
+        ),
+      );
+    }
+
+    const hasChange =
+      input.amount !== undefined ||
+      input.transactionDate !== undefined ||
+      input.payeeName !== undefined ||
+      input.categoryId !== undefined ||
+      input.description !== undefined;
+    if (!hasChange) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.noUpdateFields",
+          "Provide at least one field to change.",
+        ),
+      );
+    }
+
+    const amount = input.amount ?? Number(existing.amount);
+    const transactionDate = input.transactionDate ?? existing.transactionDate;
+    const description =
+      input.description !== undefined
+        ? stripHtml(input.description) || null
+        : (existing.description ?? null);
+
+    // Category: validate ownership of a changed category; otherwise keep the
+    // transaction's existing category.
+    let categoryId: string | null = existing.categoryId ?? null;
+    let categoryName: string | null = existing.category?.name ?? null;
+    if (input.categoryId !== undefined) {
+      const cat = await this.categoriesRepository.findOne({
+        where: { id: input.categoryId, userId },
+      });
+      if (!cat) {
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
+      }
+      categoryId = cat.id;
+      categoryName = cat.name;
+    }
+
+    // Payee: when a new name is given, resolve it to an existing payee (matching
+    // create()/previewCreate); an unmatched name becomes a new payee on confirm
+    // unless the caller opted out. When no new name is given, keep the existing
+    // payee link.
+    let payeeId: string | null = existing.payeeId ?? null;
+    let payeeName: string | null = existing.payeeName ?? null;
+    let payeeMatched = !!existing.payeeId;
+    let payeeWillBeCreated = false;
+    if (input.payeeName !== undefined) {
+      const inputPayeeName = stripHtml(input.payeeName) || null;
+      payeeId = null;
+      payeeName = inputPayeeName;
+      payeeMatched = false;
+      if (inputPayeeName) {
+        const payee = await this.payeesService.resolveByName(
+          userId,
+          inputPayeeName,
+        );
+        if (payee) {
+          payeeId = payee.id;
+          payeeMatched = true;
+          payeeName = payee.name;
+        }
+      }
+      payeeWillBeCreated =
+        !!payeeName && !payeeMatched && input.createPayeeIfMissing !== false;
+    }
+
+    return {
+      transactionId,
+      accountId: existing.accountId,
+      accountName: existing.account?.name ?? "",
+      amount,
+      transactionDate,
+      payeeId,
+      payeeName,
+      payeeMatched,
+      payeeWillBeCreated,
+      categoryId,
+      categoryName,
+      description,
+      currencyCode: existing.currencyCode,
+    };
+  }
+
+  /**
+   * Validate ownership of a transaction the assistant proposes to delete and
+   * return a display-only preview of what will be removed. The actual deletion
+   * (including any transfer/split side effects) is handled by `remove()`.
+   */
+  async previewDelete(
+    userId: string,
+    transactionId: string,
+  ): Promise<DeleteTransactionPreview> {
+    const existing = await this.findOne(userId, transactionId);
+    return {
+      transactionId,
+      accountName: existing.account?.name ?? "",
+      amount: Number(existing.amount),
+      transactionDate: existing.transactionDate,
+      payeeName: existing.payeeName ?? null,
+      categoryName: existing.category?.name ?? null,
+      description: existing.description ?? null,
+      currencyCode: existing.currencyCode,
+    };
+  }
+
   async getRecent(
     userId: string,
     limit = 5,
@@ -292,9 +711,12 @@ export class TransactionsService {
     amountTo?: number,
     tagIds?: string[],
     statuses?: TransactionStatus[],
+    sortBy: "date" | "amount" | "payee" = "date",
+    sortDirection: "ASC" | "DESC" = "DESC",
   ): Promise<PaginatedTransactions> {
-    let safePage = Math.max(1, page);
-    const safeLimit = Math.min(200, Math.max(1, limit));
+    const clamped = clampPagination(page, limit);
+    const safeLimit = clamped.limit;
+    let safePage = clamped.page;
 
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder("transaction")
@@ -320,9 +742,16 @@ export class TransactionsService {
         "linkedSplitTransferAccount",
       )
       .where("transaction.userId = :userId", { userId })
-      .orderBy("transaction.transactionDate", "DESC")
-      .addOrderBy("transaction.createdAt", "DESC")
-      .addOrderBy("transaction.id", "DESC");
+      .orderBy(
+        sortBy === "amount"
+          ? "transaction.amount"
+          : sortBy === "payee"
+            ? "transaction.payeeName"
+            : "transaction.transactionDate",
+        sortDirection,
+      )
+      .addOrderBy("transaction.createdAt", sortDirection)
+      .addOrderBy("transaction.id", sortDirection);
 
     if (!includeInvestmentBrokerage) {
       queryBuilder.andWhere(
@@ -421,8 +850,6 @@ export class TransactionsService {
       .take(safeLimit)
       .getManyAndCount();
 
-    const totalPages = Math.ceil(total / safeLimit);
-
     let startingBalance: number | undefined;
     const singleAccountId =
       accountIds?.length === 1 ? accountIds[0] : undefined;
@@ -500,13 +927,7 @@ export class TransactionsService {
 
     return {
       data: enrichedData,
-      pagination: {
-        page: safePage,
-        limit: safeLimit,
-        total,
-        totalPages,
-        hasMore: safePage < totalPages,
-      },
+      pagination: buildPaginationMeta(safePage, safeLimit, total),
       startingBalance,
     };
   }
@@ -1227,7 +1648,13 @@ export class TransactionsService {
     });
 
     if (!transaction) {
-      throw new NotFoundException(`Transaction with ID ${id} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.transactions.notFoundById",
+          `Transaction with ID ${id} not found`,
+          { id },
+        ),
+      );
     }
 
     return transaction;
@@ -1237,6 +1664,7 @@ export class TransactionsService {
     userId: string,
     id: string,
     updateTransactionDto: UpdateTransactionDto,
+    options?: { createPayeeIfMissing?: boolean },
   ): Promise<Transaction> {
     const transaction = await this.findOne(userId, id);
     const beforeSnapshot = this.snapshotTransaction(transaction);
@@ -1252,16 +1680,32 @@ export class TransactionsService {
       await this.accountsService.findOne(userId, updateData.accountId);
     }
 
-    // Validate ownership of referenced payee and category
+    // Validate ownership of referenced payee and category. When the caller opts
+    // in (createPayeeIfMissing) and only a free-text name was given, find or
+    // create a reusable payee from that name so the transaction links to a
+    // payee record -- mirroring create().
     if (updateData.payeeId) {
       await this.payeesService.findOne(userId, updateData.payeeId);
+    } else if (
+      options?.createPayeeIfMissing &&
+      typeof updateData.payeeName === "string" &&
+      updateData.payeeName.trim().length > 0
+    ) {
+      const payee = await this.payeesService.findOrCreate(
+        userId,
+        updateData.payeeName.trim(),
+      );
+      updateData.payeeId = payee.id;
+      updateData.payeeName = payee.name;
     }
     if ("categoryId" in updateData && updateData.categoryId) {
       const cat = await this.categoriesRepository.findOne({
         where: { id: updateData.categoryId, userId },
       });
       if (!cat) {
-        throw new NotFoundException("Category not found");
+        throw new NotFoundException(
+          tr("errors.transactions.categoryNotFound", "Category not found"),
+        );
       }
     }
 
@@ -1399,7 +1843,13 @@ export class TransactionsService {
         where: { id, userId },
       });
       if (!savedTransaction) {
-        throw new NotFoundException(`Transaction with ID ${id} not found`);
+        throw new NotFoundException(
+          tr(
+            "errors.transactions.notFoundById",
+            `Transaction with ID ${id} not found`,
+            { id },
+          ),
+        );
       }
 
       const newAmount = Number(savedTransaction.amount);
@@ -1479,6 +1929,14 @@ export class TransactionsService {
       beforeData: beforeSnapshot,
       afterData: this.snapshotTransaction(finalTransaction),
       description: `Updated transaction ${finalTransaction.payeeName || ""} ${formatCurrency(Number(finalTransaction.amount), finalTransaction.currencyCode)}`,
+      descriptionKey: "updatedTransaction",
+      descriptionParams: {
+        payee: finalTransaction.payeeName || "",
+        amount: formatCurrency(
+          Number(finalTransaction.amount),
+          finalTransaction.currencyCode,
+        ),
+      },
     });
     return finalTransaction;
   }
@@ -1569,34 +2027,40 @@ export class TransactionsService {
         where: { transactionId: parentTransactionId },
       });
 
-      for (const split of allSplits) {
-        if (
-          split.linkedTransactionId &&
-          split.linkedTransactionId !== linkedTransactionId
-        ) {
-          const linkedTx = await queryRunner.manager.findOne(Transaction, {
-            where: { id: split.linkedTransactionId, userId },
-          });
+      // Fetch every linked transfer transaction for these splits in one query
+      // instead of a findOne per split, then process them with the same
+      // per-transaction balance/remove logic as before.
+      const linkedIds = [
+        ...new Set(
+          allSplits
+            .map((s) => s.linkedTransactionId)
+            .filter((id): id is string => !!id && id !== linkedTransactionId),
+        ),
+      ];
 
-          if (linkedTx) {
-            const linkedAccId = linkedTx.accountId;
-            const linkedIsFuture = isTransactionInFuture(
-              linkedTx.transactionDate,
+      if (linkedIds.length > 0) {
+        const linkedTxs = await queryRunner.manager.find(Transaction, {
+          where: { id: In(linkedIds), userId },
+        });
+
+        for (const linkedTx of linkedTxs) {
+          const linkedAccId = linkedTx.accountId;
+          const linkedIsFuture = isTransactionInFuture(
+            linkedTx.transactionDate,
+          );
+          if (!linkedIsFuture) {
+            await this.accountsService.updateBalance(
+              linkedAccId,
+              -Number(linkedTx.amount),
+              queryRunner,
             );
-            if (!linkedIsFuture) {
-              await this.accountsService.updateBalance(
-                linkedAccId,
-                -Number(linkedTx.amount),
-                queryRunner,
-              );
-            }
-            await queryRunner.manager.remove(linkedTx);
-            if (linkedIsFuture) {
-              await this.accountsService.recalculateCurrentBalance(
-                linkedAccId,
-                queryRunner,
-              );
-            }
+          }
+          await queryRunner.manager.remove(linkedTx);
+          if (linkedIsFuture) {
+            await this.accountsService.recalculateCurrentBalance(
+              linkedAccId,
+              queryRunner,
+            );
           }
         }
       }
@@ -1832,6 +2296,20 @@ export class TransactionsService {
     );
   }
 
+  /**
+   * Delete a transaction, routing transfers to removeTransfer so both linked
+   * legs are removed (plain remove() only deletes the single row). Used by the
+   * AI Assistant / MCP manage_transactions delete path, where the caller does
+   * not know up front whether the target is a transfer.
+   */
+  async removeAny(userId: string, transactionId: string): Promise<void> {
+    const transaction = await this.findOne(userId, transactionId);
+    if (transaction.isTransfer && transaction.linkedTransactionId) {
+      return this.removeTransfer(userId, transactionId);
+    }
+    return this.remove(userId, transactionId);
+  }
+
   async updateTransfer(
     userId: string,
     transactionId: string,
@@ -1926,6 +2404,116 @@ export class TransactionsService {
       beforeData: action === "create" ? undefined : beforeData,
       afterData: action === "delete" ? undefined : snapshot,
       description: `${action === "create" ? "Created" : action === "update" ? "Updated" : "Deleted"} transaction ${tx.payeeName || ""} ${formatCurrency(Number(tx.amount), tx.currencyCode)}`,
+      descriptionKey:
+        action === "create"
+          ? "createdTransaction"
+          : action === "update"
+            ? "updatedTransaction"
+            : "deletedTransaction",
+      descriptionParams: {
+        payee: tx.payeeName || "",
+        amount: formatCurrency(Number(tx.amount), tx.currencyCode),
+      },
     });
+  }
+
+  /**
+   * Search transactions and shape them as flat rows for LLM tools (the MCP
+   * server's search_transactions tool and any AI Assistant equivalent). Split
+   * transactions are expanded so each split appears as its own row with its
+   * real category -- the parent of a split has categoryId NULL by design, so
+   * reporting it as-is would make the model think it is uncategorized. Amount
+   * filters are applied per expanded row. Keeping this on the domain service
+   * (rather than in the tool layer) keeps both surfaces consistent.
+   */
+  async getLlmTransactionRows(
+    userId: string,
+    filters: {
+      accountId?: string;
+      categoryId?: string;
+      payeeId?: string;
+      startDate?: string;
+      endDate?: string;
+      query?: string;
+      minAmount?: number;
+      maxAmount?: number;
+      limit?: number;
+      sortBy?: "date" | "amount" | "payee";
+      sortDirection?: "asc" | "desc";
+    },
+  ): Promise<LlmTransactionSearch> {
+    const limit = Math.min(filters.limit || 50, 100);
+    const sortBy = filters.sortBy ?? "date";
+    const sortDirection = filters.sortDirection === "asc" ? "ASC" : "DESC";
+    // Push the amount filter into the SQL WHERE clause so pagination, total and
+    // hasMore reflect the filtered set. Filtering only the expanded rows after
+    // the page was fetched returned a biased sample with a total/hasMore that
+    // counted unfiltered parent rows -- the model would see e.g. 3 rows but be
+    // told there were 50 and never page to the real matches. The per-row filter
+    // below still applies to split sub-rows (whose individual amounts differ
+    // from the parent total) so a split row outside the range is not shown.
+    const result = await this.findAll(
+      userId,
+      filters.accountId ? [filters.accountId] : undefined,
+      filters.startDate,
+      filters.endDate,
+      filters.categoryId ? [filters.categoryId] : undefined,
+      filters.payeeId ? [filters.payeeId] : undefined,
+      1,
+      limit,
+      false,
+      filters.query,
+      undefined,
+      filters.minAmount,
+      filters.maxAmount,
+      undefined,
+      undefined,
+      sortBy,
+      sortDirection,
+    );
+
+    const transactions = result.data.flatMap((t): LlmTransactionRow[] => {
+      const rows: LlmTransactionRow[] =
+        t.isSplit && Array.isArray(t.splits) && t.splits.length > 0
+          ? t.splits.map((s) => ({
+              id: t.id,
+              splitId: s.id,
+              date: t.transactionDate,
+              payeeName: t.payeeName,
+              categoryName: s.category?.name,
+              amount: Number(s.amount),
+              accountName: t.account?.name,
+              description: s.memo ?? t.description,
+              status: t.status,
+              isSplit: true,
+            }))
+          : [
+              {
+                id: t.id,
+                date: t.transactionDate,
+                payeeName: t.payeeName,
+                categoryName: t.category?.name,
+                amount: Number(t.amount),
+                accountName: t.account?.name,
+                description: t.description,
+                status: t.status,
+              },
+            ];
+      return rows.filter((row) => {
+        if (filters.minAmount !== undefined && row.amount < filters.minAmount) {
+          return false;
+        }
+        if (filters.maxAmount !== undefined && row.amount > filters.maxAmount) {
+          return false;
+        }
+        return true;
+      });
+    });
+
+    return {
+      transactions,
+      total: result.pagination.total,
+      hasMore: result.pagination.hasMore,
+    };
   }
 }

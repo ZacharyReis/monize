@@ -1,0 +1,85 @@
+{
+  "page": {
+    "title": "Categorías",
+    "subtitle": "Organiza tus transacciones con categorías personalizadas",
+    "newButton": "+ Nueva categoría",
+    "searchPlaceholder": "Buscar categorías...",
+    "filterAll": "Todas ({count})",
+    "filterExpenses": "Gastos ({count})",
+    "filterIncome": "Ingresos ({count})",
+    "modalTitleNew": "Nueva categoría",
+    "modalTitleEdit": "Editar categoría",
+    "countSingle": "1 categoría",
+    "countPlural": "{count} categorías",
+    "loadingText": "Cargando categorías...",
+    "summaryTotal": "Total de categorías",
+    "summaryIncome": "Categorías de ingresos",
+    "summaryExpense": "Categorías de gastos",
+    "summaryTopLevel": "Nivel superior"
+  },
+  "empty": {
+    "heading": "Sin categorías todavía",
+    "description": "Las categorías te ayudan a organizar tus transacciones. Comienza importando nuestro conjunto de categorías predeterminadas o crea las tuyas desde cero.",
+    "importButton": "Importar categorías predeterminadas",
+    "createButton": "Crear las mías",
+    "hint": "El conjunto predeterminado incluye categorías comunes de ingresos y gastos con subcategorías"
+  },
+  "toasts": {
+    "created": "Categoría creada correctamente",
+    "updated": "Categoría actualizada correctamente",
+    "deleted": "Categoría eliminada correctamente",
+    "cannotDeleteSystem": "Las categorías del sistema no se pueden eliminar",
+    "importSuccess": "Se importaron {count} categorías correctamente",
+    "loadFailed": "Error al cargar las categorías",
+    "deleteFailed": "Error al eliminar la categoría",
+    "createFailed": "Error al crear la categoría",
+    "updateFailed": "Error al actualizar la categoría",
+    "importFailed": "Error al importar las categorías predeterminadas"
+  },
+  "form": {
+    "nameLabel": "Nombre de la categoría",
+    "parentLabel": "Categoría principal",
+    "noParent": "Sin principal (nivel superior)",
+    "typeLabel": "Tipo",
+    "typeExpense": "Gasto",
+    "typeIncome": "Ingreso",
+    "typeInherited": "Tipo heredado de la principal",
+    "colourLabel": "Color",
+    "colourInherit": "Heredar de la principal",
+    "colourNone": "Sin color",
+    "colourInheritedFrom": "Color heredado de la principal ({name})",
+    "descriptionLabel": "Descripción (opcional)",
+    "submitCreate": "Crear categoría",
+    "submitUpdate": "Actualizar categoría"
+  },
+  "list": {
+    "emptyHeading": "Sin categorías",
+    "emptyDescription": "Comienza creando una nueva categoría.",
+    "colName": "Nombre",
+    "colType": "Tipo",
+    "colCount": "Cantidad",
+    "colDescription": "Descripción",
+    "colActions": "Acciones",
+    "badgeIncome": "Ingreso",
+    "badgeExpense": "Gasto",
+    "systemBadge": "(Sistema)",
+    "inheritedColorTitle": "Heredado de la principal",
+    "viewTransactionsTitle": "Ver transacciones en esta categoría",
+    "densityToggleTitle": "Cambiar densidad de filas",
+    "densityNormal": "Normal",
+    "densityCompact": "Compacto",
+    "densityDense": "Denso"
+  },
+  "deleteDialog": {
+    "title": "¿Eliminar \"{name}\"?",
+    "checkingUsage": "Verificando uso...",
+    "usedBy": "Esta categoría es utilizada por {count, plural, one {# elemento} other {# elementos}} (transacciones y/o facturas y depósitos planificados).",
+    "reassignLabel": "Reasignar a:",
+    "leaveUncategorized": "Dejar sin categoría",
+    "safeToDelete": "Esta categoría no está en uso. Se puede eliminar de forma segura.",
+    "cannotUndo": "Esta acción no se puede deshacer."
+  },
+  "validation": {
+    "nameRequired": "El nombre de la categoría es obligatorio"
+  }
+}

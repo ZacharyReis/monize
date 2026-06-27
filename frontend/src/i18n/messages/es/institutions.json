@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "Instituciones financieras",
+    "subtitle": "Bancos y corredoras a los que pertenecen tus cuentas",
+    "newInstitution": "Nueva institución",
+    "loading": "Cargando instituciones...",
+    "searchPlaceholder": "Buscar instituciones...",
+    "modalTitleNew": "Nueva institución",
+    "modalTitleEdit": "Editar institución",
+    "summary": {
+      "total": "Total de instituciones",
+      "withLogo": "Con logotipo",
+      "linkedAccounts": "Cuentas vinculadas"
+    },
+    "toasts": {
+      "loadFailed": "Error al cargar las instituciones",
+      "created": "Institución creada",
+      "updated": "Institución actualizada",
+      "createFailed": "Error al crear la institución",
+      "updateFailed": "Error al actualizar la institución"
+    }
+  },
+  "list": {
+    "empty": "Sin instituciones todavía. Crea una para empezar a agrupar tus cuentas.",
+    "columns": {
+      "name": "Nombre",
+      "website": "Sitio web",
+      "country": "País",
+      "accounts": "Cuentas",
+      "actions": "Acciones"
+    },
+    "accountCount": "{count, plural, =0 {Sin cuentas} one {# cuenta} other {# cuentas}}",
+    "density": {
+      "title": "Cambiar densidad de filas",
+      "normal": "Normal",
+      "compact": "Compacto",
+      "dense": "Denso"
+    },
+    "statusFilter": {
+      "all": "Todas",
+      "active": "Activas",
+      "closed": "Cerradas"
+    },
+    "actions": {
+      "manageAccounts": "Cuentas"
+    },
+    "deleteTitle": "Eliminar institución",
+    "deleteMessage": "¿Eliminar \"{name}\"? Las cuentas asignadas quedarán sin asignar pero no se eliminarán.",
+    "deleting": "Eliminando...",
+    "deleted": "Eliminada \"{name}\"",
+    "deleteFailed": "Error al eliminar la institución"
+  },
+  "form": {
+    "nameLabel": "Nombre",
+    "websiteLabel": "Sitio web",
+    "websitePlaceholder": "p. ej., td.com",
+    "countryLabel": "País (opcional)",
+    "countryPlaceholder": "Código de 2 letras, p. ej., MX",
+    "logoHint": "El logotipo de la marca se obtiene automáticamente del sitio web.",
+    "submitCreate": "Crear institución",
+    "submitUpdate": "Guardar cambios"
+  },
+  "validation": {
+    "nameRequired": "El nombre es obligatorio",
+    "websiteRequired": "El sitio web es obligatorio",
+    "websiteInvalid": "Introduce un sitio web válido (p. ej., td.com)",
+    "countryInvalid": "Usa un código de país de 2 letras"
+  },
+  "accountsManager": {
+    "title": "Cuentas en {name}",
+    "addLabel": "Añadir una cuenta",
+    "addPlaceholder": "Selecciona una cuenta para añadir...",
+    "noneToAdd": "Todas tus cuentas ya están asignadas a una institución.",
+    "loading": "Cargando cuentas...",
+    "empty": "Aún no hay cuentas asignadas a esta institución.",
+    "noneMatch": "Ninguna cuenta coincide con el filtro seleccionado.",
+    "filter": {
+      "all": "Todas",
+      "active": "Activas",
+      "closed": "Cerradas"
+    },
+    "remove": "Quitar",
+    "viewTransactions": "Ver transacciones de esta cuenta",
+    "added": "Cuenta añadida",
+    "removed": "Cuenta quitada",
+    "addFailed": "Error al añadir la cuenta",
+    "removeFailed": "Error al quitar la cuenta",
+    "loadFailed": "Error al cargar las cuentas",
+    "done": "Listo"
+  }
+}

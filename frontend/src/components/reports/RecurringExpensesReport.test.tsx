@@ -15,10 +15,6 @@ vi.mock("@/hooks/useNumberFormat", () => ({
   }),
 }));
 
-vi.mock("@/lib/chart-colours", () => ({
-  CHART_COLOURS: ["#3b82f6", "#ef4444", "#22c55e"],
-}));
-
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => (
     <div data-testid="responsive-container">{children}</div>
@@ -26,9 +22,36 @@ vi.mock("recharts", () => ({
   PieChart: ({ children }: any) => (
     <div data-testid="pie-chart">{children}</div>
   ),
-  Pie: () => null,
+  // Expose the onClick handler so a test can simulate a slice click, and render
+  // the first data point so the Cell children path executes.
+  Pie: ({ onClick, data }: any) => (
+    <button
+      data-testid="pie-slice"
+      onClick={() => onClick?.(data?.[0])}
+    >
+      slice
+    </button>
+  ),
   Cell: () => null,
-  Tooltip: () => null,
+  // Render the custom tooltip content in both active and inactive states so the
+  // CustomTooltip branches are exercised.
+  Tooltip: ({ content }: any) => {
+    if (content && content.type) {
+      const C = content.type;
+      const props = content.props || {};
+      return (
+        <div>
+          <C
+            {...props}
+            active={true}
+            payload={[{ payload: { payeeName: "Tooltip Payee", occurrences: 9, frequency: "Weekly", totalAmount: 12.34, averageAmount: 1.23, color: "#3b82f6" } }]}
+          />
+          <C {...props} active={false} payload={[]} />
+        </div>
+      );
+    }
+    return null;
+  },
 }));
 
 const mockGetRecurringExpenses = vi.fn();
@@ -42,6 +65,11 @@ vi.mock("@/lib/built-in-reports", () => ({
 const mockExportToCsv = vi.fn();
 vi.mock("@/lib/csv-export", () => ({
   exportToCsv: (...args: any[]) => mockExportToCsv(...args),
+}));
+
+const mockExportToPdf = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/pdf-export", () => ({
+  exportToPdf: (...args: any[]) => mockExportToPdf(...args),
 }));
 
 vi.mock("@/components/ui/ExportDropdown", () => ({
@@ -116,14 +144,17 @@ describe("RecurringExpensesReport", () => {
     expect(screen.getByText("Monthly Estimate")).toBeInTheDocument();
   });
 
-  it("renders failed state when data is null", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetRecurringExpenses.mockRejectedValue(new Error("API error"));
     render(<RecurringExpensesReport />);
     await waitFor(() => {
       expect(
-        screen.getByText("Failed to load recurring expenses data."),
+        screen.getByText(/failed to load report data/i),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole("button", { name: /try again/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders chart section with data", async () => {
@@ -307,6 +338,60 @@ describe("RecurringExpensesReport", () => {
     const select = screen.getByRole("combobox");
     fireEvent.change(select, { target: { value: "5" } });
     await waitFor(() => expect(mockGetRecurringExpenses).toHaveBeenCalledWith(5));
+  });
+
+  it("exports a PDF with summary cards, chart legend and table rows", async () => {
+    mockGetRecurringExpenses.mockResolvedValue({
+      data: [
+        {
+          payeeId: "p-1",
+          payeeName: "Netflix",
+          categoryName: "Entertainment",
+          frequency: "Monthly",
+          occurrences: 6,
+          averageAmount: 15.99,
+          totalAmount: 95.94,
+          lastTransactionDate: "2025-01-15",
+        },
+      ],
+      summary: { uniquePayees: 1, totalRecurring: 95.94, monthlyEstimate: 15.99 },
+    });
+    render(<RecurringExpensesReport />);
+    await waitFor(() => expect(screen.getByTestId("export-pdf")).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("export-pdf"));
+    });
+    await waitFor(() => expect(mockExportToPdf).toHaveBeenCalledTimes(1));
+    const arg = mockExportToPdf.mock.calls[0][0];
+    expect(arg.title).toBe("Recurring Expenses");
+    expect(arg.filename).toBe("recurring-expenses");
+    expect(arg.summaryCards).toHaveLength(3);
+    expect(arg.chartLegend[0].label).toContain("Netflix");
+    expect(arg.tableData.rows[0][0]).toBe("Netflix");
+  });
+
+  it("renders the custom tooltip and navigates on pie slice click", async () => {
+    mockGetRecurringExpenses.mockResolvedValue({
+      data: [
+        {
+          payeeId: "p-1",
+          payeeName: "Netflix",
+          categoryName: "Entertainment",
+          frequency: "Monthly",
+          occurrences: 6,
+          averageAmount: 15.99,
+          totalAmount: 95.94,
+          lastTransactionDate: "2025-01-15",
+        },
+      ],
+      summary: { uniquePayees: 1, totalRecurring: 95.94, monthlyEstimate: 15.99 },
+    });
+    render(<RecurringExpensesReport />);
+    await waitFor(() => expect(screen.getByTestId("pie-slice")).toBeInTheDocument());
+    // Custom tooltip content is rendered by the recharts mock in active state.
+    expect(screen.getByText(/9 transactions - Weekly/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("pie-slice"));
+    expect(mockPush).toHaveBeenCalledWith("/transactions?payeeId=p-1");
   });
 
   it("exercises every sortable column on the recurring expenses table", async () => {

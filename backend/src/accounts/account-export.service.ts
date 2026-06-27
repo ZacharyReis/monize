@@ -5,6 +5,7 @@ import { Transaction } from "../transactions/entities/transaction.entity";
 import { Category } from "../categories/entities/category.entity";
 import { Account, AccountType } from "./entities/account.entity";
 import { AccountsService } from "./accounts.service";
+import { roundMoney } from "../common/round.util";
 
 interface ExportTransaction {
   date: string;
@@ -68,8 +69,7 @@ export class AccountExportService {
 
     for (const tx of transactions) {
       if (tx.status !== "VOID") {
-        runningBalance =
-          Math.round((runningBalance + tx.amount) * 10000) / 10000;
+        runningBalance = roundMoney(runningBalance + tx.amount);
       }
       const balance = tx.status === "VOID" ? runningBalance : runningBalance;
 

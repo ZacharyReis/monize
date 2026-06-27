@@ -3,6 +3,7 @@ import {
   cn,
   parseLocalDate,
   formatDate,
+  formatMonth,
   resolveTimezone,
   isoToDatetimeLocal,
   datetimeLocalToIso,
@@ -94,6 +95,40 @@ describe('formatDate', () => {
   it('falls back to browser locale for unknown format', () => {
     const result = formatDate('2026-01-24', 'unknown-format');
     expect(typeof result).toBe('string');
+  });
+});
+
+describe('formatMonth', () => {
+  it('formats YYYY-MM-DD as year-month', () => {
+    expect(formatMonth('2026-01', 'YYYY-MM-DD')).toBe('2026-01');
+  });
+
+  it('formats MM/DD/YYYY as month/year', () => {
+    expect(formatMonth('2026-01', 'MM/DD/YYYY')).toBe('01/2026');
+  });
+
+  it('formats DD/MM/YYYY as month/year', () => {
+    expect(formatMonth('2026-01', 'DD/MM/YYYY')).toBe('01/2026');
+  });
+
+  it('formats DD-MMM-YYYY as month-name-year', () => {
+    expect(formatMonth('2026-01', 'DD-MMM-YYYY')).toBe('Jan-2026');
+  });
+
+  it('pads single-digit months', () => {
+    expect(formatMonth('2026-03', 'YYYY-MM-DD')).toBe('2026-03');
+  });
+
+  it('uses browser locale for the default format', () => {
+    const result = formatMonth('2026-01');
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to browser locale for unknown format', () => {
+    const result = formatMonth('2026-01', 'unknown-format');
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
   });
 });
 

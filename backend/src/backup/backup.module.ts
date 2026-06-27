@@ -8,21 +8,17 @@ import { BackupEncryptionService } from "./backup-encryption.service";
 import { User } from "../users/entities/user.entity";
 import { AutoBackupSettings } from "./entities/auto-backup-settings.entity";
 import { AuthModule } from "../auth/auth.module";
-import { AiEncryptionService } from "../ai/ai-encryption.service";
+import { AiModule } from "../ai/ai.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, AutoBackupSettings]),
     AuthModule,
+    AiModule,
     ConfigModule,
   ],
   controllers: [BackupController],
-  providers: [
-    BackupService,
-    AutoBackupService,
-    BackupEncryptionService,
-    AiEncryptionService,
-  ],
+  providers: [BackupService, AutoBackupService, BackupEncryptionService],
   exports: [BackupEncryptionService],
 })
 export class BackupModule {}

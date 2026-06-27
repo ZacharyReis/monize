@@ -21,6 +21,9 @@ import {
   isInvestmentActionAllowedInSplit,
 } from "../securities/cash-impact.util";
 import { NetWorthService } from "../net-worth/net-worth.service";
+import { roundMoney, sumMoney } from "../common/round.util";
+import { validateSplitAmountSum } from "../common/split-amount.util";
+import { tr } from "../i18n/translate";
 
 function inferSplitKind(split: CreateTransactionSplitDto): SplitKind {
   if (split.splitKind) return split.splitKind;
@@ -55,7 +58,9 @@ export class TransactionSplitService {
       where: { id: categoryId, userId },
     });
     if (!category) {
-      throw new NotFoundException("Category not found");
+      throw new NotFoundException(
+        tr("errors.transactions.categoryNotFound", "Category not found"),
+      );
     }
   }
 
@@ -63,27 +68,13 @@ export class TransactionSplitService {
     splits: CreateTransactionSplitDto[],
     transactionAmount: number,
   ): void {
-    const isSinglePassthrough =
-      splits.length === 1 &&
-      (splits[0].transferAccountId || splits[0].investment);
-
-    if (splits.length < 2 && !isSinglePassthrough) {
-      throw new BadRequestException(
-        "Split transactions must have at least 2 splits",
-      );
-    }
-
-    const splitsSumCents = splits.reduce(
-      (sum, split) => sum + Math.round(Number(split.amount) * 10000),
-      0,
-    );
-    const expectedSumCents = Math.round(Number(transactionAmount) * 10000);
-
-    if (splitsSumCents !== expectedSumCents) {
-      throw new BadRequestException(
-        `Split amounts (${splitsSumCents / 10000}) must equal transaction amount (${expectedSumCents / 10000})`,
-      );
-    }
+    validateSplitAmountSum(splits, transactionAmount, {
+      allowSinglePassthrough: true,
+      isPassthrough: (s) => {
+        const split = s as CreateTransactionSplitDto;
+        return Boolean(split.transferAccountId || split.investment);
+      },
+    });
 
     for (const split of splits) {
       const kind = inferSplitKind(split);
@@ -92,17 +83,27 @@ export class TransactionSplitService {
       const inv = split.investment;
       if (!inv) {
         throw new BadRequestException(
-          "Investment split requires an investment payload",
+          tr(
+            "errors.transactions.investmentSplitRequiresPayload",
+            "Investment split requires an investment payload",
+          ),
         );
       }
       if (!isInvestmentActionAllowedInSplit(inv.action)) {
         throw new BadRequestException(
-          `Investment action ${inv.action} is not allowed inside a split transaction`,
+          tr(
+            "errors.transactions.investmentActionNotAllowedInSplit",
+            `Investment action ${inv.action} is not allowed inside a split transaction`,
+            { action: inv.action },
+          ),
         );
       }
       if (split.categoryId || split.transferAccountId) {
         throw new BadRequestException(
-          "Investment splits cannot also set categoryId or transferAccountId",
+          tr(
+            "errors.transactions.investmentSplitCannotSetCategoryOrTransfer",
+            "Investment splits cannot also set categoryId or transferAccountId",
+          ),
         );
       }
 
@@ -118,14 +119,24 @@ export class TransactionSplitService {
           : 1;
       const expectedAmount = cashImpactInSecurity * exchangeRate;
 
-      const expectedCents = Math.round(expectedAmount * 10000);
-      const actualCents = Math.round(Number(split.amount) * 10000);
+      const expectedRounded = roundMoney(expectedAmount);
+      const actualRounded = roundMoney(Number(split.amount));
 
-      if (expectedCents !== actualCents) {
+      if (expectedRounded !== actualRounded) {
         throw new BadRequestException(
-          `Investment split amount (${split.amount}) does not match the cash impact ` +
-            `of ${inv.action} ${inv.quantity ?? 0} @ ${inv.price ?? 0} ` +
-            `(expected ${expectedAmount.toFixed(4)})`,
+          tr(
+            "errors.transactions.investmentSplitAmountMismatch",
+            `Investment split amount (${split.amount}) does not match the cash impact ` +
+              `of ${inv.action} ${inv.quantity ?? 0} @ ${inv.price ?? 0} ` +
+              `(expected ${expectedAmount.toFixed(4)})`,
+            {
+              amount: split.amount,
+              action: inv.action,
+              quantity: inv.quantity ?? 0,
+              price: inv.price ?? 0,
+              expected: expectedAmount.toFixed(4),
+            },
+          ),
         );
       }
     }
@@ -201,7 +212,11 @@ export class TransactionSplitService {
         const invalid = categoryIds.filter((id) => !foundIds.has(id));
         if (invalid.length > 0) {
           throw new NotFoundException(
-            `Categories not found: ${invalid.join(", ")}`,
+            tr(
+              "errors.transactions.categoriesNotFound",
+              `Categories not found: ${invalid.join(", ")}`,
+              { ids: invalid.join(", ") },
+            ),
           );
         }
       }
@@ -216,7 +231,10 @@ export class TransactionSplitService {
     if (hasInvestment) {
       if (!userId || !sourceAccountId) {
         throw new BadRequestException(
-          "Investment splits require a known source account",
+          tr(
+            "errors.transactions.investmentSplitRequiresSourceAccount",
+            "Investment splits require a known source account",
+          ),
         );
       }
       const sourceAccount = await this.accountsService.findOne(
@@ -225,12 +243,18 @@ export class TransactionSplitService {
       );
       if (sourceAccount.accountSubType !== AccountSubType.INVESTMENT_CASH) {
         throw new BadRequestException(
-          "Investment splits require the parent transaction to be on an INVESTMENT_CASH account",
+          tr(
+            "errors.transactions.investmentSplitRequiresInvestmentCashAccount",
+            "Investment splits require the parent transaction to be on an INVESTMENT_CASH account",
+          ),
         );
       }
       if (!sourceAccount.linkedAccountId) {
         throw new BadRequestException(
-          "Source INVESTMENT_CASH account is not linked to a brokerage account",
+          tr(
+            "errors.transactions.investmentCashAccountNotLinked",
+            "Source INVESTMENT_CASH account is not linked to a brokerage account",
+          ),
         );
       }
       brokerageAccountId = sourceAccount.linkedAccountId;
@@ -542,7 +566,10 @@ export class TransactionSplitService {
   ): Promise<TransactionSplit> {
     if (splitDto.investment) {
       throw new BadRequestException(
-        "Investment splits cannot be added incrementally; replace the full split set instead.",
+        tr(
+          "errors.transactions.investmentSplitNoIncremental",
+          "Investment splits cannot be added incrementally; replace the full split set instead.",
+        ),
       );
     }
     if (splitDto.categoryId) {
@@ -550,21 +577,23 @@ export class TransactionSplitService {
     }
 
     const existingSplits = await this.getSplits(transaction.id);
-    const existingTotalCents = existingSplits.reduce(
-      (sum, s) => sum + Math.round(Number(s.amount) * 10000),
-      0,
-    );
-    const newTotalCents =
-      existingTotalCents + Math.round(Number(splitDto.amount) * 10000);
-    const transactionAmountCents = Math.round(
-      Number(transaction.amount) * 10000,
-    );
+    const existingTotal = sumMoney(existingSplits.map((s) => Number(s.amount)));
+    const newTotal = sumMoney([existingTotal, Number(splitDto.amount)]);
+    const transactionAmount = roundMoney(Number(transaction.amount));
 
-    if (Math.abs(newTotalCents) > Math.abs(transactionAmountCents)) {
+    if (Math.abs(newTotal) > Math.abs(transactionAmount)) {
       throw new BadRequestException(
-        `Adding this split would exceed the transaction amount. ` +
-          `Current total: ${existingTotalCents / 10000}, New split: ${splitDto.amount}, ` +
-          `Transaction amount: ${transaction.amount}`,
+        tr(
+          "errors.transactions.splitExceedsTransactionAmount",
+          `Adding this split would exceed the transaction amount. ` +
+            `Current total: ${existingTotal}, New split: ${splitDto.amount}, ` +
+            `Transaction amount: ${transaction.amount}`,
+          {
+            existingTotal,
+            newSplit: splitDto.amount,
+            transactionAmount: transaction.amount,
+          },
+        ),
       );
     }
 
@@ -656,7 +685,13 @@ export class TransactionSplitService {
     });
 
     if (!splitWithRelations) {
-      throw new NotFoundException(`Split with ID ${savedSplitId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.transactions.splitNotFoundById",
+          `Split with ID ${savedSplitId} not found`,
+          { id: savedSplitId },
+        ),
+      );
     }
 
     return splitWithRelations;
@@ -673,7 +708,13 @@ export class TransactionSplitService {
     });
 
     if (!split) {
-      throw new NotFoundException(`Split with ID ${splitId} not found`);
+      throw new NotFoundException(
+        tr(
+          "errors.transactions.splitNotFoundById",
+          `Split with ID ${splitId} not found`,
+          { id: splitId },
+        ),
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();

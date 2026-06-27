@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useClickOutside } from '@/hooks/useClickOutside';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -20,14 +20,33 @@ import { Account } from '@/types/account';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
+import { chartColors, CHART_SERIES } from '@/lib/chart-colors';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
+import { resolvePdfColor } from '@/components/reports/resolve-pdf-color';
 
 const logger = createLogger('GeographicAllocationReport');
 
+// Holdings are keyed off the brokerage sub-account, so offer those (the
+// sibling cash account is excluded from the picker).
+const excludeCashAccounts = (a: Account) => a.accountSubType !== 'INVESTMENT_CASH';
+
 type GeoRegionSortField = 'region' | 'count' | 'marketValue' | 'percentage';
 type GeoExchangeSortField = 'exchange' | 'country' | 'count' | 'marketValue' | 'percentage';
+type GeoCountrySortField = 'country' | 'marketValue' | 'percentage';
+
+interface CountryRow {
+  country: string;
+  marketValue: number;
+  percentage: number;
+  color: string;
+}
 
 const EXCHANGE_TO_REGION: Record<string, { country: string; region: string }> = {
   NYSE: { country: 'United States', region: 'North America' },
@@ -62,16 +81,14 @@ const EXCHANGE_TO_REGION: Record<string, { country: string; region: string }> = 
 };
 
 const REGION_COLOURS: Record<string, string> = {
-  'North America': '#3b82f6',
-  'Europe': '#22c55e',
-  'Asia-Pacific': '#f97316',
-  'Other': '#8b5cf6',
+  'North America': CHART_SERIES[0],
+  'Europe': CHART_SERIES[1],
+  'Asia-Pacific': CHART_SERIES[2],
+  'Other': CHART_SERIES[3],
 };
 
-const COUNTRY_COLOURS = [
-  '#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#ec4899',
-  '#14b8a6', '#eab308', '#ef4444', '#06b6d4', '#a855f7',
-];
+const COUNTRY_COLOURS = CHART_SERIES;
+
 
 interface ExchangeAllocation {
   exchange: string;
@@ -90,10 +107,11 @@ interface RegionAllocation {
   color: string;
 }
 
-function CustomTooltip({ active, payload, formatCurrencyFull }: {
+function CustomTooltip({ active, payload, formatCurrencyFull, holdingLabel }: {
   active?: boolean;
   payload?: Array<{ payload: RegionAllocation | ExchangeAllocation }>;
   formatCurrencyFull: (v: number) => string;
+  holdingLabel: (count: number) => string;
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -104,22 +122,19 @@ function CustomTooltip({ active, payload, formatCurrencyFull }: {
       <p className="text-sm text-gray-600 dark:text-gray-400">
         {formatCurrencyFull(d.marketValue)} ({('percentage' in d ? d.percentage : 0).toFixed(1)}%)
       </p>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{d.count} holding{d.count !== 1 ? 's' : ''}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{holdingLabel(d.count)}</p>
     </div>
   );
 }
 
 export function GeographicAllocationReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency, formatCurrency: formatCurrencyFull, formatCurrencyAxis } = useNumberFormat();
   const { defaultCurrency, convertToDefault } = useExchangeRates();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [holdings, setHoldings] = useState<HoldingWithMarketValue[]>([]);
   const [securities, setSecurities] = useState<Security[]>([]);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [viewType, setViewType] = useState<'region' | 'exchange'>('region');
-  const [isLoading, setIsLoading] = useState(true);
-  const [showAccountFilter, setShowAccountFilter] = useState(false);
-  const accountFilterRef = useRef<HTMLDivElement>(null);
+  const [viewType, setViewType] = useState<'region' | 'exchange' | 'country'>('region');
   const chartRef = useRef<HTMLDivElement>(null);
   const regionSort = useSortableTable<GeoRegionSortField>(
     'reports.geographic-allocation.region.sort',
@@ -129,8 +144,10 @@ export function GeographicAllocationReport() {
     'reports.geographic-allocation.exchange.sort',
     { field: 'marketValue', direction: 'desc' },
   );
-
-  useClickOutside(accountFilterRef, () => setShowAccountFilter(false), { enabled: showAccountFilter });
+  const countrySort = useSortableTable<GeoCountrySortField>(
+    'reports.geographic-allocation.country.sort',
+    { field: 'marketValue', direction: 'desc' },
+  );
 
   // Fetch accounts and securities once on mount (static data)
   useEffect(() => {
@@ -145,29 +162,32 @@ export function GeographicAllocationReport() {
       .catch((error) => logger.error('Failed to load static data:', error));
   }, []);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const summaryData = await investmentsApi.getPortfolioSummary(
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      investmentsApi.getPortfolioSummary(
         selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
-      );
-      setHoldings(summaryData.holdings);
-    } catch (error) {
-      logger.error('Failed to load data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedAccountIds]);
+      ),
+    [selectedAccountIds],
+  );
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Country look-through breakdown (server-side: splits ETFs/funds across their
+  // manual country allocation, places stocks by listing exchange, "Other" =
+  // unclassified remainder). Cheap + cached, so fetched alongside the summary.
+  const { data: countryResp, reload: reloadCountry } = useReportData(
+    () =>
+      investmentsApi.getCountryWeightings(
+        selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
+      ),
+    [selectedAccountIds],
+  );
 
-  const toggleAccountId = (id: string) => {
-    setSelectedAccountIds((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
-    );
-  };
+  // Only the first load shows the full skeleton. Later reloads (e.g. changing
+  // the account filter) keep the existing content -- and the account dropdown --
+  // mounted so they update in place instead of unmounting the whole report.
+  const holdings = useMemo<HoldingWithMarketValue[]>(
+    () => response?.holdings ?? [],
+    [response],
+  );
 
   const securityExchangeMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -221,7 +241,7 @@ export function GeographicAllocationReport() {
         marketValue: data.value,
         percentage: total > 0 ? (data.value / total) * 100 : 0,
         count: data.count,
-        color: REGION_COLOURS[region] || '#6b7280',
+        color: REGION_COLOURS[region] || chartColors.axis,
       }))
       .sort((a, b) => b.marketValue - a.marketValue);
 
@@ -277,11 +297,82 @@ export function GeographicAllocationReport() {
     return sorted;
   }, [exchangeData, exchangeSort.sortField, exchangeSort.sortDirection]);
 
+  const countryData = useMemo<CountryRow[]>(() => {
+    if (!countryResp) return [];
+    const total = countryResp.totalPortfolioValue || 0;
+    const rows: CountryRow[] = countryResp.items.map((item, idx) => ({
+      country: item.country,
+      marketValue: item.totalValue,
+      percentage: item.percentage,
+      color: COUNTRY_COLOURS[idx % COUNTRY_COLOURS.length],
+    }));
+    if (countryResp.unclassifiedValue > 0.0001) {
+      rows.push({
+        country: t('geographicAllocation.other'),
+        marketValue: countryResp.unclassifiedValue,
+        percentage: total > 0 ? (countryResp.unclassifiedValue / total) * 100 : 0,
+        color: chartColors.axis,
+      });
+    }
+    return rows;
+  }, [countryResp, t]);
+
+  const countryTotalValue = countryResp?.totalPortfolioValue ?? 0;
+
+  const sortedCountryData = useMemo(() => {
+    const sorted = [...countryData];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      switch (countrySort.sortField) {
+        case 'country':
+          comparison = compareValues(a.country, b.country);
+          break;
+        case 'marketValue':
+          comparison = compareValues(a.marketValue, b.marketValue);
+          break;
+        case 'percentage':
+          comparison = compareValues(a.percentage, b.percentage);
+          break;
+      }
+      return countrySort.sortDirection === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [countryData, countrySort.sortField, countrySort.sortDirection]);
+
   const handleExportPdf = async () => {
+    if (viewType === 'country') {
+      const { exportToPdf } = await import('@/lib/pdf-export');
+      await exportToPdf({
+        title: t('page.names.geographic-allocation' as Parameters<typeof t>[0]),
+        subtitle: t('geographicAllocation.viewByCountry'),
+        summaryCards: [
+          { label: t('geographicAllocation.totalPortfolio'), value: formatCurrency(countryTotalValue, defaultCurrency), color: '#111827' },
+        ],
+        chartContainer: chartRef.current,
+        chartLegend: countryData.map((item) => ({
+          color: resolvePdfColor(item.color),
+          label: `${item.country} - ${formatCurrencyFull(item.marketValue, defaultCurrency)} (${item.percentage.toFixed(1)}%)`,
+        })),
+        tableData: {
+          headers: [t('geographicAllocation.colCountry'), t('geographicAllocation.colMarketValue'), t('geographicAllocation.colPortfolioPct')],
+          rows: sortedCountryData.map((item) => [
+            item.country,
+            formatCurrencyFull(item.marketValue, defaultCurrency),
+            `${item.percentage.toFixed(1)}%`,
+          ]),
+        },
+        filename: 'geographic-allocation',
+      });
+      return;
+    }
+    return handleExportGeoPdf();
+  };
+
+  const handleExportGeoPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const headers = viewType === 'region'
-      ? ['Region', 'Holdings', 'Market Value', '% of Portfolio']
-      : ['Exchange', 'Country', 'Holdings', 'Market Value', '% of Portfolio'];
+      ? [t('geographicAllocation.colRegion'), t('geographicAllocation.colHoldings'), t('geographicAllocation.colMarketValue'), t('geographicAllocation.colPortfolioPct')]
+      : [t('geographicAllocation.colExchange'), t('geographicAllocation.colCountry'), t('geographicAllocation.colHoldings'), t('geographicAllocation.colMarketValue'), t('geographicAllocation.colPortfolioPct')];
     const rows = viewType === 'region'
       ? regionData.map(item => [
           item.region,
@@ -299,22 +390,22 @@ export function GeographicAllocationReport() {
 
     const legendItems = viewType === 'region'
       ? regionData.map((item) => ({
-          color: item.color,
+          color: resolvePdfColor(item.color),
           label: `${item.region} - ${formatCurrencyFull(item.marketValue, defaultCurrency)} (${item.percentage.toFixed(1)}%)`,
         }))
       : exchangeData.map((item, idx) => ({
-          color: COUNTRY_COLOURS[idx % COUNTRY_COLOURS.length],
+          color: resolvePdfColor(COUNTRY_COLOURS[idx % COUNTRY_COLOURS.length]),
           label: `${item.exchange} - ${formatCurrencyFull(item.marketValue, defaultCurrency)} (${item.percentage.toFixed(1)}%)`,
         }));
 
     await exportToPdf({
-      title: 'Geographic Allocation',
-      subtitle: viewType === 'region' ? 'By Region' : 'By Exchange',
+      title: t('page.names.geographic-allocation' as Parameters<typeof t>[0]),
+      subtitle: viewType === 'region' ? t('geographicAllocation.viewByRegion') : t('geographicAllocation.viewByExchange'),
       summaryCards: [
-        { label: 'Total Portfolio', value: formatCurrency(totalValue, defaultCurrency), color: '#111827' },
-        { label: 'Regions', value: String(regionData.length), color: '#111827' },
-        { label: 'Exchanges', value: String(exchangeData.length), color: '#111827' },
-        { label: 'Top Region', value: regionData[0]?.region || '-', color: '#111827' },
+        { label: t('geographicAllocation.totalPortfolio'), value: formatCurrency(totalValue, defaultCurrency), color: '#111827' },
+        { label: t('geographicAllocation.regions'), value: String(regionData.length), color: '#111827' },
+        { label: t('geographicAllocation.exchanges'), value: String(exchangeData.length), color: '#111827' },
+        { label: t('geographicAllocation.topRegion'), value: regionData[0]?.region || '-', color: '#111827' },
       ],
       chartContainer: chartRef.current,
       chartLegend: legendItems.length > 0 ? legendItems : undefined,
@@ -323,13 +414,17 @@ export function GeographicAllocationReport() {
     });
   };
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && response === null) {
     return (
       <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </div>
       </div>
@@ -340,7 +435,7 @@ export function GeographicAllocationReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-8 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No investment holdings found. Add securities to see geographic allocation.
+          {t('geographicAllocation.empty')}
         </p>
       </div>
     );
@@ -351,49 +446,13 @@ export function GeographicAllocationReport() {
       {/* Filters & View Toggle */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-3 items-center justify-between">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative" ref={accountFilterRef}>
-              <button
-                onClick={() => setShowAccountFilter(!showAccountFilter)}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Accounts{selectedAccountIds.length > 0 ? ` (${selectedAccountIds.length})` : ''}
-              </button>
-              {showAccountFilter && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-700/50 border border-gray-200 dark:border-gray-700 z-10 max-h-60 overflow-y-auto">
-                  <div className="p-2">
-                    {accounts.filter((a) => a.accountSubType !== 'INVESTMENT_CASH').length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 p-2">No investment accounts</p>
-                    ) : (
-                      accounts.filter((a) => a.accountSubType !== 'INVESTMENT_CASH').map((acct) => (
-                        <label
-                          key={acct.id}
-                          className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedAccountIds.includes(acct.id)}
-                            onChange={() => toggleAccountId(acct.id)}
-                            className="rounded border-gray-300 dark:border-gray-600"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                            {acct.name}
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedAccountIds.length > 0 && (
-              <button
-                onClick={() => setSelectedAccountIds([])}
-                className="px-4 py-2 text-sm font-medium rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                Clear Filters
-              </button>
-            )}
+          <div className="flex flex-wrap gap-3 items-center">
+            <ReportAccountMultiSelect
+              accounts={accounts}
+              value={selectedAccountIds}
+              onChange={setSelectedAccountIds}
+              filter={excludeCashAccounts}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -404,7 +463,7 @@ export function GeographicAllocationReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              By Region
+              {t('geographicAllocation.viewByRegion')}
             </button>
             <button
               onClick={() => setViewType('exchange')}
@@ -414,8 +473,24 @@ export function GeographicAllocationReport() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
             >
-              By Exchange
+              {t('geographicAllocation.viewByExchange')}
             </button>
+            <button
+              onClick={() => setViewType('country')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                viewType === 'country'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              {t('geographicAllocation.viewByCountry')}
+            </button>
+            <RefreshPricesButton
+              onRefreshComplete={() => {
+                reload();
+                reloadCountry();
+              }}
+            />
             <ExportDropdown onExportPdf={handleExportPdf} />
           </div>
         </div>
@@ -424,25 +499,25 @@ export function GeographicAllocationReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Portfolio</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('geographicAllocation.totalPortfolio')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {formatCurrency(totalValue, defaultCurrency)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Regions</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('geographicAllocation.regions')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {regionData.length}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Exchanges</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('geographicAllocation.exchanges')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {exchangeData.length}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Top Region</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('geographicAllocation.topRegion')}</p>
           <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {regionData[0]?.region || '-'}
           </p>
@@ -453,7 +528,7 @@ export function GeographicAllocationReport() {
       {viewType === 'region' ? (
         <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Regional Allocation
+            {t('geographicAllocation.regionalAllocation')}
           </h3>
           <div style={{ width: '100%', height: 350 }}>
             <ResponsiveContainer minWidth={0}>
@@ -472,16 +547,16 @@ export function GeographicAllocationReport() {
                     <Cell key={entry.region} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip formatCurrencyFull={(v) => formatCurrencyFull(v, defaultCurrency)} />} />
+                <Tooltip content={<CustomTooltip formatCurrencyFull={(v) => formatCurrencyFull(v, defaultCurrency)} holdingLabel={(count) => t('geographicAllocation.holdingCount', { count })} />} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
-      ) : (
+      ) : viewType === 'exchange' ? (
         <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Exchange Allocation
+            {t('geographicAllocation.exchangeAllocation')}
           </h3>
           <div style={{ width: '100%', height: Math.max(300, exchangeData.length * 40 + 60) }}>
             <ResponsiveContainer minWidth={0}>
@@ -501,8 +576,8 @@ export function GeographicAllocationReport() {
                   width={100}
                   tick={{ fill: 'currentColor', fontSize: 11 }}
                 />
-                <Tooltip content={<CustomTooltip formatCurrencyFull={(v) => formatCurrencyFull(v, defaultCurrency)} />} />
-                <Bar dataKey="marketValue" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                <Tooltip content={<CustomTooltip formatCurrencyFull={(v) => formatCurrencyFull(v, defaultCurrency)} holdingLabel={(count) => t('geographicAllocation.holdingCount', { count })} />} />
+                <Bar dataKey="marketValue" fill={chartColors.primary} radius={[0, 4, 4, 0]}>
                   {exchangeData.map((entry, index) => (
                     <Cell key={entry.exchange} fill={COUNTRY_COLOURS[index % COUNTRY_COLOURS.length]} />
                   ))}
@@ -511,9 +586,115 @@ export function GeographicAllocationReport() {
             </ResponsiveContainer>
           </div>
         </div>
+      ) : (
+        <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            {t('geographicAllocation.countryAllocation')}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {t('geographicAllocation.countryLookThroughNote')}
+          </p>
+          <div style={{ width: '100%', height: 350 }}>
+            <ResponsiveContainer minWidth={0}>
+              <PieChart>
+                <Pie
+                  data={countryData}
+                  dataKey="marketValue"
+                  nameKey="country"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={120}
+                  paddingAngle={2}
+                >
+                  {countryData.map((entry) => (
+                    <Cell key={entry.country} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrencyFull(Number(value), defaultCurrency)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       )}
 
       {/* Data Table */}
+      {viewType === 'country' ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
+                <tr>
+                  <SortableHeader<GeoCountrySortField>
+                    field="country"
+                    sortField={countrySort.sortField}
+                    sortDirection={countrySort.sortDirection}
+                    onSort={countrySort.handleSort}
+                    className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
+                    {t('geographicAllocation.colCountry')}
+                  </SortableHeader>
+                  <SortableHeader<GeoCountrySortField>
+                    field="marketValue"
+                    sortField={countrySort.sortField}
+                    sortDirection={countrySort.sortDirection}
+                    onSort={countrySort.handleSort}
+                    align="right"
+                    className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
+                    {t('geographicAllocation.colMarketValue')}
+                  </SortableHeader>
+                  <SortableHeader<GeoCountrySortField>
+                    field="percentage"
+                    sortField={countrySort.sortField}
+                    sortDirection={countrySort.sortDirection}
+                    onSort={countrySort.handleSort}
+                    align="right"
+                    className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
+                    {t('geographicAllocation.colPortfolioPct')}
+                  </SortableHeader>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {sortedCountryData.map((item) => (
+                  <tr key={item.country} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        {item.country}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
+                      {formatCurrencyFull(item.marketValue, defaultCurrency)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">
+                      {item.percentage.toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 dark:bg-gray-900/50">
+                <tr>
+                  <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {t('geographicAllocation.total')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrencyFull(countryTotalValue, defaultCurrency)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-gray-100">
+                    100%
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -527,7 +708,7 @@ export function GeographicAllocationReport() {
                     onSort={regionSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Region
+                    {t('geographicAllocation.colRegion')}
                   </SortableHeader>
                 ) : (
                   <SortableHeader<GeoExchangeSortField>
@@ -537,7 +718,7 @@ export function GeographicAllocationReport() {
                     onSort={exchangeSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Exchange
+                    {t('geographicAllocation.colExchange')}
                   </SortableHeader>
                 )}
                 {viewType === 'exchange' && (
@@ -548,7 +729,7 @@ export function GeographicAllocationReport() {
                     onSort={exchangeSort.handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Country
+                    {t('geographicAllocation.colCountry')}
                   </SortableHeader>
                 )}
                 {viewType === 'region' ? (
@@ -560,7 +741,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Holdings
+                    {t('geographicAllocation.colHoldings')}
                   </SortableHeader>
                 ) : (
                   <SortableHeader<GeoExchangeSortField>
@@ -571,7 +752,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Holdings
+                    {t('geographicAllocation.colHoldings')}
                   </SortableHeader>
                 )}
                 {viewType === 'region' ? (
@@ -583,7 +764,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Market Value
+                    {t('geographicAllocation.colMarketValue')}
                   </SortableHeader>
                 ) : (
                   <SortableHeader<GeoExchangeSortField>
@@ -594,7 +775,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    Market Value
+                    {t('geographicAllocation.colMarketValue')}
                   </SortableHeader>
                 )}
                 {viewType === 'region' ? (
@@ -606,7 +787,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    % of Portfolio
+                    {t('geographicAllocation.colPortfolioPct')}
                   </SortableHeader>
                 ) : (
                   <SortableHeader<GeoExchangeSortField>
@@ -617,7 +798,7 @@ export function GeographicAllocationReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
-                    % of Portfolio
+                    {t('geographicAllocation.colPortfolioPct')}
                   </SortableHeader>
                 )}
               </tr>
@@ -675,7 +856,7 @@ export function GeographicAllocationReport() {
             <tfoot className="bg-gray-50 dark:bg-gray-900/50">
               <tr>
                 <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-gray-100">
-                  Total
+                  {t('geographicAllocation.total')}
                 </td>
                 {viewType === 'exchange' && <td />}
                 <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-gray-100">
@@ -692,6 +873,7 @@ export function GeographicAllocationReport() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

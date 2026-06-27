@@ -10,7 +10,7 @@ describe('CashFlowLegendSwatch', () => {
       </svg>,
     );
     const polygon = container.querySelector('polygon');
-    expect(polygon?.getAttribute('fill')).toBe('#16a34a');
+    expect(polygon?.getAttribute('fill')).toBe('var(--chart-income)');
   });
 
   it('renders expense end triangle in red', () => {
@@ -20,7 +20,7 @@ describe('CashFlowLegendSwatch', () => {
       </svg>,
     );
     const polygon = container.querySelector('polygon');
-    expect(polygon?.getAttribute('fill')).toBe('#dc2626');
+    expect(polygon?.getAttribute('fill')).toBe('var(--chart-expense)');
   });
 });
 
@@ -32,7 +32,7 @@ describe('CashFlowMarker', () => {
       </svg>,
     );
     const polygon = container.querySelector('polygon');
-    expect(polygon?.getAttribute('fill')).toBe('#16a34a');
+    expect(polygon?.getAttribute('fill')).toBe('var(--chart-income)');
   });
 
   it('renders expense end marker (down triangle, red)', () => {
@@ -42,7 +42,7 @@ describe('CashFlowMarker', () => {
       </svg>,
     );
     const polygon = container.querySelector('polygon');
-    expect(polygon?.getAttribute('fill')).toBe('#dc2626');
+    expect(polygon?.getAttribute('fill')).toBe('var(--chart-expense)');
   });
 });
 

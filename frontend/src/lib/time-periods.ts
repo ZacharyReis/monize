@@ -23,17 +23,17 @@ export type TimePeriod =
   | 'last_year'
   | 'custom';
 
-export const TIME_PERIOD_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Select period...' },
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'this_week', label: 'This Week' },
-  { value: 'last_week', label: 'Last Week' },
-  { value: 'month_to_date', label: 'Month to Date' },
-  { value: 'last_month', label: 'Last Month' },
-  { value: 'year_to_date', label: 'Year to Date' },
-  { value: 'last_year', label: 'Last Year' },
-  { value: 'custom', label: 'Custom' },
+export const TIME_PERIOD_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: '', labelKey: 'filter.periods.select' },
+  { value: 'today', labelKey: 'filter.periods.today' },
+  { value: 'yesterday', labelKey: 'filter.periods.yesterday' },
+  { value: 'this_week', labelKey: 'filter.periods.thisWeek' },
+  { value: 'last_week', labelKey: 'filter.periods.lastWeek' },
+  { value: 'month_to_date', labelKey: 'filter.periods.monthToDate' },
+  { value: 'last_month', labelKey: 'filter.periods.lastMonth' },
+  { value: 'year_to_date', labelKey: 'filter.periods.yearToDate' },
+  { value: 'last_year', labelKey: 'filter.periods.lastYear' },
+  { value: 'custom', labelKey: 'filter.periods.custom' },
 ];
 
 export function resolveTimePeriod(

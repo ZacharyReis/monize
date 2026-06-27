@@ -1,5 +1,5 @@
 import { AnthropicProvider } from "./anthropic.provider";
-import type { AiToolStreamChunk } from "./ai-provider.interface";
+import type { AiToolStreamChunk, AiMessage } from "./ai-provider.interface";
 
 const mockCreate = jest.fn().mockResolvedValue({
   content: [{ type: "text", text: "Hello from Claude" }],
@@ -67,6 +67,43 @@ describe("AnthropicProvider", () => {
     expect(provider.supportsToolUse).toBe(true);
   });
 
+  it("maps multimodal user content to image/document/text blocks", async () => {
+    const messages: AiMessage[] = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            mediaType: "application/pdf",
+            data: "JVBERi0=",
+            filename: "a.pdf",
+          },
+          { type: "image", mediaType: "image/png", data: "iVBORw0=" },
+          { type: "text", text: "extract this" },
+        ],
+      },
+    ];
+
+    await provider.completeWithTools({ systemPrompt: "sys", messages }, []);
+
+    const sent = mockCreate.mock.calls[0][0].messages;
+    expect(sent[0].content).toEqual([
+      {
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: "JVBERi0=",
+        },
+      },
+      {
+        type: "image",
+        source: { type: "base64", media_type: "image/png", data: "iVBORw0=" },
+      },
+      { type: "text", text: "extract this" },
+    ]);
+  });
+
   it("constructs the SDK client with the long-running fetch wrapper", () => {
     // Regression: the SDK uses Node fetch (undici) under the hood, which
     // defaults bodyTimeout to 5 minutes. The provider must inject the
@@ -92,6 +129,22 @@ describe("AnthropicProvider", () => {
       expect(result.usage.outputTokens).toBe(20);
       expect(result.provider).toBe("anthropic");
       expect(result.model).toBe("claude-sonnet-4-20250514");
+    });
+
+    it("sends the system prompt as a cached text block for prompt caching", async () => {
+      await provider.complete({
+        systemPrompt: "You are helpful.",
+        messages: [{ role: "user", content: "Hello" }],
+      });
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.system).toEqual([
+        {
+          type: "text",
+          text: "You are helpful.",
+          cache_control: { type: "ephemeral" },
+        },
+      ]);
     });
   });
 
@@ -156,6 +209,11 @@ describe("AnthropicProvider", () => {
       expect(result.usage.outputTokens).toBe(25);
       expect(result.provider).toBe("anthropic");
       expect(result.stopReason).toBe("end_turn");
+
+      // The cached system block also caches the tools prefix that renders
+      // before it, so multi-turn tool-use conversations hit the prompt cache.
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.system[0].cache_control).toEqual({ type: "ephemeral" });
     });
 
     it("maps stop_reason tool_use correctly", async () => {

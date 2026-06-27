@@ -4,6 +4,7 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS pg_trgm; -- trigram indexes for transaction search
 
 -- Schema migration tracking (used by db-migrate to track applied migrations)
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -27,6 +28,9 @@ CREATE TABLE users (
     last_activity_at TIMESTAMP, -- updated fire-and-forget on every authenticated request (throttled in the request interceptor) so emergency access treats "browsing the app" as resetting the dormancy timer
     reset_token VARCHAR(255),
     reset_token_expiry TIMESTAMP,
+    email_verified BOOLEAN NOT NULL DEFAULT false, -- gates local login; new self-service registrants must verify their email when SMTP is enabled (bootstrap/admin/delegate/OIDC accounts are created verified)
+    email_verification_token VARCHAR(255), -- hashed token emailed for email verification
+    email_verification_token_expiry TIMESTAMP,
     role VARCHAR(20) NOT NULL DEFAULT 'user', -- 'admin', 'user'
     must_change_password BOOLEAN NOT NULL DEFAULT false,
     two_factor_secret VARCHAR(255), -- encrypted TOTP secret for 2FA
@@ -44,6 +48,7 @@ CREATE TABLE users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token) WHERE reset_token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_email_verification_token ON users(email_verification_token) WHERE email_verification_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_oidc_link_token ON users(oidc_link_token) WHERE oidc_link_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_last_activity_at ON users(last_activity_at) WHERE last_activity_at IS NOT NULL;
 
@@ -110,14 +115,16 @@ CREATE TABLE accounts (
     description TEXT,
     currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code),
     account_number VARCHAR(100), -- masked/encrypted
-    institution VARCHAR(255),
+    institution VARCHAR(255), -- legacy free-text institution name (superseded by institution_id)
+    institution_id UUID, -- structured financial institution (FK added after institutions table)
     opening_balance NUMERIC(20, 4) DEFAULT 0,
     current_balance NUMERIC(20, 4) DEFAULT 0,
     credit_limit NUMERIC(20, 4), -- for credit cards
     interest_rate NUMERIC(8, 4), -- for loans, mortgages, savings
-    -- Credit card statement fields
-    statement_due_day INTEGER CHECK (statement_due_day IS NULL OR (statement_due_day >= 1 AND statement_due_day <= 31)) CHECK (account_type = 'CREDIT_CARD' OR statement_due_day IS NULL), -- day of month payment is due (credit cards only)
-    statement_settlement_day INTEGER CHECK (statement_settlement_day IS NULL OR (statement_settlement_day >= 1 AND statement_settlement_day <= 31)) CHECK (account_type = 'CREDIT_CARD' OR statement_settlement_day IS NULL), -- last day of billing cycle (credit cards only)
+    -- Credit card statement fields (constraints named to match migrations 027/028
+    -- so fresh installs and upgraded installs produce the same constraint set)
+    statement_due_day INTEGER, -- day of month payment is due (credit cards only)
+    statement_settlement_day INTEGER, -- last day of billing cycle (credit cards only)
     is_closed BOOLEAN DEFAULT false,
     closed_date DATE,
     is_favourite BOOLEAN DEFAULT false,
@@ -142,7 +149,15 @@ CREATE TABLE accounts (
     amortization_months INTEGER, -- Total amortization period in months (e.g., 300 for 25 years)
     original_principal NUMERIC(20, 4), -- Original mortgage amount for reference
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_statement_due_day
+      CHECK (statement_due_day IS NULL OR (statement_due_day >= 1 AND statement_due_day <= 31)),
+    CONSTRAINT chk_statement_settlement_day
+      CHECK (statement_settlement_day IS NULL OR (statement_settlement_day >= 1 AND statement_settlement_day <= 31)),
+    CONSTRAINT chk_statement_due_day_cc_only
+      CHECK (account_type = 'CREDIT_CARD' OR statement_due_day IS NULL),
+    CONSTRAINT chk_statement_settlement_day_cc_only
+      CHECK (account_type = 'CREDIT_CARD' OR statement_settlement_day IS NULL)
 );
 
 CREATE INDEX idx_accounts_user ON accounts(user_id);
@@ -155,6 +170,7 @@ CREATE INDEX idx_accounts_interest_category ON accounts(interest_category_id);
 CREATE INDEX idx_accounts_principal_category ON accounts(principal_category_id);
 CREATE INDEX idx_accounts_scheduled_transaction ON accounts(scheduled_transaction_id);
 CREATE INDEX idx_accounts_source_account ON accounts(source_account_id);
+CREATE INDEX idx_accounts_institution ON accounts(institution_id);
 
 -- Categories for transactions
 CREATE TABLE categories (
@@ -173,6 +189,7 @@ CREATE TABLE categories (
 
 CREATE INDEX idx_categories_user ON categories(user_id);
 CREATE INDEX idx_categories_parent ON categories(parent_id);
+CREATE INDEX idx_categories_name_trgm ON categories USING gin (name gin_trgm_ops);
 
 -- Payees
 CREATE TABLE payees (
@@ -188,6 +205,7 @@ CREATE TABLE payees (
 
 CREATE INDEX idx_payees_user ON payees(user_id);
 CREATE INDEX idx_payees_user_active ON payees(user_id, is_active);
+CREATE INDEX idx_payees_name_trgm ON payees USING gin (name gin_trgm_ops);
 
 -- Payee Aliases (for mapping imported payee names to canonical payees)
 CREATE TABLE payee_aliases (
@@ -201,6 +219,26 @@ CREATE TABLE payee_aliases (
 CREATE INDEX idx_payee_aliases_payee ON payee_aliases(payee_id);
 CREATE INDEX idx_payee_aliases_user ON payee_aliases(user_id);
 CREATE UNIQUE INDEX idx_payee_aliases_user_alias ON payee_aliases(user_id, LOWER(alias));
+
+-- Financial Institutions (per-user registry of banks/brokerages). The brand
+-- icon is the website's favicon, fetched server-side and cached in logo_data so
+-- the browser never contacts a third party to render it.
+CREATE TABLE institutions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    website TEXT NOT NULL,
+    country VARCHAR(2),
+    logo_data BYTEA,
+    logo_content_type VARCHAR(100),
+    has_logo BOOLEAN NOT NULL DEFAULT false,
+    logo_fetched_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, name)
+);
+
+CREATE INDEX idx_institutions_user ON institutions(user_id);
 
 -- Transactions
 CREATE TABLE transactions (
@@ -238,6 +276,9 @@ CREATE INDEX idx_transactions_linked ON transactions(linked_transaction_id);
 CREATE INDEX idx_transactions_cleared ON transactions(is_cleared); -- LEGACY
 CREATE INDEX idx_transactions_reconciled ON transactions(is_reconciled); -- LEGACY
 CREATE INDEX idx_transactions_user_cleared ON transactions(user_id, is_cleared); -- LEGACY
+-- Trigram indexes accelerate the register/report search (ILIKE '%term%')
+CREATE INDEX idx_transactions_payee_name_trgm ON transactions USING gin (payee_name gin_trgm_ops);
+CREATE INDEX idx_transactions_description_trgm ON transactions USING gin (description gin_trgm_ops);
 
 -- Transaction Splits (details for split transactions)
 CREATE TABLE transaction_splits (
@@ -295,6 +336,52 @@ CREATE TABLE transaction_split_tags (
 
 CREATE INDEX idx_transaction_split_tags_tag ON transaction_split_tags(tag_id);
 CREATE INDEX idx_transaction_split_tags_split ON transaction_split_tags(transaction_split_id);
+
+-- Securities (stocks, bonds, mutual funds, ETFs)
+-- Defined before scheduled_transactions because that table (and others below)
+-- carry inline FKs to securities(id); the FK target must exist first when the
+-- whole schema is applied as a single script on a fresh database.
+CREATE TABLE securities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(20) NOT NULL, -- ticker symbol (unique per user)
+    name VARCHAR(255) NOT NULL,
+    security_type VARCHAR(50), -- 'STOCK', 'ETF', 'MUTUAL_FUND', 'BOND', etc
+    exchange VARCHAR(50), -- 'NYSE', 'NASDAQ', 'TSX', 'TSXV', etc
+    currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code),
+    description TEXT, -- free-text notes, optionally pre-filled from the quote provider
+    is_active BOOLEAN DEFAULT true,
+    is_favourite BOOLEAN NOT NULL DEFAULT false, -- pinned to the dashboard Favourite Securities widget
+    skip_price_updates BOOLEAN DEFAULT false, -- for auto-generated symbols that can't be looked up
+    sector VARCHAR(100),             -- stock sector from Yahoo Finance (e.g. 'Technology')
+    industry VARCHAR(100),           -- stock industry (e.g. 'Consumer Electronics')
+    sector_weightings JSONB,         -- ETF sector breakdown [{sector, weight}] (weight is a decimal 0-1, from Yahoo)
+    country_weightings JSONB,        -- manual ETF/fund country breakdown [{name, weight}] (weight is a decimal 0-1)
+    sector_data_updated_at TIMESTAMP, -- cache staleness check
+    quote_provider VARCHAR(20),      -- per-security provider override: 'yahoo' | 'msn' | NULL = user default
+    msn_instrument_id VARCHAR(50),   -- cached MSN Financial Instrument ID (SecId)
+    historical_backfill_attempted_at TIMESTAMP, -- last time we asked the provider for a multi-year backfill
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, symbol),
+    CONSTRAINT securities_quote_provider_check
+      CHECK (quote_provider IS NULL OR quote_provider IN ('yahoo','msn'))
+);
+
+CREATE INDEX idx_securities_user_id ON securities(user_id);
+CREATE INDEX idx_securities_symbol ON securities(symbol);
+CREATE INDEX idx_securities_exchange ON securities(exchange);
+CREATE INDEX idx_securities_user_favourite ON securities(user_id, is_favourite);
+
+-- Security Tags (many-to-many) -- reuses the shared tags pool, mirrors transaction_tags
+CREATE TABLE security_tags (
+    security_id UUID NOT NULL REFERENCES securities(id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (security_id, tag_id)
+);
+
+CREATE INDEX idx_security_tags_tag ON security_tags(tag_id);
+CREATE INDEX idx_security_tags_security ON security_tags(security_id);
 
 -- Scheduled Transactions (recurring payments / bills & deposits)
 CREATE TABLE scheduled_transactions (
@@ -392,6 +479,8 @@ ALTER TABLE accounts ADD CONSTRAINT fk_accounts_scheduled_transaction
     FOREIGN KEY (scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE SET NULL;
 ALTER TABLE accounts ADD CONSTRAINT fk_accounts_asset_category
     FOREIGN KEY (asset_category_id) REFERENCES categories(id) ON DELETE SET NULL;
+ALTER TABLE accounts ADD CONSTRAINT fk_accounts_institution
+    FOREIGN KEY (institution_id) REFERENCES institutions(id) ON DELETE SET NULL;
 
 -- Scheduled Transaction Overrides (for modifying individual occurrences)
 CREATE TABLE scheduled_transaction_overrides (
@@ -416,35 +505,6 @@ CREATE TABLE scheduled_transaction_overrides (
 CREATE INDEX idx_sched_txn_overrides_sched_txn_id ON scheduled_transaction_overrides(scheduled_transaction_id);
 CREATE INDEX idx_sched_txn_overrides_date ON scheduled_transaction_overrides(override_date);
 CREATE INDEX idx_sched_txn_overrides_orig ON scheduled_transaction_overrides(scheduled_transaction_id, original_date);
-
--- Securities (stocks, bonds, mutual funds, ETFs)
-CREATE TABLE securities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    symbol VARCHAR(20) NOT NULL, -- ticker symbol (unique per user)
-    name VARCHAR(255) NOT NULL,
-    security_type VARCHAR(50), -- 'STOCK', 'ETF', 'MUTUAL_FUND', 'BOND', etc
-    exchange VARCHAR(50), -- 'NYSE', 'NASDAQ', 'TSX', 'TSXV', etc
-    currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code),
-    is_active BOOLEAN DEFAULT true,
-    skip_price_updates BOOLEAN DEFAULT false, -- for auto-generated symbols that can't be looked up
-    sector VARCHAR(100),             -- stock sector from Yahoo Finance (e.g. 'Technology')
-    industry VARCHAR(100),           -- stock industry (e.g. 'Consumer Electronics')
-    sector_weightings JSONB,         -- ETF sector breakdown [{sector, weight}]
-    sector_data_updated_at TIMESTAMP, -- cache staleness check
-    quote_provider VARCHAR(20),      -- per-security provider override: 'yahoo' | 'msn' | NULL = user default
-    msn_instrument_id VARCHAR(50),   -- cached MSN Financial Instrument ID (SecId)
-    historical_backfill_attempted_at TIMESTAMP, -- last time we asked the provider for a multi-year backfill
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, symbol),
-    CONSTRAINT securities_quote_provider_check
-      CHECK (quote_provider IS NULL OR quote_provider IN ('yahoo','msn'))
-);
-
-CREATE INDEX idx_securities_user_id ON securities(user_id);
-CREATE INDEX idx_securities_symbol ON securities(symbol);
-CREATE INDEX idx_securities_exchange ON securities(exchange);
 
 -- Security Prices (historical)
 CREATE TABLE security_prices (
@@ -501,6 +561,7 @@ CREATE TABLE investment_transactions (
     account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
     transaction_split_id UUID REFERENCES transaction_splits(id) ON DELETE CASCADE, -- when embedded inside a split transaction
+    linked_transaction_id UUID REFERENCES investment_transactions(id) ON DELETE SET NULL, -- links the two legs of a security transfer (TRANSFER_OUT <-> TRANSFER_IN)
     security_id UUID REFERENCES securities(id),
     funding_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
     action investment_action NOT NULL,
@@ -521,6 +582,7 @@ CREATE INDEX idx_investment_transactions_security ON investment_transactions(sec
 CREATE INDEX idx_investment_transactions_date ON investment_transactions(transaction_date DESC);
 CREATE INDEX idx_investment_transactions_transaction ON investment_transactions(transaction_id);
 CREATE INDEX idx_investment_transactions_split_id ON investment_transactions(transaction_split_id);
+CREATE INDEX idx_investment_transactions_linked ON investment_transactions(linked_transaction_id);
 
 -- User Preferences
 CREATE TABLE user_preferences (
@@ -529,6 +591,7 @@ CREATE TABLE user_preferences (
     date_format VARCHAR(20) DEFAULT 'YYYY-MM-DD',
     number_format VARCHAR(20) DEFAULT 'en-US',
     theme VARCHAR(20) DEFAULT 'light',
+    color_theme VARCHAR(20) NOT NULL DEFAULT 'default',
     timezone VARCHAR(50) DEFAULT 'browser',
     notification_email BOOLEAN DEFAULT true,
     notification_browser BOOLEAN DEFAULT true,
@@ -544,7 +607,10 @@ CREATE TABLE user_preferences (
     dismissed_update_version VARCHAR(50),
     default_quote_provider VARCHAR(20) NOT NULL DEFAULT 'yahoo',
     recent_transactions_limit SMALLINT NOT NULL DEFAULT 5,
+    ai_bubble_enabled BOOLEAN DEFAULT false, -- opt-in app-wide floating AI chat bubble
+    language VARCHAR(10) NOT NULL DEFAULT 'en', -- UI language; ISO 639-1 or BCP 47 tag matched against SUPPORTED_LOCALES
     last_client_timezone VARCHAR(64), -- Most recently reported X-Client-Timezone, used by cron jobs when timezone='browser'
+    forecast_lookback_months SMALLINT DEFAULT 3, -- Manor: months of spending history for cash flow trend projection
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT user_preferences_default_quote_provider_check
@@ -746,6 +812,34 @@ CREATE INDEX idx_custom_reports_user_id ON custom_reports(user_id);
 CREATE INDEX idx_custom_reports_user_favourite ON custom_reports(user_id, is_favourite);
 CREATE INDEX idx_custom_reports_user_sort ON custom_reports(user_id, sort_order);
 
+-- Custom investment reports (MS Money-style portfolio column reports).
+-- config JSONB shape:
+-- {
+--   columns: string[]      -- ordered column keys (always starts with "symbol")
+--   accountIds: string[]   -- holdings accounts to include ([] = all)
+--   sortColumn: string|null
+--   sortDirection: ASC | DESC
+--   asOfDate: string|null  -- YYYY-MM-DD, null = latest market day at run time
+-- }
+CREATE TABLE investment_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    icon VARCHAR(50),
+    background_color VARCHAR(7),
+    group_by VARCHAR(20) NOT NULL DEFAULT 'NONE',
+    config JSONB NOT NULL DEFAULT '{}',
+    is_favourite BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_investment_reports_user_id ON investment_reports(user_id);
+CREATE INDEX idx_investment_reports_user_favourite ON investment_reports(user_id, is_favourite);
+CREATE INDEX idx_investment_reports_user_sort ON investment_reports(user_id, sort_order);
+
 -- Triggers for updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -767,6 +861,7 @@ CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferen
 CREATE TRIGGER update_trusted_devices_updated_at BEFORE UPDATE ON trusted_devices FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_refresh_tokens_updated_at BEFORE UPDATE ON refresh_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_custom_reports_updated_at BEFORE UPDATE ON custom_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_investment_reports_updated_at BEFORE UPDATE ON investment_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- NOTE: Account balances (current_balance) are managed by application code
 -- (accounts.service.ts, transactions.service.ts, import.service.ts) via updateBalance() calls.
@@ -1050,6 +1145,8 @@ CREATE TABLE action_history (
     related_entities JSONB,
     is_undone BOOLEAN NOT NULL DEFAULT false,
     description VARCHAR(500) NOT NULL,
+    description_key VARCHAR(100),
+    description_params JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

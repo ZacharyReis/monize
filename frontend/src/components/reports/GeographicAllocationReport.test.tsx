@@ -54,12 +54,14 @@ vi.mock('recharts', () => ({
 const mockGetPortfolioSummary = vi.fn();
 const mockGetInvestmentAccounts = vi.fn();
 const mockGetSecurities = vi.fn();
+const mockGetCountryWeightings = vi.fn();
 
 vi.mock('@/lib/investments', () => ({
   investmentsApi: {
     getPortfolioSummary: (...args: any[]) => mockGetPortfolioSummary(...args),
     getInvestmentAccounts: (...args: any[]) => mockGetInvestmentAccounts(...args),
     getSecurities: (...args: any[]) => mockGetSecurities(...args),
+    getCountryWeightings: (...args: any[]) => mockGetCountryWeightings(...args),
   },
 }));
 
@@ -116,16 +118,31 @@ const mockAccounts = [
   { id: 'acc-1', name: 'TFSA', accountSubType: 'INVESTMENT_BROKERAGE' },
 ];
 
+const emptyCountryWeightings = {
+  items: [],
+  totalPortfolioValue: 0,
+  totalDirectValue: 0,
+  totalEtfValue: 0,
+  unclassifiedValue: 0,
+};
+
 describe('GeographicAllocationReport', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Country look-through is fetched on mount regardless of the active view.
+    mockGetCountryWeightings.mockResolvedValue(emptyCountryWeightings);
   });
 
-  it('shows loading state initially', () => {
+  it('shows loading state initially', async () => {
     mockGetPortfolioSummary.mockReturnValue(new Promise(() => {}));
     mockGetInvestmentAccounts.mockReturnValue(new Promise(() => {}));
     mockGetSecurities.mockReturnValue(new Promise(() => {}));
-    render(<GeographicAllocationReport />);
+    // Country look-through resolves on mount, so wrap the render in act() to
+    // flush that state update (the portfolio summary stays pending, keeping the
+    // skeleton on screen).
+    await act(async () => {
+      render(<GeographicAllocationReport />);
+    });
     expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
@@ -221,7 +238,7 @@ describe('GeographicAllocationReport', () => {
     mockGetSecurities.mockResolvedValue([]);
     render(<GeographicAllocationReport />);
     await waitFor(() => {
-      expect(screen.getByText(/No investment holdings/)).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load report data/)).toBeInTheDocument();
     });
   });
 
@@ -236,31 +253,22 @@ describe('GeographicAllocationReport', () => {
     await waitFor(() => {
       expect(screen.getByText('Total Portfolio')).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.click(screen.getByText(/^Accounts/));
+    const trigger = screen.getByRole('button', { name: 'Filter by account' });
+    await act(async () => { fireEvent.click(trigger); });
+    // Cash sub-account is hidden; only the brokerage account is offered.
+    expect(screen.queryByText('Cash Acc')).not.toBeInTheDocument();
+    // Toggle TFSA on, then clear it
+    await act(async () => { fireEvent.click(screen.getByText('TFSA')); });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Filter by account' })).toHaveTextContent('TFSA');
     });
-    // Toggle TFSA
-    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    if (checkbox) {
-      await act(async () => {
-        fireEvent.click(checkbox);
-      });
-    }
-    // Click outside to close (mousedown)
-    await act(async () => {
-      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await act(async () => { fireEvent.click(screen.getByText('Clear')); });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Filter by account' })).toHaveTextContent('All Accounts');
     });
-    // Re-open and clear
-    if (screen.queryByText(/^Accounts/)) {
-      // Clear Filters button
-      const clearBtn = screen.queryByText('Clear Filters');
-      if (clearBtn) {
-        await act(async () => { fireEvent.click(clearBtn); });
-      }
-    }
   });
 
-  it('shows no investment accounts message when filter has none', async () => {
+  it('shows no options message when no investment accounts are available', async () => {
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     mockGetInvestmentAccounts.mockResolvedValue([
       { id: 'acc-1', name: 'Cash', accountSubType: 'INVESTMENT_CASH' },
@@ -271,9 +279,9 @@ describe('GeographicAllocationReport', () => {
       expect(screen.getByText('Total Portfolio')).toBeInTheDocument();
     });
     await act(async () => {
-      fireEvent.click(screen.getByText(/^Accounts/));
+      fireEvent.click(screen.getByRole('button', { name: 'Filter by account' }));
     });
-    expect(screen.getByText('No investment accounts')).toBeInTheDocument();
+    expect(screen.getByText('No options found')).toBeInTheDocument();
   });
 
   it('exports pdf in region and exchange views', async () => {
@@ -375,5 +383,38 @@ describe('GeographicAllocationReport', () => {
         await act(async () => { fireEvent.click(__ths[__i]); });
       }
     }
+  });
+
+  it('renders the country look-through view with an "Other" remainder', async () => {
+    mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
+    mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
+    mockGetSecurities.mockResolvedValue(mockSecurities);
+    mockGetCountryWeightings.mockResolvedValue({
+      items: [
+        { country: 'United States', directValue: 0, etfValue: 600, totalValue: 600, percentage: 60 },
+        { country: 'Canada', directValue: 0, etfValue: 300, totalValue: 300, percentage: 30 },
+      ],
+      totalPortfolioValue: 1000,
+      totalDirectValue: 0,
+      totalEtfValue: 900,
+      unclassifiedValue: 100,
+    });
+
+    render(<GeographicAllocationReport />);
+
+    await waitFor(() => {
+      expect(screen.getByText('By Country')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('By Country'));
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Country Allocation (look-through)'),
+      ).toBeInTheDocument();
+    });
+    // The unclassified remainder is surfaced as an "Other" row.
+    expect(screen.getByText('Other')).toBeInTheDocument();
   });
 });

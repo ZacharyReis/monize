@@ -1,0 +1,58 @@
+{
+  "title": "[XX-Reconcile Account-XX]",
+  "subtitle": "[XX-Match your records against your bank statement-XX]",
+  "subtitleActive": "[XX-Reconciling: {name}-XX]",
+  "setup": {
+    "title": "[XX-Start Reconciliation-XX]",
+    "intro": "[XX-Reconcile your account against a bank statement to ensure your records match.-XX]",
+    "accountLabel": "[XX-Account-XX]",
+    "accountPlaceholder": "[XX-Select account...-XX]",
+    "statementDateLabel": "[XX-Statement Date-XX]",
+    "statementBalanceLabel": "[XX-Statement Ending Balance-XX]",
+    "start": "[XX-Start Reconciliation-XX]"
+  },
+  "summary": {
+    "statementBalance": "[XX-Statement Balance-XX]",
+    "reconciledBalance": "[XX-Reconciled Balance-XX]",
+    "selected": "[XX-Selected ({count})-XX]",
+    "difference": "[XX-Difference-XX]"
+  },
+  "list": {
+    "heading": "[XX-Unreconciled Transactions ({count})-XX]",
+    "selectAll": "[XX-Select All-XX]",
+    "selectNone": "[XX-Select None-XX]",
+    "empty": "[XX-No unreconciled transactions found for this period.-XX]",
+    "colSelect": "[XX-Select-XX]",
+    "colDate": "[XX-Date-XX]",
+    "colPayee": "[XX-Payee-XX]",
+    "colCategory": "[XX-Category-XX]",
+    "colAmount": "[XX-Amount-XX]",
+    "colStatus": "[XX-Status-XX]",
+    "finish": "[XX-Finish Reconciliation-XX]"
+  },
+  "status": {
+    "cleared": "[XX-Cleared-XX]",
+    "unreconciled": "[XX-Unreconciled-XX]",
+    "void": "[XX-Void-XX]",
+    "reconciled": "[XX-Reconciled-XX]"
+  },
+  "complete": {
+    "title": "[XX-Reconciliation Complete-XX]",
+    "message": "[XX-Your account has been successfully reconciled as of {date}.-XX]",
+    "existingPayment": "[XX-This account has a scheduled payment, <b>{name}</b>. Would you like to update its next instance to the reconciled balance of <b>{amount}</b>?-XX]",
+    "updatePayment": "[XX-Update Next Payment-XX]",
+    "noPayment": "[XX-No scheduled payment was found for this account. Would you like to create one for the reconciled balance of <b>{amount}</b>?-XX]",
+    "createPayment": "[XX-Create Scheduled Payment-XX]",
+    "backToAccounts": "[XX-Back to Accounts-XX]",
+    "reconcileAnother": "[XX-Reconcile Another Account-XX]"
+  },
+  "toasts": {
+    "loadAccountsFailed": "[XX-Failed to load accounts-XX]",
+    "fillAllFields": "[XX-Please fill in all fields-XX]",
+    "loadDataFailed": "[XX-Failed to load reconciliation data-XX]",
+    "differenceRequired": "[XX-The difference must be {amount} to finish reconciliation-XX]",
+    "noneSelected": "[XX-No transactions selected for reconciliation-XX]",
+    "success": "[XX-{count, plural, one {Successfully reconciled # transaction} other {Successfully reconciled # transactions}}-XX]",
+    "reconcileFailed": "[XX-Failed to reconcile transactions-XX]"
+  }
+}

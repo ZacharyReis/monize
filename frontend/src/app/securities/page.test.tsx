@@ -99,9 +99,9 @@ vi.mock('@/lib/auth', () => ({
 
 // Mock investments API
 const mockGetSecurities = vi.fn().mockResolvedValue([
-  { id: 's1', symbol: 'AAPL', name: 'Apple Inc.', securityType: 'STOCK', exchange: 'NASDAQ', currencyCode: 'USD', isActive: true, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
-  { id: 's2', symbol: 'XEQT', name: 'iShares Core Equity', securityType: 'ETF', exchange: 'TSX', currencyCode: 'CAD', isActive: true, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
-  { id: 's3', symbol: 'BTC', name: 'Bitcoin', securityType: 'CRYPTO', exchange: null, currencyCode: 'USD', isActive: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+  { id: 's1', symbol: 'AAPL', name: 'Apple Inc.', securityType: 'STOCK', exchange: 'NASDAQ', currencyCode: 'USD', isActive: true, isFavourite: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+  { id: 's2', symbol: 'XEQT', name: 'iShares Core Equity', securityType: 'ETF', exchange: 'TSX', currencyCode: 'CAD', isActive: true, isFavourite: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+  { id: 's3', symbol: 'BTC', name: 'Bitcoin', securityType: 'CRYPTO', exchange: null, currencyCode: 'USD', isActive: false, isFavourite: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
 ]);
 const mockGetHoldings = vi.fn().mockResolvedValue([
   { id: 'h1', accountId: 'a1', securityId: 's1', quantity: 10, averageCost: 150, security: {}, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
@@ -110,6 +110,7 @@ const mockCreateSecurity = vi.fn();
 const mockUpdateSecurity = vi.fn();
 const mockDeactivateSecurity = vi.fn();
 const mockActivateSecurity = vi.fn();
+const mockSetSecurityFavourite = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@/lib/investments', () => ({
   investmentsApi: {
@@ -121,12 +122,13 @@ vi.mock('@/lib/investments', () => ({
     updateSecurity: (...args: any[]) => mockUpdateSecurity(...args),
     deactivateSecurity: (...args: any[]) => mockDeactivateSecurity(...args),
     activateSecurity: (...args: any[]) => mockActivateSecurity(...args),
+    setSecurityFavourite: (...args: any[]) => mockSetSecurityFavourite(...args),
   },
 }));
 
 // Mock child components
 vi.mock('@/components/securities/SecurityList', () => ({
-  SecurityList: ({ securities, holdings, onEdit, onToggleActive, onDelete, onViewPrices, sortField, sortDirection, onSort, density, onDensityChange }: any) => (
+  SecurityList: ({ securities, holdings, onEdit, onToggleActive, onToggleFavourite, onDelete, onViewPrices, sortField, sortDirection, onSort, density, onDensityChange }: any) => (
     <div data-testid="security-list">
       {sortField && <span data-testid="sort-field">{sortField}</span>}
       {sortDirection && <span data-testid="sort-direction">{sortDirection}</span>}
@@ -144,6 +146,8 @@ vi.mock('@/components/securities/SecurityList', () => ({
           {s.name}
           <button data-testid={`edit-${s.symbol}`} onClick={() => onEdit(s)}>Edit</button>
           <button data-testid={`toggle-${s.symbol}`} onClick={() => onToggleActive(s)}>Toggle</button>
+          <span data-testid={`fav-state-${s.symbol}`}>{String(s.isFavourite)}</span>
+          {onToggleFavourite && <button data-testid={`fav-${s.symbol}`} onClick={() => onToggleFavourite(s)}>Fav</button>}
           <button data-testid={`delete-${s.symbol}`} onClick={() => onDelete(s)}>Delete</button>
           <button data-testid={`view-prices-${s.symbol}`} onClick={() => onViewPrices(s)}>ViewPrices</button>
         </div>
@@ -531,6 +535,46 @@ describe('SecuritiesPage', () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Failed to update security status');
     });
+  });
+
+  it('optimistically flips the favourite flag and persists it without a reload', async () => {
+    mockGetSecurities.mockResolvedValueOnce([
+      { id: 's1', symbol: 'AAPL', name: 'Apple Inc.', securityType: 'STOCK', exchange: 'NASDAQ', currencyCode: 'USD', isActive: true, isFavourite: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    ]);
+    mockSetSecurityFavourite.mockResolvedValueOnce(undefined);
+    render(<SecuritiesPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('security-list')).toBeInTheDocument();
+    });
+    const callsAfterLoad = mockGetSecurities.mock.calls.length;
+
+    expect(screen.getByTestId('fav-state-AAPL').textContent).toBe('false');
+    fireEvent.click(screen.getByTestId('fav-AAPL'));
+
+    // Optimistic update flips the star immediately.
+    await waitFor(() => {
+      expect(screen.getByTestId('fav-state-AAPL').textContent).toBe('true');
+    });
+    expect(mockSetSecurityFavourite).toHaveBeenCalledWith('s1', true);
+    // No reload (getSecurities not called again).
+    expect(mockGetSecurities.mock.calls.length).toBe(callsAfterLoad);
+  });
+
+  it('reverts the favourite flag and shows an error toast when the save fails', async () => {
+    mockGetSecurities.mockResolvedValueOnce([
+      { id: 's1', symbol: 'AAPL', name: 'Apple Inc.', securityType: 'STOCK', exchange: 'NASDAQ', currencyCode: 'USD', isActive: true, isFavourite: false, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    ]);
+    mockSetSecurityFavourite.mockRejectedValueOnce(new Error('boom'));
+    render(<SecuritiesPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('security-list')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('fav-AAPL'));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Failed to update favourite');
+    });
+    // Reverted back to not-favourite.
+    expect(screen.getByTestId('fav-state-AAPL').textContent).toBe('false');
   });
 
   it('shows singular "security" for count of 1', async () => {

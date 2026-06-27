@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/render';
 import { AppHeader } from './AppHeader';
 
@@ -51,10 +51,16 @@ let mockUser: any = {
 };
 
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => ({
-    user: mockUser,
-    logout: mockLogout,
-  }),
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = {
+      user: mockUser,
+      logout: mockLogout,
+      actingAsUserId: null,
+      delegateCapabilities: null,
+      delegateSections: null,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 // Mock BudgetAlertBadge to avoid async act() warnings (tested in its own file)
@@ -368,18 +374,62 @@ describe('AppHeader', () => {
     expect(dashboardButton.closest('button')?.className).toContain('bg-blue-50');
   });
 
-  it('closes mobile menu when clicking outside', () => {
+  it('closes mobile menu when the backdrop is clicked', () => {
     render(<AppHeader />);
     const menuToggle = screen.getByLabelText('Toggle menu');
     fireEvent.click(menuToggle);
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
 
-    // Click outside (mousedown on document)
-    fireEvent.mouseDown(document);
+    // The drawer renders inside the shared Modal; clicking its backdrop
+    // (the parent of the dialog) dismisses it.
+    const backdrop = screen.getByRole('dialog').parentElement!;
+    fireEvent.click(backdrop);
 
-    // Mobile menu should close
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  it('closes mobile menu when the close button is clicked', () => {
+    render(<AppHeader />);
+    fireEvent.click(screen.getByLabelText('Toggle menu'));
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Close menu'));
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  it('closes mobile menu on Escape', () => {
+    render(<AppHeader />);
+    fireEvent.click(screen.getByLabelText('Toggle menu'));
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile menu when a link is selected', () => {
+    // Regression: selecting a link must dismiss the drawer (and navigate)
+    // even when the destination equals the current route, where the
+    // route-change effect never fires.
+    render(<AppHeader />);
+    fireEvent.click(screen.getByLabelText('Toggle menu'));
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Settings'));
+    expect(mockPush).toHaveBeenCalledWith('/settings');
+    // Drawer is gone (its Close button no longer rendered).
+    expect(screen.queryByLabelText('Close menu')).not.toBeInTheDocument();
+  });
+
+  it('does not push a browser history entry when the drawer opens', () => {
+    // Regression: the drawer must NOT use Modal's pushHistory. A pushed entry
+    // is popped via history.back() on close, which would revert the
+    // router.push that closes the drawer and leave the user on the old page.
+    render(<AppHeader />);
+    const lengthBeforeOpen = window.history.length;
+    fireEvent.click(screen.getByLabelText('Toggle menu'));
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(window.history.length).toBe(lengthBeforeOpen);
   });
 
   it('closes Tools dropdown when clicking outside', () => {
@@ -511,5 +561,30 @@ describe('AppHeader', () => {
     expect(screen.queryByText('test@example.com')).not.toBeInTheDocument();
     // Admin link should not appear
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
+  });
+
+  describe('header offset CSS variable', () => {
+    afterEach(() => {
+      document.documentElement.style.removeProperty('--app-header-offset');
+    });
+
+    it('publishes the current header offset so sticky sub-navs can anchor to it', () => {
+      render(<AppHeader />);
+      // Header starts fully visible: offset is 0 until the user scrolls.
+      expect(
+        document.documentElement.style.getPropertyValue('--app-header-offset'),
+      ).toBe('0px');
+    });
+
+    it('clears the offset variable when the header unmounts', () => {
+      const { unmount } = render(<AppHeader />);
+      expect(
+        document.documentElement.style.getPropertyValue('--app-header-offset'),
+      ).toBe('0px');
+      unmount();
+      expect(
+        document.documentElement.style.getPropertyValue('--app-header-offset'),
+      ).toBe('');
+    });
   });
 });

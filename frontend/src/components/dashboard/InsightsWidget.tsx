@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { aiApi } from '@/lib/ai';
 import { AiInsight } from '@/types/ai';
 
@@ -16,6 +17,7 @@ interface InsightsWidgetProps {
 }
 
 export function InsightsWidget({ isLoading: parentLoading }: InsightsWidgetProps) {
+  const t = useTranslations('dashboard');
   const router = useRouter();
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +39,7 @@ export function InsightsWidget({ isLoading: parentLoading }: InsightsWidgetProps
     loadInsights();
   }, [parentLoading]);
 
-  const sectionTitle = 'Spending Insights';
+  const sectionTitle = t('insights.title');
 
   if (isLoading || parentLoading) {
     return (
@@ -67,13 +69,13 @@ export function InsightsWidget({ isLoading: parentLoading }: InsightsWidgetProps
           {sectionTitle}
         </button>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No insights available. Visit the Insights page to generate your first analysis.
+          {t('insights.empty')}
         </p>
         <button
           onClick={() => router.push('/insights')}
           className="mt-3 w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
         >
-          Go to Insights
+          {t('insights.goToInsights')}
         </button>
       </div>
     );
@@ -89,7 +91,7 @@ export function InsightsWidget({ isLoading: parentLoading }: InsightsWidgetProps
           {sectionTitle}
         </button>
         <span className="text-sm text-gray-500 dark:text-gray-400">
-          {insights.length} active
+          {t('insights.activeCount', { count: insights.length })}
         </span>
       </div>
       <div className="space-y-2 sm:space-y-3">
@@ -112,7 +114,7 @@ export function InsightsWidget({ isLoading: parentLoading }: InsightsWidgetProps
         onClick={() => router.push('/insights')}
         className="mt-3 w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
       >
-        View all insights
+        {t('insights.viewAll')}
       </button>
     </div>
   );

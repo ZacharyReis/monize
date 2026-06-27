@@ -221,20 +221,31 @@ describe('ReportsPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/reports/spending-by-category');
   });
 
-  it('renders New Custom Report button', async () => {
+  it('renders the New Report dropdown trigger', async () => {
     render(<ReportsPage />);
     await waitFor(() => {
-      expect(screen.getByText('New Custom Report')).toBeInTheDocument();
+      expect(screen.getByText('New Report')).toBeInTheDocument();
     });
   });
 
-  it('navigates to custom report creation when button is clicked', async () => {
+  it('navigates to standard report creation from the dropdown', async () => {
     render(<ReportsPage />);
     await waitFor(() => {
-      expect(screen.getByText('New Custom Report')).toBeInTheDocument();
+      expect(screen.getByText('New Report')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText('New Custom Report'));
+    fireEvent.click(screen.getByText('New Report'));
+    fireEvent.click(screen.getByText('Standard Report'));
     expect(mockPush).toHaveBeenCalledWith('/reports/custom/new');
+  });
+
+  it('navigates to investment report creation from the dropdown', async () => {
+    render(<ReportsPage />);
+    await waitFor(() => {
+      expect(screen.getByText('New Report')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('New Report'));
+    fireEvent.click(screen.getByText('Investment Report'));
+    expect(mockPush).toHaveBeenCalledWith('/reports/investment/new');
   });
 
   it('renders density toggle button', async () => {
@@ -363,8 +374,11 @@ describe('ReportsPage', () => {
     fireEvent.change(screen.getByPlaceholderText(/search reports/i), {
       target: { value: 'Tax Summary' },
     });
+    // Search is debounced, so wait for the filtered list to settle.
+    await waitFor(() => {
+      expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
+    });
     expect(screen.getByText('Tax Summary')).toBeInTheDocument();
-    expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
     expect(screen.queryByText('Income vs Expenses')).not.toBeInTheDocument();
   });
 
@@ -376,9 +390,12 @@ describe('ReportsPage', () => {
     fireEvent.change(screen.getByPlaceholderText(/search reports/i), {
       target: { value: 'subscriptions' },
     });
-    // "Recurring Expenses Tracker" has "subscriptions" in its description
+    // "Recurring Expenses Tracker" has "subscriptions" in its description.
+    // Search is debounced, so wait for the filtered list to settle.
+    await waitFor(() => {
+      expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
+    });
     expect(screen.getByText('Recurring Expenses Tracker')).toBeInTheDocument();
-    expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
   });
 
   it('search is case-insensitive', async () => {
@@ -400,7 +417,10 @@ describe('ReportsPage', () => {
     fireEvent.change(screen.getByPlaceholderText(/search reports/i), {
       target: { value: 'xyznonexistent' },
     });
-    expect(screen.getByText('0 reports available')).toBeInTheDocument();
+    // Search is debounced, so wait for the filtered list to settle.
+    await waitFor(() => {
+      expect(screen.getByText('0 reports available')).toBeInTheDocument();
+    });
   });
 
   it('search works combined with category filter', async () => {
@@ -444,8 +464,11 @@ describe('ReportsPage', () => {
     fireEvent.change(screen.getByPlaceholderText(/search reports/i), {
       target: { value: 'My Custom' },
     });
+    // Search is debounced, so wait for the filtered list to settle.
+    await waitFor(() => {
+      expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
+    });
     expect(screen.getByText('My Custom Report')).toBeInTheDocument();
-    expect(screen.queryByText('Spending by Category')).not.toBeInTheDocument();
   });
 
   it('filters to custom category shows only custom reports', async () => {

@@ -56,6 +56,11 @@ interface ModalProps {
   /** When true, uses overflow-visible instead of overflow-y-auto on the modal container.
    *  Useful when the modal contains dropdowns that need to expand beyond modal bounds. */
   allowOverflow?: boolean;
+  /** Layout variant.
+   *  - 'center' (default): centered rounded card, honours `maxWidth`.
+   *  - 'drawer-left': full-height panel pinned to the left edge that slides in.
+   *    Intended for mobile navigation. `maxWidth` is ignored in this variant. */
+  variant?: 'center' | 'drawer-left';
 }
 
 const maxWidthClasses = {
@@ -79,6 +84,7 @@ export function Modal({
   pushHistory = false,
   onBeforeClose,
   allowOverflow = false,
+  variant = 'center',
 }: ModalProps) {
   // Track whether we have a history entry pushed
   const historyPushedRef = useRef(false);
@@ -286,9 +292,25 @@ export function Modal({
 
   if (!isOpen) return null;
 
+  const isDrawer = variant === 'drawer-left';
+
+  // Backdrop alignment: drawer pins its panel to the left edge; the default
+  // centers the card with padding.
+  const backdropClassName = `fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm z-50 flex ${
+    isDrawer ? 'justify-start' : 'items-center justify-center p-4'
+  }`;
+
+  // Panel shape. The drawer is a full-height left sheet that slides in from
+  // off-screen via the CSS @starting-style (`starting:`) variant -- no extra
+  // React state needed. The default keeps the centered rounded card.
+  const overflowClass = allowOverflow ? 'overflow-visible' : 'overflow-y-auto';
+  const panelClassName = isDrawer
+    ? `bg-white dark:bg-gray-800 shadow-xl dark:shadow-gray-700/50 h-full w-[85%] max-w-sm ${overflowClass} outline-none transition-transform duration-200 ease-out translate-x-0 starting:-translate-x-full ${className}`
+    : `bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-gray-700/50 ${maxWidthClasses[maxWidth]} w-full max-h-[90vh] ${overflowClass} outline-none ${className}`;
+
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      className={backdropClassName}
       onClick={() => attemptClose('backdrop')}
     >
       <div
@@ -296,7 +318,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl dark:shadow-gray-700/50 ${maxWidthClasses[maxWidth]} w-full max-h-[90vh] ${allowOverflow ? 'overflow-visible' : 'overflow-y-auto'} outline-none ${className}`}
+        className={panelClassName}
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => e.stopPropagation()}
       >

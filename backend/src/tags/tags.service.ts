@@ -4,6 +4,7 @@ import {
   ConflictException,
   Logger,
 } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, QueryRunner, In } from "typeorm";
 import { Tag } from "./entities/tag.entity";
@@ -40,7 +41,9 @@ export class TagsService {
       where: { id, userId },
     });
     if (!tag) {
-      throw new NotFoundException(`Tag with ID ${id} not found`);
+      throw new NotFoundException(
+        tr("errors.tags.notFound", `Tag with ID ${id} not found`, { id }),
+      );
     }
     return tag;
   }
@@ -53,7 +56,13 @@ export class TagsService {
       .getOne();
 
     if (existing) {
-      throw new ConflictException(`A tag named "${dto.name}" already exists`);
+      throw new ConflictException(
+        tr(
+          "errors.tags.nameConflict",
+          `A tag named "${dto.name}" already exists`,
+          { name: dto.name },
+        ),
+      );
     }
 
     const tag = this.tagsRepository.create({
@@ -74,6 +83,8 @@ export class TagsService {
         icon: saved.icon,
       },
       description: `Created tag "${saved.name}"`,
+      descriptionKey: "createdTag",
+      descriptionParams: { name: saved.name },
     });
     return saved;
   }
@@ -91,7 +102,13 @@ export class TagsService {
         .getOne();
 
       if (existing) {
-        throw new ConflictException(`A tag named "${dto.name}" already exists`);
+        throw new ConflictException(
+          tr(
+            "errors.tags.nameConflict",
+            `A tag named "${dto.name}" already exists`,
+            { name: dto.name },
+          ),
+        );
       }
     }
 
@@ -109,6 +126,8 @@ export class TagsService {
       beforeData,
       afterData: { name: saved.name, color: saved.color, icon: saved.icon },
       description: `Updated tag "${saved.name}"`,
+      descriptionKey: "updatedTag",
+      descriptionParams: { name: saved.name },
     });
     return saved;
   }
@@ -128,6 +147,8 @@ export class TagsService {
       action: "delete",
       beforeData,
       description: `Deleted tag "${beforeData.name}"`,
+      descriptionKey: "deletedTag",
+      descriptionParams: { name: beforeData.name },
     });
   }
 
@@ -173,7 +194,9 @@ export class TagsService {
         where: { id: In(tagIds), userId },
       });
       if (tags.length !== tagIds.length) {
-        throw new NotFoundException("One or more tags not found");
+        throw new NotFoundException(
+          tr("errors.tags.oneOrMoreNotFound", "One or more tags not found"),
+        );
       }
     }
 
@@ -183,6 +206,50 @@ export class TagsService {
     if (tagIds.length > 0) {
       const newTags = tagIds.map((tagId) =>
         manager.create(TransactionTag, { transactionId, tagId }),
+      );
+      await manager.save(TransactionTag, newTags);
+    }
+  }
+
+  /**
+   * Set the same tag set on many transactions at once. Validates the tag set a
+   * single time, then replaces tags with one bulk DELETE and one multi-row
+   * INSERT instead of running validate + delete + insert per transaction (which
+   * is ~3N queries for N transactions in a bulk update).
+   */
+  async setTransactionTagsBulk(
+    transactionIds: string[],
+    tagIds: string[],
+    userId: string,
+    queryRunner?: QueryRunner,
+  ): Promise<void> {
+    if (transactionIds.length === 0) {
+      return;
+    }
+    const manager = queryRunner ? queryRunner.manager : this.dataSource.manager;
+
+    // Validate the tag set once for all transactions
+    if (tagIds.length > 0) {
+      const tags = await manager.find(Tag, {
+        where: { id: In(tagIds), userId },
+      });
+      if (tags.length !== tagIds.length) {
+        throw new NotFoundException(
+          tr("errors.tags.oneOrMoreNotFound", "One or more tags not found"),
+        );
+      }
+    }
+
+    // Replace existing tags for every target transaction in one statement
+    await manager.delete(TransactionTag, {
+      transactionId: In(transactionIds),
+    });
+
+    if (tagIds.length > 0) {
+      const newTags = transactionIds.flatMap((transactionId) =>
+        tagIds.map((tagId) =>
+          manager.create(TransactionTag, { transactionId, tagId }),
+        ),
       );
       await manager.save(TransactionTag, newTags);
     }
@@ -201,7 +268,9 @@ export class TagsService {
         where: { id: In(tagIds), userId },
       });
       if (tags.length !== tagIds.length) {
-        throw new NotFoundException("One or more tags not found");
+        throw new NotFoundException(
+          tr("errors.tags.oneOrMoreNotFound", "One or more tags not found"),
+        );
       }
     }
 

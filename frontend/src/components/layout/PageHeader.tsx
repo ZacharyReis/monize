@@ -1,4 +1,7 @@
+'use client';
+
 import { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 interface PageHeaderProps {
@@ -17,6 +20,8 @@ interface PageHeaderProps {
  * Renders directly in the content area without a separate background bar.
  */
 export function PageHeader({ title, subtitle, actions, helpUrl }: PageHeaderProps) {
+  const t = useTranslations('layout');
+
   return (
     <div className={`${actions ? 'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4' : ''} mb-6`}>
       <div>
@@ -31,7 +36,7 @@ export function PageHeader({ title, subtitle, actions, helpUrl }: PageHeaderProp
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-blue-500 transition-colors"
-                aria-label="Open the Monize wiki for help with this section"
+                aria-label={t('pageHeader.helpAriaLabel')}
               >
                 <QuestionMarkCircleIcon className="h-5 w-5" />
               </a>
@@ -39,7 +44,7 @@ export function PageHeader({ title, subtitle, actions, helpUrl }: PageHeaderProp
                 role="tooltip"
                 className="pointer-events-none hidden md:group-hover/help:block absolute z-20 left-1/2 -translate-x-1/2 top-full mt-1 w-56 whitespace-normal rounded-md bg-gray-900 dark:bg-gray-700 px-2.5 py-2 text-xs font-normal leading-snug text-white shadow-lg"
               >
-                Open the Monize wiki for help with this section
+                {t('pageHeader.helpTooltip')}
               </span>
             </span>
           )}

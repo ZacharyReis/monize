@@ -24,6 +24,7 @@ import {
   ApiResponse,
 } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { rateLimit } from "../common/throttle.util";
 import { Response, Request as ExpressRequest } from "express";
 
 import { AuthService } from "./auth.service";
@@ -34,11 +35,19 @@ import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { VerifyEmailDto } from "./dto/verify-email.dto";
+import { ResendVerificationDto } from "./dto/resend-verification.dto";
 import { VerifyTotpDto } from "./dto/verify-totp.dto";
 import { Setup2faDto } from "./dto/setup-2fa.dto";
 import { Setup2faInitDto } from "./dto/setup-2fa-init.dto";
-import { passwordResetTemplate } from "../notifications/email-templates";
+import {
+  passwordResetTemplate,
+  emailVerificationTemplate,
+} from "../notifications/email-templates";
 import { SwitchContextDto } from "./dto/switch-context.dto";
+import { I18nService } from "nestjs-i18n";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 import { DelegationService } from "../delegation/delegation.service";
 import { AllowDelegate } from "../delegation/decorators/delegate-access.decorator";
 import { SkipCsrf } from "../common/decorators/skip-csrf.decorator";
@@ -47,6 +56,7 @@ import { DemoRestricted } from "../common/decorators/demo-restricted.decorator";
 import { DemoModeService } from "../common/demo-mode.service";
 import { generateCsrfToken, getCsrfCookieOptions } from "../common/csrf.util";
 import { encrypt, decrypt, derivePurposeKey } from "./crypto.util";
+import { tr } from "../i18n/translate";
 
 @ApiTags("Authentication")
 @Controller("auth")
@@ -67,6 +77,7 @@ export class AuthController {
     private demoModeService: DemoModeService,
     private tokenService: TokenService,
     private delegationService: DelegationService,
+    private readonly i18n: I18nService,
   ) {
     // Default to true if not explicitly set to 'false'
     const localAuthSetting = this.configService.get<string>(
@@ -228,34 +239,87 @@ export class AuthController {
   @AllowDelegate()
   @SkipCsrf()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } }) // 5 attempts per 15 minutes
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } }) // 5 attempts per 15 minutes
   @ApiOperation({ summary: "Register a new user with local credentials" })
   @ApiResponse({ status: 403, description: "Local authentication is disabled" })
   @ApiResponse({ status: 429, description: "Too many requests" })
   async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
     if (!this.localAuthEnabled) {
       throw new ForbiddenException(
-        "Local authentication is disabled. Please use OIDC to sign in.",
+        tr(
+          "errors.auth.localAuthDisabled",
+          "Local authentication is disabled. Please use OIDC to sign in.",
+        ),
       );
     }
     if (!this.registrationEnabled) {
-      throw new ForbiddenException("New account registration is disabled.");
+      throw new ForbiddenException(
+        tr(
+          "errors.auth.registrationDisabled",
+          "New account registration is disabled.",
+        ),
+      );
     }
     const result = await this.authService.register(registerDto);
 
+    // When email verification is required the account exists but cannot sign
+    // in yet, so no auth cookies are set. Send the verification link and tell
+    // the client to show its "check your email" state.
+    if (result.verificationRequired) {
+      await this.sendVerificationEmail(
+        result.user.email!,
+        result.user.firstName ?? "",
+        result.verificationToken,
+      );
+      return res.json({ verificationRequired: true });
+    }
+
     this.setAuthCookies(
       res,
-      result.accessToken,
-      result.refreshToken,
-      result.user.id,
+      result.accessToken!,
+      result.refreshToken!,
+      result.user!.id,
     );
     res.json({ user: result.user });
+  }
+
+  /**
+   * Build the verification link and email it. Shared by registration and the
+   * resend endpoint. Failures are logged, never thrown, so the HTTP response
+   * does not reveal whether delivery succeeded (mirrors password-reset).
+   */
+  private async sendVerificationEmail(
+    email: string,
+    firstName: string,
+    token: string,
+  ): Promise<void> {
+    const frontendUrl = this.configService.get<string>(
+      "PUBLIC_APP_URL",
+      "http://localhost:3000",
+    );
+    const verifyUrl = `${frontendUrl}/verify-email?token=${token}`;
+    const lang = DEFAULT_LOCALE;
+    const t = emailTranslator(this.i18n, lang);
+    const html = emailVerificationTemplate(firstName, verifyUrl, t);
+
+    try {
+      await this.emailService.sendMail(
+        email,
+        t("emails.emailVerification.subject", "Verify your Monize email"),
+        html,
+      );
+    } catch (error) {
+      this.logger.error(
+        "Failed to send email verification email",
+        error instanceof Error ? error.stack : error,
+      );
+    }
   }
 
   @Post("login")
   @AllowDelegate()
   @SkipCsrf()
-  @Throttle({ default: { ttl: 900000, limit: 5 } }) // 5 attempts per 15 minutes
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } }) // 5 attempts per 15 minutes
   @ApiOperation({ summary: "Login with local credentials" })
   @ApiResponse({ status: 403, description: "Local authentication is disabled" })
   @ApiResponse({ status: 429, description: "Too many requests" })
@@ -266,7 +330,10 @@ export class AuthController {
   ) {
     if (!this.localAuthEnabled) {
       throw new ForbiddenException(
-        "Local authentication is disabled. Please use OIDC to sign in.",
+        tr(
+          "errors.auth.localAuthDisabled",
+          "Local authentication is disabled. Please use OIDC to sign in.",
+        ),
       );
     }
     const trustedDeviceRef = this.decryptTrustedDeviceCookie(
@@ -282,6 +349,11 @@ export class AuthController {
     // If 2FA is required, return temp token without setting cookie
     if (result.requires2FA) {
       return res.json({ requires2FA: true, tempToken: result.tempToken });
+    }
+
+    // Email not verified yet: no cookies, tell the client to prompt a resend.
+    if (result.emailNotVerified) {
+      return res.json({ emailNotVerified: true });
     }
 
     this.setAuthCookies(
@@ -301,7 +373,12 @@ export class AuthController {
   @ApiResponse({ status: 400, description: "OIDC not configured" })
   async oidcLogin(@Res() res: Response) {
     if (!this.oidcService.enabled) {
-      throw new BadRequestException("OIDC authentication is not configured");
+      throw new BadRequestException(
+        tr(
+          "errors.auth.oidcNotConfigured",
+          "OIDC authentication is not configured",
+        ),
+      );
     }
 
     const state = this.oidcService.generateState();
@@ -469,7 +546,14 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "Get current user profile" })
   async getProfile(@Request() req) {
-    return this.authService.sanitizeUser(req.user);
+    // req.user comes from the JWT strategy, which only carries the lightweight
+    // auth state (id/isActive/role/mustChangePassword) -- not profile fields
+    // like firstName/email. Load the full user so the profile is complete.
+    // req.user.id is the owner's id when acting as a delegate, which is the
+    // profile the caller expects here.
+    const user = await this.authService.getUserById(req.user.id);
+    if (!user) return null;
+    return this.authService.sanitizeUser(user);
   }
 
   @Get("me-self")
@@ -546,7 +630,9 @@ export class AuthController {
 
     const realUser = await this.authService.getUserById(realUserId);
     if (!realUser || !realUser.isActive) {
-      throw new UnauthorizedException("User not found or inactive");
+      throw new UnauthorizedException(
+        tr("errors.auth.userNotFoundOrInactive", "User not found or inactive"),
+      );
     }
 
     // SECURITY: revoke the current refresh family so a stale refresh token
@@ -571,11 +657,16 @@ export class AuthController {
   @AllowDelegate()
   @SkipCsrf()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 3 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(3) } })
   @ApiOperation({ summary: "Request password reset email" })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     if (!this.localAuthEnabled) {
-      throw new ForbiddenException("Local authentication is disabled.");
+      throw new ForbiddenException(
+        tr(
+          "errors.auth.localAuthDisabledShort",
+          "Local authentication is disabled.",
+        ),
+      );
     }
 
     // M7: Per-email rate limiting (max 3 per email per hour)
@@ -595,12 +686,18 @@ export class AuthController {
         "http://localhost:3000",
       );
       const resetUrl = `${frontendUrl}/reset-password?token=${result.token}`;
-      const html = passwordResetTemplate(result.user.firstName || "", resetUrl);
+      const lang = DEFAULT_LOCALE;
+      const t = emailTranslator(this.i18n, lang);
+      const html = passwordResetTemplate(
+        result.user.firstName || "",
+        resetUrl,
+        t,
+      );
 
       try {
         await this.emailService.sendMail(
           result.user.email!,
-          "Monize Password Reset",
+          t("emails.passwordReset.subject", "Monize Password Reset"),
           html,
         );
       } catch (error) {
@@ -622,17 +719,73 @@ export class AuthController {
   @AllowDelegate()
   @SkipCsrf()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiOperation({ summary: "Reset password using token" })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.authService.resetPassword(dto.token, dto.newPassword);
     return { message: "Password reset successfully. You can now log in." };
   }
 
+  @Post("verify-email")
+  @AllowDelegate()
+  @SkipCsrf()
+  @DemoRestricted()
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
+  @ApiOperation({ summary: "Verify a new account's email address" })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    await this.authService.verifyEmail(dto.token);
+    return { message: "Email verified successfully. You can now log in." };
+  }
+
+  @Post("resend-verification")
+  @AllowDelegate()
+  @SkipCsrf()
+  @DemoRestricted()
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(3) } })
+  @ApiOperation({ summary: "Resend the email verification link" })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    if (!this.localAuthEnabled) {
+      throw new ForbiddenException(
+        tr(
+          "errors.auth.localAuthDisabledShort",
+          "Local authentication is disabled.",
+        ),
+      );
+    }
+
+    // SECURITY: Always return the same generic response so the endpoint never
+    // reveals whether an account exists or is already verified.
+    const genericResponse = {
+      message:
+        "If an account exists with that email and still needs verification, " +
+        "a new verification link has been sent.",
+    };
+
+    // Per-email rate limiting (max 3 per email per hour)
+    if (!this.authService.checkVerificationEmailLimit(dto.email)) {
+      return genericResponse;
+    }
+
+    if (this.emailService.getStatus().configured) {
+      const result = await this.authService.generateVerificationToken(
+        dto.email,
+      );
+      if (result) {
+        await this.sendVerificationEmail(
+          result.user.email!,
+          result.user.firstName ?? "",
+          result.token,
+        );
+      }
+    }
+
+    return genericResponse;
+  }
+
   @Post("2fa/verify")
   @AllowDelegate()
   @SkipCsrf()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiOperation({ summary: "Verify TOTP code to complete 2FA login" })
   async verify2FA(
     @Body() dto: VerifyTotpDto,
@@ -684,7 +837,7 @@ export class AuthController {
   @UseGuards(AuthGuard("jwt"))
   @AllowDelegate()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Generate QR code and secret for 2FA setup" })
   async setup2FA(@Request() req, @Body() dto: Setup2faInitDto) {
@@ -695,7 +848,7 @@ export class AuthController {
   @UseGuards(AuthGuard("jwt"))
   @AllowDelegate()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Confirm 2FA setup with verification code" })
   async confirmSetup2FA(@Request() req, @Body() dto: Setup2faDto) {
@@ -706,7 +859,7 @@ export class AuthController {
   @UseGuards(AuthGuard("jwt"))
   @AllowDelegate()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Disable 2FA with verification code" })
   async disable2FA(@Request() req, @Body() dto: Setup2faDto) {
@@ -801,12 +954,14 @@ export class AuthController {
   @Post("refresh")
   @AllowDelegate()
   @SkipCsrf()
-  @Throttle({ default: { ttl: 60000, limit: 10 } }) // 10 refreshes per minute
+  @Throttle({ default: { ttl: 60000, limit: rateLimit(10) } }) // 10 refreshes per minute
   @ApiOperation({ summary: "Refresh access token using refresh token cookie" })
   async refresh(@Request() req: ExpressRequest, @Res() res: Response) {
     const refreshToken = req.cookies?.["refresh_token"];
     if (!refreshToken) {
-      throw new UnauthorizedException("No refresh token provided");
+      throw new UnauthorizedException(
+        tr("errors.auth.noRefreshTokenProvided", "No refresh token provided"),
+      );
     }
 
     try {
@@ -828,7 +983,7 @@ export class AuthController {
   @UseGuards(AuthGuard("jwt"))
   @AllowDelegate()
   @DemoRestricted()
-  @Throttle({ default: { ttl: 900000, limit: 5 } })
+  @Throttle({ default: { ttl: 900000, limit: rateLimit(5) } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Generate new 2FA backup codes" })
   async generateBackupCodes(@Request() req, @Body() dto: Setup2faDto) {
@@ -851,7 +1006,9 @@ export class AuthController {
 
     try {
       if (!token) {
-        throw new BadRequestException("Missing link token");
+        throw new BadRequestException(
+          tr("errors.auth.missingLinkToken", "Missing link token"),
+        );
       }
       await this.authService.confirmOidcLink(token);
       res.redirect(`${frontendUrl}/auth/callback?link=success`);

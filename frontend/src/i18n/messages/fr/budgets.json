@@ -1,0 +1,548 @@
+{
+  "alerts": {
+    "title": "Alertes",
+    "unread": "{count} non lue(s)",
+    "markAllRead": "Tout marquer comme lu",
+    "loading": "Chargement des alertes...",
+    "empty": "Aucune alerte",
+    "undo": "Annuler",
+    "buttonTitle": "Alertes",
+    "buttonAriaLabel": "Alertes",
+    "dismissAriaLabel": "Ignorer l'alerte",
+    "severity": {
+      "critical": "Critique",
+      "warning": "Avertissement",
+      "success": "Bonne nouvelle",
+      "info": "Info"
+    }
+  },
+  "summary503020": {
+    "title": "Répartition 50/30/20",
+    "groups": {
+      "NEED": "Besoins",
+      "WANT": "Envies",
+      "SAVING": "Épargne"
+    },
+    "target": "Cible : {percent}%",
+    "budgeted": "Budgété : {percent}% ({amount})"
+  },
+  "categoryForm": {
+    "editTitle": "Modifier : {name}",
+    "budgetAmount": "Montant du budget",
+    "rolloverType": "Type de report",
+    "rolloverCap": "Plafond de report (facultatif)",
+    "rolloverCapPlaceholder": "Sans plafond",
+    "flexGroup": "Groupe flexible (facultatif)",
+    "flexGroupPlaceholder": "ex. : Argent loisirs",
+    "categoryGroup": "Groupe de catégorie (50/30/20)",
+    "warningAt": "Avertissement à (%)",
+    "criticalAt": "Critique à (%)",
+    "notes": "Notes (facultatif)",
+    "notesPlaceholder": "Notes sur ce budget de catégorie",
+    "rolloverOptions": {
+      "NONE": "Aucun (réinitialise chaque période)",
+      "MONTHLY": "Report mensuel",
+      "QUARTERLY": "Report trimestriel",
+      "ANNUAL": "Report annuel"
+    },
+    "groupOptions": {
+      "none": "Aucun",
+      "NEED": "Besoin",
+      "WANT": "Envie",
+      "SAVING": "Épargne"
+    },
+    "saving": "Enregistrement..."
+  },
+  "categoryList": {
+    "title": "Budgets par catégorie",
+    "empty": "Aucune catégorie de dépenses dans ce budget.",
+    "sort": "Trier :",
+    "sortAriaLabel": "Trier les catégories",
+    "sortAscAriaLabel": "Trier par ordre décroissant",
+    "sortDescAriaLabel": "Trier par ordre croissant",
+    "sortDescTitle": "Trier par ordre décroissant",
+    "sortAscTitle": "Trier par ordre croissant",
+    "sortOptions": {
+      "percentUsed": "% utilisé",
+      "spent": "Dépensé",
+      "remaining": "Restant",
+      "name": "Nom"
+    }
+  },
+  "categoryRow": {
+    "overPace": "Au-dessus du rythme",
+    "underPace": "En dessous du rythme",
+    "onPace": "Dans le rythme",
+    "rollover": "Report : {type}",
+    "remaining": "{amount} restant",
+    "over": "{amount} de dépassement"
+  },
+  "categoryTrend": {
+    "title": "Tendances par catégorie",
+    "empty": "Pas assez de données pour afficher les tendances par catégorie.",
+    "tableHeaders": {
+      "category": "Catégorie",
+      "avgBudget": "Budget moy.",
+      "avgActual": "Réel moy.",
+      "avgVariance": "Écart moy."
+    }
+  },
+  "flexGroups": {
+    "title": "Groupes flexibles"
+  },
+  "form": {
+    "budgetName": "Nom du budget",
+    "description": "Description (facultatif)",
+    "descriptionPlaceholder": "Description du budget",
+    "budgetType": "Type de budget",
+    "strategy": "Stratégie",
+    "baseIncome": "Revenus de base (facultatif)",
+    "baseIncomePlaceholder": "Revenus mensuels prévus",
+    "active": "Actif",
+    "saveChanges": "Enregistrer les modifications",
+    "saving": "Enregistrement...",
+    "typeOptions": {
+      "MONTHLY": "Mensuel",
+      "ANNUAL": "Annuel",
+      "PAY_PERIOD": "Période de paie"
+    },
+    "strategyOptions": {
+      "FIXED": "Fixe",
+      "ROLLOVER": "Report",
+      "ZERO_BASED": "Base zéro",
+      "FIFTY_THIRTY_TWENTY": "50/30/20"
+    }
+  },
+  "healthGauge": {
+    "title": "Score de santé",
+    "labels": {
+      "excellent": "Excellent",
+      "good": "Bon",
+      "needsAttention": "Attention requise",
+      "offTrack": "Hors piste"
+    }
+  },
+  "heatmap": {
+    "title": "Carte thermique des dépenses - {monthLabel}",
+    "ariaLabel": "Carte thermique des dépenses",
+    "less": "Moins",
+    "more": "Plus"
+  },
+  "periodDetail": {
+    "summaryCards": {
+      "totalBudgeted": "Total budgété",
+      "totalSpent": "Total dépensé",
+      "underBudget": "Sous le budget",
+      "overBudget": "Dépassement de budget",
+      "saved": "économisé",
+      "overspent": "dépassé",
+      "income": "Revenus",
+      "savings": "Épargne : {amount}"
+    },
+    "rolloverSummary": {
+      "title": "Résumé des reports",
+      "carriedIn": "Reporté entrant :",
+      "carriedOut": "Reporté sortant :"
+    },
+    "overallUsage": "Utilisation globale du budget",
+    "expenseCategories": "Catégories de dépenses",
+    "incomeCategories": "Catégories de revenus",
+    "categorySublabel": "{count} catégories",
+    "rolloverBadge": "+{amount} de report",
+    "underBudgetLabel": "{amount} sous le budget",
+    "overBudgetLabel": "{amount} de dépassement",
+    "carriedForward": "{amount} reporté"
+  },
+  "periodSelector": {
+    "label": "Période :",
+    "currentPeriod": "Période actuelle",
+    "current": "{label} (Actuelle)",
+    "projected": "{label} (Projetée)"
+  },
+  "progressBar": {
+    "ariaLabel": "{percent}% utilisé",
+    "paceMarkerTitle": "Rythme prévu : {percent}%"
+  },
+  "scenarioPlanner": {
+    "title": "Planificateur de scénarios hypothétiques",
+    "empty": "Aucune catégorie de dépenses à planifier.",
+    "reset": "Réinitialiser",
+    "applyChanges": "Appliquer les modifications",
+    "currentBudget": "Budget actuel",
+    "proposedBudget": "Budget proposé",
+    "projectedSavings": "Épargne projetée",
+    "savingsChange": "Variation de l'épargne",
+    "original": "Origine : {amount}"
+  },
+  "summaryCards": {
+    "totalBudget": "Budget total",
+    "spent": "Dépensé",
+    "remaining": "Restant",
+    "savings": "Épargne",
+    "periodEnded": "Période terminée",
+    "days": "{count} jours",
+    "onTrack": "Dans les prévisions",
+    "overBudget": "Dépassement de budget"
+  },
+  "trendChart": {
+    "title": "Tendance budget vs réel",
+    "empty": "Pas assez de données pour afficher les tendances.",
+    "budgeted": "Budgété",
+    "actual": "Réel"
+  },
+  "upcomingBills": {
+    "title": "Factures à venir",
+    "empty": "Aucune facture due cette période.",
+    "more": "+{count} facture(s) supplémentaire(s)",
+    "totalUpcoming": "Total à venir",
+    "trulyAvailable": "Vraiment disponible",
+    "over": " de dépassement"
+  },
+  "velocity": {
+    "title": "Vélocité des dépenses",
+    "dailyBurnRate": "Taux de dépense quotidien",
+    "safeToSpend": "Montant sûr à dépenser",
+    "projectedMonthEnd": "Fin de mois projetée",
+    "budgetTotal": "Total du budget",
+    "billsComing": "Factures à venir",
+    "trulyAvailable": "Vraiment disponible",
+    "over": " de dépassement",
+    "dayProgress": "Jour {elapsed} sur {total}",
+    "daysRemaining": "{count} jours restants",
+    "paceStatus": {
+      "under": "En dessous du rythme budgétaire",
+      "on_track": "Dans les prévisions",
+      "over": "Au-dessus du rythme budgétaire"
+    }
+  },
+  "wizard": {
+    "steps": {
+      "analyze": "Analyser",
+      "categories": "Catégories",
+      "configure": "Configurer",
+      "review": "Réviser"
+    },
+    "ariaLabel": "Étapes de l'assistant",
+    "back": "Retour"
+  },
+  "wizardAnalysis": {
+    "chooseStrategy": "Choisissez une stratégie budgétaire",
+    "analysisPeriod": "Période d'analyse",
+    "analysisPeriodHint": "Combien de mois d'historique de transactions devons-nous analyser pour suggérer des montants budgétaires ?",
+    "budgetProfile": "Profil budgétaire",
+    "analyzeButton": "Analyser mes dépenses",
+    "analysisPeriods": {
+      "3": "3 mois",
+      "6": "6 mois",
+      "12": "12 mois"
+    },
+    "strategies": {
+      "FIXED": {
+        "label": "Fixe",
+        "description": "Définissez des montants fixes par catégorie. Le budget non utilisé se réinitialise à chaque période."
+      },
+      "ROLLOVER": {
+        "label": "Report",
+        "description": "Le budget non utilisé est reporté. Configurez les règles de report par catégorie."
+      },
+      "ZERO_BASED": {
+        "label": "Base zéro",
+        "description": "Chaque euro de revenus est affecté à un usage précis. Les revenus moins les dépenses égalent zéro."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "label": "50/30/20",
+        "description": "50% de besoins, 30% d'envies, 20% d'épargne. Les catégories sont étiquetées par groupe."
+      }
+    },
+    "profiles": {
+      "COMFORTABLE": {
+        "label": "Confortable",
+        "description": "Basé sur votre 75e percentile de dépenses. Laisse de la marge."
+      },
+      "ON_TRACK": {
+        "label": "Dans les prévisions",
+        "description": "Basé sur votre médiane de dépenses. Objectifs réalistes."
+      },
+      "AGGRESSIVE": {
+        "label": "Ambitieux",
+        "description": "Basé sur votre 25e percentile. Un objectif ambitieux pour épargner davantage."
+      }
+    },
+    "toasts": {
+      "analyzeFailed": "Échec de l'analyse des dépenses"
+    }
+  },
+  "wizardCategories": {
+    "title": "Réviser les catégories",
+    "noAnalysis": "Aucune donnée d'analyse. Revenez en arrière et lancez l'analyse d'abord.",
+    "tableHeaders": {
+      "income": "Revenus",
+      "expenses": "Dépenses",
+      "transfers": "Virements / Épargne",
+      "trendMedian": "Tendance / Médiane",
+      "amount": "Montant"
+    },
+    "totals": {
+      "totalIncome": "Total des revenus",
+      "totalExpenses": "Total des dépenses",
+      "transfers": "Virements",
+      "remaining": "Restant"
+    },
+    "allocation503020": "Répartition 50/30/20",
+    "allocationTarget": "(cible {percent}%)",
+    "nextButton": "Suivant : Configurer",
+    "profiles": {
+      "COMFORTABLE": "Confortable",
+      "ON_TRACK": "Dans les prévisions",
+      "AGGRESSIVE": "Ambitieux"
+    }
+  },
+  "wizardStrategy": {
+    "title": "Configurez votre budget",
+    "sections": {
+      "budgetDetails": "Détails du budget",
+      "income": "Revenus",
+      "rolloverRules": "Règles de report",
+      "alertThresholds": "Seuils d'alerte",
+      "flexGroups": "Groupes flexibles",
+      "excludedAccounts": "Comptes exclus"
+    },
+    "budgetNameLabel": "Nom du budget",
+    "budgetNameRequired": "Le nom du budget est requis",
+    "budgetTypeLabel": "Type de budget",
+    "startDateLabel": "Date de début",
+    "startDateRequired": "La date de début est requise",
+    "strategyPrefix": "Stratégie : {strategy}",
+    "strategyNotSelected": "Non sélectionnée",
+    "strategyDescriptions": {
+      "FIXED": "Définissez des montants par catégorie. Le budget non dépensé se réinitialise à chaque période.",
+      "ROLLOVER": "Le budget non dépensé est reporté selon les règles de report par catégorie.",
+      "ZERO_BASED": "Chaque euro de revenus est affecté. Les revenus moins les dépenses doivent être égaux à zéro.",
+      "FIFTY_THIRTY_TWENTY": "Catégories regroupées en Besoins (50%), Envies (30%), Épargne (20%)."
+    },
+    "linkBudgetToIncome": "Lier le budget aux revenus",
+    "linkBudgetToIncomeHint": "Les montants des catégories deviennent des pourcentages de vos revenus de base",
+    "baseMonthlyIncome": "Revenus mensuels de base",
+    "estimatedFromAnalysis": "Estimé depuis l'analyse : {amount}/mois",
+    "defaultRolloverType": "Type de report par défaut",
+    "rolloverHint": "Cela définit la valeur par défaut pour toutes les catégories. Vous pouvez personnaliser les catégories individuelles après la création du budget.",
+    "rolloverOptions": {
+      "NONE": "Aucun -- Réinitialise chaque période",
+      "MONTHLY": "Mensuel -- Reporté chaque mois",
+      "QUARTERLY": "Trimestriel -- Reporté chaque trimestre",
+      "ANNUAL": "Annuel -- Reporté chaque année"
+    },
+    "warningAt": "Avertissement à (%)",
+    "warningHint": "Déclenche un avertissement lorsque les dépenses atteignent ce % du budget",
+    "criticalAt": "Critique à (%)",
+    "criticalHint": "Déclenche une alerte critique lorsque les dépenses atteignent ce % du budget",
+    "flexGroupsHide": "Masquer",
+    "flexGroupsConfigure": "Configurer",
+    "flexGroupsHint": "Regroupez les catégories de dépenses liées. Les dépenses sont suivies comme un total de groupe, offrant de la flexibilité au sein de chaque groupe.",
+    "flexGroupsTableHeaders": {
+      "category": "Catégorie",
+      "flexGroup": "Groupe flexible"
+    },
+    "flexGroupPlaceholder": "ex. : Argent loisirs",
+    "excludedAccountsHint": "Les transactions des comptes exclus ne seront pas comptabilisées dans vos totaux budgétaires.",
+    "excludedCount": "{count} {count, plural, one {compte exclu} other {comptes exclus}}",
+    "categoriesAndTransfers": "{categories} catégories et {transfers} virements sélectionnés",
+    "budgetTypeOptions": {
+      "MONTHLY": "Mensuel",
+      "ANNUAL": "Annuel",
+      "PAY_PERIOD": "Période de paie"
+    },
+    "nextButton": "Suivant : Réviser"
+  },
+  "wizardReview": {
+    "title": "Réviser votre budget",
+    "fields": {
+      "name": "Nom",
+      "type": "Type",
+      "strategy": "Stratégie",
+      "startDate": "Date de début",
+      "rollover": "Report",
+      "alerts": "Alertes",
+      "incomeLinked": "Revenus liés",
+      "excludedAccounts": "Comptes exclus"
+    },
+    "rolloverOff": "Désactivé",
+    "alertsValue": "Avertissement {warn}% / Critique {critical}%",
+    "accountCount": "{count} {count, plural, one {compte} other {comptes}}",
+    "strategyNotSelected": "Non sélectionnée",
+    "summaryCards": {
+      "estIncome": "Revenus est.",
+      "totalExpenses": "Total des dépenses",
+      "transfers": "Virements",
+      "remaining": "Restant"
+    },
+    "tableHeaders": {
+      "category": "Catégorie",
+      "amount": "Montant",
+      "type": "Type"
+    },
+    "categoryTypes": {
+      "income": "Revenus",
+      "expense": "Dépense",
+      "transfer": "Virement"
+    },
+    "createButton": "Créer le budget",
+    "categoryCount": "{count} catégories",
+    "accountsCount": "{count} comptes",
+    "toasts": {
+      "created": "Budget créé avec succès",
+      "failed": "Échec de la création du budget"
+    }
+  },
+  "zeroBasedBar": {
+    "title": "Affectation base zéro",
+    "fullyAssigned": "Entièrement affecté",
+    "overAssigned": "Suraffecté",
+    "underAssigned": "Sous-affecté",
+    "assigned": "Affecté : {assigned} / {income}",
+    "unassigned": "{amount} non affecté",
+    "over": "{amount} de dépassement"
+  },
+  "strategyCard": {
+    "pros": "Avantages",
+    "cons": "Inconvénients",
+    "bestFor": "Idéal pour : ",
+    "strategies": {
+      "FIXED": {
+        "title": "Budget fixe",
+        "description": "Définissez une limite de dépenses fixe pour chaque catégorie à chaque période. Le budget non dépensé se réinitialise à la fin de la période au lieu d'être reporté.",
+        "pros": [
+          "Simple à configurer et à comprendre",
+          "Limites de dépenses claires par catégorie",
+          "Budgétisation prévisible de mois en mois",
+          "Bon point de départ pour les débutants en budgétisation"
+        ],
+        "cons": [
+          "Le budget non dépensé n'est pas reporté",
+          "Aucune flexibilité entre les catégories",
+          "Ne s'adapte pas aux dépenses irrégulières",
+          "Peut sembler rigide si les habitudes de dépenses varient"
+        ],
+        "bestFor": "Les personnes qui souhaitent une budgétisation simple avec des limites claires et des habitudes de dépenses prévisibles."
+      },
+      "ROLLOVER": {
+        "title": "Budget avec report",
+        "description": "Le budget non dépensé est reporté à la période suivante selon les règles de report par catégorie. Constituez des réserves pour les catégories à dépenses irrégulières ou saisonnières.",
+        "pros": [
+          "Constitue une épargne pour les dépenses irrégulières",
+          "Récompense les économies par catégorie",
+          "Règles de report flexibles par catégorie",
+          "Gère naturellement les variations saisonnières"
+        ],
+        "cons": [
+          "Plus complexe à configurer initialement",
+          "Les soldes accumulés doivent être surveillés",
+          "Peut masquer les dépassements si les plafonds sont trop élevés",
+          "Nécessite une révision périodique des règles de report"
+        ],
+        "bestFor": "Les personnes ayant des dépenses irrégulières comme l'entretien automobile, les abonnements annuels ou les coûts saisonniers qui souhaitent épargner progressivement."
+      },
+      "ZERO_BASED": {
+        "title": "Budget base zéro",
+        "description": "Chaque euro de revenus est affecté à un usage précis. Vos revenus moins tous les montants budgétés doivent être égaux à zéro, garantissant qu'aucun argent ne reste non affecté.",
+        "pros": [
+          "Contrôle maximal sur chaque euro",
+          "Oblige à prendre des décisions de dépenses délibérées",
+          "Révèle rapidement les dépenses inutiles",
+          "Très efficace pour atteindre les objectifs de remboursement de dettes"
+        ],
+        "cons": [
+          "Nécessite de connaître les revenus exacts à l'avance",
+          "Demande du temps pour être maintenu à chaque période",
+          "Moins flexible pour les revenus variables",
+          "Peut sembler contraignant pour certains utilisateurs"
+        ],
+        "bestFor": "Les personnes qui souhaitent un contrôle total sur leurs finances et sont prêtes à planifier l'affectation de chaque euro à chaque période."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "title": "Budget 50/30/20",
+        "description": "Une approche équilibrée qui divise les revenus en trois groupes : 50% pour les besoins (logement, alimentation, services), 30% pour les envies (restauration, loisirs) et 20% pour l'épargne et le remboursement de dettes.",
+        "pros": [
+          "Facile à retenir et à suivre",
+          "Allocation d'épargne intégrée",
+          "Approche équilibrée des dépenses",
+          "Flexible au sein de chaque groupe"
+        ],
+        "cons": [
+          "Peut ne pas convenir aux zones à coût de vie élevé",
+          "Les ratios fixes peuvent ne pas s'adapter à toutes les situations",
+          "Contrôle moins précis au niveau des catégories",
+          "Nécessite de classer chaque dépense par groupe"
+        ],
+        "bestFor": "Les personnes qui souhaitent une approche équilibrée et pratique sans suivre chaque catégorie individuellement."
+      }
+    }
+  },
+  "pages": {
+    "list": {
+      "title": "Budgets",
+      "subtitle": "Gérez vos budgets et suivez vos dépenses",
+      "newBudget": "+ Nouveau budget",
+      "empty": {
+        "title": "Aucun budget pour l'instant",
+        "description": "Créez votre premier budget en analysant votre historique de dépenses. L'assistant suggérera des montants réalistes basés sur vos transactions.",
+        "cta": "Créer votre premier budget"
+      },
+      "card": {
+        "active": "Actif",
+        "inactive": "Inactif",
+        "categories": "{count} catégories",
+        "started": "Démarré le {date}"
+      }
+    },
+    "create": {
+      "title": "Créer un budget",
+      "subtitle": "Analysez vos dépenses et créez un budget personnalisé"
+    },
+    "detail": {
+      "backToBudgets": "Retour aux budgets",
+      "notFound": "Budget introuvable",
+      "delete": {
+        "title": "Supprimer le budget",
+        "message": "Êtes-vous sûr de vouloir supprimer « {name} » ? Cela supprimera toutes les données du budget, y compris les périodes et les alertes. Cette action est irréversible.",
+        "confirm": "Supprimer",
+        "cancel": "Annuler"
+      },
+      "toasts": {
+        "deleted": "Budget supprimé",
+        "deleteFailed": "Échec de la suppression du budget",
+        "loadFailed": "Échec du chargement du budget",
+        "periodFailed": "Échec du chargement de la période"
+      }
+    },
+    "edit": {
+      "subtitlePrefix": "Modifier : ",
+      "subtitle": "Mettre à jour les paramètres du budget et les allocations par catégorie",
+      "backToDashboard": "Retour au tableau de bord",
+      "budgetSettings": "Paramètres du budget",
+      "categoryAllocations": "Allocations par catégorie",
+      "income": "Revenus",
+      "expensesWithCount": "Dépenses ({count})",
+      "resetsEachPeriod": "Réinitialise chaque période",
+      "percentUsed": "{percent}% utilisé",
+      "rolloverType": "Report : {type}",
+      "editCategoryTitle": "Modifier {name}",
+      "toasts": {
+        "updated": "Budget mis à jour",
+        "updateFailed": "Échec de la mise à jour du budget",
+        "categoryUpdated": "Catégorie mise à jour",
+        "categoryFailed": "Échec de la mise à jour de la catégorie",
+        "loadFailed": "Échec du chargement du budget"
+      }
+    }
+  },
+  "validation": {
+    "nameRequired": "Le nom du budget est requis",
+    "nameMax": "Le nom du budget doit contenir 255 caractères ou moins",
+    "descriptionMax": "La description doit contenir 1000 caractères ou moins"
+  },
+  "categoryValidation": {
+    "amountMin": "Le montant doit être égal ou supérieur à 0",
+    "mustBeNumber": "Doit être un nombre"
+  }
+}

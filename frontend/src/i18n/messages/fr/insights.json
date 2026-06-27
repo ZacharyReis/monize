@@ -1,0 +1,44 @@
+{
+  "page": {
+    "title": "Analyses des dépenses",
+    "subtitle": "Analyse de vos habitudes de dépenses et anomalies par IA"
+  },
+  "list": {
+    "lastUpdated": "Dernière mise à jour : {date} {time}",
+    "refreshButton": "Actualiser les analyses",
+    "generating": "Génération en cours...",
+    "allTypes": "Tous les types",
+    "allSeverities": "Toutes les sévérités",
+    "showDismissed": "Afficher les éléments ignorés",
+    "emptyNoInsights": "Aucune analyse générée. Cliquez sur « Actualiser les analyses » pour analyser vos habitudes de dépenses.",
+    "emptyFiltered": "Aucune analyse ne correspond à vos filtres.",
+    "generateButton": "Générer des analyses",
+    "alertCount": "{count, plural, one {# alerte} other {# alertes}}",
+    "warningCount": "{count, plural, one {# avertissement} other {# avertissements}}",
+    "errorLoadFailed": "Échec du chargement des analyses. Veuillez réessayer.",
+    "errorGenerateFailed": "Échec de la génération des analyses. Assurez-vous qu'un fournisseur IA est configuré.",
+    "errorTimeout": "La génération des analyses prend plus de temps que prévu. Veuillez patienter ou actualiser la page."
+  },
+  "card": {
+    "dismiss": "Ignorer",
+    "dismissing": "Masquage..."
+  },
+  "notConfigured": {
+    "heading": "IA non configurée",
+    "message": "Aucun fournisseur IA n'est configuré. Pour utiliser les Analyses des dépenses, veuillez {link} dans vos paramètres.",
+    "linkText": "configurer un fournisseur IA"
+  },
+  "insightTypes": {
+    "anomaly": "Anomalie",
+    "trend": "Tendance",
+    "subscription": "Abonnement",
+    "budget_pace": "Rythme budgétaire",
+    "seasonal": "Saisonnier",
+    "new_recurring": "Nouveau récurrent"
+  },
+  "insightSeverities": {
+    "info": "Info",
+    "warning": "Avertissement",
+    "alert": "Alerte"
+  }
+}

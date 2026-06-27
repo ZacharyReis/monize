@@ -19,6 +19,13 @@ import { Currency } from "./entities/currency.entity";
 import { Account } from "../accounts/entities/account.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { YahooFinanceService } from "../securities/yahoo-finance.service";
+import { mapWithConcurrency } from "../common/concurrency.util";
+import { roundMoney } from "../common/round.util";
+
+// Cap concurrent Yahoo FX fetches so the daily refresh does not burst every
+// currency pair at once (this cron also runs alongside the security price
+// refresh, so the combined load on Yahoo needs to stay bounded).
+const FX_FETCH_CONCURRENCY = 6;
 
 export interface RateUpdateResult {
   pair: string;
@@ -164,6 +171,29 @@ export class ExchangeRateService implements OnModuleInit {
   }
 
   /**
+   * Like fetchYahooHistoricalRates, but bounded to a [from, to] date window so a
+   * single-date lookup fetches a handful of bars instead of the entire history.
+   */
+  private async fetchYahooHistoricalRatesWindow(
+    from: string,
+    to: string,
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<Array<{ date: Date; rate: number }> | null> {
+    if (from === to) return [];
+
+    const symbol = `${from}${to}=X`;
+    const prices = await this.yahooFinanceService.fetchHistoricalWindow(
+      symbol,
+      fromDate,
+      toDate,
+    );
+    if (!prices) return null;
+
+    return prices.map((p) => ({ date: p.date, rate: p.close }));
+  }
+
+  /**
    * Save or update an exchange rate for a given date,
    * and also save the inverse rate for the reverse pair.
    */
@@ -176,7 +206,7 @@ export class ExchangeRateService implements OnModuleInit {
     const result = await this.saveOneDirection(from, to, rate, date);
 
     // Also save the inverse rate so both directions stay current
-    const inverseRate = Math.round((1 / rate) * 10000) / 10000;
+    const inverseRate = roundMoney(1 / rate);
     await this.saveOneDirection(to, from, inverseRate, date);
 
     return result;
@@ -270,9 +300,11 @@ export class ExchangeRateService implements OnModuleInit {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Fetch rates in parallel
-    await Promise.all(
-      pairs.map(async ({ from, to }) => {
+    // Fetch rates with bounded concurrency
+    await mapWithConcurrency(
+      pairs,
+      FX_FETCH_CONCURRENCY,
+      async ({ from, to }) => {
         const pairLabel = `${from}/${to}`;
         const rate = await this.fetchYahooRate(from, to);
 
@@ -298,7 +330,7 @@ export class ExchangeRateService implements OnModuleInit {
           });
           failed++;
         }
-      }),
+      },
     );
 
     const duration = Date.now() - startTime;
@@ -559,6 +591,115 @@ export class ExchangeRateService implements OnModuleInit {
   }
 
   /**
+   * Get the exchange rate for a currency pair as of a specific date.
+   *
+   * Unlike getLatestRate (the once-a-day stored snapshot), this returns the
+   * rate that applied on the transaction's date -- essential for back-dated
+   * transactions, where the latest snapshot can be far from the historical
+   * rate. Precedence:
+   *   1. The stored rate on the closest date on or before the target
+   *      (carry-forward, matching how a missing weekend/holiday is handled).
+   *   2. A short historical daily window fetched from Yahoo around the target
+   *      date; the value on the closest day on or before the target is used and
+   *      persisted for reuse. The window (not the full "max" history) keeps the
+   *      request small and fast.
+   * Returns null when no rate can be determined (so the caller can reject or
+   * flag the operation rather than silently assuming 1.0).
+   */
+  async getRateForDate(
+    from: string,
+    to: string,
+    date: string | Date,
+  ): Promise<number | null> {
+    if (from === to) return 1;
+
+    const target =
+      typeof date === "string"
+        ? date.slice(0, 10)
+        : date.toISOString().slice(0, 10);
+    const targetDate = new Date(`${target}T00:00:00.000Z`);
+
+    // 1. Closest stored rate on or before the target date.
+    const stored = await this.exchangeRateRepository.findOne({
+      where: {
+        fromCurrency: from,
+        toCurrency: to,
+        rateDate: LessThanOrEqual(targetDate),
+      },
+      order: { rateDate: "DESC" },
+    });
+    if (stored) return Number(stored.rate);
+
+    // 2. Fetch a short Yahoo window around the target (not the full "max"
+    //    history) and use the rate on the closest day on or before the target.
+    //    The lower bound reaches back two weeks so weekends/holidays before the
+    //    target still resolve; the upper bound adds two days to cover the target
+    //    itself (and minor timezone slack). Persist just the chosen point (and
+    //    its inverse, via saveRate) so a repeat lookup hits the database.
+    const windowStart = new Date(targetDate.getTime() - 14 * 86_400_000);
+    const windowEnd = new Date(targetDate.getTime() + 2 * 86_400_000);
+    const series = await this.fetchYahooHistoricalRatesWindow(
+      from,
+      to,
+      windowStart,
+      windowEnd,
+    );
+    if (series && series.length > 0) {
+      const targetTime = targetDate.getTime();
+      const sorted = [...series].sort(
+        (a, b) => a.date.getTime() - b.date.getTime(),
+      );
+      const onOrBefore = sorted.filter((p) => p.date.getTime() <= targetTime);
+      // Fall back to the earliest available point when the target predates the
+      // series -- a best-effort rate is still far better than a silent 1.0.
+      const chosen =
+        onOrBefore.length > 0 ? onOrBefore[onOrBefore.length - 1] : sorted[0];
+      try {
+        await this.saveRate(from, to, chosen.rate, chosen.date);
+      } catch (error) {
+        this.logger.warn(
+          `Could not persist historical rate ${from}->${to} for ${target}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      return chosen.rate;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the current spot rate for a currency pair, fetched live from the quote
+   * provider. Tries the direct pair, then the reverse pair (inverted), then
+   * falls back to the most recent stored daily rate when the live fetch is
+   * unavailable (rate limited, unsupported pair, offline).
+   *
+   * Use this for "as of now" valuations such as the Investments portfolio
+   * summary so they line up with the live intraday Portfolio Value Over Time
+   * chart, which fetches live FX directly from the quote provider, rather than
+   * the once-a-day stored snapshot returned by getLatestRate. Returns null when
+   * neither a live quote nor a stored rate is available, letting callers apply
+   * their own fallback (e.g. reverse lookup or treating the rate as 1).
+   */
+  async getLiveRate(from: string, to: string): Promise<number | null> {
+    if (from === to) return 1;
+    try {
+      const direct = await this.fetchYahooRate(from, to);
+      if (direct !== null && direct > 0) return direct;
+      const reverse = await this.fetchYahooRate(to, from);
+      if (reverse !== null && reverse > 0) return 1 / reverse;
+    } catch (error) {
+      this.logger.warn(
+        `Live FX fetch ${from}->${to} failed, falling back to stored rate: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    return this.getLatestRate(from, to);
+  }
+
+  /**
    * Get exchange rates within a date range (for historical net worth)
    */
   async getRateHistory(
@@ -603,10 +744,12 @@ export class ExchangeRateService implements OnModuleInit {
   }
 
   /**
-   * Scheduled job to refresh exchange rates daily at 5 PM EST (after market close)
-   * Runs Monday-Friday only
+   * Scheduled job to refresh exchange rates daily at 5:05 PM EST (after market
+   * close). Runs Monday-Friday only. Staggered five minutes after the security
+   * price refresh (5:00 PM) so the two Yahoo-hitting jobs do not burst at the
+   * same instant.
    */
-  @Cron("0 17 * * 1-5", { timeZone: "America/New_York" })
+  @Cron("5 17 * * 1-5", { timeZone: "America/New_York" })
   async scheduledRateRefresh(): Promise<void> {
     this.logger.log("Running scheduled exchange rate refresh");
     try {

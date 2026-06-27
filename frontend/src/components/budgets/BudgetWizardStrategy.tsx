@@ -1,13 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { Select } from '@/components/ui/Select';
 import { STRATEGY_LABELS } from './utils/budget-labels';
-import { getCurrencySymbol, formatCurrency } from '@/lib/format';
+import { getCurrencySymbol } from '@/lib/format';
+import { useNumberFormat } from '@/hooks/useNumberFormat';
 import type { WizardState } from './BudgetWizard';
 import type { RolloverType } from '@/types/budget';
 import type { Account } from '@/types/account';
@@ -20,18 +22,8 @@ interface BudgetWizardStrategyProps {
   onBack: () => void;
 }
 
-const BUDGET_TYPE_OPTIONS = [
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'ANNUAL', label: 'Annual' },
-  { value: 'PAY_PERIOD', label: 'Pay Period' },
-];
-
-const ROLLOVER_OPTIONS = [
-  { value: 'NONE', label: 'None -- Resets each period' },
-  { value: 'MONTHLY', label: 'Monthly -- Rolls forward every month' },
-  { value: 'QUARTERLY', label: 'Quarterly -- Rolls forward every quarter' },
-  { value: 'ANNUAL', label: 'Annual -- Rolls forward every year' },
-];
+const BUDGET_TYPE_VALUES = ['MONTHLY', 'ANNUAL', 'PAY_PERIOD'] as const;
+const ROLLOVER_VALUES = ['NONE', 'MONTHLY', 'QUARTERLY', 'ANNUAL'] as const;
 
 export function BudgetWizardStrategy({
   state,
@@ -40,6 +32,8 @@ export function BudgetWizardStrategy({
   onNext,
   onBack,
 }: BudgetWizardStrategyProps) {
+  const t = useTranslations('budgets');
+  const { formatCurrency } = useNumberFormat();
   const [showFlexGroups, setShowFlexGroups] = useState(false);
 
   const hasErrors = !state.budgetName.trim() || !state.periodStart;
@@ -157,46 +151,46 @@ export function BudgetWizardStrategy({
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-        Configure Your Budget
+        {t('wizardStrategy.title')}
       </h3>
 
       {/* Budget Details */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-          Budget Details
+          {t('wizardStrategy.sections.budgetDetails')}
         </h4>
 
         <Input
-          label="Budget Name"
+          label={t('wizardStrategy.budgetNameLabel')}
           value={state.budgetName}
           onChange={(e) => updateState({ budgetName: e.target.value })}
           maxLength={255}
           error={
             !state.budgetName.trim()
-              ? 'Budget name is required'
+              ? t('wizardStrategy.budgetNameRequired')
               : undefined
           }
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
-            label="Budget Type"
+            label={t('wizardStrategy.budgetTypeLabel')}
             value={state.budgetType}
             onChange={(e) =>
               updateState({
                 budgetType: e.target.value as WizardState['budgetType'],
               })
             }
-            options={BUDGET_TYPE_OPTIONS}
+            options={BUDGET_TYPE_VALUES.map((v) => ({ value: v, label: t(`wizardStrategy.budgetTypeOptions.${v}`) }))}
           />
 
           <DateInput
-            label="Start Date"
+            label={t('wizardStrategy.startDateLabel')}
             value={state.periodStart}
             onDateChange={(date) => updateState({ periodStart: date })}
             onChange={(e) => updateState({ periodStart: e.target.value })}
             error={
-              !state.periodStart ? 'Start date is required' : undefined
+              !state.periodStart ? t('wizardStrategy.startDateRequired') : undefined
             }
           />
         </div>
@@ -204,17 +198,10 @@ export function BudgetWizardStrategy({
         {/* Strategy summary */}
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
           <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
-            Strategy: {state.strategy ? (STRATEGY_LABELS[state.strategy] ?? state.strategy) : 'Not selected'}
+            {t('wizardStrategy.strategyPrefix', { strategy: state.strategy ? (STRATEGY_LABELS[state.strategy] ?? state.strategy) : t('wizardStrategy.strategyNotSelected') })}
           </div>
           <div className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-            {state.strategy === 'FIXED' &&
-              'Set amounts per category. Unspent budget resets each period.'}
-            {state.strategy === 'ROLLOVER' &&
-              'Unspent budget carries forward based on per-category rollover rules.'}
-            {state.strategy === 'ZERO_BASED' &&
-              'Every dollar of income is assigned. Income minus expenses should equal zero.'}
-            {state.strategy === 'FIFTY_THIRTY_TWENTY' &&
-              'Categories grouped as Needs (50%), Wants (30%), Savings (20%).'}
+            {state.strategy && t(`wizardStrategy.strategyDescriptions.${state.strategy}`)}
           </div>
         </div>
       </div>
@@ -222,7 +209,7 @@ export function BudgetWizardStrategy({
       {/* Income Linking */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-          Income
+          {t('wizardStrategy.sections.income')}
         </h4>
 
         <label className="flex items-center gap-3 cursor-pointer">
@@ -234,17 +221,17 @@ export function BudgetWizardStrategy({
           />
           <div>
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              Link budget to income
+              {t('wizardStrategy.linkBudgetToIncome')}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              Category amounts become percentages of your base income
+              {t('wizardStrategy.linkBudgetToIncomeHint')}
             </div>
           </div>
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <CurrencyInput
-            label="Base Monthly Income"
+            label={t('wizardStrategy.baseMonthlyIncome')}
             prefix={getCurrencySymbol(state.currencyCode)}
             value={state.baseIncome ?? undefined}
             onChange={(val) => updateState({ baseIncome: val ?? null })}
@@ -253,10 +240,7 @@ export function BudgetWizardStrategy({
           {state.analysisResult && state.analysisResult.estimatedMonthlyIncome > 0 && (
             <div className="flex items-end pb-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                Estimated from analysis:{' '}
-                <span className="font-medium text-gray-700 dark:text-gray-300">
-                  {formatCurrency(state.analysisResult.estimatedMonthlyIncome, state.currencyCode)}/mo
-                </span>
+                {t('wizardStrategy.estimatedFromAnalysis', { amount: formatCurrency(state.analysisResult.estimatedMonthlyIncome, state.currencyCode) })}
               </span>
             </div>
           )}
@@ -266,31 +250,31 @@ export function BudgetWizardStrategy({
       {/* Rollover Rules */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-          Rollover Rules
+          {t('wizardStrategy.sections.rolloverRules')}
         </h4>
 
         <Select
-          label="Default Rollover Type"
+          label={t('wizardStrategy.defaultRolloverType')}
           value={state.defaultRolloverType}
           onChange={(e) => handleRolloverChange(e.target.value)}
-          options={ROLLOVER_OPTIONS}
+          options={ROLLOVER_VALUES.map((v) => ({ value: v, label: t(`wizardStrategy.rolloverOptions.${v}`) }))}
         />
 
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          This sets the default for all categories. You can customize individual categories after creating the budget.
+          {t('wizardStrategy.rolloverHint')}
         </p>
       </div>
 
       {/* Alert Thresholds */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-          Alert Thresholds
+          {t('wizardStrategy.sections.alertThresholds')}
         </h4>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Warning at (%)
+              {t('wizardStrategy.warningAt')}
             </label>
             <input
               type="number"
@@ -306,13 +290,13 @@ export function BudgetWizardStrategy({
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 text-sm"
             />
             <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-              Triggers a warning when spending reaches this % of budget
+              {t('wizardStrategy.warningHint')}
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Critical at (%)
+              {t('wizardStrategy.criticalAt')}
             </label>
             <input
               type="number"
@@ -328,7 +312,7 @@ export function BudgetWizardStrategy({
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 text-sm"
             />
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-              Triggers a critical alert when spending reaches this % of budget
+              {t('wizardStrategy.criticalHint')}
             </p>
           </div>
         </div>
@@ -339,19 +323,19 @@ export function BudgetWizardStrategy({
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-              Flex Groups
+              {t('wizardStrategy.sections.flexGroups')}
             </h4>
             <button
               type="button"
               onClick={() => setShowFlexGroups(!showFlexGroups)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
             >
-              {showFlexGroups ? 'Hide' : 'Configure'}
+              {showFlexGroups ? t('wizardStrategy.flexGroupsHide') : t('wizardStrategy.flexGroupsConfigure')}
             </button>
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Group related expense categories together. Spending is tracked as a group total, giving flexibility within each group.
+            {t('wizardStrategy.flexGroupsHint')}
           </p>
 
           {showFlexGroups && (
@@ -360,10 +344,10 @@ export function BudgetWizardStrategy({
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Category
+                      {t('wizardStrategy.flexGroupsTableHeaders.category')}
                     </th>
                     <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-48">
-                      Flex Group
+                      {t('wizardStrategy.flexGroupsTableHeaders.flexGroup')}
                     </th>
                   </tr>
                 </thead>
@@ -383,7 +367,7 @@ export function BudgetWizardStrategy({
                           onChange={(e) =>
                             handleFlexGroupChange(cat.id, e.target.value)
                           }
-                          placeholder="e.g. Fun Money"
+                          placeholder={t('wizardStrategy.flexGroupPlaceholder')}
                           maxLength={100}
                           className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                         />
@@ -401,11 +385,11 @@ export function BudgetWizardStrategy({
       {activeAccounts.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
           <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-            Excluded Accounts
+            {t('wizardStrategy.sections.excludedAccounts')}
           </h4>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Transactions from excluded accounts will not count toward your budget totals.
+            {t('wizardStrategy.excludedAccountsHint')}
           </p>
 
           <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
@@ -437,7 +421,7 @@ export function BudgetWizardStrategy({
 
           {state.excludedAccountIds.length > 0 && (
             <div className="text-xs text-amber-600 dark:text-amber-400">
-              {state.excludedAccountIds.length} account{state.excludedAccountIds.length === 1 ? '' : 's'} excluded
+              {t('wizardStrategy.excludedCount', { count: state.excludedAccountIds.length })}
             </div>
           )}
         </div>
@@ -445,17 +429,16 @@ export function BudgetWizardStrategy({
 
       {/* Category count */}
       <div className="text-sm text-gray-500 dark:text-gray-400 text-center">
-        {state.selectedCategories.size} categories and{' '}
-        {state.selectedTransfers.size} transfers selected
+        {t('wizardStrategy.categoriesAndTransfers', { categories: String(state.selectedCategories.size), transfers: String(state.selectedTransfers.size) })}
       </div>
 
       {/* Actions */}
       <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button variant="outline" onClick={onBack}>
-          Back
+          {t('wizard.back')}
         </Button>
         <Button onClick={onNext} disabled={hasErrors}>
-          Next: Review
+          {t('wizardStrategy.nextButton')}
         </Button>
       </div>
     </div>

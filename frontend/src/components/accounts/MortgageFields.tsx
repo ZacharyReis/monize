@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { UseFormRegister, UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
@@ -15,15 +16,6 @@ import { createLogger } from '@/lib/logger';
 import { useDateFormat } from '@/hooks/useDateFormat';
 
 const logger = createLogger('MortgageFields');
-
-const mortgagePaymentFrequencyOptions = [
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'SEMI_MONTHLY', label: 'Semi-Monthly (1st & 15th)' },
-  { value: 'BIWEEKLY', label: 'Bi-Weekly' },
-  { value: 'ACCELERATED_BIWEEKLY', label: 'Accelerated Bi-Weekly' },
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'ACCELERATED_WEEKLY', label: 'Accelerated Weekly' },
-];
 
 interface MortgageFieldsProps {
   watchedCurrency: string;
@@ -66,7 +58,17 @@ export function MortgageFields({
   selectedInterestCategoryId,
   handleInterestCategoryChange,
 }: MortgageFieldsProps) {
+  const t = useTranslations('accounts');
   const { formatDate } = useDateFormat();
+
+  const mortgagePaymentFrequencyOptions = [
+    { value: 'MONTHLY', label: t('mortgageFields.frequencyOptions.monthly') },
+    { value: 'SEMI_MONTHLY', label: t('mortgageFields.frequencyOptions.semiMonthly') },
+    { value: 'BIWEEKLY', label: t('mortgageFields.frequencyOptions.biweekly') },
+    { value: 'ACCELERATED_BIWEEKLY', label: t('mortgageFields.frequencyOptions.acceleratedBiweekly') },
+    { value: 'WEEKLY', label: t('mortgageFields.frequencyOptions.weekly') },
+    { value: 'ACCELERATED_WEEKLY', label: t('mortgageFields.frequencyOptions.acceleratedWeekly') },
+  ];
   const [mortgagePreview, setMortgagePreview] = useState<MortgageAmortizationPreview | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -203,7 +205,7 @@ export function MortgageFields({
   return (
     <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
       <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-        Mortgage Details
+        {t('mortgageFields.title')}
       </h3>
 
       {/* Canadian Mortgage and Variable Rate checkboxes */}
@@ -217,10 +219,10 @@ export function MortgageFields({
           />
           <label htmlFor="isCanadianMortgage" className="flex-1">
             <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Canadian Mortgage
+              {t('mortgageFields.canadianMortgage')}
             </span>
             <span className="block text-xs text-gray-500 dark:text-gray-400">
-              Uses semi-annual compounding for fixed rates (required by law in Canada)
+              {t('mortgageFields.canadianMortgageDesc')}
             </span>
           </label>
         </div>
@@ -234,10 +236,10 @@ export function MortgageFields({
           />
           <label htmlFor="isVariableRate" className="flex-1">
             <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-              Variable Rate
+              {t('mortgageFields.variableRate')}
             </span>
             <span className="block text-xs text-gray-500 dark:text-gray-400">
-              Rate may change during the term (uses monthly compounding)
+              {t('mortgageFields.variableRateDesc')}
             </span>
           </label>
         </div>
@@ -250,11 +252,11 @@ export function MortgageFields({
       {/* Term Length - years + months inputs */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Term Length
+          {t('mortgageFields.termLength')}
         </label>
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Years"
+            label={t('mortgageFields.years')}
             type="number"
             min={0}
             max={99}
@@ -263,7 +265,7 @@ export function MortgageFields({
             error={errors.termMonths?.message as string | undefined}
           />
           <Input
-            label="Months"
+            label={t('mortgageFields.months')}
             type="number"
             min={0}
             max={11}
@@ -272,18 +274,18 @@ export function MortgageFields({
           />
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Leave at 0 years and 0 months for no term.
+          {t('mortgageFields.termLengthNoTerm')}
         </p>
       </div>
 
       {/* Amortization Period - years + months inputs */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Amortization Period (required)
+          {t('mortgageFields.amortizationPeriod')}
         </label>
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Years"
+            label={t('mortgageFields.years')}
             type="number"
             min={0}
             max={99}
@@ -292,7 +294,7 @@ export function MortgageFields({
             error={errors.amortizationMonths?.message as string | undefined}
           />
           <Input
-            label="Months"
+            label={t('mortgageFields.months')}
             type="number"
             min={0}
             max={11}
@@ -306,9 +308,9 @@ export function MortgageFields({
         <>
           <div className="grid grid-cols-2 gap-4">
             <Select
-              label="Payment Frequency (required)"
+              label={t('mortgageFields.paymentFrequency')}
               options={[
-                { value: '', label: 'Select frequency...' },
+                { value: '', label: t('mortgageFields.selectFrequency') },
                 ...mortgagePaymentFrequencyOptions,
               ]}
               error={errors.mortgagePaymentFrequency?.message as string | undefined}
@@ -316,7 +318,7 @@ export function MortgageFields({
             />
 
             <DateInput
-              label="First Payment Date (required)"
+              label={t('mortgageFields.firstPaymentDate')}
               error={errors.paymentStartDate?.message as string | undefined}
               onDateChange={(date) => setValue('paymentStartDate', date, { shouldDirty: true, shouldValidate: true })}
               {...register('paymentStartDate')}
@@ -325,9 +327,9 @@ export function MortgageFields({
 
           <div className="grid grid-cols-2 gap-4">
             <Select
-              label="Payment From Account (required)"
+              label={t('mortgageFields.paymentFromAccount')}
               options={[
-                { value: '', label: 'Select account...' },
+                { value: '', label: t('mortgageFields.selectAccount') },
                 ...buildAccountDropdownOptions(
                   accounts,
                   () => true,
@@ -339,8 +341,8 @@ export function MortgageFields({
             />
 
             <Combobox
-              label="Interest Category"
-              placeholder="Select category..."
+              label={t('mortgageFields.interestCategory')}
+              placeholder={t('mortgageFields.selectCategory')}
               options={interestCategoryOptions}
               value={selectedInterestCategoryId}
               initialDisplayValue={initialInterestCategoryName}
@@ -353,43 +355,43 @@ export function MortgageFields({
           {mortgagePreview && (
             <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Amortization Preview
+                {t('mortgageFields.previewTitle')}
               </h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Payment Amount:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewPaymentAmount')}</span>{' '}
                   <span className="font-medium">{formatCurrency(mortgagePreview.paymentAmount, watchedCurrency)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Effective Rate:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewEffectiveRate')}</span>{' '}
                   <span className="font-medium">{mortgagePreview.effectiveAnnualRate.toFixed(2)}%</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">First Payment Principal:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewFirstPrincipal')}</span>{' '}
                   <span className="font-medium">{formatCurrency(mortgagePreview.principalPayment, watchedCurrency)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">First Payment Interest:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewFirstInterest')}</span>{' '}
                   <span className="font-medium">{formatCurrency(mortgagePreview.interestPayment, watchedCurrency)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Total Payments:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewTotalPayments')}</span>{' '}
                   <span className="font-medium">
-                    {mortgagePreview.totalPayments > 0 ? mortgagePreview.totalPayments : 'N/A'}
+                    {mortgagePreview.totalPayments > 0 ? mortgagePreview.totalPayments : t('mortgageFields.previewNA')}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Total Interest:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewTotalInterest')}</span>{' '}
                   <span className="font-medium">
-                    {mortgagePreview.totalInterest > 0 ? formatCurrency(mortgagePreview.totalInterest, watchedCurrency) : 'N/A'}
+                    {mortgagePreview.totalInterest > 0 ? formatCurrency(mortgagePreview.totalInterest, watchedCurrency) : t('mortgageFields.previewNA')}
                   </span>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-gray-500 dark:text-gray-400">Est. Payoff Date:</span>{' '}
+                  <span className="text-gray-500 dark:text-gray-400">{t('mortgageFields.previewPayoffDate')}</span>{' '}
                   <span className="font-medium">
                     {mortgagePreview.totalPayments > 0
                       ? formatDate(new Date(mortgagePreview.endDate))
-                      : 'N/A'}
+                      : t('mortgageFields.previewNA')}
                   </span>
                 </div>
               </div>
@@ -397,7 +399,7 @@ export function MortgageFields({
           )}
           {isLoadingPreview && (
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Calculating preview...
+              {t('mortgageFields.calculatingPreview')}
             </div>
           )}
         </>

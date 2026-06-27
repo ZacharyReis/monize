@@ -1,0 +1,548 @@
+{
+  "alerts": {
+    "title": "Alerty",
+    "unread": "{count} nieprzeczytanych",
+    "markAllRead": "Oznacz wszystkie jako przeczytane",
+    "loading": "Ładowanie alertów...",
+    "empty": "Brak alertów",
+    "undo": "Cofnij",
+    "buttonTitle": "Alerty",
+    "buttonAriaLabel": "Alerty",
+    "dismissAriaLabel": "Odrzuć alert",
+    "severity": {
+      "critical": "Krytyczny",
+      "warning": "Ostrzeżenie",
+      "success": "Dobre wieści",
+      "info": "Informacja"
+    }
+  },
+  "summary503020": {
+    "title": "Podział 50/30/20",
+    "groups": {
+      "NEED": "Potrzeby",
+      "WANT": "Zachcianki",
+      "SAVING": "Oszczędności"
+    },
+    "target": "Cel: {percent}%",
+    "budgeted": "Zabudżetowane: {percent}% ({amount})"
+  },
+  "categoryForm": {
+    "editTitle": "Edytuj: {name}",
+    "budgetAmount": "Kwota budżetu",
+    "rolloverType": "Typ przenoszenia",
+    "rolloverCap": "Limit przenoszenia (opcjonalnie)",
+    "rolloverCapPlaceholder": "Bez limitu",
+    "flexGroup": "Grupa elastyczna (opcjonalnie)",
+    "flexGroupPlaceholder": "np. Rozrywka",
+    "categoryGroup": "Grupa kategorii (50/30/20)",
+    "warningAt": "Ostrzeżenie przy (%)",
+    "criticalAt": "Alert krytyczny przy (%)",
+    "notes": "Notatki (opcjonalnie)",
+    "notesPlaceholder": "Notatki o budżecie tej kategorii",
+    "rolloverOptions": {
+      "NONE": "Brak (zeruje się co okres)",
+      "MONTHLY": "Przenoszenie miesięczne",
+      "QUARTERLY": "Przenoszenie kwartalne",
+      "ANNUAL": "Przenoszenie roczne"
+    },
+    "groupOptions": {
+      "none": "Brak",
+      "NEED": "Potrzeba",
+      "WANT": "Zachcianka",
+      "SAVING": "Oszczędność"
+    },
+    "saving": "Zapisywanie..."
+  },
+  "categoryList": {
+    "title": "Budżety kategorii",
+    "empty": "Brak kategorii wydatków w tym budżecie.",
+    "sort": "Sortuj:",
+    "sortAriaLabel": "Sortuj kategorie",
+    "sortAscAriaLabel": "Sortuj malejąco",
+    "sortDescAriaLabel": "Sortuj rosnąco",
+    "sortDescTitle": "Sortuj malejąco",
+    "sortAscTitle": "Sortuj rosnąco",
+    "sortOptions": {
+      "percentUsed": "% wykorzystania",
+      "spent": "Wydane",
+      "remaining": "Pozostało",
+      "name": "Nazwa"
+    }
+  },
+  "categoryRow": {
+    "overPace": "Powyżej tempa",
+    "underPace": "Poniżej tempa",
+    "onPace": "Zgodnie z tempem",
+    "rollover": "Przenoszenie: {type}",
+    "remaining": "{amount} pozostało",
+    "over": "{amount} przekroczenia"
+  },
+  "categoryTrend": {
+    "title": "Trendy kategorii",
+    "empty": "Za mało danych, aby wyświetlić trendy kategorii.",
+    "tableHeaders": {
+      "category": "Kategoria",
+      "avgBudget": "Śr. budżet",
+      "avgActual": "Śr. rzeczywiste",
+      "avgVariance": "Śr. odchylenie"
+    }
+  },
+  "flexGroups": {
+    "title": "Grupy elastyczne"
+  },
+  "form": {
+    "budgetName": "Nazwa budżetu",
+    "description": "Opis (opcjonalnie)",
+    "descriptionPlaceholder": "Opis budżetu",
+    "budgetType": "Typ budżetu",
+    "strategy": "Strategia",
+    "baseIncome": "Przychód bazowy (opcjonalnie)",
+    "baseIncomePlaceholder": "Oczekiwany przychód miesięczny",
+    "active": "Aktywny",
+    "saveChanges": "Zapisz zmiany",
+    "saving": "Zapisywanie...",
+    "typeOptions": {
+      "MONTHLY": "Miesięczny",
+      "ANNUAL": "Roczny",
+      "PAY_PERIOD": "Okres wypłaty"
+    },
+    "strategyOptions": {
+      "FIXED": "Stała",
+      "ROLLOVER": "Przenoszona",
+      "ZERO_BASED": "Zerowa",
+      "FIFTY_THIRTY_TWENTY": "50/30/20"
+    }
+  },
+  "healthGauge": {
+    "title": "Wskaźnik kondycji",
+    "labels": {
+      "excellent": "Doskonały",
+      "good": "Dobry",
+      "needsAttention": "Wymaga uwagi",
+      "offTrack": "Poza planem"
+    }
+  },
+  "heatmap": {
+    "title": "Mapa cieplna wydatków - {monthLabel}",
+    "ariaLabel": "Mapa cieplna wydatków",
+    "less": "Mniej",
+    "more": "Więcej"
+  },
+  "periodDetail": {
+    "summaryCards": {
+      "totalBudgeted": "Budżet całkowity",
+      "totalSpent": "Wydane łącznie",
+      "underBudget": "Poniżej budżetu",
+      "overBudget": "Powyżej budżetu",
+      "saved": "zaoszczędzono",
+      "overspent": "przekroczono",
+      "income": "Przychody",
+      "savings": "Oszczędności: {amount}"
+    },
+    "rolloverSummary": {
+      "title": "Podsumowanie przenoszenia",
+      "carriedIn": "Przeniesione z poprzedniego okresu:",
+      "carriedOut": "Przeniesione na następny okres:"
+    },
+    "overallUsage": "Całkowite wykorzystanie budżetu",
+    "expenseCategories": "Kategorie wydatków",
+    "incomeCategories": "Kategorie przychodów",
+    "categorySublabel": "{count} kategorii",
+    "rolloverBadge": "+{amount} przeniesione",
+    "underBudgetLabel": "{amount} poniżej budżetu",
+    "overBudgetLabel": "{amount} powyżej budżetu",
+    "carriedForward": "{amount} przeniesione dalej"
+  },
+  "periodSelector": {
+    "label": "Okres:",
+    "currentPeriod": "Bieżący okres",
+    "current": "{label} (bieżący)",
+    "projected": "{label} (prognoza)"
+  },
+  "progressBar": {
+    "ariaLabel": "{percent}% wykorzystane",
+    "paceMarkerTitle": "Oczekiwane tempo: {percent}%"
+  },
+  "scenarioPlanner": {
+    "title": "Planer scenariuszy „co jeśli”",
+    "empty": "Brak kategorii wydatków do zaplanowania.",
+    "reset": "Resetuj",
+    "applyChanges": "Zastosuj zmiany",
+    "currentBudget": "Obecny budżet",
+    "proposedBudget": "Proponowany budżet",
+    "projectedSavings": "Prognozowane oszczędności",
+    "savingsChange": "Zmiana oszczędności",
+    "original": "Oryginalnie: {amount}"
+  },
+  "summaryCards": {
+    "totalBudget": "Budżet całkowity",
+    "spent": "Wydane",
+    "remaining": "Pozostało",
+    "savings": "Oszczędności",
+    "periodEnded": "Okres zakończony",
+    "days": "{count} dni",
+    "onTrack": "Zgodnie z planem",
+    "overBudget": "Powyżej budżetu"
+  },
+  "trendChart": {
+    "title": "Trend budżet a rzeczywistość",
+    "empty": "Za mało danych, aby wyświetlić trendy.",
+    "budgeted": "Zaplanowano",
+    "actual": "Wykonanie"
+  },
+  "upcomingBills": {
+    "title": "Nadchodzące rachunki",
+    "empty": "Brak rachunków do zapłaty w tym okresie.",
+    "more": "+{count} więcej rachunków",
+    "totalUpcoming": "Razem nadchodzące",
+    "trulyAvailable": "Faktycznie dostępne",
+    "over": " przekroczenia"
+  },
+  "velocity": {
+    "title": "Tempo wydatków",
+    "dailyBurnRate": "Dzienne tempo wydatków",
+    "safeToSpend": "Bezpieczne wydatki",
+    "projectedMonthEnd": "Prognoza na koniec miesiąca",
+    "budgetTotal": "Całkowity budżet",
+    "billsComing": "Nadchodzące rachunki",
+    "trulyAvailable": "Faktycznie dostępne",
+    "over": " przekroczenia",
+    "dayProgress": "Dzień {elapsed} z {total}",
+    "daysRemaining": "{count} dni pozostało",
+    "paceStatus": {
+      "under": "Poniżej tempa budżetu",
+      "on_track": "Zgodnie z planem",
+      "over": "Powyżej tempa budżetu"
+    }
+  },
+  "wizard": {
+    "steps": {
+      "analyze": "Analiza",
+      "categories": "Kategorie",
+      "configure": "Konfiguruj",
+      "review": "Przegląd"
+    },
+    "ariaLabel": "Kroki kreatora",
+    "back": "Wstecz"
+  },
+  "wizardAnalysis": {
+    "chooseStrategy": "Wybierz strategię budżetu",
+    "analysisPeriod": "Okres analizy",
+    "analysisPeriodHint": "Ile miesięcy historii transakcji mamy przeanalizować, aby zaproponować kwoty budżetu?",
+    "budgetProfile": "Profil budżetu",
+    "analyzeButton": "Przeanalizuj moje wydatki",
+    "analysisPeriods": {
+      "3": "3 miesiące",
+      "6": "6 miesięcy",
+      "12": "12 miesięcy"
+    },
+    "strategies": {
+      "FIXED": {
+        "label": "Stała",
+        "description": "Ustaw stałe kwoty na kategorię. Niewykorzystany budżet zeruje się co okres."
+      },
+      "ROLLOVER": {
+        "label": "Przenoszona",
+        "description": "Niewykorzystany budżet przechodzi dalej. Skonfiguruj reguły przenoszenia na kategorię."
+      },
+      "ZERO_BASED": {
+        "label": "Zerowa",
+        "description": "Każda złotówka przychodu otrzymuje przeznaczenie. Przychody minus wydatki dają zero."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "label": "50/30/20",
+        "description": "50% potrzeby, 30% zachcianki, 20% oszczędności. Kategorie oznaczane są grupą."
+      }
+    },
+    "profiles": {
+      "COMFORTABLE": {
+        "label": "Komfortowy",
+        "description": "Na podstawie 75. percentyla wydatków. Daje zapas."
+      },
+      "ON_TRACK": {
+        "label": "Zgodny z planem",
+        "description": "Na podstawie mediany wydatków. Realistyczne cele."
+      },
+      "AGGRESSIVE": {
+        "label": "Agresywny",
+        "description": "Na podstawie 25. percentyla. Ambitny cel oszczędzania."
+      }
+    },
+    "toasts": {
+      "analyzeFailed": "Nie udało się przeanalizować wydatków"
+    }
+  },
+  "wizardCategories": {
+    "title": "Przejrzyj kategorie",
+    "noAnalysis": "Brak danych analizy. Wróć i najpierw uruchom analizę.",
+    "tableHeaders": {
+      "income": "Przychody",
+      "expenses": "Wydatki",
+      "transfers": "Przelewy / Oszczędności",
+      "trendMedian": "Trend / Mediana",
+      "amount": "Kwota"
+    },
+    "totals": {
+      "totalIncome": "Przychody łącznie",
+      "totalExpenses": "Wydatki łącznie",
+      "transfers": "Przelewy",
+      "remaining": "Pozostało"
+    },
+    "allocation503020": "Podział 50/30/20",
+    "allocationTarget": "(cel {percent}%)",
+    "nextButton": "Dalej: Konfiguracja",
+    "profiles": {
+      "COMFORTABLE": "Komfortowy",
+      "ON_TRACK": "Zgodny z planem",
+      "AGGRESSIVE": "Agresywny"
+    }
+  },
+  "wizardStrategy": {
+    "title": "Skonfiguruj swój budżet",
+    "sections": {
+      "budgetDetails": "Szczegóły budżetu",
+      "income": "Przychody",
+      "rolloverRules": "Reguły przenoszenia",
+      "alertThresholds": "Progi alertów",
+      "flexGroups": "Grupy elastyczne",
+      "excludedAccounts": "Wykluczone konta"
+    },
+    "budgetNameLabel": "Nazwa budżetu",
+    "budgetNameRequired": "Nazwa budżetu jest wymagana",
+    "budgetTypeLabel": "Typ budżetu",
+    "startDateLabel": "Data początkowa",
+    "startDateRequired": "Data rozpoczęcia jest wymagana",
+    "strategyPrefix": "Strategia: {strategy}",
+    "strategyNotSelected": "Nie wybrano",
+    "strategyDescriptions": {
+      "FIXED": "Ustaw kwoty na kategorię. Niewykorzystany budżet zeruje się co okres.",
+      "ROLLOVER": "Niewykorzystany budżet przechodzi dalej według reguł przenoszenia dla kategorii.",
+      "ZERO_BASED": "Każda złotówka przychodu jest przypisana. Przychody minus wydatki powinny dać zero.",
+      "FIFTY_THIRTY_TWENTY": "Kategorie pogrupowane jako Potrzeby (50%), Zachcianki (30%), Oszczędności (20%)."
+    },
+    "linkBudgetToIncome": "Powiąż budżet z przychodem",
+    "linkBudgetToIncomeHint": "Kwoty kategorii stają się procentami przychodu bazowego",
+    "baseMonthlyIncome": "Bazowy przychód miesięczny",
+    "estimatedFromAnalysis": "Szacowane na podstawie analizy: {amount}/mies.",
+    "defaultRolloverType": "Domyślny typ przenoszenia",
+    "rolloverHint": "To ustawia wartość domyślną dla wszystkich kategorii. Poszczególne kategorie możesz dostosować po utworzeniu budżetu.",
+    "rolloverOptions": {
+      "NONE": "Brak -- Zeruje się co okres",
+      "MONTHLY": "Miesięcznie -- Przechodzi dalej co miesiąc",
+      "QUARTERLY": "Kwartalnie -- Przechodzi dalej co kwartał",
+      "ANNUAL": "Rocznie -- Przechodzi dalej co rok"
+    },
+    "warningAt": "Ostrzeżenie przy (%)",
+    "warningHint": "Wyzwala ostrzeżenie, gdy wydatki osiągną ten % budżetu",
+    "criticalAt": "Alert krytyczny przy (%)",
+    "criticalHint": "Wyzwala alert krytyczny, gdy wydatki osiągną ten % budżetu",
+    "flexGroupsHide": "Ukryj",
+    "flexGroupsConfigure": "Konfiguruj",
+    "flexGroupsHint": "Grupuj powiązane kategorie wydatków razem. Wydatki są śledzone jako suma grupy, co daje elastyczność w obrębie każdej grupy.",
+    "flexGroupsTableHeaders": {
+      "category": "Kategoria",
+      "flexGroup": "Grupa elastyczna"
+    },
+    "flexGroupPlaceholder": "np. Rozrywka",
+    "excludedAccountsHint": "Transakcje z wykluczonych kont nie będą wliczane do sum budżetu.",
+    "excludedCount": "Wykluczono {count} {count, plural, one {konto} few {konta} many {kont} other {konta}}",
+    "categoriesAndTransfers": "Wybrano {categories} kategorii i {transfers} przelewów",
+    "budgetTypeOptions": {
+      "MONTHLY": "Miesięczny",
+      "ANNUAL": "Roczny",
+      "PAY_PERIOD": "Okres wypłaty"
+    },
+    "nextButton": "Dalej: Przegląd"
+  },
+  "wizardReview": {
+    "title": "Przejrzyj swój budżet",
+    "fields": {
+      "name": "Nazwa",
+      "type": "Typ",
+      "strategy": "Strategia",
+      "startDate": "Data początkowa",
+      "rollover": "Przenoszona",
+      "alerts": "Alerty",
+      "incomeLinked": "Powiązano z przychodem",
+      "excludedAccounts": "Wykluczone konta"
+    },
+    "rolloverOff": "Wyłączone",
+    "alertsValue": "Ostrzeżenie {warn}% / Krytyczny {critical}%",
+    "accountCount": "{count} {count, plural, one {konto} few {konta} many {kont} other {konta}}",
+    "strategyNotSelected": "Nie wybrano",
+    "summaryCards": {
+      "estIncome": "Szac. przychód",
+      "totalExpenses": "Wydatki łącznie",
+      "transfers": "Przelewy",
+      "remaining": "Pozostało"
+    },
+    "tableHeaders": {
+      "category": "Kategoria",
+      "amount": "Kwota",
+      "type": "Typ"
+    },
+    "categoryTypes": {
+      "income": "Przychody",
+      "expense": "Wydatek",
+      "transfer": "Przelew"
+    },
+    "createButton": "Utwórz budżet",
+    "categoryCount": "{count} kategorii",
+    "accountsCount": "{count} kont",
+    "toasts": {
+      "created": "Budżet utworzony pomyślnie",
+      "failed": "Nie udało się utworzyć budżetu"
+    }
+  },
+  "zeroBasedBar": {
+    "title": "Przypisanie budżetu zerowego",
+    "fullyAssigned": "W pełni przypisane",
+    "overAssigned": "Nadmiernie przypisane",
+    "underAssigned": "Niedostatecznie przypisane",
+    "assigned": "Przypisano: {assigned} / {income}",
+    "unassigned": "{amount} nieprzypisane",
+    "over": "{amount} przekroczenia"
+  },
+  "strategyCard": {
+    "pros": "Zalety",
+    "cons": "Wady",
+    "bestFor": "Najlepszy dla: ",
+    "strategies": {
+      "FIXED": {
+        "title": "Budżet stały",
+        "description": "Ustaw stały limit wydatków dla każdej kategorii w każdym okresie. Niewykorzystane środki zerują się na koniec okresu zamiast przechodzić dalej.",
+        "pros": [
+          "Prosty w konfiguracji i zrozumieniu",
+          "Jasne limity wydatków na kategorię",
+          "Przewidywalne budżetowanie miesiąc po miesiącu",
+          "Dobry punkt wyjścia dla początkujących"
+        ],
+        "cons": [
+          "Niewykorzystane środki nie przechodzą dalej",
+          "Brak elastyczności między kategoriami",
+          "Nie dostosowuje się do nieregularnych wydatków",
+          "Może wydawać się sztywny przy zmiennych wydatkach"
+        ],
+        "bestFor": "Osoby chcące prostego budżetowania z jasnymi limitami i przewidywalnym wzorcem wydatków."
+      },
+      "ROLLOVER": {
+        "title": "Budżet przenoszony",
+        "description": "Niewykorzystany budżet przechodzi na następny okres według reguł przenoszenia dla każdej kategorii. Buduj rezerwy na kategorie z nieregularnymi lub sezonowymi wydatkami.",
+        "pros": [
+          "Buduje oszczędności na nieregularne wydatki",
+          "Nagradza oszczędzanie w kategoriach",
+          "Elastyczne reguły przenoszenia na kategorię",
+          "Naturalnie radzi sobie z sezonowością"
+        ],
+        "cons": [
+          "Bardziej złożony w początkowej konfiguracji",
+          "Nagromadzone salda wymagają monitorowania",
+          "Może maskować przekroczenia, gdy limity są zbyt wysokie",
+          "Wymaga okresowego przeglądu reguł przenoszenia"
+        ],
+        "bestFor": "Osoby z nieregularnymi wydatkami, jak naprawa auta, roczne subskrypcje czy koszty sezonowe, które chcą stopniowo oszczędzać."
+      },
+      "ZERO_BASED": {
+        "title": "Budżet zerowy",
+        "description": "Każda złotówka przychodu otrzymuje konkretne przeznaczenie. Twój przychód minus wszystkie zabudżetowane kwoty powinien wynosić zero, dzięki czemu żadne środki nie pozostają nieprzypisane.",
+        "pros": [
+          "Maksymalna kontrola nad każdą złotówką",
+          "Wymusza świadome decyzje o wydatkach",
+          "Szybko ujawnia marnotrawstwo",
+          "Bardzo skuteczny przy spłacie zadłużenia"
+        ],
+        "cons": [
+          "Wymaga znajomości dokładnego przychodu z wyprzedzeniem",
+          "Czasochłonny w utrzymaniu w każdym okresie",
+          "Mniej elastyczny przy zmiennym przychodzie",
+          "Dla niektórych może wydawać się ograniczający"
+        ],
+        "bestFor": "Osoby chcące pełnej kontroli nad finansami, gotowe planować przeznaczenie każdej złotówki w każdym okresie."
+      },
+      "FIFTY_THIRTY_TWENTY": {
+        "title": "Budżet 50/30/20",
+        "description": "Zrównoważone podejście dzielące przychód na trzy grupy: 50% na potrzeby (mieszkanie, zakupy, media), 30% na zachcianki (jedzenie na mieście, rozrywka) oraz 20% na oszczędności i spłatę długów.",
+        "pros": [
+          "Łatwy do zapamiętania i stosowania",
+          "Wbudowany przydział na oszczędności",
+          "Zrównoważone podejście do wydatków",
+          "Elastyczny w obrębie każdej grupy"
+        ],
+        "cons": [
+          "Może nie pasować w drogich lokalizacjach",
+          "Stałe proporcje mogą nie pasować do każdej sytuacji",
+          "Mniej szczegółowa kontrola na poziomie kategorii",
+          "Wymaga przypisania każdego wydatku do grupy"
+        ],
+        "bestFor": "Osoby chcące zrównoważonego, orientacyjnego podejścia bez śledzenia każdej kategorii z osobna."
+      }
+    }
+  },
+  "pages": {
+    "list": {
+      "title": "Budżety",
+      "subtitle": "Zarządzaj budżetami i śledź wydatki",
+      "newBudget": "+ Nowy budżet",
+      "empty": {
+        "title": "Brak budżetów",
+        "description": "Utwórz pierwszy budżet, analizując historię wydatków. Kreator zaproponuje realistyczne kwoty na podstawie Twoich transakcji.",
+        "cta": "Utwórz pierwszy budżet"
+      },
+      "card": {
+        "active": "Aktywny",
+        "inactive": "Nieaktywny",
+        "categories": "{count} kategorii",
+        "started": "Rozpoczęto {date}"
+      }
+    },
+    "create": {
+      "title": "Utwórz budżet",
+      "subtitle": "Przeanalizuj wydatki i utwórz spersonalizowany budżet"
+    },
+    "detail": {
+      "backToBudgets": "Powrót do budżetów",
+      "notFound": "Nie znaleziono budżetu",
+      "delete": {
+        "title": "Usuń budżet",
+        "message": "Czy na pewno chcesz usunąć \"{name}\"? Spowoduje to usunięcie wszystkich danych budżetu, w tym okresów i alertów. Tej operacji nie można cofnąć.",
+        "confirm": "Usuń",
+        "cancel": "Anuluj"
+      },
+      "toasts": {
+        "deleted": "Budżet usunięty",
+        "deleteFailed": "Nie udało się usunąć budżetu",
+        "loadFailed": "Nie udało się załadować budżetu",
+        "periodFailed": "Nie udało się załadować okresu"
+      }
+    },
+    "edit": {
+      "subtitlePrefix": "Edycja: ",
+      "subtitle": "Zaktualizuj ustawienia budżetu i przydziały kategorii",
+      "backToDashboard": "Powrót do panelu",
+      "budgetSettings": "Ustawienia budżetu",
+      "categoryAllocations": "Przydziały kategorii",
+      "income": "Przychody",
+      "expensesWithCount": "Wydatki ({count})",
+      "resetsEachPeriod": "Zeruje się co okres",
+      "percentUsed": "{percent}% wykorzystane",
+      "rolloverType": "Przenoszenie: {type}",
+      "editCategoryTitle": "Edytuj {name}",
+      "toasts": {
+        "updated": "Budżet zaktualizowany",
+        "updateFailed": "Nie udało się zaktualizować budżetu",
+        "categoryUpdated": "Kategoria zaktualizowana",
+        "categoryFailed": "Nie udało się zaktualizować kategorii",
+        "loadFailed": "Nie udało się załadować budżetu"
+      }
+    }
+  },
+  "validation": {
+    "nameRequired": "Nazwa budżetu jest wymagana",
+    "nameMax": "Nazwa budżetu może mieć maksymalnie 255 znaków",
+    "descriptionMax": "Opis może mieć maksymalnie 1000 znaków"
+  },
+  "categoryValidation": {
+    "amountMin": "Kwota musi być równa 0 lub większa",
+    "mustBeNumber": "Musi być liczbą"
+  }
+}

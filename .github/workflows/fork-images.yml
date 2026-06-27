@@ -1,0 +1,196 @@
+# Fork image publisher
+#
+# Builds runnable backend + frontend images for FORKS and pushes them to the
+# fork's own GHCR namespace (ghcr.io/<owner>/monize-{backend,frontend}). It is
+# deliberately separate from ci.yml's release pipeline: no version bump, no
+# release, no cosign signing, no SBOM/Trivy gate, and it is NOT gated on the
+# full test/security matrix. It just produces images you can `docker pull`.
+#
+# It NEVER runs on the upstream repo: every job is guarded with
+# `if: github.repository_owner != 'kenlasko'`, so for upstream this file is a
+# no-op and never competes with the real release build in ci.yml.
+#
+# Fork setup: enable Actions on the fork. That's it -- the default GITHUB_TOKEN
+# already carries `packages: write`, so no secrets are required. Optionally mark
+# the resulting packages public under the fork's Packages settings.
+#
+# Triggers (two, because a `push` workflow runs from the copy of this file on
+# the pushed ref):
+#   * push to the curated branch globs below -- for branches that carry this
+#     file;
+#   * workflow_dispatch with an optional `ref` -- builds any branch/tag/SHA on
+#     demand, so a fork can keep `main` a clean mirror of upstream and still
+#     build anything. (workflow_dispatch only sees this file on the fork's
+#     DEFAULT branch -- a GitHub constraint, not ours.)
+#
+# Security: actions are pinned to commit SHAs; every ref/input reaches `run:`
+# blocks via `env:` (never `${{ }}` interpolation) to avoid template injection;
+# only `packages: write` is elevated. No buildx gha cache is used, which keeps
+# the workflow clear of zizmor's cache-poisoning audit (the upstream release job
+# accepts that finding via a documented ignore; a fork build doesn't need to).
+
+name: Fork Images
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fork/**'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or SHA to build (blank = this workflow''s branch)'
+        type: string
+        required: false
+        default: ''
+
+concurrency:
+  group: fork-images-${{ github.ref }}-${{ inputs.ref }}
+  cancel-in-progress: true
+
+# Read-only by default; the build job opts into packages: write to push GHCR.
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    # Upstream never publishes fork images -- this whole workflow is a no-op there.
+    if: github.repository_owner != 'kenlasko'
+    permissions:
+      contents: read
+      packages: write # to push images to the fork's own GHCR namespace
+    strategy:
+      # Build both images even if one fails, so you get whatever succeeded.
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: .
+            file: backend/Dockerfile
+            title: Monize Backend
+            description: Backend for Monize, a self-hosted personal finance app
+          - name: frontend
+            context: frontend
+            file: frontend/Dockerfile
+            title: Monize Frontend
+            description: Frontend for Monize, a self-hosted personal finance app
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          # On push this is the pushed ref; on dispatch it's the chosen ref (or
+          # this workflow's branch when the input is left blank).
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+
+      # GHCR namespaces must be lowercase, but owner logins can carry uppercase
+      # (e.g. "WMP"). Lowercase it so the image path is always valid.
+      - name: Resolve image namespace
+        id: owner
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "lc=${OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve tags and build metadata
+        id: meta
+        env:
+          OWNER_LC: ${{ steps.owner.outputs.lc }}
+          IMAGE_NAME: ${{ matrix.name }}
+          REF_NAME: ${{ inputs.ref || github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          image="ghcr.io/${OWNER_LC}/monize-${IMAGE_NAME}"
+
+          # Docker-tag-safe slug of the ref: lowercase, collapse anything
+          # outside [a-z0-9._-] to '-', trim leading/trailing separators.
+          slug=$(printf '%s' "$REF_NAME" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -E 's#[^a-z0-9._-]+#-#g; s#^[-._]+##; s#[-._]+$##')
+          [ -n "$slug" ] || slug=build
+
+          sha_full=$(git rev-parse HEAD)
+          sha_short=$(git rev-parse --short HEAD)
+          build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          # Tag a moving :<branch-slug> (the latest build of that branch) plus an
+          # immutable :<branch-slug>-<short-sha> so each commit's image is both
+          # identifiable by branch at a glance and pinnable. Move :latest only on
+          # the default branch, so feature/fork pushes never clobber :latest.
+          tags="$(printf '%s:%s\n%s:%s-%s\n' "$image" "$slug" "$image" "$slug" "$sha_short")"
+          if [ "$REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            # $tags has no trailing newline ($() stripped it), so add one before
+            # appending :latest -- otherwise it concatenates onto the last tag
+            # ("...:main-abc123ghcr.io/...:latest" -> invalid reference format).
+            tags="$(printf '%s\n%s:latest\n' "$tags" "$image")"
+          fi
+
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "git_sha=$sha_full" >> "$GITHUB_OUTPUT"
+          echo "build_date=$build_date" >> "$GITHUB_OUTPUT"
+          echo "version=${slug}-${sha_short}" >> "$GITHUB_OUTPUT"
+
+          echo "Image: $image"
+          echo "Tags:"
+          printf '%s' "$tags"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Build and push image
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: production
+          push: true
+          # Match upstream's runnable arches. Forks that only need one arch can
+          # drop arm64 here to roughly halve build time (arm64 is emulated).
+          platforms: linux/amd64,linux/arm64
+          # Plain images: no provenance attestation manifest (unlike the signed
+          # upstream release), so the registry listing stays clean.
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            GIT_SHA=${{ steps.meta.outputs.git_sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build_date }}
+            VERSION=${{ steps.meta.outputs.version }}
+          annotations: |
+            index:org.opencontainers.image.title=${{ matrix.title }}
+            index:org.opencontainers.image.description=${{ matrix.description }}
+            index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            index:org.opencontainers.image.revision=${{ steps.meta.outputs.git_sha }}
+            index:org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
+            index:org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+
+      # List the pushed image tags in the run Summary so they're copy-pasteable
+      # without digging through the build log. Tags arrive via env (never
+      # interpolated into the script) to avoid template injection.
+      - name: Summary
+        if: success()
+        env:
+          NAME: ${{ matrix.name }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "### ${NAME} image pushed"
+            echo ""
+            echo '```'
+            printf '%s\n' "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

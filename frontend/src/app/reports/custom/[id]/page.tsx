@@ -15,7 +15,7 @@ export default function ViewCustomReportPage({ params }: PageProps) {
   return (
     <ProtectedRoute>
       <PageLayout>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-8">
+        <main className="px-4 sm:px-6 lg:px-8 pt-6 pb-8">
           <CustomReportViewer reportId={id} />
         </main>
       </PageLayout>

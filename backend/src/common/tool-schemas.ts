@@ -95,18 +95,20 @@ export function getDefaultDateRange(
   return { startDate: localYMD(start), endDate: localYMD(end) };
 }
 
+export interface ComparePeriods {
+  period1Start: string;
+  period1End: string;
+  period2Start: string;
+  period2End: string;
+}
+
 /**
  * Return the four dates needed to compare the previous full month
  * against the current month-to-date. Used when the model omits any
  * period in compare_periods -- treated as all-or-nothing because
  * mixing user-supplied dates with computed ones would be surprising.
  */
-export function getDefaultComparePeriods(): {
-  period1Start: string;
-  period1End: string;
-  period2Start: string;
-  period2End: string;
-} {
+export function getDefaultComparePeriods(): ComparePeriods {
   const now = new Date();
   const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -121,9 +123,41 @@ export function getDefaultComparePeriods(): {
 }
 
 /**
+ * Resolve the four `compare_periods` dates from caller input. If any of the
+ * four dates is missing, falls back to the all-or-nothing default
+ * ({@link getDefaultComparePeriods}) -- mixing user-supplied dates with
+ * computed ones would compare unrelated windows.
+ *
+ * Used by both the AI tool executor and the MCP tool adapter so the
+ * surfaces stay in lockstep.
+ */
+export function resolveComparePeriods(input: {
+  period1Start?: string | null;
+  period1End?: string | null;
+  period2Start?: string | null;
+  period2End?: string | null;
+}): ComparePeriods {
+  const hasAllPeriods = Boolean(
+    input.period1Start &&
+    input.period1End &&
+    input.period2Start &&
+    input.period2End,
+  );
+  if (hasAllPeriods) {
+    return {
+      period1Start: input.period1Start as string,
+      period1End: input.period1End as string,
+      period2Start: input.period2Start as string,
+      period2End: input.period2End as string,
+    };
+  }
+  return getDefaultComparePeriods();
+}
+
+/**
  * Return the previous complete calendar month in YYYY-MM format.
- * Used as the default for monthly_comparison so reports run against
- * a month that has already closed.
+ * Used as the default for the generate_report month_comparison type so
+ * reports run against a month that has already closed.
  */
 export function getDefaultPreviousMonth(): string {
   const now = new Date();

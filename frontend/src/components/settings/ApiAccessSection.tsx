@@ -6,6 +6,7 @@ import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -19,43 +20,49 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 const MCP_PATH = '/api/v1/mcp';
 
 const SCOPE_OPTIONS = [
-  { value: 'read', label: 'Read', description: 'View accounts, transactions, and categories' },
-  { value: 'write', label: 'Write', description: 'Create transactions, payees, and categories' },
-  { value: 'reports', label: 'Reports', description: 'Generate financial reports and analytics' },
+  { value: 'read', labelKey: 'createModal.scopes.read.label', descriptionKey: 'createModal.scopes.read.description' },
+  { value: 'write', labelKey: 'createModal.scopes.write.label', descriptionKey: 'createModal.scopes.write.description' },
 ];
 
 const EXPIRY_OPTIONS = [
-  { value: '', label: 'No expiration' },
-  { value: '30', label: '30 days' },
-  { value: '90', label: '90 days' },
-  { value: '365', label: '1 year' },
+  { value: '', labelKey: 'createModal.expiry.none' },
+  { value: '30', labelKey: 'createModal.expiry.d30' },
+  { value: '90', labelKey: 'createModal.expiry.d90' },
+  { value: '365', labelKey: 'createModal.expiry.y1' },
 ];
 
-const createTokenSchema = z.object({
-  name: z.string().min(1, 'Token name is required').max(100, 'Token name must be 100 characters or less'),
+const buildCreateTokenSchema = (t: (key: string) => string) => z.object({
+  name: z.string().min(1, t('createModal.validation.nameRequired')).max(100, t('createModal.validation.nameMax')),
   expiryDays: z.string(),
 });
 
-type CreateTokenFormData = z.infer<typeof createTokenSchema>;
+type CreateTokenFormData = z.infer<ReturnType<typeof buildCreateTokenSchema>>;
 
 function relativeOrFormatted(
   dateStr: string | null,
   formatDate: (date: Date | string) => string,
+  getRelative: (diffDays: number | null) => string,
 ): string {
-  if (!dateStr) return 'Never';
+  if (!dateStr) return getRelative(null);
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 30) return `${diffDays} days ago`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  if (diffDays < 365) return getRelative(diffDays);
   return formatDate(date);
 }
 
 export function ApiAccessSection() {
+  const t = useTranslations('settings.apiAccess');
+  const tc = useTranslations('common');
+  const getRelative = (diffDays: number | null): string => {
+    if (diffDays === null) return t('relative.never');
+    if (diffDays === 0) return t('relative.today');
+    if (diffDays === 1) return t('relative.yesterday');
+    if (diffDays < 30) return t('relative.daysAgo', { count: diffDays });
+    return t('relative.monthsAgo', { count: Math.floor(diffDays / 30) });
+  };
   const { formatDate } = useDateFormat();
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +84,7 @@ export function ApiAccessSection() {
     reset: resetForm,
     formState: { errors },
   } = useForm<CreateTokenFormData>({
-    resolver: zodResolver(createTokenSchema),
+    resolver: zodResolver(buildCreateTokenSchema(t)),
     defaultValues: {
       name: '',
       expiryDays: '',
@@ -93,11 +100,11 @@ export function ApiAccessSection() {
       const data = await authApi.getTokens();
       setTokens(data);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to load API tokens'));
+      toast.error(getErrorMessage(error, t('toasts.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadTokens();
@@ -105,7 +112,7 @@ export function ApiAccessSection() {
 
   const handleCreate = async (formData: CreateTokenFormData) => {
     if (selectedScopes.length === 0) {
-      toast.error('Select at least one scope');
+      toast.error(t('toasts.selectScope'));
       return;
     }
 
@@ -128,7 +135,7 @@ export function ApiAccessSection() {
       setTokens((prev) => [result, ...prev]);
       setCopied(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create token'));
+      toast.error(getErrorMessage(error, t('toasts.createFailed')));
     } finally {
       setIsCreating(false);
     }
@@ -147,9 +154,9 @@ export function ApiAccessSection() {
     try {
       await navigator.clipboard.writeText(createdToken);
       setCopied(true);
-      toast.success('Token copied to clipboard');
+      toast.success(t('toasts.copied'));
     } catch {
-      toast.error('Failed to copy token');
+      toast.error(t('toasts.copyTokenFailed'));
     }
   };
 
@@ -157,10 +164,10 @@ export function ApiAccessSection() {
     if (!revokeTokenId) return;
     try {
       await authApi.revokeToken(revokeTokenId);
-      setTokens((prev) => prev.filter((t) => t.id !== revokeTokenId));
-      toast.success('Token revoked');
+      setTokens((prev) => prev.filter((tok) => tok.id !== revokeTokenId));
+      toast.success(t('toasts.revoked'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to revoke token'));
+      toast.error(getErrorMessage(error, t('toasts.revokeFailed')));
     } finally {
       setRevokeTokenId(null);
     }
@@ -174,17 +181,17 @@ export function ApiAccessSection() {
     );
   };
 
-  const activeTokens = tokens.filter((t) => !t.isRevoked);
+  const activeTokens = tokens.filter((tok) => !tok.isRevoked);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            API Access
+            {t('heading')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Create personal access tokens to connect external AI tools like Claude Desktop via MCP.
+            {t('description')}
           </p>
         </div>
         <Button
@@ -192,14 +199,14 @@ export function ApiAccessSection() {
           size="sm"
           onClick={() => setShowCreateModal(true)}
         >
-          Create Token
+          {t('createTokenButton')}
         </Button>
       </div>
 
       {/* MCP Server URL */}
       <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          MCP Server URL
+          {t('mcpServerUrlLabel')}
         </label>
         <div className="flex gap-2">
           <input
@@ -215,18 +222,18 @@ export function ApiAccessSection() {
               try {
                 await navigator.clipboard.writeText(mcpServerUrl);
                 setMcpUrlCopied(true);
-                toast.success('MCP URL copied to clipboard');
+                toast.success(t('toasts.mcpUrlCopied'));
                 setTimeout(() => setMcpUrlCopied(false), 2000);
               } catch {
-                toast.error('Failed to copy URL');
+                toast.error(t('toasts.copyUrlFailed'));
               }
             }}
           >
-            {mcpUrlCopied ? 'Copied' : 'Copy'}
+            {mcpUrlCopied ? t('copiedButton') : t('copyButton')}
           </Button>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-          Use this URL when configuring MCP clients such as Claude Code or Claude Desktop.
+          {t('mcpServerUrlHelp')}
         </p>
       </div>
 
@@ -250,7 +257,7 @@ export function ApiAccessSection() {
             />
           </svg>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            No API tokens yet. Create one to get started.
+            {t('noTokens')}
           </p>
         </div>
       ) : (
@@ -280,13 +287,13 @@ export function ApiAccessSection() {
                   ))}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Created {formatDate(new Date(token.createdAt))}
+                  {t('created')} {formatDate(new Date(token.createdAt))}
                   {' \u00B7 '}
-                  Last used {relativeOrFormatted(token.lastUsedAt, formatDate)}
+                  {t('lastUsed')} {relativeOrFormatted(token.lastUsedAt, formatDate, getRelative)}
                   {token.expiresAt && (
                     <>
                       {' \u00B7 '}
-                      Expires {formatDate(new Date(token.expiresAt))}
+                      {t('expires')} {formatDate(new Date(token.expiresAt))}
                     </>
                   )}
                 </div>
@@ -297,7 +304,7 @@ export function ApiAccessSection() {
                 onClick={() => setRevokeTokenId(token.id)}
                 className="ml-3 flex-shrink-0"
               >
-                Revoke
+                {t('revokeButton')}
               </Button>
             </div>
           ))}
@@ -310,11 +317,11 @@ export function ApiAccessSection() {
           {createdToken ? (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Token Created
+                {t('createdModal.title')}
               </h3>
               <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Copy this token now. You won&apos;t be able to see it again.
+                  {t('createdModal.warningNote')}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -329,30 +336,30 @@ export function ApiAccessSection() {
                   size="sm"
                   onClick={handleCopyToken}
                 >
-                  {copied ? 'Copied' : 'Copy'}
+                  {copied ? t('copiedButton') : t('copyButton')}
                 </Button>
               </div>
               <div className="flex justify-end">
                 <Button variant="outline" onClick={handleCloseCreateModal}>
-                  Done
+                  {t('createdModal.doneButton')}
                 </Button>
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit(handleCreate)} className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Create API Token
+                {t('createModal.title')}
               </h3>
               <Input
-                label="Token Name"
+                label={t('createModal.tokenNameLabel')}
                 {...register('name')}
                 error={errors.name?.message}
-                placeholder="e.g., Claude Desktop"
+                placeholder={t('createModal.tokenNamePlaceholder')}
                 maxLength={100}
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Scopes
+                  {t('createModal.scopesLabel')}
                 </label>
                 <div className="space-y-2">
                   {SCOPE_OPTIONS.map((scope) => (
@@ -368,10 +375,10 @@ export function ApiAccessSection() {
                       />
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {scope.label}
+                          {t(scope.labelKey)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {scope.description}
+                          {t(scope.descriptionKey)}
                         </p>
                       </div>
                     </label>
@@ -380,7 +387,7 @@ export function ApiAccessSection() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Expiration
+                  {t('createModal.expirationLabel')}
                 </label>
                 <select
                   {...register('expiryDays')}
@@ -388,17 +395,17 @@ export function ApiAccessSection() {
                 >
                   {EXPIRY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="flex gap-2 justify-end pt-2">
                 <Button variant="outline" type="button" onClick={handleCloseCreateModal}>
-                  Cancel
+                  {tc('cancel')}
                 </Button>
                 <Button type="submit" disabled={isCreating}>
-                  {isCreating ? 'Creating...' : 'Create Token'}
+                  {isCreating ? t('createModal.creatingButton') : t('createModal.createButton')}
                 </Button>
               </div>
             </form>
@@ -409,9 +416,9 @@ export function ApiAccessSection() {
       {/* Revoke Confirmation */}
       <ConfirmDialog
         isOpen={!!revokeTokenId}
-        title="Revoke Token"
-        message="This token will immediately stop working. Any MCP connections using it will be disconnected."
-        confirmLabel="Revoke"
+        title={t('revokeModal.title')}
+        message={t('revokeModal.message')}
+        confirmLabel={t('revokeModal.confirmLabel')}
         onConfirm={handleRevoke}
         onCancel={() => setRevokeTokenId(null)}
       />

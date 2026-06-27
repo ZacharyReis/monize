@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { Transaction } from "../transactions/entities/transaction.entity";
@@ -9,6 +10,7 @@ import { Budget } from "./entities/budget.entity";
 import { BudgetCategory } from "./entities/budget-category.entity";
 import { GenerateBudgetDto, BudgetProfile } from "./dto/generate-budget.dto";
 import { ApplyGeneratedBudgetDto } from "./dto/apply-generated-budget.dto";
+import { roundMoney, sumMoney } from "../common/round.util";
 
 export interface CategoryAnalysis {
   categoryId: string;
@@ -150,15 +152,12 @@ export class BudgetGeneratorService {
 
     const estimatedMonthlyIncome =
       incomeAnalysis.length > 0
-        ? incomeAnalysis.reduce((sum, i) => sum + i.median, 0)
+        ? sumMoney(incomeAnalysis.map((i) => i.median))
         : 0;
 
-    const totalBudgeted = expenseAnalysis.reduce(
-      (sum, c) => sum + c.suggested,
-      0,
-    );
+    const totalBudgeted = sumMoney(expenseAnalysis.map((c) => c.suggested));
 
-    const totalTransfers = transfers.reduce((sum, t) => sum + t.suggested, 0);
+    const totalTransfers = sumMoney(transfers.map((t) => t.suggested));
 
     return {
       categories: allCategories,
@@ -166,8 +165,9 @@ export class BudgetGeneratorService {
       estimatedMonthlyIncome,
       totalBudgeted,
       totalTransfers,
-      projectedMonthlySavings:
+      projectedMonthlySavings: roundMoney(
         estimatedMonthlyIncome - totalBudgeted - totalTransfers,
+      ),
       analysisWindow: {
         startDate: startDateStr,
         endDate: endDateStr,
@@ -209,7 +209,11 @@ export class BudgetGeneratorService {
         const invalidIds = uniqueIds.filter((id) => !ownedIds.has(id));
         if (invalidIds.length > 0) {
           throw new BadRequestException(
-            `Category IDs not found or not owned by user: ${invalidIds.join(", ")}`,
+            tr(
+              "errors.budgets.categoryIdsNotOwned",
+              `Category IDs not found or not owned by user: ${invalidIds.join(", ")}`,
+              { ids: invalidIds.join(", ") },
+            ),
           );
         }
       }
@@ -360,13 +364,13 @@ export class BudgetGeneratorService {
         categoryId: entry.categoryId,
         categoryName: entry.categoryName,
         isIncome: entry.isIncome,
-        average: this.round(this.mean(monthlyAmounts)),
-        median: this.round(this.percentile(sortedForPercentiles, 50)),
-        p25: this.round(this.percentile(sortedForPercentiles, 25)),
-        p75: this.round(this.percentile(sortedForPercentiles, 75)),
-        min: this.round(sortedAll[0] ?? 0),
-        max: this.round(sortedAll[sortedAll.length - 1] ?? 0),
-        stdDev: this.round(this.standardDeviation(monthlyAmounts)),
+        average: roundMoney(this.mean(monthlyAmounts)),
+        median: roundMoney(this.percentile(sortedForPercentiles, 50)),
+        p25: roundMoney(this.percentile(sortedForPercentiles, 25)),
+        p75: roundMoney(this.percentile(sortedForPercentiles, 75)),
+        min: roundMoney(sortedAll[0] ?? 0),
+        max: roundMoney(sortedAll[sortedAll.length - 1] ?? 0),
+        stdDev: roundMoney(this.standardDeviation(monthlyAmounts)),
         monthlyAmounts,
         monthlyOccurrences: nonZeroMonths,
         isFixed: this.isFixedExpense(monthlyAmounts),
@@ -414,10 +418,10 @@ export class BudgetGeneratorService {
     // This handles categories that don't occur every month -- the average
     // distributes total spending across all months in the analysis window.
     if (base === 0 && cat.average > 0) {
-      return this.round(cat.average);
+      return roundMoney(cat.average);
     }
 
-    return this.round(base);
+    return roundMoney(base);
   }
 
   percentile(sorted: number[], p: number): number {
@@ -558,15 +562,15 @@ export class BudgetGeneratorService {
         accountId: entry.accountId,
         accountName: entry.accountName,
         accountType: entry.accountType,
-        average: this.round(this.mean(monthlyAmounts)),
-        median: this.round(this.percentile(sortedForPercentiles, 50)),
-        p25: this.round(this.percentile(sortedForPercentiles, 25)),
-        p75: this.round(this.percentile(sortedForPercentiles, 75)),
-        min: this.round(sortedForPercentiles[0] ?? 0),
-        max: this.round(
+        average: roundMoney(this.mean(monthlyAmounts)),
+        median: roundMoney(this.percentile(sortedForPercentiles, 50)),
+        p25: roundMoney(this.percentile(sortedForPercentiles, 25)),
+        p75: roundMoney(this.percentile(sortedForPercentiles, 75)),
+        min: roundMoney(sortedForPercentiles[0] ?? 0),
+        max: roundMoney(
           sortedForPercentiles[sortedForPercentiles.length - 1] ?? 0,
         ),
-        stdDev: this.round(this.standardDeviation(monthlyAmounts)),
+        stdDev: roundMoney(this.standardDeviation(monthlyAmounts)),
         monthlyAmounts,
         monthlyOccurrences: nonZeroMonths,
         isFixed: this.isFixedExpense(monthlyAmounts),
@@ -595,14 +599,10 @@ export class BudgetGeneratorService {
     }
 
     if (base === 0 && stats.average > 0) {
-      return this.round(stats.average);
+      return roundMoney(stats.average);
     }
 
-    return this.round(base);
-  }
-
-  private round(value: number): number {
-    return Math.round(value * 100) / 100;
+    return roundMoney(base);
   }
 
   private formatDate(date: Date): string {

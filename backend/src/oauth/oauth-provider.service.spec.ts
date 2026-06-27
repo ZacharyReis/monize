@@ -142,7 +142,8 @@ describe("OAuthProviderService", () => {
       );
       // The public-URL helpers do not require initialization.
       expect(svc.getMcpResourceUrl()).toBe("https://app.test/api/v1/mcp");
-      expect(svc.getIssuerUrl()).toBe("https://app.test/oauth");
+      // Issuer is the bare origin so discovery is published at the root.
+      expect(svc.getIssuerUrl()).toBe("https://app.test");
     });
   });
 
@@ -166,7 +167,21 @@ describe("OAuthProviderService", () => {
 
       expect(p1).toBe(p2);
       expect(providerConstructorCalls).toHaveLength(1);
-      expect(providerConstructorCalls[0].issuer).toBe("https://app.test/oauth");
+      // Issuer is the bare origin (discovery served at the root well-known
+      // URLs); endpoints are pinned under /oauth/* via the routes map.
+      expect(providerConstructorCalls[0].issuer).toBe("https://app.test");
+      expect(providerConstructorCalls[0].config.routes).toEqual({
+        authorization: "/oauth/auth",
+        token: "/oauth/token",
+        jwks: "/oauth/jwks",
+        registration: "/oauth/reg",
+        revocation: "/oauth/token/revocation",
+        userinfo: "/oauth/me",
+        end_session: "/oauth/session/end",
+        // PAR pinned under /oauth/* so the proxy/root-mount gates forward it
+        // (its oidc-provider default `/request` is unreachable).
+        pushed_authorization_request: "/oauth/request",
+      });
       expect(providerConstructorCalls[0].config.scopes).toEqual([
         ...MCP_RESOURCE_SCOPES,
       ]);

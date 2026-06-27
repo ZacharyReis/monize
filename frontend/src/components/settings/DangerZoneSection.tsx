@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { userSettingsApi, DeleteDataOptions } from '@/lib/user-settings';
@@ -16,15 +17,13 @@ interface DowngradeNoticeProps {
 }
 
 function DelegateDeleteNotice({ isDelegate }: DowngradeNoticeProps) {
+  const t = useTranslations('settings.dangerZone');
   if (!isDelegate) return null;
   return (
     <div className="mb-4 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-3 py-3 text-sm text-amber-900 dark:text-amber-100">
-      <p className="font-semibold">You are a delegate of another account.</p>
+      <p className="font-semibold">{t('deleteAccount.delegateNotice.title')}</p>
       <p className="mt-1">
-        Deleting your account will remove your own data, but your login
-        and the shared access others granted you stay so the delegation
-        keeps working. To revoke that access, ask the owner to remove
-        you from their Shared Access list first.
+        {t('deleteAccount.delegateNotice.body')}
       </p>
     </div>
   );
@@ -35,6 +34,7 @@ interface DangerZoneSectionProps {
 }
 
 export function DangerZoneSection({ user }: DangerZoneSectionProps) {
+  const t = useTranslations('settings.dangerZone');
   const router = useRouter();
   const { logout } = useAuthStore();
   // A delegate of another account sees a tailored warning explaining
@@ -64,11 +64,11 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') {
-      toast.error('Please type DELETE to confirm');
+      toast.error(t('deleteAccount.errors.typeDelete'));
       return;
     }
     if (!isOidc && !deleteAccountPassword) {
-      toast.error('Please enter your password to confirm');
+      toast.error(t('deleteAccount.errors.passwordRequired'));
       return;
     }
 
@@ -80,23 +80,23 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
       const res = await userSettingsApi.deleteAccount(authData);
       if (res.downgraded) {
         toast.success(
-          'Your own data was removed. Your login and shared access are kept so the delegation stays in place.',
+          t('deleteAccount.toasts.downgraded'),
           { duration: 12000 },
         );
       } else {
-        toast.success('Account deleted');
+        toast.success(t('deleteAccount.toasts.deleted'));
       }
       logout();
       router.push('/login');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete account'));
+      toast.error(getErrorMessage(error, t('deleteAccount.toasts.failed')));
       setIsDeleting(false);
     }
   };
 
   const handleDeleteData = async () => {
     if (!isOidc && !password) {
-      toast.error('Please enter your password to confirm');
+      toast.error(t('deleteAccount.errors.passwordRequired'));
       return;
     }
 
@@ -118,7 +118,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
       const result = await userSettingsApi.deleteData(options);
 
       const totalDeleted = Object.values(result.deleted).reduce((sum, n) => sum + n, 0);
-      toast.success(`Deleted ${totalDeleted} records successfully`);
+      toast.success(t('deleteData.toasts.success', { count: totalDeleted }));
 
       // Reset form
       setShowDataDelete(false);
@@ -128,7 +128,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
       setDeletePayees(false);
       setDeleteExchangeRates(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete data'));
+      toast.error(getErrorMessage(error, t('deleteData.toasts.failed')));
     } finally {
       setIsDeletingData(false);
     }
@@ -146,13 +146,13 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 border-2 border-red-200 dark:border-red-800">
-      <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-6">Danger Zone</h2>
+      <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-6">{t('heading')}</h2>
 
       {/* Delete Data Section */}
       <div className="mb-6 pb-6 border-b border-red-100 dark:border-red-900">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Delete Data</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{t('deleteData.heading')}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Remove financial data from your account. This cannot be undone.
+          {t('deleteData.description')}
         </p>
 
         {!showDataDelete ? (
@@ -160,12 +160,12 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
             variant="danger"
             onClick={() => setShowDataDelete(true)}
           >
-            Delete Data...
+            {t('deleteData.openButton')}
           </Button>
         ) : (
           <div className="space-y-4 bg-red-50 dark:bg-red-950/30 rounded-lg p-4">
             <p className="text-sm font-medium text-red-700 dark:text-red-300">
-              The following will always be deleted:
+              {t('deleteData.alwaysDeletedHeading')}
             </p>
             <ul className="text-sm text-gray-700 dark:text-gray-300 list-disc ml-5 space-y-1">
               <li>All transactions and splits</li>
@@ -178,7 +178,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
             </ul>
 
             <p className="text-sm font-medium text-red-700 dark:text-red-300 pt-2">
-              Optionally also delete:
+              {t('deleteData.optionalHeading')}
             </p>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -188,7 +188,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                   onChange={(e) => setDeleteAccounts(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
                 />
-                Accounts
+                {t('deleteData.accountsOption')}
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
@@ -197,7 +197,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                   onChange={(e) => setDeleteCategories(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
                 />
-                Categories
+                {t('deleteData.categoriesOption')}
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
@@ -206,7 +206,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                   onChange={(e) => setDeletePayees(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
                 />
-                Payees
+                {t('deleteData.payeesOption')}
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
@@ -215,21 +215,21 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                   onChange={(e) => setDeleteExchangeRates(e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500"
                 />
-                Currency preferences
+                {t('deleteData.currencyPreferencesOption')}
               </label>
             </div>
 
             {!deleteAccounts && (
               <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                Account balances will be reset to their opening balance.
+                {t('deleteData.balanceResetNote')}
               </p>
             )}
 
             <div className="pt-2 border-t border-red-200 dark:border-red-800">
               <p className="text-sm font-medium text-red-700 dark:text-red-300 mb-2">
                 {isOidc
-                  ? 'Re-authenticate with your identity provider to confirm:'
-                  : 'Enter your password to confirm:'}
+                  ? t('deleteData.oidcConfirmLabel')
+                  : t('deleteData.passwordConfirmLabel')}
               </p>
               {isOidc ? (
                 <div className="flex gap-2">
@@ -238,7 +238,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                     onClick={handleOidcReauthData}
                     disabled={isDeletingData}
                   >
-                    Re-authenticate and Delete
+                    {t('deleteData.oidcReauthButton')}
                   </Button>
                   <Button
                     variant="outline"
@@ -259,7 +259,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={t('deleteData.passwordPlaceholder')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && password) {
                         handleDeleteData();
@@ -272,7 +272,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                       onClick={handleDeleteData}
                       disabled={isDeletingData || !password}
                     >
-                      {isDeletingData ? 'Deleting...' : 'Confirm Delete Data'}
+                      {isDeletingData ? t('deleteData.deletingButton') : t('deleteData.confirmButton')}
                     </Button>
                     <Button
                       variant="outline"
@@ -297,9 +297,9 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
 
       {/* Delete Account Section */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Delete Account</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{t('deleteAccount.heading')}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Permanently delete your account and all associated data. This cannot be undone.
+          {t('deleteAccount.description')}
         </p>
 
         <DelegateDeleteNotice isDelegate={isDelegate} />
@@ -309,28 +309,28 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
             variant="danger"
             onClick={() => setShowDeleteConfirm(true)}
           >
-            Delete Account
+            {t('deleteAccount.openButton')}
           </Button>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-red-600 dark:text-red-400 font-medium">
-              Type DELETE to confirm account deletion:
+              {t('deleteAccount.typeDeleteLabel')}
             </p>
             <Input
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="Type DELETE"
+              placeholder={t('deleteAccount.typeDeletePlaceholder')}
             />
             {!isOidc && (
               <>
                 <p className="text-sm text-red-600 dark:text-red-400 font-medium">
-                  Enter your password:
+                  {t('deleteAccount.enterPasswordLabel')}
                 </p>
                 <Input
                   type="password"
                   value={deleteAccountPassword}
                   onChange={(e) => setDeleteAccountPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('deleteAccount.enterPasswordPlaceholder')}
                 />
               </>
             )}
@@ -340,7 +340,7 @@ export function DangerZoneSection({ user }: DangerZoneSectionProps) {
                 onClick={handleDeleteAccount}
                 disabled={isDeleting || deleteConfirmText !== 'DELETE' || (!isOidc && !deleteAccountPassword)}
               >
-                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                {isDeleting ? t('deleteAccount.deletingButton') : t('deleteAccount.confirmButton')}
               </Button>
               <Button
                 variant="outline"

@@ -8,6 +8,7 @@ vi.mock('@/lib/pdf-export', () => ({
 
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
+    formatSignedPercent: (n: number, decimals = 2) => `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
     formatCurrencyCompact: (n: number) => `$${n.toFixed(0)}`,
     formatCurrencyAxis: (n: number) => `$${n}`,
@@ -23,6 +24,7 @@ vi.mock('@/hooks/useExchangeRates', () => ({
 
 vi.mock('@/lib/utils', () => ({
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
+  cn: (...inputs: any[]) => inputs.flat(Infinity).filter(Boolean).join(' '),
 }));
 
 vi.mock('@/components/ui/ExportDropdown', () => ({
@@ -520,9 +522,11 @@ describe('DividendYieldGrowthReport', () => {
       expect(screen.getByText('All Accounts')).toBeInTheDocument();
     });
     const initialCallCount = mockGetTransactions.mock.calls.length;
-    const select = document.querySelector('select') as HTMLSelectElement;
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-1' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Filter by account' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('TFSA'));
     });
     await waitFor(() => {
       expect(mockGetTransactions.mock.calls.length).toBeGreaterThan(initialCallCount);
@@ -662,12 +666,10 @@ describe('DividendYieldGrowthReport', () => {
     ]);
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     render(<DividendYieldGrowthReport />);
-    await waitFor(() => {
-      expect(screen.getByText('All Accounts')).toBeInTheDocument();
-    });
-    const select = document.querySelector('select') as HTMLSelectElement;
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    await act(async () => { fireEvent.click(trigger); });
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-1' } });
+      fireEvent.click(screen.getByText('TFSA'));
     });
     await waitFor(() => {
       // After selecting account, the yield table should still render with that account's data

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@/test/render";
+import { render, screen, waitFor, fireEvent, act } from "@/test/render";
 import { SpendingByCategoryReport } from "./SpendingByCategoryReport";
 
 const mockPush = vi.fn();
@@ -111,10 +111,12 @@ describe("SpendingByCategoryReport", () => {
     mockIsValid = true;
   });
 
-  it("shows loading state initially", () => {
+  it("shows loading state initially", async () => {
     mockGetSpendingByCategory.mockReturnValue(new Promise(() => {}));
     render(<SpendingByCategoryReport />);
     expect(document.querySelector(".animate-pulse")).toBeTruthy();
+    // Flush the fetcher's resolution so its state update is wrapped in act().
+    await act(async () => {});
   });
 
   it("renders empty state when no data returned", async () => {
@@ -215,14 +217,15 @@ describe("SpendingByCategoryReport", () => {
     expect(button).toBeDisabled();
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetSpendingByCategory.mockRejectedValue(new Error("Network error"));
     render(<SpendingByCategoryReport />);
     await waitFor(() => {
       expect(
-        screen.getByText("No expense data for this period."),
+        screen.getByText(/failed to load report data/i),
       ).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("navigates to transactions page on category legend click", async () => {
@@ -366,12 +369,15 @@ describe("SpendingByCategoryReport", () => {
     expect(screen.getByText("$0.00 (0%)")).toBeInTheDocument();
   });
 
-  it("does not load data when isValid is false", () => {
+  it("does not load data when isValid is false", async () => {
     mockIsValid = false;
     mockGetSpendingByCategory.mockResolvedValue({ data: [], totalSpending: 0 });
     render(<SpendingByCategoryReport />);
     // loadData is gated on isValid, so the API should not be called
     expect(mockGetSpendingByCategory).not.toHaveBeenCalled();
+    // The fetcher resolves null when isValid is false; flush so that state
+    // update is wrapped in act().
+    await act(async () => {});
   });
 
   it("sorts the percentage column when totalExpenses is 0", async () => {

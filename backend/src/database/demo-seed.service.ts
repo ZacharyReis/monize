@@ -1,8 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { DataSource } from "typeorm";
 
 import { SeedService } from "./seed.service";
+import { InstitutionLogoService } from "../institutions/institution-logo.service";
 import { demoAccounts } from "./demo-seed-data/accounts";
+import { demoInstitutions } from "./demo-seed-data/institutions";
 import { demoPayees } from "./demo-seed-data/payees";
 import { generateTransactions } from "./demo-seed-data/transactions";
 import { demoScheduledTransactions } from "./demo-seed-data/scheduled";
@@ -15,16 +17,19 @@ import { demoPreferences } from "./demo-seed-data/preferences";
 
 @Injectable()
 export class DemoSeedService {
+  private readonly logger = new Logger(DemoSeedService.name);
+
   constructor(
     private dataSource: DataSource,
     private seedService: SeedService,
+    private logoService: InstitutionLogoService,
   ) {}
 
   /**
    * Full demo seed: currencies + demo user + rich demo data.
    */
   async seedAll(): Promise<void> {
-    console.log("🎭 Starting DEMO database seeding...\n");
+    this.logger.log("Starting DEMO database seeding");
 
     // Seed currencies via existing service
     await this.seedService.seedAll();
@@ -84,6 +89,11 @@ export class DemoSeedService {
     await this.dataSource.query("DELETE FROM accounts WHERE user_id = $1", [
       demoUser.id,
     ]);
+    // Institutions are referenced by accounts (institution_id FK); delete after
+    // accounts so the re-seed recreates them without duplicates.
+    await this.dataSource.query("DELETE FROM institutions WHERE user_id = $1", [
+      demoUser.id,
+    ]);
     await this.dataSource.query("DELETE FROM categories WHERE user_id = $1", [
       demoUser.id,
     ]);
@@ -94,7 +104,7 @@ export class DemoSeedService {
 
     await this.seedDemoData(demoUser.id);
 
-    console.log("\n🎭 DEMO database seeding completed!");
+    this.logger.log("DEMO database seeding completed");
   }
 
   /**
@@ -103,7 +113,8 @@ export class DemoSeedService {
    */
   async seedDemoData(userId: string): Promise<void> {
     const categoryMap = await this.seedCategories(userId);
-    const accountMap = await this.seedAccounts(userId);
+    const institutionMap = await this.seedInstitutions(userId);
+    const accountMap = await this.seedAccounts(userId, institutionMap);
     const payeeMap = await this.seedPayees(userId, categoryMap);
     await this.seedTransactions(userId, accountMap, categoryMap, payeeMap);
     await this.seedScheduledTransactions(
@@ -118,7 +129,7 @@ export class DemoSeedService {
   }
 
   private async seedCategories(userId: string): Promise<Map<string, string>> {
-    console.log("📁 Seeding demo categories...");
+    this.logger.log("Seeding demo categories");
 
     const categoryMap = new Map<string, string>();
 
@@ -219,12 +230,59 @@ export class DemoSeedService {
       }
     }
 
-    console.log(`   ✓ Seeded ${categoryMap.size} categories`);
+    this.logger.log(`Seeded ${categoryMap.size} categories`);
     return categoryMap;
   }
 
-  private async seedAccounts(userId: string): Promise<Map<string, string>> {
-    console.log("💳 Seeding demo accounts...");
+  /**
+   * Seed the institutions referenced by the demo accounts and return a map of
+   * institution name -> id for linking. Brand logos are fetched best-effort:
+   * when the favicon resolver is unreachable the institution simply renders
+   * with its letter-badge fallback, exactly as a real best-effort create would.
+   */
+  private async seedInstitutions(userId: string): Promise<Map<string, string>> {
+    this.logger.log("Seeding demo institutions");
+
+    const institutionMap = new Map<string, string>();
+
+    const logos = await Promise.all(
+      demoInstitutions.map((inst) =>
+        this.logoService.fetchFavicon(inst.website).catch(() => null),
+      ),
+    );
+
+    for (let i = 0; i < demoInstitutions.length; i++) {
+      const inst = demoInstitutions[i];
+      const logo = logos[i];
+      const result = await this.dataSource.query(
+        `INSERT INTO institutions (
+          user_id, name, website, country,
+          logo_data, logo_content_type, has_logo, logo_fetched_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id`,
+        [
+          userId,
+          inst.name,
+          inst.website,
+          inst.country,
+          logo ? logo.data : null,
+          logo ? logo.contentType : null,
+          logo ? true : false,
+          logo ? new Date().toISOString() : null,
+        ],
+      );
+      institutionMap.set(inst.name, result[0].id);
+    }
+
+    this.logger.log(`Seeded ${institutionMap.size} institutions`);
+    return institutionMap;
+  }
+
+  private async seedAccounts(
+    userId: string,
+    institutionMap: Map<string, string>,
+  ): Promise<Map<string, string>> {
+    this.logger.log("Seeding demo accounts");
 
     const accountMap = new Map<string, string>();
 
@@ -235,13 +293,16 @@ export class DemoSeedService {
     const createdAtStr = createdAt.toISOString();
 
     for (const acc of demoAccounts) {
+      const institutionId = acc.institution
+        ? (institutionMap.get(acc.institution) ?? null)
+        : null;
       if (acc.isInvestmentPair) {
         // Create investment account pair: cash + brokerage with bidirectional linking
         const [cashAccount] = await this.dataSource.query(
           `INSERT INTO accounts (
             user_id, account_type, account_sub_type, name, description, currency_code,
-            opening_balance, current_balance, institution, is_favourite, created_at
-          ) VALUES ($1, 'INVESTMENT', 'INVESTMENT_CASH', $2, $3, $4, $5, $6, $7, $8, $9)
+            opening_balance, current_balance, institution, institution_id, is_favourite, created_at
+          ) VALUES ($1, 'INVESTMENT', 'INVESTMENT_CASH', $2, $3, $4, $5, $6, $7, $8, $9, $10)
           RETURNING id`,
           [
             userId,
@@ -251,6 +312,7 @@ export class DemoSeedService {
             acc.openingBalance,
             acc.openingBalance,
             acc.institution || null,
+            institutionId,
             acc.isFavourite || false,
             createdAtStr,
           ],
@@ -259,9 +321,9 @@ export class DemoSeedService {
         const [brokerageAccount] = await this.dataSource.query(
           `INSERT INTO accounts (
             user_id, account_type, account_sub_type, name, description, currency_code,
-            opening_balance, current_balance, institution, is_favourite,
+            opening_balance, current_balance, institution, institution_id, is_favourite,
             linked_account_id, created_at
-          ) VALUES ($1, 'INVESTMENT', 'INVESTMENT_BROKERAGE', $2, $3, $4, 0, 0, $5, $6, $7, $8)
+          ) VALUES ($1, 'INVESTMENT', 'INVESTMENT_BROKERAGE', $2, $3, $4, 0, 0, $5, $6, $7, $8, $9)
           RETURNING id`,
           [
             userId,
@@ -269,6 +331,7 @@ export class DemoSeedService {
             acc.description,
             acc.currency,
             acc.institution || null,
+            institutionId,
             acc.isFavourite || false,
             cashAccount.id,
             createdAtStr,
@@ -290,11 +353,11 @@ export class DemoSeedService {
           `INSERT INTO accounts (
             user_id, account_type, name, description, currency_code,
             opening_balance, current_balance, credit_limit, interest_rate,
-            institution, is_favourite,
+            institution, institution_id, is_favourite,
             is_canadian_mortgage, is_variable_rate, term_months, amortization_months, original_principal,
             payment_amount, payment_frequency,
             created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
           RETURNING id`,
           [
             userId,
@@ -307,6 +370,7 @@ export class DemoSeedService {
             acc.creditLimit || null,
             acc.interestRate || null,
             acc.institution || null,
+            institutionId,
             acc.isFavourite || false,
             acc.isCanadianMortgage || false,
             acc.isVariableRate || false,
@@ -333,7 +397,7 @@ export class DemoSeedService {
       );
     }
 
-    console.log(`   ✓ Seeded ${accountMap.size} accounts`);
+    this.logger.log(`Seeded ${accountMap.size} accounts`);
     return accountMap;
   }
 
@@ -341,7 +405,7 @@ export class DemoSeedService {
     userId: string,
     categoryMap: Map<string, string>,
   ): Promise<Map<string, string>> {
-    console.log("👥 Seeding demo payees...");
+    this.logger.log("Seeding demo payees");
 
     const payeeMap = new Map<string, string>();
 
@@ -371,7 +435,7 @@ export class DemoSeedService {
       payeeMap.set("Transfer", transferResult[0].id);
     }
 
-    console.log(`   ✓ Seeded ${payeeMap.size} payees`);
+    this.logger.log(`Seeded ${payeeMap.size} payees`);
     return payeeMap;
   }
 
@@ -381,7 +445,7 @@ export class DemoSeedService {
     categoryMap: Map<string, string>,
     payeeMap: Map<string, string>,
   ): Promise<void> {
-    console.log("💸 Seeding demo transactions...");
+    this.logger.log("Seeding demo transactions");
 
     const transactions = generateTransactions(new Date());
     let count = 0;
@@ -533,8 +597,8 @@ export class DemoSeedService {
       );
     }
 
-    console.log(
-      `   ✓ Seeded ${count} transactions (${splitCount} splits, ${transferCount} transfers)`,
+    this.logger.log(
+      `Seeded ${count} transactions (${splitCount} splits, ${transferCount} transfers)`,
     );
   }
 
@@ -544,7 +608,7 @@ export class DemoSeedService {
     categoryMap: Map<string, string>,
     payeeMap: Map<string, string>,
   ): Promise<void> {
-    console.log("🔄 Seeding scheduled transactions...");
+    this.logger.log("Seeding scheduled transactions");
 
     const now = new Date();
 
@@ -599,8 +663,8 @@ export class DemoSeedService {
       );
     }
 
-    console.log(
-      `   ✓ Seeded ${demoScheduledTransactions.length} scheduled transactions`,
+    this.logger.log(
+      `Seeded ${demoScheduledTransactions.length} scheduled transactions`,
     );
   }
 
@@ -608,7 +672,7 @@ export class DemoSeedService {
     userId: string,
     accountMap: Map<string, string>,
   ): Promise<void> {
-    console.log("📊 Seeding securities, prices, and holdings...");
+    this.logger.log("Seeding securities, prices, and holdings");
 
     const now = new Date();
     let priceCount = 0;
@@ -704,13 +768,13 @@ export class DemoSeedService {
       }
     }
 
-    console.log(
-      `   ✓ Seeded ${demoSecurities.length} securities, ${priceCount} price records, holdings, and investment transactions`,
+    this.logger.log(
+      `Seeded ${demoSecurities.length} securities, ${priceCount} price records, holdings, and investment transactions`,
     );
   }
 
   private async seedReports(userId: string): Promise<void> {
-    console.log("📋 Seeding custom reports...");
+    this.logger.log("Seeding custom reports");
 
     for (const report of demoReports) {
       await this.dataSource.query(
@@ -736,11 +800,11 @@ export class DemoSeedService {
       );
     }
 
-    console.log(`   ✓ Seeded ${demoReports.length} custom reports`);
+    this.logger.log(`Seeded ${demoReports.length} custom reports`);
   }
 
   private async seedPreferences(userId: string): Promise<void> {
-    console.log("⚙️ Seeding user preferences...");
+    this.logger.log("Seeding user preferences");
 
     const p = demoPreferences;
     await this.dataSource.query(
@@ -768,6 +832,6 @@ export class DemoSeedService {
       ],
     );
 
-    console.log("   ✓ Seeded user preferences");
+    this.logger.log("Seeded user preferences");
   }
 }

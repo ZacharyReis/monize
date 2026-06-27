@@ -1,5 +1,6 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@/test/render';
 import { ThemeToggle } from './ThemeToggle';
 
 const mockSetTheme = vi.fn();
@@ -7,6 +8,7 @@ let mockTheme = 'light';
 
 vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: mockTheme, setTheme: mockSetTheme }),
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe('ThemeToggle', () => {

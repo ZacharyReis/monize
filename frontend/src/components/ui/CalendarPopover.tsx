@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
@@ -16,8 +17,9 @@ interface CalendarPopoverProps {
   anchorRef: React.RefObject<HTMLElement | null>;
 }
 
-const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Approximate rendered height of the fixed-size calendar, used only to decide
+// whether to open below the field or flip above it near the page bottom.
+const POPOVER_HEIGHT = 340;
 
 function toIso(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -34,6 +36,9 @@ function getFirstDayOfWeek(year: number, month: number): number {
 type View = 'days' | 'months';
 
 export function CalendarPopover({ value, onSelect, onClose, anchorRef }: CalendarPopoverProps) {
+  const t = useTranslations('common');
+  const DAYS = t.raw('weekdaysMin') as string[];
+  const MONTHS = t.raw('monthsShort') as string[];
   const parsed = value ? value.split('-').map(Number) : null;
   const initialYear = parsed ? parsed[0] : new Date().getFullYear();
   const initialMonth = parsed ? parsed[1] - 1 : new Date().getMonth();
@@ -44,19 +49,30 @@ export function CalendarPopover({ value, onSelect, onClose, anchorRef }: Calenda
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Position relative to anchor element
+  // Position relative to anchor element, flipping above the field when there
+  // isn't enough room below (e.g. the field sits near the bottom of the page).
+  // The anchor rect is only known after mount, so the position is measured here.
   useEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
     const popoverWidth = 280;
+    const gap = 4;
     let left = rect.left;
     // Keep within viewport
     if (left + popoverWidth > window.innerWidth - 8) {
       left = window.innerWidth - popoverWidth - 8;
     }
     if (left < 8) left = 8;
-    setPosition({ top: rect.bottom + 4, left });
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    let top = rect.bottom + gap;
+    if (spaceBelow < POPOVER_HEIGHT + gap + 8 && spaceAbove > spaceBelow) {
+      top = Math.max(8, rect.top - POPOVER_HEIGHT - gap);
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time position derived from the mounted anchor's DOM rect
+    setPosition({ top, left });
   }, [anchorRef]);
 
   // Close on outside click or Escape
@@ -226,14 +242,14 @@ export function CalendarPopover({ value, onSelect, onClose, anchorRef }: Calenda
           onClick={handleClear}
           className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
         >
-          Clear
+          {t('calendar.clear')}
         </button>
         <button
           type="button"
           onClick={handleToday}
           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
         >
-          Today
+          {t('calendar.today')}
         </button>
       </div>
     </div>,

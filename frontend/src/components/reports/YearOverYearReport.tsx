@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from "next/navigation";
 import { endOfMonth, format } from "date-fns";
 import {
@@ -17,14 +19,14 @@ import { builtInReportsApi } from "@/lib/built-in-reports";
 import { YearData } from "@/types/built-in-reports";
 import { useNumberFormat } from "@/hooks/useNumberFormat";
 import { useSortableTable, compareValues } from "@/hooks/useSortableTable";
-import { CHART_COLOURS } from "@/lib/chart-colours";
+import { chartColors, chartSeriesColor } from "@/lib/chart-colors";
+import { resolvePdfColor } from "@/components/reports/resolve-pdf-color";
 import { ChartViewToggle } from "@/components/ui/ChartViewToggle";
 import { ExportDropdown } from "@/components/ui/ExportDropdown";
 import { SortableHeader } from "@/components/ui/SortableHeader";
 import { exportToCsv } from "@/lib/csv-export";
-import { createLogger } from "@/lib/logger";
-
-const logger = createLogger("YearOverYearReport");
+import { useReportData } from "@/hooks/useReportData";
+import { ReportError } from "@/components/reports/ReportError";
 
 type YearOverYearSortField = string; // 'name' or any year as a string
 
@@ -44,12 +46,11 @@ const MONTH_NAMES = [
 ];
 
 export function YearOverYearReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
-  const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis } =
+  const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis, formatSignedPercent } =
     useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [yearData, setYearData] = useState<YearData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [yearsToCompare, setYearsToCompare] = useState(2);
   const [metric, setMetric] = useState<"expenses" | "income" | "savings">(
     "expenses",
@@ -60,23 +61,14 @@ export function YearOverYearReport() {
     { field: 'name', direction: 'asc' },
   );
 
+  const { data: response, isLoading, error, reload } = useReportData(
+    () => builtInReportsApi.getYearOverYear(yearsToCompare),
+    [yearsToCompare],
+  );
+
+  const yearData = useMemo<YearData[]>(() => response?.data ?? [], [response]);
+
   const years = useMemo(() => yearData.map((yd) => yd.year), [yearData]);
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await builtInReportsApi.getYearOverYear(yearsToCompare);
-      setYearData(response.data);
-    } catch (error) {
-      logger.error("Failed to load data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [yearsToCompare]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const chartData = useMemo(() => {
     return MONTH_NAMES.map((monthName, monthIndex) => {
@@ -148,25 +140,25 @@ export function YearOverYearReport() {
     const cards = years.map((year, index) => ({
       label: String(year),
       value: formatCurrency(yearTotals[year]?.[metric] || 0),
-      color: CHART_COLOURS[index % CHART_COLOURS.length],
+      color: resolvePdfColor(chartSeriesColor(index)),
     }));
 
     // Build YoY change table
-    const tableHeaders = ["Metric", ...years.slice(1).map((year, index) => `${years[index]} vs ${year}`)];
+    const tableHeaders = [t('yearOverYear.colMetric'), ...years.slice(1).map((year, index) => t('yearOverYear.yearsCompare', { prevYear: years[index], year }))];
     const tableRows = (["income", "expenses", "savings"] as const).map((m) => {
-      const label = m.charAt(0).toUpperCase() + m.slice(1);
+      const label = t(`yearOverYear.${m}`);
       const cells = years.slice(1).map((_year, index) => {
         const prevValue = yearTotals[years[index]]?.[m] || 0;
         const currValue = yearTotals[_year]?.[m] || 0;
         const change = currValue - prevValue;
         const changePercent = prevValue !== 0 ? (change / Math.abs(prevValue)) * 100 : 0;
-        return `${change >= 0 ? "+" : ""}${formatCurrency(change)} (${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(1)}%)`;
+        return `${change >= 0 ? "+" : ""}${formatCurrency(change)} (${formatSignedPercent(changePercent, 1)})`;
       });
       return [label, ...cells];
     });
 
     // Build yearly summary table
-    const summaryHeaders = ["Year", "Income", "Expenses", "Net"];
+    const summaryHeaders = [t('yearOverYear.pdfColYear'), t('yearOverYear.pdfColIncome'), t('yearOverYear.pdfColExpenses'), t('yearOverYear.pdfColNet')];
     const summaryRows = years.map((year) => [
       String(year),
       formatCurrency(yearTotals[year]?.income || 0),
@@ -175,13 +167,13 @@ export function YearOverYearReport() {
     ]);
 
     await exportToPdf({
-      title: "Year Over Year Comparison",
-      subtitle: `${metric.charAt(0).toUpperCase() + metric.slice(1)} | ${years[0]} - ${years[years.length - 1]}`,
+      title: t('yearOverYear.pdfTitle'),
+      subtitle: `${t(`yearOverYear.${metric}`)} | ${years[0]} - ${years[years.length - 1]}`,
       summaryCards: cards,
       chartContainer: chartRef.current,
       tableData: years.length >= 2 ? { headers: tableHeaders, rows: tableRows } : undefined,
       additionalTables: [{
-        title: "Yearly Summary",
+        title: t('yearOverYear.pdfYearlySummaryTitle'),
         headers: summaryHeaders,
         rows: summaryRows,
       }],
@@ -190,7 +182,7 @@ export function YearOverYearReport() {
   };
 
   const handleExportCsv = () => {
-    const headers = ['Month', ...years.map(String)];
+    const headers = [t('yearOverYear.colMonth'), ...years.map(String)];
     const rows = sortedTableData.map((row) => [
       row.name,
       ...years.map((year) => Number(row[year]) || 0),
@@ -224,12 +216,16 @@ export function YearOverYearReport() {
     return null;
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </div>
     );
@@ -242,7 +238,7 @@ export function YearOverYearReport() {
         <div className="flex flex-wrap gap-6 items-center">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Compare:
+              {t('yearOverYear.compareLabel')}
             </label>
             <select
               value={yearsToCompare}
@@ -250,16 +246,16 @@ export function YearOverYearReport() {
               className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm font-sans"
             >
               <option value={2} className="font-sans">
-                2 Years
+                {t('yearOverYear.years2')}
               </option>
               <option value={3} className="font-sans">
-                3 Years
+                {t('yearOverYear.years3')}
               </option>
               <option value={4} className="font-sans">
-                4 Years
+                {t('yearOverYear.years4')}
               </option>
               <option value={5} className="font-sans">
-                5 Years
+                {t('yearOverYear.years5')}
               </option>
             </select>
           </div>
@@ -274,7 +270,7 @@ export function YearOverYearReport() {
                     : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
-                {m}
+                {t(`yearOverYear.${m}`)}
               </button>
             ))}
           </div>
@@ -300,7 +296,7 @@ export function YearOverYearReport() {
             key={year}
             className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4"
             style={{
-              borderLeft: `4px solid ${CHART_COLOURS[index % CHART_COLOURS.length]}`,
+              borderLeft: `4px solid ${chartSeriesColor(index)}`,
             }}
           >
             <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
@@ -308,21 +304,21 @@ export function YearOverYearReport() {
             </div>
             <div className="mt-2 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Income</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('yearOverYear.income')}</span>
                 <span className="text-green-600 dark:text-green-400">
                   {formatCurrency(yearTotals[year]?.income || 0)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">
-                  Expenses
+                  {t('yearOverYear.expenses')}
                 </span>
                 <span className="text-red-600 dark:text-red-400">
                   {formatCurrency(yearTotals[year]?.expenses || 0)}
                 </span>
               </div>
               <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-gray-500 dark:text-gray-400">Net</span>
+                <span className="text-gray-500 dark:text-gray-400">{t('yearOverYear.net')}</span>
                 <span
                   className={
                     (yearTotals[year]?.savings || 0) >= 0
@@ -341,7 +337,7 @@ export function YearOverYearReport() {
       {/* Monthly Comparison Chart or Table */}
       <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Monthly {metric.charAt(0).toUpperCase() + metric.slice(1)} Comparison
+          {t('yearOverYear.monthlyComparisonTitle', { metric: t(`yearOverYear.${metric}`) })}
         </h3>
         {viewType === 'table' ? (
           <div className="overflow-x-auto">
@@ -355,7 +351,7 @@ export function YearOverYearReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Month
+                    {t('yearOverYear.colMonth')}
                   </SortableHeader>
                   {years.map((year, index) => (
                     <SortableHeader<YearOverYearSortField>
@@ -367,7 +363,7 @@ export function YearOverYearReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      <span style={{ color: CHART_COLOURS[index % CHART_COLOURS.length] }}>{year}</span>
+                      <span style={{ color: chartSeriesColor(index) }}>{year}</span>
                     </SortableHeader>
                   ))}
                 </tr>
@@ -395,7 +391,7 @@ export function YearOverYearReport() {
               </tbody>
               <tfoot className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-gray-100">Total</td>
+                  <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-gray-100">{t('yearOverYear.total')}</td>
                   {years.map((year) => (
                     <td key={year} className="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-gray-100">
                       {formatCurrency(yearTotals[year]?.[metric] || 0)}
@@ -412,7 +408,7 @@ export function YearOverYearReport() {
                 data={chartData}
                 margin={{ top: 20, right: 10, left: 0, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis
                   tickFormatter={formatCurrencyAxis}
@@ -424,7 +420,7 @@ export function YearOverYearReport() {
                   <Bar
                     key={year}
                     dataKey={`${year}`}
-                    fill={CHART_COLOURS[index % CHART_COLOURS.length]}
+                    fill={chartSeriesColor(index)}
                     radius={[4, 4, 0, 0]}
                     name={`${year}`}
                     cursor="pointer"
@@ -443,21 +439,21 @@ export function YearOverYearReport() {
       {years.length >= 2 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Year-over-Year Change
+            {t('yearOverYear.yearOverYearChange')}
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="py-2 px-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                    Metric
+                    {t('yearOverYear.colMetric')}
                   </th>
                   {years.slice(1).map((year, index) => (
                     <th
                       key={year}
                       className="py-2 px-4 text-right text-sm font-medium text-gray-500 dark:text-gray-400"
                     >
-                      {years[index]} vs {year}
+                      {t('yearOverYear.yearsCompare', { prevYear: years[index], year })}
                     </th>
                   ))}
                 </tr>
@@ -469,7 +465,7 @@ export function YearOverYearReport() {
                     className="border-b border-gray-200 dark:border-gray-700"
                   >
                     <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
-                      {m}
+                      {t(`yearOverYear.${m}`)}
                     </td>
                     {years.slice(1).map((year, index) => {
                       const prevYear = years[index];
@@ -500,8 +496,7 @@ export function YearOverYearReport() {
                               isPositive ? "text-green-500" : "text-red-500"
                             }`}
                           >
-                            ({changePercent >= 0 ? "+" : ""}
-                            {changePercent.toFixed(1)}%)
+                            ({formatSignedPercent(changePercent, 1)})
                           </div>
                         </td>
                       );

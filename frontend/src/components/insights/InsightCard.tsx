@@ -1,6 +1,7 @@
 'use client';
 
-import { AiInsight, INSIGHT_TYPE_LABELS } from '@/types/ai';
+import { useTranslations } from 'next-intl';
+import { AiInsight } from '@/types/ai';
 import { useDateFormat } from '@/hooks/useDateFormat';
 
 interface InsightCardProps {
@@ -40,9 +41,12 @@ const typeStyles: Record<string, string> = {
 };
 
 export function InsightCard({ insight, onDismiss, isDismissing }: InsightCardProps) {
+  const t = useTranslations('insights');
   const { formatDate } = useDateFormat();
   const style = severityStyles[insight.severity] || severityStyles.info;
   const typeStyle = typeStyles[insight.type] || typeStyles.anomaly;
+  const typeKey = `insightTypes.${insight.type}`;
+  const typeLabel = t.has(typeKey) ? t(typeKey) : t('insightTypes.anomaly');
 
   return (
     <div
@@ -64,7 +68,7 @@ export function InsightCard({ insight, onDismiss, isDismissing }: InsightCardPro
             <span
               className={`px-1.5 py-0.5 text-xs font-medium rounded ${typeStyle}`}
             >
-              {INSIGHT_TYPE_LABELS[insight.type]}
+              {typeLabel}
             </span>
           </div>
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
@@ -80,7 +84,7 @@ export function InsightCard({ insight, onDismiss, isDismissing }: InsightCardPro
                 disabled={isDismissing}
                 className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50"
               >
-                {isDismissing ? 'Dismissing...' : 'Dismiss'}
+                {isDismissing ? t('card.dismissing') : t('card.dismiss')}
               </button>
             )}
           </div>

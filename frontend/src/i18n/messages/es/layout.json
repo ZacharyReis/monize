@@ -1,0 +1,132 @@
+{
+  "demoBanner": {
+    "label": "Modo demo",
+    "message": "Todos los datos se restablecen a diario a las 4:00 AM UTC. ¡Explora libremente!"
+  },
+  "delegationBanner": {
+    "viewing": "Viendo:",
+    "sharedAccount": "Cuenta compartida",
+    "yourAccount": "Tu cuenta",
+    "switchAccountLabel": "Cambiar cuenta",
+    "selfSuffix": "{label} (tú)",
+    "error2fa": "Esa cuenta requiere autenticación de dos factores. Configura 2FA en Ajustes antes de cambiar.",
+    "errorSwitch": "No se puede cambiar de cuenta"
+  },
+  "backendDownBanner": {
+    "connectionBlockedLabel": "Conexión bloqueada",
+    "connectionBlockedDetail": "Los encabezados de seguridad están bloqueando las solicitudes por HTTP plano.",
+    "connectionLostLabel": "Conexión perdida",
+    "connectionLostDetail": "No se puede conectar con el servidor. Reintentando automáticamente...",
+    "httpsHint": "Establece <code>DISABLE_HTTPS_HEADERS=true</code> en tu entorno o accede al sitio mediante HTTPS."
+  },
+  "httpWarningBanner": {
+    "label": "Se requiere HTTPS",
+    "detail": "Los encabezados de seguridad están activos pero se está accediendo al sitio por HTTP plano. Las solicitudes a la API pueden fallar.",
+    "httpsHint": "Establece <code>DISABLE_HTTPS_HEADERS=true</code> en tu entorno o accede al sitio mediante HTTPS.",
+    "dismiss": "Cerrar",
+    "dismissAriaLabel": "Cerrar aviso de HTTPS"
+  },
+  "updateBanner": {
+    "availableWithVersion": "Monize v{version} está disponible",
+    "availableGeneric": "Hay una nueva versión de Monize disponible",
+    "runningVersion": "(usando v{version})",
+    "releaseNotes": "Notas de la versión",
+    "dismiss": "Cerrar",
+    "dismissAriaLabel": "Cerrar notificación de actualización"
+  },
+  "actionHistory": {
+    "title": "Historial de acciones",
+    "buttonAriaLabel": "Historial de acciones",
+    "closeAriaLabel": "Cerrar",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "noRecentActions": "Sin acciones recientes",
+    "undoneLabel": "Deshecha",
+    "nothingToUndo": "Nada que deshacer",
+    "nothingToRedo": "Nada que rehacer",
+    "cannotUndoDefault": "No se puede deshacer esta acción",
+    "cannotRedoDefault": "No se puede rehacer esta acción",
+    "undoFailed": "Error al deshacer",
+    "redoFailed": "Error al rehacer",
+    "entityLabels": {
+      "transaction": "Transacción",
+      "transfer": "Transferencia",
+      "investment_transaction": "Inversión",
+      "bulk_transaction": "Masiva",
+      "category": "Categoría",
+      "payee": "Beneficiario",
+      "tag": "Etiqueta",
+      "account": "Cuenta",
+      "scheduled_transaction": "Programada",
+      "security": "Valor",
+      "budget": "Presupuesto",
+      "custom_report": "Informe"
+    },
+    "actionLabels": {
+      "BUY": "Comprar",
+      "SELL": "Vender",
+      "DIVIDEND": "Dividendo",
+      "INTEREST": "Interés",
+      "CAPITAL_GAIN": "Ganancia de capital",
+      "SPLIT": "División",
+      "TRANSFER_IN": "Transferencia entrante",
+      "TRANSFER_OUT": "Transferencia saliente",
+      "REINVEST": "Reinvertir",
+      "ADD_SHARES": "Agregar acciones",
+      "REMOVE_SHARES": "Quitar acciones"
+    },
+    "descriptions": {
+      "createdAccount": "Cuenta \"{name}\" creada",
+      "updatedAccount": "Cuenta \"{name}\" actualizada",
+      "deletedAccount": "Cuenta \"{name}\" eliminada",
+      "createdBudget": "Presupuesto \"{name}\" creado",
+      "updatedBudget": "Presupuesto \"{name}\" actualizado",
+      "deletedBudget": "Presupuesto \"{name}\" eliminado",
+      "createdCategory": "Categoría \"{name}\" creada",
+      "updatedCategory": "Categoría \"{name}\" actualizada",
+      "deletedCategory": "Categoría \"{name}\" eliminada",
+      "createdInstitution": "Institución \"{name}\" creada",
+      "updatedInstitution": "Institución \"{name}\" actualizada",
+      "deletedInstitution": "Institución \"{name}\" eliminada",
+      "createdInvestmentReport": "Informe de inversiones \"{name}\" creado",
+      "updatedInvestmentReport": "Informe de inversiones \"{name}\" actualizado",
+      "deletedInvestmentReport": "Informe de inversiones \"{name}\" eliminado",
+      "createdPayee": "Beneficiario \"{name}\" creado",
+      "updatedPayee": "Beneficiario \"{name}\" actualizado",
+      "deletedPayee": "Beneficiario \"{name}\" eliminado",
+      "createdReport": "Informe \"{name}\" creado",
+      "updatedReport": "Informe \"{name}\" actualizado",
+      "deletedReport": "Informe \"{name}\" eliminado",
+      "createdScheduledTransaction": "Transacción programada \"{name}\" creada",
+      "updatedScheduledTransaction": "Transacción programada \"{name}\" actualizada",
+      "deletedScheduledTransaction": "Transacción programada \"{name}\" eliminada",
+      "createdSecurity": "Valor \"{symbol}\" creado",
+      "updatedSecurity": "Valor \"{symbol}\" actualizado",
+      "deletedSecurity": "Valor \"{symbol}\" eliminado",
+      "createdTag": "Etiqueta \"{name}\" creada",
+      "updatedTag": "Etiqueta \"{name}\" actualizada",
+      "deletedTag": "Etiqueta \"{name}\" eliminada",
+      "createdTransaction": "Transacción {payee} {amount} creada",
+      "updatedTransaction": "Transacción {payee} {amount} actualizada",
+      "deletedTransaction": "Transacción {payee} {amount} eliminada",
+      "createdTransfer": "Transferencia {amount} de {from} a {to} creada",
+      "createdInvestmentTransaction": "Transacción de {action} creada",
+      "updatedInvestmentTransaction": "Transacción de {action} actualizada",
+      "deletedInvestmentTransaction": "Transacción de {action} eliminada",
+      "transferredSecurity": "Valor transferido entre cuentas",
+      "updatedSecurityTransfer": "Transferencia de valores actualizada"
+    },
+    "timeAgo": {
+      "justNow": "justo ahora",
+      "minutes": "hace {count} min",
+      "hours": "hace {count} h",
+      "days": "hace {count} d"
+    },
+    "undonePrefix": "Deshecho: {description}",
+    "redonePrefix": "Rehecho: {description}"
+  },
+  "pageHeader": {
+    "helpAriaLabel": "Abrir la wiki de Monize para obtener ayuda con esta sección",
+    "helpTooltip": "Abrir la wiki de Monize para obtener ayuda con esta sección"
+  }
+}

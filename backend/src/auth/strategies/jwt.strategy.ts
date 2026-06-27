@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
 import { AuthService } from "../auth.service";
 import { DelegationService } from "../../delegation/delegation.service";
+import { tr } from "../../i18n/translate";
 
 /**
  * Extract JWT from request - tries Authorization header first, then auth_token cookie
@@ -52,7 +53,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     // SECURITY: Reject 2FA pending tokens — they should only be used at /auth/2fa/verify
     if (payload.type === "2fa_pending") {
-      throw new UnauthorizedException("2FA verification required");
+      throw new UnauthorizedException(
+        tr(
+          "errors.auth.twoFactorVerificationRequired",
+          "2FA verification required",
+        ),
+      );
     }
     // mustChangePassword is intentionally NOT enforced here — the global
     // MustChangePasswordGuard handles it, which lets the password-change
@@ -60,7 +66,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // bypass that guard via @SkipPasswordCheck and enforce it inline instead.
     const user = await this.authService.getUserStateById(payload.sub);
     if (!user || !user.isActive) {
-      throw new UnauthorizedException("User not found or inactive");
+      throw new UnauthorizedException(
+        tr("errors.auth.userNotFoundOrInactive", "User not found or inactive"),
+      );
     }
 
     // Acting-as-self / normal user: unchanged shape plus passthrough fields.

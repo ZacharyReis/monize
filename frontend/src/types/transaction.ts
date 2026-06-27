@@ -97,9 +97,9 @@ export interface CreateSplitData {
 export interface CreateTransactionData {
   accountId: string;
   transactionDate: string;
-  payeeId?: string;
-  payeeName?: string;
-  categoryId?: string;
+  payeeId?: string | null;
+  payeeName?: string | null;
+  categoryId?: string | null;
   amount: number;
   currencyCode: string;
   exchangeRate?: number;
@@ -174,6 +174,8 @@ export interface CreateTransferData {
   description?: string;
   referenceNumber?: string;
   status?: TransactionStatus;
+  /** Optional category; surfaces the transfer in the monthly category breakdown without counting as income/expense. null clears it. */
+  categoryId?: string | null;
 }
 
 export interface TransferResult {

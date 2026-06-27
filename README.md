@@ -27,7 +27,7 @@ A comprehensive personal finance management application built with NestJS and Ne
 
 <div align="center">
 
-### [**Live Demo**](https://monize-demo.ucdialplans.com) | [**Wiki**](https://github.com/kenlasko/monize/wiki)
+### [**Live Demo**](https://monize-demo.laskonet.com) | [**Wiki**](https://github.com/kenlasko/monize/wiki)
 
 </div>
 
@@ -98,6 +98,11 @@ Monize is running in my [Kubernetes cluster](https://github.com/kenlasko/k8s).
 - Daily exchange rate updates
 - Automatic currency conversion for reporting
 - Per-account currency settings
+
+### Multi-Language Support
+- Full user interface translation, including server-generated messages and emails
+- Available languages: English, German (Deutsch), Spanish (Español), French (Français), Italian (Italiano), Dutch (Nederlands), Polish (Polski), Portuguese (Português) and Brazilian Portuguese (Português do Brasil)
+- Language can be chosen on the sign-in and registration screens and in Settings -> Preferences
 
 ### Scheduled Transactions
 - Recurring payment tracking (daily, weekly, bi-weekly, monthly, quarterly, yearly)

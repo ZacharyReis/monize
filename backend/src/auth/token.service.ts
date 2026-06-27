@@ -9,6 +9,7 @@ import * as crypto from "crypto";
 import { User } from "../users/entities/user.entity";
 import { RefreshToken } from "./entities/refresh-token.entity";
 import { hashToken } from "./crypto.util";
+import { tr } from "../i18n/translate";
 
 export interface DelegationTokenContext {
   actingAsUserId: string;
@@ -101,7 +102,9 @@ export class TokenService {
       });
 
       if (!existingToken) {
-        throw new UnauthorizedException("Invalid refresh token");
+        throw new UnauthorizedException(
+          tr("errors.auth.invalidRefreshToken", "Invalid refresh token"),
+        );
       }
 
       // Replay detection: if token is revoked, a previously-rotated token was reused
@@ -111,13 +114,20 @@ export class TokenService {
           { familyId: existingToken.familyId },
           { isRevoked: true },
         );
-        throw new UnauthorizedException("Refresh token reuse detected");
+        throw new UnauthorizedException(
+          tr(
+            "errors.auth.refreshTokenReuseDetected",
+            "Refresh token reuse detected",
+          ),
+        );
       }
 
       if (existingToken.expiresAt < new Date()) {
         existingToken.isRevoked = true;
         await manager.save(existingToken);
-        throw new UnauthorizedException("Refresh token expired");
+        throw new UnauthorizedException(
+          tr("errors.auth.refreshTokenExpired", "Refresh token expired"),
+        );
       }
 
       const user = await manager.findOne(User, {
@@ -130,7 +140,12 @@ export class TokenService {
           { familyId: existingToken.familyId },
           { isRevoked: true },
         );
-        throw new UnauthorizedException("User not found or inactive");
+        throw new UnauthorizedException(
+          tr(
+            "errors.auth.userNotFoundOrInactive",
+            "User not found or inactive",
+          ),
+        );
       }
 
       // Rotate: generate new refresh token in the same family

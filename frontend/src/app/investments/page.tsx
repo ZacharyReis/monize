@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -26,6 +27,7 @@ import { TransactionList } from '@/components/transactions/TransactionList';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useInvestmentData } from '@/hooks/useInvestmentData';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useMainAccountName } from '@/hooks/useMainAccountName';
 import { Account } from '@/types/account';
 import { buildAccountFilterLabel } from '@/lib/account-utils';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -45,6 +47,9 @@ export default function InvestmentsPage() {
 }
 
 function InvestmentsContent() {
+  const t = useTranslations('investments');
+  const tc = useTranslations('common');
+  const mainAccountName = useMainAccountName();
   const data = useInvestmentData();
   const { loadAllPortfolioData, selectedAccountIds, currentPage, transactionFilters } = data;
   const handleUndoRedo = useCallback(() => {
@@ -145,13 +150,14 @@ function InvestmentsContent() {
     void deleteTransaction(id);
   }, [deleteTransaction]);
 
-  // Display name for account selector (strip " - Brokerage" suffix)
-  const getAccountDisplayName = (account: Account) => {
-    if (account.accountSubType === 'INVESTMENT_BROKERAGE') {
-      return account.name.replace(' - Brokerage', '');
-    }
-    return account.name;
-  };
+  // Display name for account selector (strip the localized " - Brokerage" suffix)
+  const getAccountDisplayName = useCallback(
+    (account: Account) =>
+      account.accountSubType === 'INVESTMENT_BROKERAGE'
+        ? mainAccountName(account.name)
+        : account.name,
+    [mainAccountName],
+  );
 
   // Summary/allocation/chart titles show which accounts the filter covers.
   const accountFilterLabel = useMemo(() => {
@@ -159,16 +165,17 @@ function InvestmentsContent() {
       data.selectedAccountIds,
       data.selectableAccounts,
       (a) => getAccountDisplayName(a as Account),
+      tc,
     );
-  }, [data.selectedAccountIds, data.selectableAccounts]);
+  }, [data.selectedAccountIds, data.selectableAccounts, tc, getAccountDisplayName]);
 
   return (
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <div className="sm:px-0">
           <PageHeader
-            title="Investments"
-            subtitle="Track your investment portfolio"
+            title={t('page.title')}
+            subtitle={t('page.subtitle')}
             helpUrl="https://github.com/kenlasko/monize/wiki/Investments"
             actions={
               <>
@@ -177,7 +184,7 @@ function InvestmentsContent() {
                     <MultiSelect
                       value={data.selectedAccountIds}
                       onChange={data.handleAccountChange}
-                      placeholder="All Investment Accounts"
+                      placeholder={t('page.allInvestmentAccounts')}
                       showSearch={false}
                       options={data.selectableAccounts.map((account: Account) => ({
                         value: account.id,
@@ -189,7 +196,7 @@ function InvestmentsContent() {
                     variant="outline"
                     onClick={handleRefreshClick}
                     disabled={data.isRefreshingPrices}
-                    className="whitespace-nowrap h-full"
+                    className="whitespace-nowrap"
                     title={data.lastPriceUpdate ? `Last updated: ${formatRelativeTime(data.lastPriceUpdate)}` : 'Never updated'}
                   >
                     {data.isRefreshingPrices ? (
@@ -198,14 +205,14 @@ function InvestmentsContent() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span className="hidden sm:inline">Updating...</span>
+                        <span className="hidden sm:inline">{t('page.updating')}</span>
                       </>
                     ) : (
                       <>
                         <svg className="sm:mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        <span className="hidden sm:inline">Refresh</span>
+                        <span className="hidden sm:inline">{t('page.refresh')}</span>
                         {data.lastPriceUpdate && (
                           <span className="hidden sm:inline ml-1.5 text-xs text-gray-500 dark:text-gray-400">
                             ({formatRelativeTime(data.lastPriceUpdate)})
@@ -245,6 +252,7 @@ function InvestmentsContent() {
               }
               holdingsByAccount={data.portfolioSummary?.holdingsByAccount}
               titleSuffix={accountFilterLabel}
+              accountIds={data.selectedAccountIds}
             />
           </div>
 
@@ -294,13 +302,13 @@ function InvestmentsContent() {
                         onClick={() => handleTransactionViewChange('brokerage')}
                         className="px-3 py-1 text-sm font-medium rounded transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
                       >
-                        Brokerage
+                        {t('page.brokerageTab')}
                       </button>
                       <button
                         onClick={() => handleTransactionViewChange('cash')}
                         className="px-3 py-1 text-sm font-medium rounded transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                       >
-                        Cash
+                        {t('page.cashTab')}
                       </button>
                     </div>
                   }
@@ -321,7 +329,7 @@ function InvestmentsContent() {
               )}
               {data.pagination && data.pagination.totalPages <= 1 && data.pagination.total > 0 && (
                 <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  {data.pagination.total} transaction{data.pagination.total !== 1 ? 's' : ''}
+                  {t('page.transactionCount', { count: data.pagination.total, plural: data.pagination.total !== 1 ? 's' : '' })}
                 </div>
               )}
             </>
@@ -334,20 +342,20 @@ function InvestmentsContent() {
               <div className="px-3 pt-3 sm:px-4 sm:pt-4 flex flex-wrap justify-between items-center gap-2">
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Recent Transactions
+                    {t('page.recentTransactions')}
                     {data.hasActiveCashFilters && (
-                      <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">(filtered)</span>
+                      <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">{t('page.filtered')}</span>
                     )}
                   </h3>
                   <div className="inline-flex rounded-md bg-gray-100 dark:bg-gray-700 p-0.5">
-                    <button onClick={() => handleTransactionViewChange('brokerage')} className="px-3 py-1 text-sm font-medium rounded transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Brokerage</button>
-                    <button onClick={() => handleTransactionViewChange('cash')} className="px-3 py-1 text-sm font-medium rounded transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">Cash</button>
+                    <button onClick={() => handleTransactionViewChange('brokerage')} className="px-3 py-1 text-sm font-medium rounded transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">{t('page.brokerageTab')}</button>
+                    <button onClick={() => handleTransactionViewChange('cash')} className="px-3 py-1 text-sm font-medium rounded transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">{t('page.cashTab')}</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button onClick={data.openCashCreate} className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 sm:min-w-[14rem]">
-                    <span className="sm:hidden">+ New</span>
-                    <span className="hidden sm:inline">+ New Cash Transaction</span>
+                    <span className="sm:hidden">{t('page.newCashTransactionShort')}</span>
+                    <span className="hidden sm:inline">{t('page.newCashTransaction')}</span>
                   </button>
                   <button
                     onClick={() => data.setShowCashFilters(!data.showCashFilters)}
@@ -360,16 +368,16 @@ function InvestmentsContent() {
                     <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
-                    Filter
+                    {t('page.filter')}
                     {data.hasActiveCashFilters && (
                       <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">{data.activeCashFilterCount}</span>
                     )}
                   </button>
-                  <button onClick={cycleDensity} className="ml-auto inline-flex items-center px-2 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" title="Toggle row density">
+                  <button onClick={cycleDensity} className="ml-auto inline-flex items-center px-2 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md" title={t('page.densityToggleTitle')}>
                     <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
-                    {listDensity === 'normal' ? 'Normal' : listDensity === 'compact' ? 'Compact' : 'Dense'}
+                    {listDensity === 'normal' ? t('page.densityNormal') : listDensity === 'compact' ? t('page.densityCompact') : t('page.densityDense')}
                   </button>
                 </div>
               </div>
@@ -378,16 +386,16 @@ function InvestmentsContent() {
               {data.showCashFilters && (
                 <div className="px-3 sm:px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-b border-gray-200 dark:border-gray-700">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <MultiSelect label="Payees" options={cashPayeeFilterOptions} value={data.cashFilterPayeeIds} onChange={(values) => { data.setCashFilterPayeeIds(values); data.setCashCurrentPage(1); }} placeholder="All payees" />
-                    <MultiSelect label="Categories" options={cashCategoryFilterOptions} value={data.cashFilterCategoryIds} onChange={(values) => { data.setCashFilterCategoryIds(values); data.setCashCurrentPage(1); }} placeholder="All categories" />
+                    <MultiSelect label={t('page.cashFilterPayees')} options={cashPayeeFilterOptions} value={data.cashFilterPayeeIds} onChange={(values) => { data.setCashFilterPayeeIds(values); data.setCashCurrentPage(1); }} placeholder={t('page.allPayees')} />
+                    <MultiSelect label={t('page.cashFilterCategories')} options={cashCategoryFilterOptions} value={data.cashFilterCategoryIds} onChange={(values) => { data.setCashFilterCategoryIds(values); data.setCashCurrentPage(1); }} placeholder={t('page.allCategories')} />
                     <DateInput
-                      label="From"
+                      label={t('page.cashFilterFrom')}
                       value={data.cashFilterStartDate}
                       onDateChange={(date) => { data.setCashFilterStartDate(date); data.setCashCurrentPage(1); }}
                       onChange={(e) => { data.setCashFilterStartDate(e.target.value); data.setCashCurrentPage(1); }}
                     />
                     <DateInput
-                      label="To"
+                      label={t('page.cashFilterTo')}
                       value={data.cashFilterEndDate}
                       onDateChange={(date) => { data.setCashFilterEndDate(date); data.setCashCurrentPage(1); }}
                       onChange={(e) => { data.setCashFilterEndDate(e.target.value); data.setCashCurrentPage(1); }}
@@ -395,7 +403,7 @@ function InvestmentsContent() {
                   </div>
                   {data.hasActiveCashFilters && (
                     <div className="mt-3 flex justify-end">
-                      <button onClick={data.clearCashFilters} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium">Clear Filters</button>
+                      <button onClick={data.clearCashFilters} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium">{t('page.clearFilters')}</button>
                     </div>
                   )}
                 </div>
@@ -403,7 +411,7 @@ function InvestmentsContent() {
 
               <div className="mt-3 sm:mt-4" />
               {data.cashTransactionsLoading && data.cashTransactions.length === 0 ? (
-                <LoadingSpinner text="Loading cash transactions..." />
+                <LoadingSpinner text={t('page.loadingCashTransactions')} />
               ) : (
                 <TransactionList
                   transactions={data.cashTransactions}
@@ -431,7 +439,7 @@ function InvestmentsContent() {
               )}
               {data.cashPagination && data.cashPagination.totalPages <= 1 && data.cashPagination.total > 0 && (
                 <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  {data.cashPagination.total} transaction{data.cashPagination.total !== 1 ? 's' : ''}
+                  {t('page.transactionCount', { count: data.cashPagination.total, plural: data.cashPagination.total !== 1 ? 's' : '' })}
                 </div>
               )}
             </>
@@ -440,7 +448,7 @@ function InvestmentsContent() {
           {/* Footer note for auto-generated symbols */}
           <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              * Auto-generated symbol name. Could not find in Yahoo dataset.
+              {t('page.autoGeneratedSymbolNote')}
             </p>
           </div>
         </div>
@@ -455,7 +463,7 @@ function InvestmentsContent() {
         {...data.modalProps}
       >
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {data.editingTransaction ? 'Edit Transaction' : 'New Investment Transaction'}
+          {data.editingTransaction ? t('page.editTransaction') : t('page.newInvestmentTransaction')}
         </h2>
         <InvestmentTransactionForm
           accounts={data.accounts}
@@ -474,7 +482,7 @@ function InvestmentsContent() {
       {/* Cash Transaction Form Modal */}
       <Modal isOpen={data.showCashForm} onClose={data.closeCash} maxWidth="6xl" className="p-6" {...data.cashModalProps}>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {data.editingCashTransaction ? 'Edit Transaction' : 'New Transaction'}
+          {data.editingCashTransaction ? t('page.editTransaction') : t('page.newTransaction')}
         </h2>
         <TransactionForm
           key={data.editingCashTransaction?.id || 'new-cash'}

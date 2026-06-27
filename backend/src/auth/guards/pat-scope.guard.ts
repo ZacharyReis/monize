@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { REQUIRE_SCOPE_KEY } from "../decorators/require-scope.decorator";
+import { tr } from "../../i18n/translate";
 
 /**
  * Guard that enforces PAT scope requirements on endpoints.
@@ -42,8 +43,13 @@ export class PatScopeGuard implements CanActivate {
     );
 
     if (!hasAllScopes) {
+      const requiredScopesStr = requiredScopes.join(", ");
       throw new ForbiddenException(
-        `Insufficient token scope. Required: ${requiredScopes.join(", ")}`,
+        tr(
+          "errors.auth.insufficientTokenScope",
+          `Insufficient token scope. Required: ${requiredScopesStr}`,
+          { requiredScopes: requiredScopesStr },
+        ),
       );
     }
 

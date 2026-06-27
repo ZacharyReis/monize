@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -24,6 +25,7 @@ export default function ImportPage() {
 }
 
 function ImportContent() {
+  const t = useTranslations('import');
   const wizard = useImportWizard();
 
   const renderStep = () => {
@@ -202,8 +204,8 @@ function ImportContent() {
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Import Transactions"
-          subtitle="Import transactions from QIF, OFX/QFX, or CSV files"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Importing-from-Microsoft-Money"
         />
         {/* Progress indicator */}

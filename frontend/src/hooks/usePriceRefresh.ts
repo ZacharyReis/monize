@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { investmentsApi } from '@/lib/investments';
 import { createLogger } from '@/lib/logger';
@@ -64,6 +65,7 @@ interface UsePriceRefreshReturn {
 }
 
 export function usePriceRefresh({ onRefreshComplete }: UsePriceRefreshOptions = {}): UsePriceRefreshReturn {
+  const t = useTranslations('securities');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const doRefresh = useCallback(
@@ -95,7 +97,7 @@ export function usePriceRefresh({ onRefreshComplete }: UsePriceRefreshOptions = 
           )
           .map((s) => s.id);
         if (securityIds.length === 0) {
-          if (!silent) toast.success('No securities to update');
+          if (!silent) toast.success(t('priceRefresh.noneToUpdate'));
           return;
         }
         const result = await investmentsApi.refreshSelectedPrices(securityIds);
@@ -107,23 +109,27 @@ export function usePriceRefresh({ onRefreshComplete }: UsePriceRefreshOptions = 
               .map((r) => r.symbol);
             const symbolList = failedSymbols.join(', ');
             toast.error(
-              `Prices updated: ${result.updated} succeeded, ${result.failed} failed${symbolList ? ` (${symbolList})` : ''}`,
+              t('priceRefresh.partialFailure', {
+                updated: result.updated,
+                failed: result.failed,
+                symbols: symbolList ? ` (${symbolList})` : '',
+              }),
               { duration: 8000 },
             );
           } else {
-            toast.success(`${result.updated} security price${result.updated !== 1 ? 's' : ''} updated`);
+            toast.success(t('priceRefresh.updated', { count: result.updated }));
           }
         }
         await onRefreshComplete?.(result.lastUpdated);
       } catch (error) {
         logger.error('Failed to refresh prices:', error);
-        if (!silent) toast.error(getErrorMessage(error, 'Failed to refresh prices'));
+        if (!silent) toast.error(getErrorMessage(error, t('priceRefresh.failed')));
       } finally {
         refreshInProgress = false;
         setIsRefreshing(false);
       }
     },
-    [onRefreshComplete],
+    [onRefreshComplete, t],
   );
 
   const triggerManualRefresh = useCallback(

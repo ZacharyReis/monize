@@ -1,0 +1,108 @@
+{
+  "createUserModal": {
+    "title": "[XX-Add User-XX]",
+    "description": "[XX-Create a new account. You can email an invite, set a password yourself, or generate a temporary one to share.-XX]",
+    "emailLabel": "[XX-Email-XX]",
+    "emailPlaceholder": "[XX-user@example.com-XX]",
+    "firstNameLabel": "[XX-First name (optional)-XX]",
+    "firstNamePlaceholder": "[XX-First name-XX]",
+    "lastNameLabel": "[XX-Last name (optional)-XX]",
+    "lastNamePlaceholder": "[XX-Last name-XX]",
+    "roleLabel": "[XX-Role-XX]",
+    "roleUser": "[XX-User-XX]",
+    "roleAdmin": "[XX-Admin-XX]",
+    "credentialsLegend": "[XX-Credentials-XX]",
+    "inviteLabel": "[XX-Send an email invite to set a password-XX]",
+    "inviteSmtpNote": "[XX-Requires SMTP to be configured.-XX]",
+    "setPasswordLabel": "[XX-Set a password now-XX]",
+    "tempPasswordLabel": "[XX-Generate a temporary password-XX]",
+    "tempPasswordNote": "[XX-Shown once after creation. The user must change it on first login.-XX]",
+    "passwordFieldLabel": "[XX-Password-XX]",
+    "passwordPlaceholder": "[XX-Set a password-XX]",
+    "createButton": "[XX-Create User-XX]",
+    "validation": {
+      "invalidPassword": "[XX-Invalid password.-XX]"
+    },
+    "toasts": {
+      "createFailed": "[XX-Failed to create user-XX]"
+    }
+  },
+  "resetPasswordModal": {
+    "defaultTitle": "[XX-Password Reset Successful-XX]",
+    "defaultDescription": "[XX-A temporary password has been set for {userName}.-XX]",
+    "temporaryPasswordLabel": "[XX-Temporary Password-XX]",
+    "copy": "[XX-Copy-XX]",
+    "copied": "[XX-Copied-XX]",
+    "notShownAgain": "[XX-This password will not be shown again.-XX]",
+    "mustChangeOnLogin": "[XX-The user will be required to change their password on next login.-XX]",
+    "toasts": {
+      "copied": "[XX-Password copied to clipboard-XX]",
+      "copyFailed": "[XX-Failed to copy to clipboard-XX]"
+    }
+  },
+  "userTable": {
+    "colUser": "[XX-User-XX]",
+    "colRole": "[XX-Role-XX]",
+    "colProvider": "[XX-Provider-XX]",
+    "colStatus": "[XX-Status-XX]",
+    "colLastLogin": "[XX-Last Login-XX]",
+    "colActions": "[XX-Actions-XX]",
+    "youSuffix": "[XX-(you)-XX]",
+    "noEmail": "[XX-No email-XX]",
+    "unknown": "[XX-Unknown-XX]",
+    "never": "[XX-Never-XX]",
+    "providerSso": "[XX-SSO-XX]",
+    "providerLocal": "[XX-Local-XX]",
+    "roleAdmin": "[XX-Admin-XX]",
+    "roleUser": "[XX-User-XX]",
+    "statusActive": "[XX-Active-XX]",
+    "statusDisabled": "[XX-Disabled-XX]",
+    "clickToDisable": "[XX-Click to disable-XX]",
+    "clickToEnable": "[XX-Click to enable-XX]",
+    "resetPassword": "[XX-Reset Password-XX]",
+    "noUsers": "[XX-No users found.-XX]"
+  },
+  "usersPage": {
+    "title": "[XX-User Management-XX]",
+    "userCount": "[XX-{count, plural, one {# user} other {# users}}-XX]",
+    "newUser": "[XX-+ New User-XX]",
+    "loadingUsers": "[XX-Loading users...-XX]",
+    "toasts": {
+      "inviteSent": "[XX-Invite email sent to {email}-XX]",
+      "userCreated": "[XX-{name} has been created-XX]",
+      "userUpgraded": "[XX-{name} was upgraded to a full account-XX]",
+      "roleChanged": "[XX-{name} is now {role}-XX]",
+      "roleAdmin": "[XX-an admin-XX]",
+      "roleUser": "[XX-a user-XX]",
+      "userEnabled": "[XX-{name} has been enabled-XX]",
+      "userDisabled": "[XX-{name} has been disabled-XX]",
+      "userDeleted": "[XX-{name} has been deleted-XX]",
+      "userDowngraded": "[XX-{name}'s own data was removed; their delegate access remains.-XX]",
+      "loadFailed": "[XX-Failed to load users-XX]",
+      "deleteFailed": "[XX-Failed to delete user-XX]",
+      "disableFailed": "[XX-Failed to disable user-XX]",
+      "resetFailed": "[XX-Failed to reset password-XX]"
+    },
+    "dialogs": {
+      "promoteTitle": "[XX-Promote User?-XX]",
+      "demoteTitle": "[XX-Demote User?-XX]",
+      "promoteMessage": "[XX-Are you sure you want to promote {name} to {role}?-XX]",
+      "demoteMessage": "[XX-Are you sure you want to demote {name} to {role}?-XX]",
+      "promoteConfirm": "[XX-Promote to Admin-XX]",
+      "demoteConfirm": "[XX-Demote to User-XX]",
+      "disableTitle": "[XX-Disable User?-XX]",
+      "disableMessage": "[XX-Are you sure you want to disable {name}? They will be unable to log in.-XX]",
+      "disableConfirm": "[XX-Disable User-XX]",
+      "resetTitle": "[XX-Reset Password?-XX]",
+      "resetMessage": "[XX-This will generate a new temporary password for {name}. They will be required to change it on next login.-XX]",
+      "resetConfirm": "[XX-Reset Password-XX]",
+      "deleteTitle": "[XX-Delete User?-XX]",
+      "deleteMessage": "[XX-Are you sure you want to delete {name}? This will permanently remove their account and all associated data. This action cannot be undone. If they are a delegate of another account, their own data is removed but their login is kept so the delegation still works -- they become a delegate-only user.-XX]",
+      "deleteConfirm": "[XX-Delete User-XX]",
+      "tempPasswordTitleCreated": "[XX-User Created-XX]",
+      "tempPasswordTitleUpgraded": "[XX-Account Upgraded-XX]",
+      "tempPasswordDescCreated": "[XX-A temporary password was generated for {name}. Share it with them to sign in.-XX]",
+      "tempPasswordDescUpgraded": "[XX-An existing shared user was upgraded to a full account. Share this temporary password with {name}.-XX]"
+    }
+  }
+}

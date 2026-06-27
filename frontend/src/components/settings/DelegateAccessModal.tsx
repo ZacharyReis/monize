@@ -2,6 +2,7 @@
 
 import { MutableRefObject, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import {
   delegationApi,
   DelegateSummary,
@@ -160,6 +161,8 @@ export function DelegateAccessModal({
   setFormDirty,
   submitRef,
 }: DelegateAccessModalProps) {
+  const t = useTranslations('settings.delegateAccessModal');
+  const tc = useTranslations('common');
   const baseline = useMemo(
     () => buildInitialDraft(delegate),
     [delegate],
@@ -179,9 +182,9 @@ export function DelegateAccessModal({
       list.sort((a, b) => a.name.localeCompare(b.name));
     }
     return Array.from(groups.entries()).sort((x, y) =>
-      formatAccountType(x[0]).localeCompare(formatAccountType(y[0])),
+      formatAccountType(x[0], tc).localeCompare(formatAccountType(y[0], tc)),
     );
-  }, [accounts]);
+  }, [accounts, tc]);
 
   const baselineGrantArray = useMemo(
     () => grantsToArray(accounts, baseline.grants),
@@ -297,11 +300,11 @@ export function DelegateAccessModal({
         );
       }
       await Promise.all(calls);
-      toast.success('Access updated');
+      toast.success(t('toasts.saved'));
       setFormDirty(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to update access'));
+      toast.error(getErrorMessage(err, t('toasts.saveFailed')));
       logger.error(err);
     } finally {
       setSaving(false);
@@ -313,16 +316,16 @@ export function DelegateAccessModal({
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'accounts', label: 'Accounts' },
-    { key: 'sections', label: 'Sections' },
-    { key: 'shared', label: 'Shared data' },
+    { key: 'accounts', label: t('tabs.accounts') },
+    { key: 'sections', label: t('tabs.sections') },
+    { key: 'shared', label: t('tabs.shared') },
   ];
 
   return (
     <div className="flex flex-col max-h-[90vh]">
       <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Edit access
+          {t('title')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {delegate.delegate.email}
@@ -333,20 +336,20 @@ export function DelegateAccessModal({
         role="tablist"
         className="flex gap-1 border-b border-gray-200 dark:border-gray-700 px-2"
       >
-        {tabs.map((t) => (
+        {tabs.map((tabItem) => (
           <button
-            key={t.key}
+            key={tabItem.key}
             type="button"
             role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
+            aria-selected={tab === tabItem.key}
+            onClick={() => setTab(tabItem.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -355,8 +358,7 @@ export function DelegateAccessModal({
         {tab === 'sections' && (
           <div className="space-y-3">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Grant read-only access to whole app sections. Account-scoped
-              data still also needs per-account access.
+              {t('sections.description')}
             </p>
             {SECTIONS.map((s) => (
               <div
@@ -385,11 +387,11 @@ export function DelegateAccessModal({
           <div className="space-y-3">
             {accounts.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                No accounts to grant.
+                {t('accounts.noAccounts')}
               </p>
             ) : (
               groupedAccounts.map(([type, list]) => {
-                const typeLabel = formatAccountType(type);
+                const typeLabel = formatAccountType(type, tc);
                 const ids = list.map((a) => a.id);
                 return (
                   <details
@@ -406,7 +408,7 @@ export function DelegateAccessModal({
                     <div className="px-3 pb-3">
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-gray-100 dark:border-gray-700/50 pb-2 mb-2">
                         <span className="w-40 text-xs uppercase tracking-wide text-gray-400">
-                          Grant all
+                          {t('accounts.grantAll')}
                         </span>
                         {GRANT_OPS.map((o) => (
                           <label
@@ -475,8 +477,7 @@ export function DelegateAccessModal({
         {tab === 'shared' && (
           <div className="space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              READ of payees, categories and tags is always allowed. These
-              control create/edit/delete.
+              {t('shared.description')}
             </p>
             {CAP_RESOURCES.map((res) => (
               <div
@@ -512,7 +513,7 @@ export function DelegateAccessModal({
           isLoading={saving}
           disabled={!dirty}
         >
-          Save
+          {t('saveButton')}
         </Button>
       </div>
     </div>

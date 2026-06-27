@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import {
   importApi,
@@ -72,6 +73,7 @@ const DEFAULT_CSV_COLUMN_MAPPING: CsvColumnMappingConfig = {
 };
 
 export function useImportWizard() {
+  const t = useTranslations('import');
   const searchParams = useSearchParams();
   const preselectedAccountId = searchParams.get('accountId');
   const defaultCurrency = usePreferencesStore((s) => s.preferences?.defaultCurrency) || 'USD';
@@ -149,7 +151,7 @@ export function useImportWizard() {
 
   const handleCreateAccount = async (fileIndex: number) => {
     if (!newAccountName.trim()) {
-      toast.error('Account name is required');
+      toast.error(t('toasts.accountNameRequired'));
       return;
     }
     setIsCreatingAccount(true);
@@ -167,19 +169,19 @@ export function useImportWizard() {
         // Investment files go to brokerage account; regular banking files go to cash account
         const isFileInvestment = importFiles[fileIndex]?.parsedData?.accountType === 'INVESTMENT';
         setFileAccountId(fileIndex, isFileInvestment ? pair.brokerageAccount.id : pair.cashAccount.id);
-        toast.success(`Investment accounts "${pair.cashAccount.name}" and "${pair.brokerageAccount.name}" created`);
+        toast.success(t('toasts.accountsCreatedPair', { cash: pair.cashAccount.name, brokerage: pair.brokerageAccount.name }));
       } else {
         const created = await accountsApi.create(accountData);
         setAccounts(prev => [...prev, created]);
         setFileAccountId(fileIndex, created.id);
-        toast.success(`Account "${created.name}" created`);
+        toast.success(t('toasts.accountCreated', { name: created.name }));
       }
 
       setShowCreateAccount(false);
       setCreatingForFileIndex(-1);
       setNewAccountName('');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create account'));
+      toast.error(getErrorMessage(error, t('toasts.createAccountFailed')));
     } finally {
       setIsCreatingAccount(false);
     }
@@ -209,11 +211,11 @@ export function useImportWizard() {
           }
         }
       } catch (error) {
-        toast.error(getErrorMessage(error, 'Failed to load data'));
+        toast.error(getErrorMessage(error, t('toasts.loadDataFailed')));
       }
     };
     loadData();
-  }, [preselectedAccountId, setSelectedAccountId]);
+  }, [preselectedAccountId, setSelectedAccountId, t]);
 
   // Scroll to top whenever the step changes
   useEffect(() => {
@@ -346,7 +348,7 @@ export function useImportWizard() {
       const detectedTypes = fileArray.map((f) => detectFileType(f.name));
       const uniqueTypes = [...new Set(detectedTypes)];
       if (uniqueTypes.length > 1) {
-        toast.error('All files must be the same type. Cannot mix QIF, OFX, and CSV files.');
+        toast.error(t('toasts.mixedFileTypes'));
         setIsLoading(false);
         return;
       }
@@ -383,7 +385,7 @@ export function useImportWizard() {
         setStep('csvColumnMapping');
 
         if (fileArray.length > 1) {
-          toast.success(`Loaded ${fileArray.length} CSV files for import`);
+          toast.success(t('toasts.loadedCsvFiles', { count: fileArray.length }));
         }
       } else {
         // QIF or OFX: parse all files
@@ -478,15 +480,15 @@ export function useImportWizard() {
         }
 
         if (fileDataArray.length > 1) {
-          toast.success(`Loaded ${fileDataArray.length} files for import`);
+          toast.success(t('toasts.loadedFiles', { count: fileDataArray.length }));
         }
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to parse file(s)'));
+      toast.error(getErrorMessage(error, t('toasts.parseFilesFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [accounts, categories, securities, defaultCurrency, preselectedAccountId]);
+  }, [accounts, categories, securities, defaultCurrency, preselectedAccountId, t]);
 
   // CSV column mapping handlers
   const handleCsvColumnMappingChange = useCallback((mapping: CsvColumnMappingConfig) => {
@@ -506,11 +508,11 @@ export function useImportWizard() {
       setCsvSampleRows(headersResponse.sampleRows);
       setCsvColumnMapping(prev => ({ ...prev, delimiter }));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to parse CSV with new delimiter'));
+      toast.error(getErrorMessage(error, t('toasts.parseCsvDelimiterFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [importFiles]);
+  }, [importFiles, t]);
 
   const handleCsvHasHeaderChange = useCallback(async (hasHeader: boolean) => {
     if (importFiles.length === 0) return;
@@ -522,11 +524,11 @@ export function useImportWizard() {
       setCsvHeaders(headersResponse.headers);
       setCsvSampleRows(headersResponse.sampleRows);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update CSV preview'));
+      toast.error(getErrorMessage(error, t('toasts.updateCsvPreviewFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [importFiles, csvColumnMapping.delimiter]);
+  }, [importFiles, csvColumnMapping.delimiter, t]);
 
   const handleCsvMappingComplete = useCallback(async () => {
     if (importFiles.length === 0) return;
@@ -595,11 +597,11 @@ export function useImportWizard() {
         setStep('selectAccount');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to parse CSV file(s)'));
+      toast.error(getErrorMessage(error, t('toasts.parseCsvFilesFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [importFiles, csvColumnMapping, csvTransferRules, csvHeaders, accounts, categories, defaultCurrency, preselectedAccountId]);
+  }, [importFiles, csvColumnMapping, csvTransferRules, csvHeaders, accounts, categories, defaultCurrency, preselectedAccountId, t]);
 
   const handleSaveColumnMapping = useCallback(async (name: string) => {
     try {
@@ -617,27 +619,27 @@ export function useImportWizard() {
         }
         return [...prev, saved];
       });
-      toast.success(`Column mapping "${name}" saved`);
+      toast.success(t('toasts.mappingSaved', { name }));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save column mapping'));
+      toast.error(getErrorMessage(error, t('toasts.saveMappingFailed')));
     }
-  }, [csvColumnMapping, csvTransferRules]);
+  }, [csvColumnMapping, csvTransferRules, t]);
 
   const handleLoadColumnMapping = useCallback((mapping: SavedColumnMapping) => {
     setCsvColumnMapping(mapping.columnMappings as unknown as CsvColumnMappingConfig);
     setCsvTransferRules((mapping.transferRules || []) as unknown as CsvTransferRule[]);
-    toast.success(`Loaded mapping "${mapping.name}"`);
-  }, []);
+    toast.success(t('toasts.mappingLoaded', { name: mapping.name }));
+  }, [t]);
 
   const handleDeleteColumnMapping = useCallback(async (id: string) => {
     try {
       await importApi.deleteColumnMapping(id);
       setSavedColumnMappings(prev => prev.filter(m => m.id !== id));
-      toast.success('Column mapping deleted');
+      toast.success(t('toasts.mappingDeleted'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete column mapping'));
+      toast.error(getErrorMessage(error, t('toasts.deleteMappingFailed')));
     }
-  }, []);
+  }, [t]);
 
   const handleAccountMappingChange = (index: number, field: keyof AccountMapping, value: string) => {
     setAccountMappings((prev) => {
@@ -664,7 +666,7 @@ export function useImportWizard() {
         const matchingSecurity = findMatchingSecurityBySymbol(value, securities);
         if (matchingSecurity) {
           updated[index] = { ...updated[index], securityId: matchingSecurity.id, createNew: undefined, securityName: undefined, securityType: undefined, exchange: undefined };
-          toast.success(`Found existing security: ${matchingSecurity.symbol} - ${matchingSecurity.name}`);
+          toast.success(t('toasts.foundExistingSecurity', { symbol: matchingSecurity.symbol, name: matchingSecurity.name }));
         } else {
           updated[index] = { ...updated[index], securityId: undefined, createNew: value || undefined };
         }
@@ -709,17 +711,17 @@ export function useImportWizard() {
       if (result.exchange) details.push(`Exchange: ${result.exchange}`);
       details.push(`Currency: ${resolvedCurrency}`);
       if (existingSecurity) {
-        toast.success(`Found (exists in database): ${details.join(', ')}`);
+        toast.success(t('toasts.foundInDatabase', { details: details.join(', ') }));
       } else {
-        toast.success(`Found: ${details.join(', ')}`);
+        toast.success(t('toasts.found', { details: details.join(', ') }));
       }
     },
-    [securities, defaultCurrency],
+    [securities, defaultCurrency, t],
   );
 
   const handleSecurityLookup = async (index: number, query: string, exchange?: string) => {
     if (!query || query.length < 2) {
-      toast.error('Enter at least 2 characters to lookup');
+      toast.error(t('toasts.lookupMinChars'));
       return;
     }
 
@@ -734,7 +736,7 @@ export function useImportWizard() {
     try {
       const candidates = await investmentsApi.lookupSecurityCandidates(query, exchanges);
       if (candidates.length === 0) {
-        toast.error(`No security found for "${query}"`);
+        toast.error(t('toasts.noSecurityFound', { query }));
       } else if (candidates.length === 1) {
         applyLookupResultToMapping(index, candidates[0]);
       } else {
@@ -744,7 +746,7 @@ export function useImportWizard() {
       }
     } catch (error) {
       logger.error('Security lookup failed:', error);
-      toast.error('Lookup failed - please try again');
+      toast.error(t('toasts.lookupFailed'));
     } finally {
       setLookupLoadingIndex(null);
     }
@@ -784,12 +786,12 @@ export function useImportWizard() {
       setStep('complete');
 
       if (result.errors === 0) {
-        toast.success(`Successfully imported ${result.imported} transactions across ${multiAccountData.accounts.length} accounts`);
+        toast.success(t('toasts.importedMultiAccount', { imported: result.imported, accounts: multiAccountData.accounts.length }));
       } else {
-        toast.success(`Imported ${result.imported} transactions with ${result.errors} errors`);
+        toast.success(t('toasts.importedWithErrors', { imported: result.imported, errors: result.errors }));
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Multi-account import failed'));
+      toast.error(getErrorMessage(error, t('toasts.multiAccountImportFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -800,7 +802,7 @@ export function useImportWizard() {
 
     const allFilesValid = importFiles.every((f) => f.selectedAccountId);
     if (!allFilesValid) {
-      toast.error('Please select an account for all files');
+      toast.error(t('toasts.selectAccountForAllFiles'));
       return;
     }
 
@@ -915,7 +917,7 @@ export function useImportWizard() {
               fileName: fileData.fileName,
               accountName: targetAccount?.name || 'Unknown',
               imported: 0, skipped: 0, errors: 1,
-              errorMessages: [getErrorMessage(error, 'Import failed')],
+              errorMessages: [getErrorMessage(error, t('toasts.importFailed'))],
             });
             totalErrors += 1;
           }
@@ -942,9 +944,9 @@ export function useImportWizard() {
         setStep('complete');
 
         if (totalErrors === 0) {
-          toast.success(`Successfully imported ${totalImported} transactions from ${importFiles.length} files`);
+          toast.success(t('toasts.importedFromFiles', { imported: totalImported, files: importFiles.length }));
         } else {
-          toast.success(`Imported ${totalImported} transactions with ${totalErrors} errors`);
+          toast.success(t('toasts.importedWithErrors', { imported: totalImported, errors: totalErrors }));
         }
       } else {
         const result = await importFn(importFiles[0], categoryMappings, accountMappings, securityMappings);
@@ -953,13 +955,13 @@ export function useImportWizard() {
         setStep('complete');
 
         if (result.errors === 0) {
-          toast.success(`Successfully imported ${result.imported} transactions`);
+          toast.success(t('toasts.imported', { imported: result.imported }));
         } else {
-          toast.success(`Imported ${result.imported} transactions with ${result.errors} errors`);
+          toast.success(t('toasts.importedWithErrors', { imported: result.imported, errors: result.errors }));
         }
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Import failed'));
+      toast.error(getErrorMessage(error, t('toasts.importFailed')));
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,41 @@
+/**
+ * Provider-neutral multimodal content blocks for a user turn. Attachments
+ * (images, PDFs) arrive on the current user message; each provider adapter
+ * maps these to its own native shape (Anthropic image/document blocks, OpenAI
+ * image_url parts, Ollama images[]). CSV/plain-text files are decoded and
+ * inlined as `text` blocks upstream in the query service, so only `image` and
+ * `document` carry binary here.
+ */
+export interface AiTextBlock {
+  type: "text";
+  text: string;
+}
+
+export interface AiImageBlock {
+  type: "image";
+  mediaType: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  /** base64-encoded image bytes, no `data:` prefix and no newlines. */
+  data: string;
+}
+
+export interface AiDocumentBlock {
+  type: "document";
+  mediaType: "application/pdf";
+  /** base64-encoded PDF bytes, no `data:` prefix and no newlines. */
+  data: string;
+  filename?: string;
+}
+
+export type AiContentBlock = AiTextBlock | AiImageBlock | AiDocumentBlock;
+
 export interface AiUserMessage {
   role: "user";
-  content: string;
+  /**
+   * Plain text for the common (text-only) path, or an ordered array of
+   * content blocks when the turn carries attachments. Only user turns are
+   * multimodal -- assistant/tool messages stay string-only.
+   */
+  content: string | AiContentBlock[];
 }
 
 export interface AiAssistantMessage {

@@ -1,0 +1,660 @@
+/*
+ * Colour themes (palettes), selected in Settings -> Preferences and applied
+ * as a `data-theme` attribute on <html> by ThemeContext. The default palette
+ * has no attribute and uses the stock Tailwind colours.
+ *
+ * How it works: Tailwind v4 utilities compile to `var(--color-*)` references,
+ * so redefining those variables here re-skins every component without
+ * touching any of them. Each theme overrides:
+ *   - the gray ramp (surfaces, borders, text -- shared by light and dark
+ *     mode, which simply pick different steps of the same ramp)
+ *   - the blue ramp (the app's accent colour)
+ *   - sky-500/600 (form focus rings and checkboxes in globals.css)
+ *   - --color-white where the theme wants tinted "paper" cards
+ *   - the --chart-* tokens that don't already follow gray/blue automatically
+ *
+ * Light/dark behaviour stays with the existing mode setting: light mode uses
+ * the 50-300 end of the gray ramp for surfaces, dark mode the 800-950 end.
+ * Only highcontrast needs a dedicated html.dark block, because its border
+ * and secondary-text grays must invert more aggressively than a shared ramp
+ * allows.
+ */
+
+/* ===== Latte -- warm cream surfaces, taupe darks, caramel accent ===== */
+html[data-theme='latte'] {
+  --color-white: #fbf7ef;
+
+  --color-gray-50: #f6f1e7;
+  --color-gray-100: #efe8da;
+  --color-gray-200: #e3d8c2;
+  --color-gray-300: #d0c1a3;
+  --color-gray-400: #b09e7f;
+  --color-gray-500: #8f7d61;
+  --color-gray-600: #74634c;
+  --color-gray-700: #5c4f3e;
+  --color-gray-800: #443a2f;
+  --color-gray-900: #2f2820;
+  --color-gray-950: #1f1a14;
+
+  --color-blue-50: #faf3ea;
+  --color-blue-100: #f2e4cf;
+  --color-blue-200: #e5cba3;
+  --color-blue-300: #d4ac72;
+  --color-blue-400: #c28f4c;
+  --color-blue-500: #aa7634;
+  --color-blue-600: #8f5f29;
+  --color-blue-700: #714b22;
+  --color-blue-800: #573a1d;
+  --color-blue-900: #422c18;
+  --color-blue-950: #24170c;
+
+  --color-sky-500: #aa7634;
+  --color-sky-600: #8f5f29;
+  --color-table-stripe-dark: #383027;
+
+  --chart-income: #6f9b54;
+  --chart-expense: #c65d4a;
+  --chart-warning: #c99a3c;
+  --chart-1: #aa7634;
+  --chart-2: #6f9b54;
+  --chart-3: #c99a3c;
+  --chart-4: #c65d4a;
+  --chart-5: #8d7aa5;
+  --chart-6: #b56a8d;
+  --chart-7: #5e8e8a;
+  --chart-8: #97a04c;
+  --chart-9: #c97f3e;
+  --chart-10: #7d6b9e;
+}
+
+/* ===== MS Money -- parchment paper, deep Money green, navy text ===== */
+html[data-theme='msmoney'] {
+  --color-white: #fdfaf1;
+
+  --color-gray-50: #f5f0dd;
+  --color-gray-100: #ece5cc;
+  --color-gray-200: #ddd3b2;
+  --color-gray-300: #c4b894;
+  --color-gray-400: #a39a80;
+  --color-gray-500: #7f7e6e;
+  --color-gray-600: #5d6a6e;
+  --color-gray-700: #44525c;
+  --color-gray-800: #243646;
+  --color-gray-900: #182838;
+  --color-gray-950: #0e1a26;
+
+  --color-blue-50: #edf5ee;
+  --color-blue-100: #d7e9da;
+  --color-blue-200: #b2d3b9;
+  --color-blue-300: #85b691;
+  --color-blue-400: #58966a;
+  --color-blue-500: #3a7d4f;
+  --color-blue-600: #2a653e;
+  --color-blue-700: #235233;
+  --color-blue-800: #1d422b;
+  --color-blue-900: #173523;
+  --color-blue-950: #0c1e13;
+
+  --color-sky-500: #3a7d4f;
+  --color-sky-600: #2a653e;
+  --color-table-stripe-dark: #1f3142;
+
+  --chart-income: #3a7d4f;
+  --chart-expense: #a23b3b;
+  --chart-warning: #b08a3e;
+  --chart-1: #3a7d4f;
+  --chart-2: #2c4a6e;
+  --chart-3: #b08a3e;
+  --chart-4: #a23b3b;
+  --chart-5: #3f7d7d;
+  --chart-6: #6e4a7d;
+  --chart-7: #a85c32;
+  --chart-8: #7d7d3b;
+  --chart-9: #5a7d9e;
+  --chart-10: #5c7d4a;
+}
+
+/* ===== Nord -- arctic blue-grey (nordtheme.com), frost accent, aurora charts ===== */
+html[data-theme='nord'] {
+  --color-gray-50: #eceff4;
+  --color-gray-100: #e5e9f0;
+  --color-gray-200: #d8dee9;
+  --color-gray-300: #c2c9d6;
+  --color-gray-400: #9aa5b8;
+  --color-gray-500: #6f7d96;
+  --color-gray-600: #55637e;
+  --color-gray-700: #4c566a;
+  --color-gray-800: #3b4252;
+  --color-gray-900: #2e3440;
+  --color-gray-950: #242933;
+
+  --color-blue-50: #f0f7f9;
+  --color-blue-100: #ddeef3;
+  --color-blue-200: #bcdde7;
+  --color-blue-300: #a3cdd8;
+  --color-blue-400: #88c0d0;
+  --color-blue-500: #81a1c1;
+  --color-blue-600: #5e81ac;
+  --color-blue-700: #4d6b91;
+  --color-blue-800: #3f5878;
+  --color-blue-900: #344860;
+  --color-blue-950: #1f2c3d;
+
+  --color-sky-500: #81a1c1;
+  --color-sky-600: #5e81ac;
+  --color-table-stripe-dark: #333a48;
+
+  --chart-income: #a3be8c;
+  --chart-expense: #bf616a;
+  --chart-warning: #ebcb8b;
+  --chart-1: #5e81ac;
+  --chart-2: #a3be8c;
+  --chart-3: #ebcb8b;
+  --chart-4: #bf616a;
+  --chart-5: #b48ead;
+  --chart-6: #88c0d0;
+  --chart-7: #d08770;
+  --chart-8: #8fbcbb;
+  --chart-9: #81a1c1;
+  --chart-10: #4c566a;
+}
+
+/* ===== Forest -- warm stone neutrals, forest-green accent ===== */
+html[data-theme='forest'] {
+  --color-gray-50: #fafaf9;
+  --color-gray-100: #f5f5f4;
+  --color-gray-200: #e7e5e4;
+  --color-gray-300: #d6d3d1;
+  --color-gray-400: #a8a29e;
+  --color-gray-500: #78716c;
+  --color-gray-600: #57534e;
+  --color-gray-700: #44403c;
+  --color-gray-800: #292524;
+  --color-gray-900: #1c1917;
+  --color-gray-950: #0c0a09;
+
+  --color-blue-50: #f0f7f2;
+  --color-blue-100: #dcefe2;
+  --color-blue-200: #b9dfc6;
+  --color-blue-300: #8cc6a2;
+  --color-blue-400: #57a578;
+  --color-blue-500: #378758;
+  --color-blue-600: #286e46;
+  --color-blue-700: #21583a;
+  --color-blue-800: #1c4630;
+  --color-blue-900: #173a28;
+  --color-blue-950: #0b2016;
+
+  --color-sky-500: #378758;
+  --color-sky-600: #286e46;
+  --color-table-stripe-dark: #221e1c;
+
+  --chart-income: #378758;
+  --chart-expense: #b5543d;
+  --chart-warning: #c9892e;
+  --chart-1: #378758;
+  --chart-2: #4f7d8c;
+  --chart-3: #c9892e;
+  --chart-4: #b5543d;
+  --chart-5: #7a5c8f;
+  --chart-6: #8f9a3d;
+  --chart-7: #57a578;
+  --chart-8: #8c6d4f;
+  --chart-9: #356b5e;
+  --chart-10: #a08a4f;
+}
+
+/* ===== Solarized -- precision colours (ethanschoonover.com/solarized) ===== */
+html[data-theme='solarized'] {
+  --color-white: #fdf6e3; /* base3 */
+
+  --color-gray-50: #eee8d5; /* base2 */
+  --color-gray-100: #e4dcc4;
+  --color-gray-200: #d4cbb2;
+  --color-gray-300: #b5ad97;
+  --color-gray-400: #93a1a1; /* base1 */
+  --color-gray-500: #657b83; /* base00 */
+  --color-gray-600: #586e75; /* base01 */
+  --color-gray-700: #355661;
+  --color-gray-800: #073642; /* base02 */
+  --color-gray-900: #002b36; /* base03 */
+  --color-gray-950: #00212b;
+
+  --color-blue-50: #eaf4fb;
+  --color-blue-100: #d2e7f6;
+  --color-blue-200: #a6cfed;
+  --color-blue-300: #74b4e2;
+  --color-blue-400: #449bd9;
+  --color-blue-500: #268bd2; /* blue */
+  --color-blue-600: #1f74b0;
+  --color-blue-700: #1b5e8e;
+  --color-blue-800: #174b71;
+  --color-blue-900: #143c5a;
+  --color-blue-950: #0b2335;
+
+  --color-sky-500: #268bd2;
+  --color-sky-600: #1f74b0;
+  --color-table-stripe-dark: #06313c;
+
+  --chart-income: #859900; /* green */
+  --chart-expense: #dc322f; /* red */
+  --chart-warning: #b58900; /* yellow */
+  --chart-1: #268bd2;
+  --chart-2: #859900;
+  --chart-3: #b58900;
+  --chart-4: #dc322f;
+  --chart-5: #6c71c4;
+  --chart-6: #2aa198;
+  --chart-7: #cb4b16;
+  --chart-8: #d33682;
+  --chart-9: #93a1a1;
+  --chart-10: #586e75;
+}
+
+/* ===== High contrast -- maximum legibility, saturated accents ===== */
+html[data-theme='highcontrast'] {
+  --color-gray-50: #ffffff;
+  --color-gray-100: #f0f0f0;
+  --color-gray-200: #c8c8c8;
+  --color-gray-300: #8f8f8f;
+  --color-gray-400: #595959;
+  --color-gray-500: #404040;
+  --color-gray-600: #2e2e2e;
+  --color-gray-700: #1a1a1a;
+  --color-gray-800: #111111;
+  --color-gray-900: #050505;
+  --color-gray-950: #000000;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #3b82f6;
+  --color-blue-500: #1d4ed8;
+  --color-blue-600: #1a3faf;
+  --color-blue-700: #172f86;
+  --color-blue-800: #13266b;
+  --color-blue-900: #101e52;
+  --color-blue-950: #0a1233;
+
+  --color-sky-500: #1d4ed8;
+  --color-sky-600: #1a3faf;
+  --color-table-stripe-dark: #101010;
+
+  --chart-income: #15803d;
+  --chart-expense: #b91c1c;
+  --chart-warning: #b45309;
+  --chart-1: #1d4ed8;
+  --chart-2: #15803d;
+  --chart-3: #b45309;
+  --chart-4: #b91c1c;
+  --chart-5: #6d28d9;
+  --chart-6: #be185d;
+  --chart-7: #0e7490;
+  --chart-8: #4d7c0f;
+  --chart-9: #c2410c;
+  --chart-10: #4338ca;
+}
+
+/* High contrast dark: the shared-ramp trick fails here because dark borders
+   (gray-600/700) and secondary text (gray-300/400) must brighten, not darken,
+   relative to the light ramp above. Invert the middle of the ramp and lift
+   the accents so everything stays >= 4.5:1 on black. */
+html.dark[data-theme='highcontrast'] {
+  --color-gray-100: #ffffff;
+  --color-gray-200: #f2f2f2;
+  --color-gray-300: #e8e8e8;
+  --color-gray-400: #d0d0d0;
+  --color-gray-500: #b5b5b5;
+  --color-gray-600: #9e9e9e;
+  --color-gray-700: #6e6e6e;
+  --color-gray-800: #0a0a0a;
+  --color-gray-900: #000000;
+
+  --color-blue-400: #93c5fd;
+  --color-blue-500: #2563eb;
+
+  --chart-income: #4ade80;
+  --chart-expense: #f87171;
+  --chart-warning: #fbbf24;
+  --chart-1: #60a5fa;
+  --chart-2: #4ade80;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #a78bfa;
+  --chart-6: #f472b6;
+  --chart-7: #22d3ee;
+  --chart-8: #a3e635;
+  --chart-9: #fb923c;
+  --chart-10: #818cf8;
+}
+
+/* ===== Newspaper -- salmon paper (FT-style), claret accent, navy-slate text ===== */
+html[data-theme='newspaper'] {
+  --color-white: #fff8f0;
+
+  --color-gray-50: #fff1e5;
+  --color-gray-100: #f7e7d7;
+  --color-gray-200: #ecd9c4;
+  --color-gray-300: #d9c2a9;
+  --color-gray-400: #b3a48f;
+  --color-gray-500: #8f8270;
+  --color-gray-600: #6f6557;
+  --color-gray-700: #4d4a45;
+  --color-gray-800: #33363f;
+  --color-gray-900: #262a33;
+  --color-gray-950: #181b21;
+
+  --color-blue-50: #fcedf2;
+  --color-blue-100: #f8d8e2;
+  --color-blue-200: #f0adc3;
+  --color-blue-300: #e57d9f;
+  --color-blue-400: #d44d7a;
+  --color-blue-500: #b82a5c;
+  --color-blue-600: #990f3d;
+  --color-blue-700: #7d0c32;
+  --color-blue-800: #630a28;
+  --color-blue-900: #4d081f;
+  --color-blue-950: #2d0512;
+
+  --color-sky-500: #b82a5c;
+  --color-sky-600: #990f3d;
+  --color-table-stripe-dark: #2b2f3a;
+
+  --chart-income: #00824c;
+  --chart-expense: #cc0000;
+  --chart-warning: #cf8a00;
+  --chart-1: #0f5499;
+  --chart-2: #00824c;
+  --chart-3: #cf8a00;
+  --chart-4: #990f3d;
+  --chart-5: #593380;
+  --chart-6: #0d7680;
+  --chart-7: #cc5a2a;
+  --chart-8: #96cc28;
+  --chart-9: #c4577e;
+  --chart-10: #66605c;
+}
+
+/* ===== Burgundy -- warm gray neutrals, deep wine accent ===== */
+html[data-theme='burgundy'] {
+  --color-gray-50: #faf9f8;
+  --color-gray-100: #f4f2f0;
+  --color-gray-200: #e6e2df;
+  --color-gray-300: #d3cdc9;
+  --color-gray-400: #a39c97;
+  --color-gray-500: #7a736e;
+  --color-gray-600: #5c5651;
+  --color-gray-700: #46413d;
+  --color-gray-800: #2e2a28;
+  --color-gray-900: #201d1b;
+  --color-gray-950: #141211;
+
+  --color-blue-50: #fbeef0;
+  --color-blue-100: #f6d9de;
+  --color-blue-200: #edb3bd;
+  --color-blue-300: #e08795;
+  --color-blue-400: #cd5a6e;
+  --color-blue-500: #b03a52;
+  --color-blue-600: #93203c;
+  --color-blue-700: #771a33;
+  --color-blue-800: #5e152a;
+  --color-blue-900: #4a1122;
+  --color-blue-950: #2b0a14;
+
+  --color-sky-500: #b03a52;
+  --color-sky-600: #93203c;
+  --color-table-stripe-dark: #282422;
+
+  --chart-income: #2e7d4f;
+  --chart-expense: #c44528;
+  --chart-warning: #c9882e;
+  --chart-1: #b03a52;
+  --chart-2: #2e7d4f;
+  --chart-3: #c9882e;
+  --chart-4: #cd5a3e;
+  --chart-5: #5b6e9e;
+  --chart-6: #3f7d80;
+  --chart-7: #8a6d3b;
+  --chart-8: #7d5a8c;
+  --chart-9: #2f5d8a;
+  --chart-10: #6e6259;
+}
+
+/* ===== Gruvbox -- retro warm (github.com/morhetz/gruvbox), orange accent ===== */
+html[data-theme='gruvbox'] {
+  --color-white: #fbf1c7;
+
+  --color-gray-50: #f4e8be;
+  --color-gray-100: #ebdbb2;
+  --color-gray-200: #d5c4a1;
+  --color-gray-300: #bdae93;
+  --color-gray-400: #a89984;
+  --color-gray-500: #7c6f64;
+  --color-gray-600: #665c54;
+  --color-gray-700: #504945;
+  --color-gray-800: #3c3836;
+  --color-gray-900: #282828;
+  --color-gray-950: #1d2021;
+
+  --color-blue-50: #fdf0e3;
+  --color-blue-100: #fadfc4;
+  --color-blue-200: #f5c08c;
+  --color-blue-300: #ee9d55;
+  --color-blue-400: #e57d2a;
+  --color-blue-500: #d65d0e;
+  --color-blue-600: #af3a03;
+  --color-blue-700: #8e3000;
+  --color-blue-800: #6f2710;
+  --color-blue-900: #571f0d;
+  --color-blue-950: #331106;
+
+  --color-sky-500: #d65d0e;
+  --color-sky-600: #af3a03;
+  --color-table-stripe-dark: #32302f;
+
+  --chart-income: #98971a;
+  --chart-expense: #cc241d;
+  --chart-warning: #d79921;
+  --chart-1: #d65d0e;
+  --chart-2: #98971a;
+  --chart-3: #d79921;
+  --chart-4: #cc241d;
+  --chart-5: #b16286;
+  --chart-6: #458588;
+  --chart-7: #689d6a;
+  --chart-8: #83a598;
+  --chart-9: #d3869b;
+  --chart-10: #665c54;
+}
+
+/* ===== Dracula -- (draculatheme.com) purple accent, neon chart accents ===== */
+html[data-theme='dracula'] {
+  --color-gray-50: #f7f7fb;
+  --color-gray-100: #ededf5;
+  --color-gray-200: #dcdcea;
+  --color-gray-300: #c0c2d8;
+  --color-gray-400: #9a9cb8;
+  --color-gray-500: #6f7396;
+  --color-gray-600: #565a7c;
+  --color-gray-700: #44475a;
+  --color-gray-800: #343746;
+  --color-gray-900: #282a36;
+  --color-gray-950: #1e2029;
+
+  --color-blue-50: #f6f1fe;
+  --color-blue-100: #ece2fd;
+  --color-blue-200: #d9c5fb;
+  --color-blue-300: #c5a8fa;
+  --color-blue-400: #bd93f9;
+  --color-blue-500: #9d6ef0;
+  --color-blue-600: #8454d8;
+  --color-blue-700: #6c41b4;
+  --color-blue-800: #573490;
+  --color-blue-900: #452a72;
+  --color-blue-950: #2a1947;
+
+  --color-sky-500: #9d6ef0;
+  --color-sky-600: #8454d8;
+  --color-table-stripe-dark: #2d303e;
+
+  --chart-income: #3ac463;
+  --chart-expense: #ff5555;
+  --chart-warning: #e8a843;
+  --chart-1: #9d6ef0;
+  --chart-2: #3ac463;
+  --chart-3: #e8a843;
+  --chart-4: #ff5555;
+  --chart-5: #ff79c6;
+  --chart-6: #38b6d8;
+  --chart-7: #ffb86c;
+  --chart-8: #50fa7b;
+  --chart-9: #bd93f9;
+  --chart-10: #6272a4;
+}
+
+/* ===== Tokyo Night -- indigo darks (github.com/tokyo-night), blue accent ===== */
+html[data-theme='tokyonight'] {
+  --color-gray-50: #eceef4;
+  --color-gray-100: #e1e2e7;
+  --color-gray-200: #d0d2de;
+  --color-gray-300: #b4b8ca;
+  --color-gray-400: #8a91ad;
+  --color-gray-500: #686e8c;
+  --color-gray-600: #515872;
+  --color-gray-700: #414868;
+  --color-gray-800: #24283b;
+  --color-gray-900: #1a1b26;
+  --color-gray-950: #16161e;
+
+  --color-blue-50: #eef3fe;
+  --color-blue-100: #dde7fd;
+  --color-blue-200: #bccffb;
+  --color-blue-300: #9bb8f9;
+  --color-blue-400: #7aa2f7;
+  --color-blue-500: #3d6ae0;
+  --color-blue-600: #2f55c4;
+  --color-blue-700: #2845a3;
+  --color-blue-800: #233a82;
+  --color-blue-900: #1f3168;
+  --color-blue-950: #131c3d;
+
+  --color-sky-500: #3d6ae0;
+  --color-sky-600: #2f55c4;
+  --color-table-stripe-dark: #20243a;
+
+  --chart-income: #74a857;
+  --chart-expense: #f7768e;
+  --chart-warning: #e0af68;
+  --chart-1: #5d82ec;
+  --chart-2: #74a857;
+  --chart-3: #e0af68;
+  --chart-4: #f7768e;
+  --chart-5: #bb9af7;
+  --chart-6: #2ac3de;
+  --chart-7: #ff9e64;
+  --chart-8: #73daca;
+  --chart-9: #9d7cd8;
+  --chart-10: #565f89;
+}
+
+/* ===== Rose Pine -- muted rose/pine/gold (rosepinetheme.com); light = Dawn ===== */
+html[data-theme='rosepine'] {
+  --color-white: #fffaf3;
+
+  --color-gray-50: #faf4ed;
+  --color-gray-100: #f2e9e1;
+  --color-gray-200: #e2d9d3;
+  --color-gray-300: #c5c0ce;
+  --color-gray-400: #9893a5;
+  --color-gray-500: #797593;
+  --color-gray-600: #615d7a;
+  --color-gray-700: #524f67;
+  --color-gray-800: #1f1d2e;
+  --color-gray-900: #191724;
+  --color-gray-950: #131020;
+
+  --color-blue-50: #eef6f8;
+  --color-blue-100: #d9ecf1;
+  --color-blue-200: #b5d9e3;
+  --color-blue-300: #8ec3d3;
+  --color-blue-400: #56949f;
+  --color-blue-500: #31748f;
+  --color-blue-600: #286983;
+  --color-blue-700: #225770;
+  --color-blue-800: #1e4759;
+  --color-blue-900: #1a3a48;
+  --color-blue-950: #0f222b;
+
+  --color-sky-500: #31748f;
+  --color-sky-600: #286983;
+  --color-table-stripe-dark: #232136;
+
+  --chart-income: #56949f;
+  --chart-expense: #b4637a;
+  --chart-warning: #ea9d34;
+  --chart-1: #31748f;
+  --chart-2: #d7827e;
+  --chart-3: #ea9d34;
+  --chart-4: #b4637a;
+  --chart-5: #907aa9;
+  --chart-6: #56949f;
+  --chart-7: #eb6f92;
+  --chart-8: #f6c177;
+  --chart-9: #c4a7e7;
+  --chart-10: #797593;
+}
+
+/* ===== Midnight -- pure-black AMOLED dark mode; light mode stays neutral.
+   Only the dark end of the gray ramp changes: black page, near-black cards,
+   and a border gray that stays visible on black. Accent and charts keep the
+   stock palette, which has plenty of contrast on true black. ===== */
+html[data-theme='midnight'] {
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #262626;
+  --color-gray-800: #0c0c0c;
+  --color-gray-900: #000000;
+  --color-gray-950: #000000;
+
+  --color-table-stripe-dark: #101010;
+}
+
+/* ===== Colour-blind safe -- Okabe-Ito palette: blue/vermillion semantics
+   instead of green/red, chart series distinguishable under deuteranopia,
+   protanopia, and tritanopia. Grays stay stock. ===== */
+html[data-theme='colorblind'] {
+  --color-blue-50: #eaf3fa;
+  --color-blue-100: #d2e7f5;
+  --color-blue-200: #a5cfeb;
+  --color-blue-300: #6fb1dd;
+  --color-blue-400: #3a92cc;
+  --color-blue-500: #0072b2;
+  --color-blue-600: #005e94;
+  --color-blue-700: #004c78;
+  --color-blue-800: #003c5f;
+  --color-blue-900: #002f4b;
+  --color-blue-950: #001b2c;
+
+  --color-sky-500: #0072b2;
+  --color-sky-600: #005e94;
+
+  --chart-income: #0072b2;
+  --chart-expense: #d55e00;
+  --chart-warning: #e69f00;
+  --chart-1: #0072b2;
+  --chart-2: #009e73;
+  --chart-3: #e69f00;
+  --chart-4: #d55e00;
+  --chart-5: #cc79a7;
+  --chart-6: #56b4e9;
+  --chart-7: #f0e442;
+  --chart-8: #785ef0;
+  --chart-9: #919191;
+  --chart-10: #117733;
+}

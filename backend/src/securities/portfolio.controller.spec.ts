@@ -20,6 +20,7 @@ describe("PortfolioController", () => {
     portfolioService = {
       getPortfolioSummary: jest.fn(),
       getAssetAllocation: jest.fn(),
+      getAllocationByTag: jest.fn(),
       getTopMovers: jest.fn(),
       getInvestmentAccounts: jest.fn(),
       getIntradayValueSeries: jest.fn(),
@@ -169,6 +170,44 @@ describe("PortfolioController", () => {
       await expect(controller.getAllocation(req, "not-a-uuid")).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe("getAllocationByTag", () => {
+    it("returns tag allocation without account filter", async () => {
+      const allocation = {
+        allocation: [{ name: "AI", type: "tag", value: 100, percentage: 50 }],
+        totalValue: 200,
+      };
+      portfolioService.getAllocationByTag.mockResolvedValue(allocation);
+
+      const result = await controller.getAllocationByTag(req);
+
+      expect(portfolioService.getAllocationByTag).toHaveBeenCalledWith(
+        "user-1",
+        undefined,
+      );
+      expect(result).toEqual(allocation);
+    });
+
+    it("parses accountIds CSV and passes to service", async () => {
+      portfolioService.getAllocationByTag.mockResolvedValue({
+        allocation: [],
+        totalValue: 0,
+      });
+
+      await controller.getAllocationByTag(req, UUID1);
+
+      expect(portfolioService.getAllocationByTag).toHaveBeenCalledWith(
+        "user-1",
+        [UUID1],
+      );
+    });
+
+    it("rejects invalid UUIDs in accountIds", async () => {
+      await expect(
+        controller.getAllocationByTag(req, "not-a-uuid"),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

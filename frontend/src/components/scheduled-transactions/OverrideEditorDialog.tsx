@@ -8,6 +8,7 @@ import { DateInput } from '@/components/ui/DateInput';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { Combobox } from '@/components/ui/Combobox';
 import { Modal } from '@/components/ui/Modal';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { SplitEditor, SplitRow, createEmptySplits, toSplitRows } from '@/components/transactions/SplitEditor';
 import { toOverrideSplits } from './splitSerialization';
 import { ScheduledTransaction, ScheduledTransactionOverride } from '@/types/scheduled-transaction';
@@ -19,6 +20,7 @@ import { buildCategoryTree } from '@/lib/categoryUtils';
 import { roundToCents, getCurrencySymbol } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 
 const logger = createLogger('OverrideEditorDialog');
@@ -29,6 +31,11 @@ interface OverrideEditorDialogProps {
   categories: Category[];
   accounts: Account[];
   existingOverride?: ScheduledTransactionOverride | null;
+  // When provided, seeds the Amount field with this value (absolute, sign is
+  // applied on save for transfers) instead of the base/override amount. Used by
+  // the post-reconciliation flow to prefill a liability payment with the
+  // reconciled balance.
+  prefillAmount?: number | null;
   onClose: () => void;
   onSave: () => void;
 }
@@ -40,9 +47,12 @@ export function OverrideEditorDialog({
   categories,
   accounts,
   existingOverride,
+  prefillAmount,
   onClose,
   onSave,
 }: OverrideEditorDialogProps) {
+  const t = useTranslations('scheduledTransactions');
+  const tc = useTranslations('common');
   const { formatNumber } = useNumberFormat();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(overrideDate);
@@ -94,7 +104,7 @@ export function OverrideEditorDialog({
         // Use override values (absolute value for transfers - sign is applied on save)
         const rawAmt = roundToCents(existingOverride.amount ?? scheduledTransaction.amount);
         const amt = scheduledTransaction.isTransfer ? Math.abs(rawAmt) : rawAmt;
-        setAmount(amt);
+        setAmount(prefillAmount != null ? roundToCents(prefillAmount) : amt);
         setCategoryId(existingOverride.categoryId ?? scheduledTransaction.categoryId ?? '');
         setDescription(existingOverride.description ?? scheduledTransaction.description ?? '');
         setIsSplit(existingOverride.isSplit ?? scheduledTransaction.isSplit);
@@ -112,7 +122,7 @@ export function OverrideEditorDialog({
         // Use base transaction values (absolute value for transfers - sign is applied on save)
         const rawAmt = roundToCents(scheduledTransaction.amount);
         const amt = scheduledTransaction.isTransfer ? Math.abs(rawAmt) : rawAmt;
-        setAmount(amt);
+        setAmount(prefillAmount != null ? roundToCents(prefillAmount) : amt);
         setCategoryId(scheduledTransaction.categoryId ?? '');
         setDescription(scheduledTransaction.description ?? '');
         setIsSplit(scheduledTransaction.isSplit);
@@ -161,7 +171,7 @@ export function OverrideEditorDialog({
       }
       setMarketPrice(null);
     }
-  }, [isOpen, existingOverride, scheduledTransaction, overrideDate]);
+  }, [isOpen, existingOverride, scheduledTransaction, overrideDate, prefillAmount]);
 
   // Fetch the most recent close price for the security so we can auto-fill
   // the Price field (matching the new-scheduled-transaction form behaviour).
@@ -266,19 +276,19 @@ export function OverrideEditorDialog({
     if (isInvestmentKind) {
       if (isInvestmentQuantityPrice || isInvestmentQuantityOnly) {
         if (investmentQuantity === '' || Number(investmentQuantity) <= 0) {
-          toast.error('Quantity must be greater than zero');
+          toast.error(t('overrideEditor.toasts.quantityRequired'));
           return;
         }
       }
       if (isInvestmentQuantityPrice) {
         if (investmentPrice === '' || Number(investmentPrice) <= 0) {
-          toast.error('Price must be greater than zero');
+          toast.error(t('overrideEditor.toasts.priceRequired'));
           return;
         }
       }
       if (isInvestmentAmountOnly) {
         if (investmentTotalAmount === '') {
-          toast.error('Total amount is required');
+          toast.error(t('overrideEditor.toasts.totalAmountRequired'));
           return;
         }
       }
@@ -317,7 +327,7 @@ export function OverrideEditorDialog({
           existingOverride.id,
           baseData,
         );
-        toast.success('Override updated');
+        toast.success(t('overrideEditor.toasts.updated'));
       } else if (existingOverride && dateChanged) {
         // Date changed - delete old override and create new one with same originalDate
         await scheduledTransactionsApi.deleteOverride(scheduledTransaction.id, existingOverride.id);
@@ -326,7 +336,7 @@ export function OverrideEditorDialog({
           originalDate: existingOverride.originalDate,
           overrideDate: selectedDate,
         });
-        toast.success('Override moved to new date');
+        toast.success(t('overrideEditor.toasts.moved'));
       } else {
         // Create new override
         await scheduledTransactionsApi.createOverride(scheduledTransaction.id, {
@@ -334,12 +344,12 @@ export function OverrideEditorDialog({
           originalDate: overrideDate, // The date from the picker is the original calculated date
           overrideDate: selectedDate, // The selected date (may be same or different)
         });
-        toast.success('Override created');
+        toast.success(t('overrideEditor.toasts.created'));
       }
       onSave();
       onClose();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save override'));
+      toast.error(getErrorMessage(error, t('overrideEditor.toasts.saveFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -351,11 +361,11 @@ export function OverrideEditorDialog({
     setIsLoading(true);
     try {
       await scheduledTransactionsApi.deleteOverride(scheduledTransaction.id, existingOverride.id);
-      toast.success('Override deleted - will use base values');
+      toast.success(t('overrideEditor.toasts.deleted'));
       onSave();
       onClose();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete override'));
+      toast.error(getErrorMessage(error, t('overrideEditor.toasts.deleteFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -372,7 +382,7 @@ export function OverrideEditorDialog({
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="5xl" className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-          Edit Occurrence
+          {t('overrideEditor.title')}
         </h3>
         <button
           onClick={onClose}
@@ -386,28 +396,25 @@ export function OverrideEditorDialog({
 
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {isInvestmentKind ? (
-          <>
-            Modifying {investmentAction || 'investment'}{' '}
-            {scheduledTransaction.investmentSecurity && (
-              <span className="font-medium text-gray-700 dark:text-gray-300">
-                {scheduledTransaction.investmentSecurity.symbol ||
-                  scheduledTransaction.investmentSecurity.name}
-              </span>
-            )}{' '}
-            on {scheduledTransaction.account?.name} for this occurrence only.
-          </>
+          t('overrideEditor.descriptionInvestment', {
+            action: investmentAction || 'investment',
+            security: scheduledTransaction.investmentSecurity
+              ? (scheduledTransaction.investmentSecurity.symbol || scheduledTransaction.investmentSecurity.name)
+              : '',
+            account: scheduledTransaction.account?.name ?? '',
+          })
         ) : (
-          <>Modifying &quot;{scheduledTransaction.name}&quot; for this occurrence only.</>
+          t('overrideEditor.descriptionRegular', { name: scheduledTransaction.name })
         )}
         {existingOverride && (
-          <span className="ml-1 text-blue-600 dark:text-blue-400">(Override exists)</span>
+          <span className="ml-1 text-blue-600 dark:text-blue-400">{t('overrideEditor.overrideExists')}</span>
         )}
       </div>
 
       <div className="space-y-4">
         {/* Date */}
         <DateInput
-          label="Occurrence Date"
+          label={t('overrideEditor.occurrenceDateLabel')}
           value={selectedDate}
           onDateChange={(date) => setSelectedDate(date)}
         />
@@ -417,7 +424,7 @@ export function OverrideEditorDialog({
           <>
             {(isInvestmentQuantityPrice || isInvestmentQuantityOnly) && (
               <Input
-                label="Quantity (shares)"
+                label={t('overrideEditor.quantityLabel')}
                 type="number"
                 step="0.00000001"
                 min={0}
@@ -434,7 +441,7 @@ export function OverrideEditorDialog({
             {isInvestmentQuantityPrice && (
               <>
                 <Input
-                  label="Price per share"
+                  label={t('overrideEditor.pricePerShareLabel')}
                   type="number"
                   step="0.000001"
                   min={0}
@@ -447,7 +454,7 @@ export function OverrideEditorDialog({
                   onChange={(e) => handleInvestmentPriceChange(e.target.value)}
                 />
                 <CurrencyInput
-                  label="Total Price"
+                  label={t('overrideEditor.totalPriceLabel')}
                   prefix={getCurrencySymbol(scheduledTransaction.currencyCode)}
                   value={
                     typeof investmentTotalValue === 'number'
@@ -458,14 +465,14 @@ export function OverrideEditorDialog({
                 />
                 {scheduledTransaction.investmentSecurityId && marketPrice == null && (
                   <p className="-mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    No price history yet for this security. Enter the price manually.
+                    {t('overrideEditor.noPriceHistory')}
                   </p>
                 )}
               </>
             )}
             {isInvestmentAmountOnly && (
               <CurrencyInput
-                label="Total Amount"
+                label={t('overrideEditor.totalAmountLabel')}
                 prefix={getCurrencySymbol(scheduledTransaction.currencyCode)}
                 value={
                   typeof investmentTotalAmount === 'number'
@@ -481,10 +488,11 @@ export function OverrideEditorDialog({
         {/* Amount — non-investment only */}
         {!isInvestmentKind && (
           <CurrencyInput
-            label="Amount"
+            label={t('overrideEditor.amountLabel')}
             prefix={getCurrencySymbol(scheduledTransaction.currencyCode)}
             value={amount}
             onChange={(value) => setAmount(value ?? 0)}
+            allowSignToggle
           />
         )}
 
@@ -504,23 +512,21 @@ export function OverrideEditorDialog({
         ) : (
           <>
             {/* Split toggle */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isSplit"
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+              <ToggleSwitch
                 checked={isSplit}
-                onChange={(e) => {
-                  setIsSplit(e.target.checked);
-                  if (e.target.checked && splits.length < 2) {
+                onChange={(next) => {
+                  setIsSplit(next);
+                  if (next && splits.length < 2) {
                     setSplits(createEmptySplits(amount));
                   }
                 }}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                label={t('overrideEditor.splitLabel')}
               />
-              <label htmlFor="isSplit" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Split this occurrence
-              </label>
-            </div>
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {t('overrideEditor.splitLabel')}
+              </span>
+            </label>
 
             {/* Category or Splits */}
             {isSplit ? (
@@ -541,7 +547,7 @@ export function OverrideEditorDialog({
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category
+                  {t('overrideEditor.categoryLabel')}
                 </label>
                 <Combobox
                   placeholder="Select category..."
@@ -559,7 +565,7 @@ export function OverrideEditorDialog({
         {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description (optional)
+            {t('overrideEditor.descriptionLabel')}
           </label>
           <Input
             type="text"
@@ -580,16 +586,16 @@ export function OverrideEditorDialog({
               isLoading={isLoading}
               className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/50"
             >
-              Reset to Default
+              {t('overrideEditor.resetToDefault')}
             </Button>
           )}
         </div>
         <div className="flex space-x-3">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button onClick={handleSave} isLoading={isLoading}>
-            {existingOverride ? 'Update Override' : 'Save Override'}
+            {existingOverride ? t('overrideEditor.updateOverride') : t('overrideEditor.saveOverride')}
           </Button>
         </div>
       </div>

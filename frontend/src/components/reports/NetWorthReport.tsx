@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   AreaChart,
   Area,
@@ -14,19 +16,26 @@ import {
   Legend,
   ReferenceLine,
   ReferenceDot,
+  LabelList,
 } from 'recharts';
 import { format } from 'date-fns';
+import { chartColors } from '@/lib/chart-colors';
 import { netWorthApi } from '@/lib/net-worth';
 import { MonthlyNetWorth } from '@/types/net-worth';
 import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { gainLossColor } from '@/lib/format';
 import { useDateRange } from '@/hooks/useDateRange';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
 import { DateRangeSelector } from '@/components/ui/DateRangeSelector';
 import { ChartViewToggle } from '@/components/ui/ChartViewToggle';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { exportToCsv } from '@/lib/csv-export';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('NetWorthReport');
@@ -34,11 +43,14 @@ const logger = createLogger('NetWorthReport');
 type NetWorthSortField = 'name' | 'assets' | 'liabilities' | 'netWorth';
 
 export function NetWorthReport() {
-  const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis, formatCurrencyLabel } = useNumberFormat();
-  const [monthlyData, setMonthlyData] = useState<MonthlyNetWorth[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const t = useTranslations('reports');
+  const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis, formatCurrencyLabel, formatSignedPercent } = useNumberFormat();
+  const isMobile = useIsMobile();
   const [isRecalculating, setIsRecalculating] = useState(false);
-  const [chartType, setChartType] = useState<'line' | 'bar' | 'table'>('line');
+  const [chartType, setChartType] = useLocalStorage<'line' | 'bar' | 'stacked' | 'table'>(
+    'reports.net-worth.chartType',
+    'bar',
+  );
   const chartRef = useRef<HTMLDivElement>(null);
   const { dateRange, setDateRange, startDate, setStartDate, endDate, setEndDate, resolvedRange, isValid } = useDateRange({ defaultRange: '1y', alignment: 'month' });
   const { sortField, sortDirection, handleSort } = useSortableTable<NetWorthSortField>(
@@ -46,36 +58,29 @@ export function NetWorthReport() {
     { field: 'name', direction: 'asc' },
   );
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { start, end } = resolvedRange;
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
 
-      if (!end) return;
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      isValid && rangeEnd
+        ? netWorthApi.getMonthly({
+            startDate: rangeStart || undefined,
+            endDate: rangeEnd,
+          })
+        : Promise.resolve(null),
+    [isValid, rangeStart, rangeEnd],
+  );
 
-      const data = await netWorthApi.getMonthly({
-        startDate: start || undefined,
-        endDate: end,
-      });
-      setMonthlyData(data);
-    } catch (error) {
-      logger.error('Failed to load net worth data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [resolvedRange]);
-
-  useEffect(() => {
-    if (isValid) {
-      loadData();
-    }
-  }, [isValid, loadData]);
+  const monthlyData = useMemo<MonthlyNetWorth[]>(
+    () => response ?? [],
+    [response],
+  );
 
   const handleRecalculate = async () => {
     setIsRecalculating(true);
     try {
       await netWorthApi.recalculate();
-      await loadData();
+      reload();
     } catch (error) {
       logger.error('Failed to recalculate:', error);
     } finally {
@@ -86,12 +91,12 @@ export function NetWorthReport() {
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
     await exportToPdf({
-      title: 'Net Worth Report',
+      title: t('netWorth.pdfTitle'),
       subtitle: `${chartData[0]?.name || ''} - ${chartData[chartData.length - 1]?.name || ''}`,
       summaryCards: [
-        { label: 'Current Net Worth', value: formatCurrency(summary.current), color: summary.current >= 0 ? '#16a34a' : '#dc2626' },
-        { label: 'Change', value: `${summary.change >= 0 ? '+' : ''}${formatCurrency(summary.change)}`, color: summary.change >= 0 ? '#16a34a' : '#dc2626' },
-        { label: 'Change %', value: `${summary.changePercent >= 0 ? '+' : ''}${summary.changePercent.toFixed(1)}%`, color: summary.changePercent >= 0 ? '#16a34a' : '#dc2626' },
+        { label: t('netWorth.currentNetWorth'), value: formatCurrency(summary.current), color: summary.current >= 0 ? '#16a34a' : '#dc2626' },
+        { label: t('netWorth.change'), value: `${summary.change >= 0 ? '+' : ''}${formatCurrency(summary.change)}`, color: summary.change >= 0 ? '#16a34a' : '#dc2626' },
+        { label: t('netWorth.changePct'), value: formatSignedPercent(summary.changePercent, 1), color: summary.changePercent >= 0 ? '#16a34a' : '#dc2626' },
       ],
       chartContainer: chartRef.current,
       filename: 'net-worth-report',
@@ -99,7 +104,7 @@ export function NetWorthReport() {
   };
 
   const handleExportCsv = () => {
-    const headers = ['Month', 'Assets', 'Liabilities', 'Net Worth'];
+    const headers = [t('netWorth.colMonth'), t('netWorth.colAssets'), t('netWorth.colLiabilities'), t('netWorth.colNetWorth')];
     const rows = sortedTableData.map((d) => [d.name, d.Assets, d.Liabilities, d.NetWorth]);
     exportToCsv('net-worth-report', headers, rows);
   };
@@ -199,6 +204,29 @@ export function NetWorthReport() {
     };
   }, [chartData]);
 
+  // Per-bar value labels are only legible on the shorter (1y/2y) ranges; longer
+  // ranges pack too many bars together. Beyond ~14 bars the labels are rotated
+  // vertical so the 2-year view doesn't overlap. On mobile the bars are narrow
+  // enough that even the 12-bar 1-year view needs vertical labels.
+  const showBarLabels = dateRange === '1y' || dateRange === '2y';
+  const barLabelsVertical = showBarLabels && (chartData.length > 14 || isMobile);
+
+  // Shared between the area, bar and stacked charts so the month labels stay
+  // consistent as the range widens.
+  const formatXAxisTick = (value: string) => {
+    if (chartData.length > 36) {
+      return value.split(' ')[1] || value;
+    } else if (chartData.length > 18) {
+      const parts = value.split(' ');
+      return parts.length === 2 ? `${parts[0]} '${parts[1].slice(2)}` : value;
+    }
+    return value.split(' ')[0];
+  };
+
+  // The 100% stacked view normalises each bar to its assets/liabilities split,
+  // so the Y axis reads as a percentage rather than a currency amount.
+  const formatPercentAxis = (value: number) => `${Math.round(value * 100)}%`;
+
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string; payload: { name: string } }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0]?.payload;
@@ -216,12 +244,41 @@ export function NetWorthReport() {
     return null;
   };
 
+  const CompositionTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; Assets: number; Liabilities: number } }> }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0]?.payload;
+      const assets = data?.Assets ?? 0;
+      const liabilities = data?.Liabilities ?? 0;
+      const total = assets + liabilities;
+      const pct = (value: number) => (total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0%');
+      return (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+          <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">{data?.name}</p>
+          <p className="text-sm" style={{ color: chartColors.income }}>
+            {t('netWorth.colAssets')}: {formatCurrency(assets)} ({pct(assets)})
+          </p>
+          <p className="text-sm" style={{ color: chartColors.expense }}>
+            {t('netWorth.colLiabilities')}: {formatCurrency(liabilities)} ({pct(liabilities)})
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+            {t('netWorth.seriesNetWorth')}: {formatCurrency(assets - liabilities)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </div>
     );
@@ -232,27 +289,23 @@ export function NetWorthReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Current Net Worth</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('netWorth.currentNetWorth')}</div>
           <div className={`text-2xl font-bold ${
-            summary.current >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+            gainLossColor(summary.current)
           }`}>
             {formatCurrency(summary.current)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Change</div>
-          <div className={`text-2xl font-bold ${
-            summary.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-          }`}>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('netWorth.change')}</div>
+          <div className={`text-2xl font-bold ${gainLossColor(summary.change)}`}>
             {summary.change >= 0 ? '+' : ''}{formatCurrency(summary.change)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Change %</div>
-          <div className={`text-2xl font-bold ${
-            summary.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-          }`}>
-            {summary.changePercent >= 0 ? '+' : ''}{summary.changePercent.toFixed(1)}%
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('netWorth.changePct')}</div>
+          <div className={`text-2xl font-bold ${gainLossColor(summary.changePercent)}`}>
+            {formatSignedPercent(summary.changePercent, 1)}
           </div>
         </div>
       </div>
@@ -273,15 +326,15 @@ export function NetWorthReport() {
           <div className="flex items-center gap-3">
             <ChartViewToggle
               value={chartType}
-              onChange={(v) => setChartType(v as 'line' | 'bar' | 'table')}
-              options={['line', 'bar', 'table']}
+              onChange={(v) => setChartType(v as 'line' | 'bar' | 'stacked' | 'table')}
+              options={['bar', 'stacked', 'line', 'table']}
             />
             <button
               onClick={handleRecalculate}
               disabled={isRecalculating}
               className="px-3 py-1.5 text-sm font-medium rounded-md transition-colors bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
             >
-              {isRecalculating ? 'Recalculating...' : 'Recalculate'}
+              {isRecalculating ? t('netWorth.recalculating') : t('netWorth.recalculate')}
             </button>
             <ExportDropdown onExportPdf={handleExportPdf} onExportCsv={handleExportCsv} disabled={chartData.length === 0} />
           </div>
@@ -292,7 +345,7 @@ export function NetWorthReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
         {chartData.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No data for this period.
+            {t('netWorth.noData')}
           </p>
         ) : chartType === 'table' ? (
           <div className="overflow-x-auto">
@@ -306,7 +359,7 @@ export function NetWorthReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Month
+                    {t('netWorth.colMonth')}
                   </SortableHeader>
                   <SortableHeader<NetWorthSortField>
                     field="assets"
@@ -316,7 +369,7 @@ export function NetWorthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Assets
+                    {t('netWorth.colAssets')}
                   </SortableHeader>
                   <SortableHeader<NetWorthSortField>
                     field="liabilities"
@@ -326,7 +379,7 @@ export function NetWorthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Liabilities
+                    {t('netWorth.colLiabilities')}
                   </SortableHeader>
                   <SortableHeader<NetWorthSortField>
                     field="netWorth"
@@ -336,7 +389,7 @@ export function NetWorthReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Net Worth
+                    {t('netWorth.colNetWorth')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -367,24 +420,16 @@ export function NetWorthReport() {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 12 }}
                   {...(xAxisTicks ? { ticks: xAxisTicks } : {})}
-                  tickFormatter={(value: string) => {
-                    if (chartData.length > 36) {
-                      return value.split(' ')[1] || value;
-                    } else if (chartData.length > 18) {
-                      const parts = value.split(' ');
-                      return parts.length === 2 ? `${parts[0]} '${parts[1].slice(2)}` : value;
-                    }
-                    return value.split(' ')[0];
-                  }}
+                  tickFormatter={formatXAxisTick}
                 />
                 <YAxis
                   domain={yAxisDomain}
@@ -393,25 +438,25 @@ export function NetWorthReport() {
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                <ReferenceLine y={0} stroke={chartColors.axis} strokeDasharray="3 3" />
                 <Area
                   type="monotone"
                   dataKey="NetWorth"
-                  stroke="#3b82f6"
+                  stroke={chartColors.primary}
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorNetWorth)"
-                  name="Net Worth"
+                  name={t('netWorth.seriesNetWorth')}
                 />
                 {minMax && (
                   <ReferenceDot
                     x={minMax.max.name}
                     y={minMax.max.NetWorth}
                     r={6}
-                    fill="#16a34a"
+                    fill={chartColors.income}
                     stroke="#fff"
                     strokeWidth={2}
-                    label={{ value: formatCurrencyLabel(minMax.max.NetWorth), position: 'bottom', fontSize: 12, fill: '#16a34a', fontWeight: 600, offset: 8 }}
+                    label={{ value: formatCurrencyLabel(minMax.max.NetWorth), position: 'bottom', fontSize: 12, fill: chartColors.income, fontWeight: 600, offset: 8 }}
                   />
                 )}
                 {minMax && (
@@ -419,29 +464,40 @@ export function NetWorthReport() {
                     x={minMax.min.name}
                     y={minMax.min.NetWorth}
                     r={6}
-                    fill="#dc2626"
+                    fill={chartColors.expense}
                     stroke="#fff"
                     strokeWidth={2}
-                    label={{ value: formatCurrencyLabel(minMax.min.NetWorth), position: 'top', fontSize: 12, fill: '#dc2626', fontWeight: 600, offset: 8 }}
+                    label={{ value: formatCurrencyLabel(minMax.min.NetWorth), position: 'top', fontSize: 12, fill: chartColors.expense, fontWeight: 600, offset: 8 }}
                   />
                 )}
               </AreaChart>
-              ) : (
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              ) : chartType === 'stacked' ? (
+              <BarChart data={chartData} stackOffset="expand" margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 12 }}
                   {...(xAxisTicks ? { ticks: xAxisTicks } : {})}
-                  tickFormatter={(value: string) => {
-                    if (chartData.length > 36) {
-                      return value.split(' ')[1] || value;
-                    } else if (chartData.length > 18) {
-                      const parts = value.split(' ');
-                      return parts.length === 2 ? `${parts[0]} '${parts[1].slice(2)}` : value;
-                    }
-                    return value.split(' ')[0];
-                  }}
+                  tickFormatter={formatXAxisTick}
+                />
+                <YAxis
+                  domain={[0, 1]}
+                  tickFormatter={formatPercentAxis}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip content={<CompositionTooltip />} />
+                <Legend />
+                <Bar dataKey="Assets" stackId="networth" fill={chartColors.income} name={t('netWorth.colAssets')} />
+                <Bar dataKey="Liabilities" stackId="networth" fill={chartColors.expense} name={t('netWorth.colLiabilities')} radius={[4, 4, 0, 0]} />
+              </BarChart>
+              ) : (
+              <BarChart data={chartData} margin={{ top: showBarLabels ? (barLabelsVertical ? 52 : 22) : 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 12 }}
+                  {...(xAxisTicks ? { ticks: xAxisTicks } : {})}
+                  tickFormatter={formatXAxisTick}
                 />
                 <YAxis
                   domain={yAxisDomain}
@@ -450,8 +506,25 @@ export function NetWorthReport() {
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
-                <Bar dataKey="NetWorth" fill="#3b82f6" name="Net Worth" />
+                <ReferenceLine y={0} stroke={chartColors.axis} strokeDasharray="3 3" />
+                <Bar dataKey="NetWorth" fill={chartColors.primary} name={t('netWorth.seriesNetWorth')} radius={[4, 4, 0, 0]}>
+                  {showBarLabels && (
+                    <LabelList
+                      dataKey="NetWorth"
+                      position="top"
+                      angle={barLabelsVertical ? -90 : 0}
+                      offset={barLabelsVertical ? 6 : 5}
+                      textAnchor={barLabelsVertical ? 'start' : 'middle'}
+                      formatter={(value: unknown) => formatCurrencyLabel(Number(value))}
+                      style={{
+                        fill: chartColors.axis,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        ...(barLabelsVertical && { dominantBaseline: 'central' as const }),
+                      }}
+                    />
+                  )}
+                </Bar>
               </BarChart>
               )}
             </ResponsiveContainer>

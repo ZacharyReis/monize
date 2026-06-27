@@ -11,7 +11,7 @@ import { UserPreference } from "../users/entities/user-preference.entity";
 import { TrustedDevice } from "../users/entities/trusted-device.entity";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
-import { AiEncryptionService } from "../ai/ai-encryption.service";
+import { AiModule } from "../ai/ai.module";
 
 @Module({
   imports: [
@@ -24,12 +24,9 @@ import { AiEncryptionService } from "../ai/ai-encryption.service";
     ]),
     AuthModule,
     NotificationsModule,
+    AiModule,
   ],
-  providers: [
-    EmergencyAccessService,
-    EmergencyAccessMonitorService,
-    AiEncryptionService,
-  ],
+  providers: [EmergencyAccessService, EmergencyAccessMonitorService],
   controllers: [EmergencyAccessController, EmergencyAccessClaimController],
 })
 export class EmergencyAccessModule {}

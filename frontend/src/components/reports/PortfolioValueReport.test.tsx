@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@/test/render';
 import { PortfolioValueReport } from './PortfolioValueReport';
+import { renderChartFlagDot } from '@/components/investments/portfolio-chart-utils';
+import { chartColors } from '@/lib/chart-colors';
 
 vi.mock('@/lib/pdf-export', () => ({
   exportToPdf: vi.fn().mockResolvedValue(undefined),
@@ -8,9 +10,11 @@ vi.mock('@/lib/pdf-export', () => ({
 
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
+    formatSignedPercent: (n: number, decimals = 2) => `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`,
     formatCurrencyCompact: (n: number, _currency?: string) => `$${n.toFixed(0)}`,
     formatCurrency: (n: number, _currency?: string) => `$${n.toFixed(2)}`,
     formatCurrencyAxis: (n: number) => `$${n}`,
+    formatCurrencyFlag: (n: number, _currency?: string) => `$${n}`,
     defaultCurrency: 'CAD',
   }),
 }));
@@ -71,7 +75,17 @@ vi.mock('@/components/ui/ExportDropdown', () => ({
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
   AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
-  Area: () => null,
+  // Invoke the dot render-prop so the high/low bubble wiring (and its dismiss
+  // control) is exercised. Indices 0..2 cover both extremes of the 3-point
+  // series the dismiss test renders.
+  Area: ({ dot }: any) =>
+    typeof dot === 'function' ? (
+      <>
+        {dot({ cx: 10, cy: 20, index: 0 })}
+        {dot({ cx: 30, cy: 40, index: 1 })}
+        {dot({ cx: 50, cy: 60, index: 2 })}
+      </>
+    ) : null,
   XAxis: ({ tickFormatter }: any) => (
     <div>
       {tickFormatter ? tickFormatter('Jan 2024') : ''}
@@ -207,6 +221,36 @@ describe('PortfolioValueReport', () => {
     expect(screen.getByText('Period Return')).toBeInTheDocument();
   });
 
+  it('lets the user dismiss a high or low value bubble without persisting it', async () => {
+    mockGetInvestmentsMonthly.mockResolvedValue([
+      { month: '2024-06-01', value: 50000 },
+      { month: '2024-07-01', value: 52000 },
+      { month: '2024-08-01', value: 55000 },
+    ]);
+    mockGetPortfolioSummary.mockResolvedValue(emptyPortfolio);
+    mockGetInvestmentAccounts.mockResolvedValue([]);
+    render(<PortfolioValueReport />);
+
+    const flagMock = vi.mocked(renderChartFlagDot);
+    await waitFor(() => {
+      expect(flagMock.mock.calls.some(([o]: any) => o.color === chartColors.income)).toBe(true);
+    });
+
+    // Both bubbles are wired with a dismiss control and the localized label.
+    const highCall = flagMock.mock.calls.find(([o]: any) => o.color === chartColors.income)!;
+    expect(typeof highCall[0].onDismiss).toBe('function');
+    expect(highCall[0].dismissLabel).toBe('Hide this value');
+    expect(flagMock.mock.calls.some(([o]: any) => o.color === chartColors.expense)).toBe(true);
+
+    // Dismissing the high bubble hides it on the next render; the low remains.
+    flagMock.mockClear();
+    await act(async () => {
+      highCall[0].onDismiss!();
+    });
+    expect(flagMock.mock.calls.some(([o]: any) => o.color === chartColors.income)).toBe(false);
+    expect(flagMock.mock.calls.some(([o]: any) => o.color === chartColors.expense)).toBe(true);
+  });
+
   it('renders the area chart', async () => {
     mockGetInvestmentsMonthly.mockResolvedValue([
       { month: '2024-06-01', value: 50000 },
@@ -255,8 +299,9 @@ describe('PortfolioValueReport', () => {
     await waitFor(() => {
       expect(screen.getByText('Current Portfolio Breakdown')).toBeInTheDocument();
     });
-    // 'TFSA' appears in both the account selector dropdown and the breakdown table
-    expect(screen.getAllByText('TFSA').length).toBeGreaterThanOrEqual(2);
+    // 'TFSA' appears in the breakdown table (the account picker shows the
+    // "All Accounts" placeholder until opened).
+    expect(screen.getAllByText('TFSA').length).toBeGreaterThanOrEqual(1);
   });
 
   it('passes date filter ranges including 1w, 1m, 3m, ytd to DateRangeSelector', async () => {
@@ -345,12 +390,10 @@ describe('PortfolioValueReport', () => {
       { id: 'acc-1', name: 'TFSA - Cash', currencyCode: 'CAD', accountSubType: 'INVESTMENT_CASH' },
     ]);
     render(<PortfolioValueReport />);
-    await waitFor(() => {
-      expect(screen.getByText('All Accounts')).toBeInTheDocument();
-    });
-    const select = document.querySelector('select') as HTMLSelectElement;
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    await act(async () => { fireEvent.click(trigger); });
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-1' } });
+      fireEvent.click(screen.getByText('TFSA'));
     });
   });
 
@@ -421,10 +464,10 @@ describe('PortfolioValueReport', () => {
       { id: 'acc-1', name: 'TFSA - Cash', currencyCode: 'CAD', accountSubType: 'INVESTMENT_CASH' },
     ]);
     render(<PortfolioValueReport />);
-    await waitFor(() => {
-      // The " - Cash" suffix should be stripped
-      expect(screen.getByText('TFSA')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    fireEvent.click(trigger);
+    // The " - Cash" suffix should be stripped in the option label
+    expect(screen.getByText('TFSA')).toBeInTheDocument();
   });
 
   it('shows breakdown negative gain/loss in red colour class', async () => {
@@ -484,12 +527,10 @@ describe('PortfolioValueReport', () => {
       { id: 'acc-usd', name: 'USD Account - Cash', currencyCode: 'USD', accountSubType: 'INVESTMENT_CASH' },
     ]);
     render(<PortfolioValueReport />);
-    await waitFor(() => {
-      expect(screen.getByText('All Accounts')).toBeInTheDocument();
-    });
-    const select = document.querySelector('select') as HTMLSelectElement;
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    await act(async () => { fireEvent.click(trigger); });
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-usd' } });
+      fireEvent.click(screen.getByText('USD Account'));
     });
     await waitFor(() => {
       // When foreign currency is active, values are formatted with the currency code suffix
@@ -624,9 +665,11 @@ describe('PortfolioValueReport', () => {
       expect(screen.getByText('Portfolio Value Over Time')).toBeInTheDocument();
     });
     // Trigger a reload by changing the account — new fetch hangs, but old points are shown
-    const select = document.querySelector('select') as HTMLSelectElement;
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-1' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Filter by account' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('TFSA'));
     });
     await waitFor(() => {
       expect(screen.getByTestId('report-chart-loading-indicator')).toBeInTheDocument();
@@ -683,10 +726,12 @@ describe('PortfolioValueReport', () => {
     ]);
     render(<PortfolioValueReport />);
     // Select the USD account first to activate foreign currency path
-    await waitFor(() => expect(screen.getByText('All Accounts')).toBeInTheDocument());
-    const select = document.querySelector('select') as HTMLSelectElement;
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    await act(async () => { fireEvent.click(trigger); });
+    // The account name also appears in the breakdown table, so target the
+    // option's checkbox inside the dropdown rather than matching by text.
     await act(async () => {
-      fireEvent.change(select, { target: { value: 'acc-usd' } });
+      fireEvent.click(screen.getByRole('checkbox'));
     });
     await waitFor(() => expect(screen.getByTestId('export-pdf')).toBeInTheDocument());
     await act(async () => {

@@ -1,0 +1,893 @@
+{
+  "language": {
+    "label": "Język",
+    "browserOption": "Użyj języka przeglądarki (wykryto {locale})",
+    "helpText": "Wybierz język używany w całym interfejsie Monize. Formatowanie liczb i dat jest sterowane osobno poniżej.",
+    "saved": "Zmieniono język",
+    "saveFailed": "Nie udało się zapisać języka"
+  },
+  "profile": {
+    "heading": "Profil",
+    "firstNameLabel": "Imię",
+    "firstNamePlaceholder": "Wpisz swoje imię",
+    "lastNameLabel": "Nazwisko",
+    "lastNamePlaceholder": "Wpisz swoje nazwisko",
+    "emailLabel": "E-mail",
+    "emailPlaceholder": "Wpisz swój adres e-mail",
+    "currentPasswordLabel": "Bieżące hasło",
+    "currentPasswordPlaceholder": "Wymagane do zmiany adresu e-mail",
+    "passwordRequired": "Bieżące hasło jest wymagane do zmiany adresu e-mail",
+    "noChanges": "Brak zmian do zapisania",
+    "passwordConfirmNote": "Potwierdzenie hasłem jest wymagane przy zmianie adresu e-mail.",
+    "saveButton": "Zapisz profil",
+    "savingButton": "Zapisywanie...",
+    "toasts": {
+      "success": "Zaktualizowano profil",
+      "updateFailed": "Nie udało się zaktualizować profilu"
+    },
+    "validation": {
+      "firstNameMax": "Imię może mieć maksymalnie 100 znaków",
+      "lastNameMax": "Nazwisko może mieć maksymalnie 100 znaków",
+      "emailRequired": "Adres e-mail jest wymagany",
+      "emailInvalid": "Wprowadź prawidłowy adres e-mail",
+      "emailMax": "Adres e-mail może mieć maksymalnie 254 znaki",
+      "passwordMax": "Hasło może mieć maksymalnie 128 znaków"
+    }
+  },
+  "security": {
+    "heading": "Papier wartościowy",
+    "ssoNotice": "Twoje konto korzysta z logowania jednokrotnego (SSO). Poniższe hasło nie jest używane do logowania, ale można je zachować jako zapasowe na wypadek wyłączenia SSO.",
+    "currentPasswordLabel": "Bieżące hasło",
+    "currentPasswordPlaceholder": "Wpisz bieżące hasło",
+    "newPasswordLabel": "Nowe hasło",
+    "newPasswordPlaceholder": "Wpisz nowe hasło",
+    "confirmPasswordLabel": "Potwierdź nowe hasło",
+    "confirmPasswordPlaceholder": "Potwierdź nowe hasło",
+    "changePasswordButton": "Zmień hasło",
+    "changingPasswordButton": "Zmienianie...",
+    "toasts": {
+      "passwordChanged": "Zmieniono hasło",
+      "passwordChangeFailed": "Nie udało się zmienić hasła"
+    },
+    "twoFactor": {
+      "heading": "Uwierzytelnianie dwuskładnikowe",
+      "ssoUnavailable": "Uwierzytelnianie dwuskładnikowe jest niedostępne dla kont SSO. Bezpieczeństwem uwierzytelniania zarządza Twój dostawca tożsamości.",
+      "enabledBadge": "Włączone",
+      "enabledDescription": "Twoje konto jest chronione weryfikacją TOTP.",
+      "requiredByAdmin": "Wymagane przez administratora",
+      "addLayerDescription": "Dodaj dodatkową warstwę zabezpieczeń do swojego konta.",
+      "enableButton": "Włącz 2FA",
+      "disableButton": "Wyłącz 2FA",
+      "disableModal": {
+        "title": "Wyłącz uwierzytelnianie dwuskładnikowe",
+        "description": "Wpisz bieżący 6-cyfrowy kod, aby potwierdzić wyłączenie 2FA.",
+        "verificationCodeLabel": "Kod weryfikacyjny",
+        "disablingButton": "Wyłączanie...",
+        "toasts": {
+          "disabled": "Wyłączono uwierzytelnianie dwuskładnikowe",
+          "disableFailed": "Nie udało się wyłączyć uwierzytelniania dwuskładnikowego"
+        }
+      }
+    },
+    "backupCodes": {
+      "heading": "Kody zapasowe",
+      "description": "Użyj kodów zapasowych, aby zalogować się, jeśli utracisz dostęp do aplikacji uwierzytelniającej.",
+      "regenerateButton": "Wygeneruj ponownie kody",
+      "regenerateModal": {
+        "title": "Wygeneruj ponownie kody zapasowe",
+        "description": "Wpisz bieżący 6-cyfrowy kod, aby potwierdzić ponowne wygenerowanie kodów zapasowych. Spowoduje to unieważnienie wszystkich istniejących kodów.",
+        "verificationCodeLabel": "Kod weryfikacyjny",
+        "regeneratingButton": "Generowanie ponownie...",
+        "regenerateButton": "Wygeneruj ponownie"
+      },
+      "toasts": {
+        "generateFailed": "Nie udało się wygenerować kodów zapasowych"
+      }
+    },
+    "trustedDevices": {
+      "heading": "Zaufane urządzenia",
+      "revokeAllButton": "Odwołaj wszystkie",
+      "noDevices": "Brak zaufanych urządzeń. Gdy zaznaczysz „Nie pytaj ponownie w tej przeglądarce” podczas logowania 2FA, urządzenie pojawi się tutaj.",
+      "currentBadge": "Bieżące",
+      "revokeButton": "Odwołaj",
+      "revokeAllModal": {
+        "title": "Odwołaj wszystkie zaufane urządzenia",
+        "description": "Spowoduje to usunięcie wszystkich zaufanych urządzeń. Przy następnym logowaniu z dowolnego urządzenia trzeba będzie wpisać kod 2FA."
+      },
+      "toasts": {
+        "revoked": "Odwołano urządzenie",
+        "revokedAll": "Odwołano urządzenia: {count}",
+        "revokeFailed": "Nie udało się odwołać urządzenia",
+        "revokeAllFailed": "Nie udało się odwołać urządzeń"
+      }
+    },
+    "validation": {
+      "currentPasswordRequired": "Bieżące hasło jest wymagane",
+      "passwordMax": "Hasło może mieć maksymalnie 128 znaków",
+      "confirmRequired": "Potwierdź swoje nowe hasło",
+      "newPasswordsNoMatch": "Nowe hasła nie są zgodne"
+    }
+  },
+  "preferences": {
+    "heading": "Preferencje",
+    "themeLabel": "Motyw",
+    "defaultCurrencyLabel": "Domyślna waluta",
+    "preferredExchangesLabel": "Preferowane giełdy (do wyszukiwania papierów)",
+    "preferredExchangesHelp": "Wybierz maksymalnie 3 giełdy w kolejności priorytetu. Będą one preferowane podczas wyszukiwania papierów wartościowych.",
+    "exchangePriorityPlaceholder": "Priorytet {n}",
+    "defaultQuoteProviderLabel": "Domyślny dostawca notowań akcji",
+    "defaultQuoteProviderHelp": "Używany, gdy papier nie ma własnego dostawcy. Jeśli wybrany dostawca zawiedzie, Monize automatycznie spróbuje drugiego.",
+    "msnNoIntradayNote": "Uwaga: MSN Money nie udostępnia danych śróddziennych, więc zakresy 1D / 1W / 1M na wykresie Wartość portfela w czasie są niedostępne dla pozycji śledzonych przez MSN.",
+    "msnNotConfigured": "MSN jest wybrany jako domyślny dostawca notowań, ale na serwerze nie skonfigurowano MSN_API_KEY. Notowania MSN nie będą działać, dopóki administrator nie ustawi zmiennej środowiskowej i nie zrestartuje backendu.",
+    "dateFormatLabel": "Format daty",
+    "numberFormatLabel": "Format liczb",
+    "timezoneLabel": "Strefa czasowa",
+    "timezonePlaceholder": "Szukaj stref czasowych...",
+    "weekStartsOnLabel": "Tydzień zaczyna się od",
+    "showCreatedAtLabel": "Pokaż datę utworzenia w formularzach transakcji",
+    "showCreatedAtTooltip": "Wyświetla datę i godzinę pierwotnego utworzenia transakcji w formularzach. Jest to odrębne od daty transakcji i pomaga ustalić, kiedy wpis faktycznie dodano do Monize.",
+    "timeFormatLabel": "Format czasu",
+    "recentTransactionsLabel": "Ostatnie transakcje w szybkim uzupełnianiu",
+    "recentTransactionsHelp": "Liczba wpisów wyświetlanych w okienku przycisku historii obok pola Odbiorca w formularzach transakcji.",
+    "saveButton": "Zapisz preferencje",
+    "savingButton": "Zapisywanie...",
+    "toasts": {
+      "saved": "Zapisano preferencje",
+      "saveFailed": "Nie udało się zapisać preferencji",
+      "themeSaveFailed": "Nie udało się zapisać motywu",
+      "colorThemeSaveFailed": "Nie udało się zapisać motywu kolorystycznego"
+    },
+    "browserLocale": "Użyj ustawień regionalnych przeglądarki (automatycznie)",
+    "browserTimezonePrefix": "Użyj strefy czasowej przeglądarki (wykryto {tz})",
+    "numberFormatOptions": {
+      "browser": "Użyj ustawień regionalnych przeglądarki (wykryto {sample})",
+      "enUS": "Angielski (US) - 1,234.56",
+      "enGB": "Angielski (UK) - 1,234.56",
+      "deDE": "Niemiecki - 1.234,56",
+      "frFR": "Francuski - 1 234,56"
+    },
+    "weekDays": {
+      "sunday": "Niedziela",
+      "monday": "Poniedziałek",
+      "tuesday": "Wtorek",
+      "wednesday": "Środa",
+      "thursday": "Czwartek",
+      "friday": "Piątek",
+      "saturday": "Sobota"
+    },
+    "themeOptions": {
+      "system": "Systemowy (zgodnie z ustawieniem urządzenia)",
+      "light": "Jasny",
+      "dark": "Ciemny"
+    },
+    "colorThemeLabel": "Motyw kolorystyczny",
+    "colorThemeOptions": {
+      "default": "Domyślny",
+      "latte": "Latte",
+      "msmoney": "MS Money",
+      "newspaper": "Gazeta",
+      "burgundy": "Burgund",
+      "nord": "Nord",
+      "forest": "Leśny",
+      "solarized": "Solarized",
+      "gruvbox": "Gruvbox",
+      "dracula": "Dracula",
+      "tokyonight": "Tokyo Night",
+      "rosepine": "Rosé Pine",
+      "midnight": "Północ",
+      "highcontrast": "Wysoki kontrast",
+      "colorblind": "Bezpieczny dla daltonistów"
+    },
+    "timezoneBrowserOption": "Użyj strefy czasowej przeglądarki (wykryto {tz})"
+  },
+  "notifications": {
+    "heading": "Powiadomienia",
+    "smtpNotConfigured": "Powiadomienia e-mail są niedostępne. Administrator nie skonfigurował SMTP.",
+    "emailNotificationsTitle": "Powiadomienia e-mail",
+    "emailNotificationsDescription": "Otrzymuj przypomnienia e-mail o nadchodzących rachunkach i alertach budżetowych",
+    "budgetNotificationsHeading": "Powiadomienia budżetowe",
+    "weeklyBudgetDigestTitle": "Tygodniowe podsumowanie budżetu",
+    "weeklyBudgetDigestDescription": "Otrzymuj cotygodniowe podsumowanie alertów i statusu budżetu",
+    "toggleBudgetDigestLabel": "Przełącz podsumowanie budżetu",
+    "digestDayLabel": "Dzień podsumowania",
+    "digestDayAriaLabel": "Dzień podsumowania budżetu",
+    "mondayOption": "Poniedziałek",
+    "fridayOption": "Piątek",
+    "immediateAlertsNote": "Krytyczne alerty budżetowe (przekroczenie budżetu, niedobór przychodów) są wysyłane natychmiast, niezależnie od ustawień podsumowania.",
+    "sendTestEmailDescription": "Wyślij testowy e-mail, aby sprawdzić, czy powiadomienia działają.",
+    "sendTestEmailButton": "Wyślij testowy e-mail",
+    "sendingTestEmailButton": "Wysyłanie...",
+    "toasts": {
+      "emailEnabled": "Włączono powiadomienia e-mail",
+      "emailDisabled": "Wyłączono powiadomienia e-mail",
+      "digestEnabled": "Włączono podsumowanie budżetu",
+      "digestDisabled": "Wyłączono podsumowanie budżetu",
+      "digestDaySet": "Ustawiono dzień podsumowania budżetu na {day}",
+      "testEmailSent": "Wysłano testowy e-mail! Sprawdź swoją skrzynkę.",
+      "emailUpdateFailed": "Nie udało się zaktualizować preferencji powiadomień",
+      "digestUpdateFailed": "Nie udało się zaktualizować preferencji podsumowania budżetu",
+      "digestDayFailed": "Nie udało się zaktualizować dnia podsumowania",
+      "testEmailFailed": "Nie udało się wysłać testowego e-maila"
+    }
+  },
+  "help": {
+    "heading": "Pomoc i wsparcie",
+    "description": "Znajdź dokumentację, zgłoś problemy lub dołącz do rozmowy.",
+    "github": {
+      "label": "GitHub",
+      "description": "Zobacz kod źródłowy i daj gwiazdkę projektowi."
+    },
+    "openIssue": {
+      "label": "Zgłoś problem",
+      "description": "Zgłoś błąd lub zaproponuj funkcję."
+    },
+    "discussions": {
+      "label": "Dyskusje",
+      "description": "Zadawaj pytania i dziel się pomysłami ze społecznością."
+    },
+    "wiki": {
+      "label": "Wiki",
+      "description": "Przeglądaj przewodniki i dokumentację."
+    }
+  },
+  "dangerZone": {
+    "heading": "Strefa zagrożenia",
+    "deleteData": {
+      "heading": "Usuń dane",
+      "description": "Usuń dane finansowe z konta. Tej operacji nie można cofnąć.",
+      "openButton": "Usuń dane...",
+      "alwaysDeletedHeading": "Zawsze zostaną usunięte:",
+      "optionalHeading": "Opcjonalnie usuń także:",
+      "accountsOption": "Konta",
+      "categoriesOption": "Kategorie",
+      "payeesOption": "Odbiorcy",
+      "currencyPreferencesOption": "Preferencje walut",
+      "balanceResetNote": "Salda kont zostaną zresetowane do salda początkowego.",
+      "oidcConfirmLabel": "Uwierzytelnij się ponownie u swojego dostawcy tożsamości, aby potwierdzić:",
+      "passwordConfirmLabel": "Wpisz hasło, aby potwierdzić:",
+      "passwordPlaceholder": "Wpisz swoje hasło",
+      "oidcReauthButton": "Uwierzytelnij ponownie i usuń",
+      "deletingButton": "Usuwanie...",
+      "confirmButton": "Potwierdź usunięcie danych",
+      "toasts": {
+        "success": "Usunięto {count} rekordów",
+        "failed": "Nie udało się usunąć danych"
+      }
+    },
+    "deleteAccount": {
+      "heading": "Usuń konto",
+      "description": "Trwale usuń swoje konto i wszystkie powiązane dane. Tej operacji nie można cofnąć.",
+      "delegateNotice": {
+        "title": "Jesteś pełnomocnikiem innego konta.",
+        "body": "Usunięcie Twojego konta usunie Twoje własne dane, ale Twoje logowanie oraz dostęp współdzielony przyznany Ci przez innych pozostaną, aby pełnomocnictwo nadal działało. Aby odwołać ten dostęp, najpierw poproś właściciela o usunięcie Cię z jego listy Dostępu współdzielonego."
+      },
+      "openButton": "Usuń konto",
+      "typeDeleteLabel": "Wpisz DELETE, aby potwierdzić usunięcie konta:",
+      "typeDeletePlaceholder": "Wpisz DELETE",
+      "enterPasswordLabel": "Wpisz swoje hasło:",
+      "enterPasswordPlaceholder": "Wpisz swoje hasło",
+      "deletingButton": "Usuwanie...",
+      "confirmButton": "Potwierdź usunięcie",
+      "toasts": {
+        "downgraded": "Twoje własne dane zostały usunięte. Twoje logowanie i dostęp współdzielony pozostają, aby pełnomocnictwo nadal obowiązywało.",
+        "deleted": "Usunięto konto",
+        "failed": "Nie udało się usunąć konta"
+      },
+      "errors": {
+        "typeDelete": "Wpisz DELETE, aby potwierdzić",
+        "passwordRequired": "Wpisz hasło, aby potwierdzić"
+      }
+    }
+  },
+  "apiAccess": {
+    "heading": "Dostęp do API",
+    "description": "Twórz osobiste tokeny dostępu, aby łączyć zewnętrzne narzędzia AI, takie jak Claude Desktop, przez MCP.",
+    "createTokenButton": "Utwórz token",
+    "mcpServerUrlLabel": "Adres URL serwera MCP",
+    "mcpServerUrlHelp": "Użyj tego adresu URL podczas konfigurowania klientów MCP, takich jak Claude Code lub Claude Desktop.",
+    "copyButton": "Kopiuj",
+    "copiedButton": "Skopiowano",
+    "noTokens": "Brak tokenów API. Utwórz jeden, aby rozpocząć.",
+    "tokenPrefix": "Ostatnio użyty",
+    "expires": "Wygasa",
+    "created": "Utworzono",
+    "lastUsed": "Ostatnio użyty",
+    "revokeButton": "Odwołaj",
+    "revokeModal": {
+      "title": "Odwołaj token",
+      "message": "Ten token natychmiast przestanie działać. Wszystkie połączenia MCP, które go używają, zostaną rozłączone.",
+      "confirmLabel": "Odwołaj"
+    },
+    "createModal": {
+      "title": "Utwórz token API",
+      "tokenNameLabel": "Nazwa tokenu",
+      "tokenNamePlaceholder": "np. Claude Desktop",
+      "scopesLabel": "Zakresy",
+      "expirationLabel": "Wygaśnięcie",
+      "creatingButton": "Tworzenie...",
+      "createButton": "Utwórz token",
+      "scopes": {
+        "read": {
+          "label": "Odczyt",
+          "description": "Wyświetlanie kont, transakcji i kategorii"
+        },
+        "write": {
+          "label": "Zapis",
+          "description": "Tworzenie transakcji, odbiorców i kategorii"
+        }
+      },
+      "expiry": {
+        "none": "Bez wygaśnięcia",
+        "d30": "30 dni",
+        "d90": "90 dni",
+        "y1": "1 rok"
+      },
+      "validation": {
+        "nameRequired": "Nazwa tokenu jest wymagana",
+        "nameMax": "Nazwa tokenu może mieć maksymalnie 100 znaków"
+      }
+    },
+    "createdModal": {
+      "title": "Utworzono token",
+      "warningNote": "Skopiuj ten token teraz. Nie będzie można go ponownie zobaczyć.",
+      "doneButton": "Gotowe"
+    },
+    "toasts": {
+      "copied": "Skopiowano token do schowka",
+      "mcpUrlCopied": "Skopiowano adres URL MCP do schowka",
+      "revoked": "Odwołano token",
+      "selectScope": "Wybierz co najmniej jeden zakres",
+      "copyTokenFailed": "Nie udało się skopiować tokenu",
+      "copyUrlFailed": "Nie udało się skopiować adresu URL",
+      "loadFailed": "Nie udało się wczytać tokenów API",
+      "createFailed": "Nie udało się utworzyć tokenu",
+      "revokeFailed": "Nie udało się odwołać tokenu"
+    },
+    "relative": {
+      "never": "Nigdy",
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "daysAgo": "{count} dni temu",
+      "monthsAgo": "{count} miesięcy temu"
+    }
+  },
+  "autoBackup": {
+    "heading": "Automatyczna kopia zapasowa",
+    "description": "Automatycznie twórz kopie zapasowe danych do folderu według harmonogramu. Ponieważ Monize działa w Dockerze, musisz zamapować folder hosta do kontenera jako wolumin (np. -v /host/backups:/backups).",
+    "loadingText": "Wczytywanie...",
+    "enableLabel": "Włącz automatyczne kopie zapasowe",
+    "backupFolderLabel": "Folder kopii zapasowych",
+    "backupFolderPlaceholder": "/backups",
+    "browseButton": "Przeglądaj...",
+    "validateButton": "Sprawdź",
+    "validatingButton": "Sprawdzanie...",
+    "folderValid": "Folder jest prawidłowy i zapisywalny",
+    "selectThisFolder": "Wybierz ten folder",
+    "noSubdirectories": "Brak podkatalogów",
+    "frequencyLabel": "Częstotliwość kopii zapasowych",
+    "backupTimeLabel": "Godzina kopii zapasowej ({timezone})",
+    "backupTimeHelpInterval": "Pierwsza kopia zapasowa dnia rozpoczyna się o tej godzinie ({timezone}). Kolejne kopie są tworzone w skonfigurowanym odstępie.",
+    "backupTimeHelpDaily": "Godzina wykonania kopii zapasowej w Twojej lokalnej strefie czasowej ({timezone}).",
+    "retention": {
+      "heading": "Zasady przechowywania",
+      "description": "Skonfiguruj, ile kopii zapasowych zachować. Starsze kopie przekraczające te limity są automatycznie usuwane.",
+      "dailyLabel": "Kopie dzienne",
+      "dailyHelp": "Najnowsze kopie do zachowania",
+      "weeklyLabel": "Kopie tygodniowe",
+      "weeklyHelp": "Jedna na tydzień zachowana",
+      "monthlyLabel": "Kopie miesięczne",
+      "monthlyHelp": "Jedna na miesiąc zachowana"
+    },
+    "status": {
+      "heading": "Status",
+      "lastBackup": "Ostatnia kopia zapasowa",
+      "nextBackup": "Następna kopia zapasowa",
+      "error": "Błąd",
+      "success": "Sukces",
+      "failed": "Niepowodzenie"
+    },
+    "saveButton": "Zapisz ustawienia",
+    "savingButton": "Zapisywanie...",
+    "runNowButton": "Utwórz kopię teraz",
+    "runningButton": "Tworzenie kopii zapasowej...",
+    "toasts": {
+      "saved": "Zapisano ustawienia automatycznej kopii zapasowej",
+      "backupCreated": "Utworzono kopię zapasową: {filename}",
+      "folderValid": "Folder jest prawidłowy i zapisywalny",
+      "loadFailed": "Nie udało się wczytać ustawień automatycznej kopii zapasowej",
+      "saveFailed": "Nie udało się zapisać ustawień",
+      "runFailed": "Nie udało się wykonać kopii zapasowej",
+      "browseFailed": "Nie udało się przeglądać folderów"
+    },
+    "folderErrors": {
+      "required": "Ścieżka folderu jest wymagana",
+      "validationFailed": "Walidacja folderu nie powiodła się",
+      "validationError": "Walidacja nie powiodła się"
+    },
+    "frequencyOptions": {
+      "every6hours": "Co 6 godzin",
+      "every12hours": "Co 12 godzin",
+      "daily": "Codziennie",
+      "weekly": "Co tydzień"
+    }
+  },
+  "backupRestore": {
+    "heading": "Kopia zapasowa i przywracanie",
+    "encryption": {
+      "heading": "Szyfrowanie kopii zapasowej",
+      "descriptionOidc": "Szyfruj ręczne i automatyczne kopie zapasowe dedykowanym hasłem kopii ustawionym tutaj. Hasło jest wymagane do przywrócenia.",
+      "descriptionLocal": "Szyfruj ręczne i automatyczne kopie zapasowe swoim hasłem logowania. Hasło jest wymagane do przywrócenia.",
+      "loading": "Wczytywanie...",
+      "enabledBadge": "Włączone",
+      "changePasswordButton": "Zmień hasło kopii zapasowej",
+      "disableButton": "Wyłącz",
+      "setPasswordButton": "Ustaw hasło kopii zapasowej",
+      "enableEncryptedButton": "Włącz szyfrowane kopie zapasowe",
+      "setupModal": {
+        "titleOidc": "Ustaw hasło kopii zapasowej",
+        "titleLocal": "Włącz szyfrowane kopie zapasowe",
+        "descriptionOidc": "Wybierz hasło, które będzie używane do szyfrowania kopii zapasowych. Zapisz je w bezpiecznym miejscu -- będzie potrzebne do przywrócenia.",
+        "descriptionLocal": "Potwierdź swoje hasło logowania. Zostanie ono użyte do szyfrowania wszystkich kopii zapasowych (ręcznych i automatycznych).",
+        "placeholderOidc": "Nowe hasło kopii zapasowej (12+ znaków)",
+        "placeholderLocal": "Twoje hasło logowania",
+        "savingButton": "Zapisywanie...",
+        "confirmButton": "Potwierdź"
+      },
+      "toasts": {
+        "enabled": "Włączono szyfrowane kopie zapasowe",
+        "disabled": "Wyłączono szyfrowane kopie zapasowe",
+        "enableFailed": "Nie udało się włączyć szyfrowania",
+        "disableFailed": "Nie udało się wyłączyć szyfrowania"
+      }
+    },
+    "export": {
+      "heading": "Utwórz kopię zapasową",
+      "description": "Pobierz pełną kopię zapasową swoich danych finansowych. Obejmuje ona konta, transakcje, kategorie, odbiorców, budżety, inwestycje oraz wszystkie inne dane użytkownika.",
+      "downloadButton": "Pobierz kopię zapasową",
+      "creatingButton": "Tworzenie kopii zapasowej...",
+      "exportPasswordModal": {
+        "title": "Zaszyfruj kopię zapasową",
+        "description": "Wpisz hasło, którym zaszyfrować tę kopię zapasową. Będzie potrzebne do przywrócenia.",
+        "placeholderOidc": "Hasło kopii zapasowej",
+        "placeholderLocal": "Hasło logowania",
+        "encryptingButton": "Szyfrowanie...",
+        "downloadButton": "Pobierz"
+      },
+      "toasts": {
+        "success": "Pobrano kopię zapasową",
+        "failed": "Nie udało się utworzyć kopii zapasowej"
+      }
+    },
+    "restore": {
+      "heading": "Przywróć z kopii zapasowej",
+      "description": "Zastąp wszystkie bieżące dane danymi z wcześniej wyeksportowanego pliku kopii zapasowej. Trwale nadpisze to istniejące dane.",
+      "openButton": "Przywróć z kopii zapasowej...",
+      "warning": "Ostrzeżenie: spowoduje to usunięcie wszystkich bieżących danych i zastąpienie ich zawartością kopii zapasowej. Tej operacji nie można cofnąć.",
+      "selectFileLabel": "Wybierz plik kopii zapasowej",
+      "encryptedBackupLabel": "Ta kopia zapasowa jest zaszyfrowana. Wpisz hasło kopii, którym ją utworzono:",
+      "backupPasswordPlaceholder": "Hasło kopii zapasowej",
+      "oidcConfirmLabel": "Uwierzytelnij się ponownie u swojego dostawcy tożsamości, aby potwierdzić:",
+      "passwordConfirmLabel": "Wpisz hasło konta, aby potwierdzić:",
+      "passwordPlaceholder": "Wpisz swoje hasło",
+      "oidcRestoreButton": "Uwierzytelnij ponownie i przywróć",
+      "restoringButton": "Przywracanie...",
+      "confirmRestoreButton": "Potwierdź przywracanie",
+      "toasts": {
+        "pleaseSelectFile": "Wybierz plik kopii zapasowej",
+        "pleaseEnterPassword": "Wpisz hasło, aby potwierdzić",
+        "encryptedNeedsPassword": "Ta kopia zapasowa jest zaszyfrowana. Wpisz hasło, którym ją utworzono, w polu \"Hasło kopii zapasowej\" i spróbuj ponownie.",
+        "failed": "Nie udało się przywrócić kopii zapasowej"
+      }
+    },
+    "restoreResult": {
+      "title": "Przywracanie zakończone",
+      "description": "Twoje dane zostały pomyślnie przywrócone. Oto podsumowanie tego, co przywrócono:",
+      "totalRecords": "Łączna liczba rekordów",
+      "doneButton": "Gotowe"
+    }
+  },
+  "sharedAccess": {
+    "description": "Pełnomocnicy logują się przy użyciu własnych danych i nigdy nie widzą Twojego hasła. Widzą tylko konta i sekcje, które im przyznasz.",
+    "addDelegateButton": "Dodaj pełnomocnika",
+    "loading": "Wczytywanie...",
+    "noDelegates": "Brak pełnomocników.",
+    "statusLabel": "Status: {status}",
+    "sectionsLabel": "Sekcje: {count}",
+    "accountsLabel": "Konta: {count}",
+    "sharedDataLabel": "Udostępnione dane: {count}",
+    "editAccessButton": "Edytuj dostęp",
+    "resetPasswordButton": "Zresetuj hasło",
+    "resetPasswordDisabledTitle": "Ta osoba sama zarządza swoim hasłem (ma własne konto Monize lub dostęp pełnomocnika w innym miejscu).",
+    "removeButton": "Usuń",
+    "createModal": {
+      "title": "Dodaj pełnomocnika",
+      "description": "Przyznaj innej osobie ograniczony dostęp do Twoich kont.",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "E-mail pełnomocnika",
+      "firstNameLabel": "Imię",
+      "firstNamePlaceholder": "Imię (opcjonalnie)",
+      "lastNameLabel": "Nazwisko",
+      "lastNamePlaceholder": "Nazwisko (opcjonalnie)",
+      "existingAccountNotice": "Ta osoba ma już logowanie Monize. Zachowa własne dane i po prostu otrzyma dodatkowy dostęp współdzielony — bez hasła ani zaproszenia.",
+      "sendInviteLabel": "Wyślij zaproszenie e-mail zamiast ustawiać hasło",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Ustaw hasło",
+      "submitButton": "Dodaj pełnomocnika"
+    },
+    "revokeDialog": {
+      "title": "Usuń pełnomocnika",
+      "message": "Usunąć tego pełnomocnika? Utraci dostęp do Twojego konta. Jeśli nie ma innego dostępu współdzielonego i nigdy nie przejął tego adresu e-mail jako własnego konta Monize, jego logowanie zarządzane przez właściciela również zostanie usunięte.",
+      "removingButton": "Usuwanie...",
+      "removeButton": "Usuń"
+    },
+    "tempPasswordModal": {
+      "title": "Hasło tymczasowe",
+      "description": "Udostępnij je pełnomocnikowi w bezpieczny sposób. Zostanie poproszony o zmianę przy pierwszym logowaniu. Nie zostanie wyświetlone ponownie.",
+      "copyButton": "Kopiuj",
+      "copiedButton": "Skopiowano",
+      "doneButton": "Gotowe"
+    },
+    "toasts": {
+      "created": "Utworzono pełnomocnika",
+      "createdWithTempPassword": "Utworzono pełnomocnika. Hasło tymczasowe: {password}",
+      "invited": "Wysłano zaproszenie e-mail",
+      "removed": "Usunięto pełnomocnika"
+    },
+    "errors": {
+      "setPasswordOrInvite": "Ustaw hasło lub wyślij zaproszenie e-mail.",
+      "loadFailed": "Nie udało się wczytać dostępu współdzielonego",
+      "createFailed": "Nie udało się utworzyć pełnomocnika",
+      "revokeFailed": "Nie udało się odwołać pełnomocnika",
+      "resetPasswordFailed": "Nie udało się zresetować hasła",
+      "copyFailed": "Nie udało się skopiować do schowka"
+    }
+  },
+  "delegateAccessModal": {
+    "title": "Edytuj dostęp",
+    "tabs": {
+      "accounts": "Konta",
+      "sections": "Sekcje",
+      "shared": "Dane współdzielone"
+    },
+    "sections": {
+      "description": "Przyznaj dostęp tylko do odczytu do całych sekcji aplikacji. Dane przypisane do kont nadal wymagają dostępu na poziomie poszczególnych kont."
+    },
+    "accounts": {
+      "noAccounts": "Brak kont do przyznania.",
+      "grantAll": "Przyznaj wszystkie"
+    },
+    "shared": {
+      "description": "ODCZYT odbiorców, kategorii i tagów jest zawsze dozwolony. To steruje tworzeniem/edycją/usuwaniem."
+    },
+    "saveButton": "Zapisz",
+    "toasts": {
+      "saved": "Zaktualizowano dostęp",
+      "saveFailed": "Nie udało się zaktualizować dostępu"
+    }
+  },
+  "nav": {
+    "sectionsAriaLabel": "Sekcje ustawień",
+    "profile": "Profil",
+    "preferences": "Preferencje",
+    "notifications": "Powiadomienia",
+    "security": "Papier wartościowy",
+    "sharedAccess": "Dostęp współdzielony",
+    "emergencyAccess": "Dostęp awaryjny",
+    "apiAccess": "Dostęp do API",
+    "aiSettings": "Ustawienia AI",
+    "backupRestore": "Kopia zapasowa i przywracanie",
+    "autoBackup": "Automatyczna kopia zapasowa",
+    "help": "Pomoc i wsparcie",
+    "dangerZone": "Strefa zagrożenia"
+  },
+  "page": {
+    "title": "Ustawienia",
+    "demoRestricted": {
+      "heading": "Ograniczone w trybie demo",
+      "body": "Edycja profilu, zmiana hasła, uwierzytelnianie dwuskładnikowe oraz usuwanie konta są wyłączone w trybie demo."
+    },
+    "sharedAccessCard": {
+      "title": "Dostęp współdzielony",
+      "description": "Przyznaj innej osobie szczegółowy dostęp do wybranych kont."
+    },
+    "emergencyAccessCard": {
+      "title": "Dostęp awaryjny",
+      "description": "Wyznacz kontakty, które automatycznie otrzymają pełny dostęp do Twojego konta, jeśli nie zalogujesz się przez dłuższy czas."
+    },
+    "aiSettingsCard": {
+      "title": "Ustawienia AI",
+      "description": "Skonfiguruj dostawców AI, zarządzaj kluczami API i przeglądaj statystyki użycia."
+    },
+    "delegateSecurityError": "Nie można wczytać Twoich ustawień bezpieczeństwa.",
+    "toasts": {
+      "securityLoadFailed": "Nie udało się wczytać ustawień zabezpieczeń",
+      "loadFailed": "Nie udało się wczytać ustawień"
+    }
+  },
+  "aiSettings": {
+    "backLink": "Powrót do Ustawień",
+    "title": "Ustawienia AI",
+    "subtitle": "Skonfiguruj dostawców AI dla inteligentnych funkcji finansowych",
+    "bubble": {
+      "title": "Pływający dymek czatu",
+      "subtitle": "Wyświetla przycisk czatu na każdej stronie, dzięki czemu możesz zapytać asystenta AI z dowolnego miejsca. Otwiera się jako panel na dole, który możesz rozwinąć na pełny ekran.",
+      "toggleLabel": "Włącz pływający dymek czatu AI",
+      "enabled": "Pływający dymek czatu włączony",
+      "disabled": "Pływający dymek czatu wyłączony",
+      "saveFailed": "Nie udało się zaktualizować ustawienia dymka czatu"
+    },
+    "demoRestricted": {
+      "heading": "Ograniczone w trybie demo",
+      "body": "Konfiguracja dostawcy AI jest wyłączona w trybie demo."
+    },
+    "toasts": {
+      "loadFailed": "Nie udało się wczytać ustawień AI",
+      "usageLoadFailed": "Nie udało się wczytać danych o użyciu"
+    },
+    "mcpRelay": {
+      "title": "Użyj własnego asystenta (przekaźnik MCP)",
+      "subtitle": "Odpowiadaj na monity czatu własnym agentem MCP zamiast dostawcy AI po stronie serwera.",
+      "toggleLabel": "Użyj przekaźnika MCP",
+      "saved": "Zapisano ustawienie przekaźnika",
+      "saveFailed": "Nie udało się zapisać ustawienia przekaźnika",
+      "how": {
+        "intro": "Po włączeniu czat AI nie wywołuje modelu LLM po stronie serwera. Zamiast tego:",
+        "step1": "Uruchamiasz agenta MCP (np. Claude CLI) na własnym komputerze, zalogowanego do swojej subskrypcji.",
+        "step2": "Agent wykonuje long-polling do Monize w poszukiwaniu monitów wpisywanych w czacie i odpowiada na nie za pomocą narzędzi Monize.",
+        "step3": "Odpowiedzi są przesyłane strumieniowo z powrotem do czatu. Kropka stanu pokazuje, czy agent jest połączony.",
+        "note": "Nic się nie uruchamia, dopóki agent nie jest połączony i nie nasłuchuje. Czat wyświetla instrukcje połączenia."
+      }
+    }
+  },
+  "sharedAccessPage": {
+    "backLink": "Powrót do Ustawień",
+    "title": "Dostęp współdzielony",
+    "subtitle": "Przyznaj innej osobie szczegółowy dostęp do wybranych kont",
+    "demoRestricted": {
+      "heading": "Ograniczone w trybie demo",
+      "body": "Zarządzanie pełnomocnikami jest wyłączone w trybie demo."
+    }
+  },
+  "emergencyAccess": {
+    "backLink": "Powrót do Ustawień",
+    "title": "Dostęp awaryjny",
+    "subtitle": "Wyznacz kontakty, które automatycznie otrzymają pełny dostęp do Twojego konta, jeśli nie zalogujesz się przez dłuższy czas",
+    "delegateRestricted": "Dostęp awaryjny może skonfigurować tylko właściciel konta.",
+    "demoRestricted": "Dostęp awaryjny jest wyłączony w trybie demo.",
+    "emailNotConfigured": {
+      "heading": "E-mail nie jest skonfigurowany",
+      "body": "Dostęp awaryjny zależy od dostarczania e-maili. Poproś administratora o skonfigurowanie zmiennych środowiskowych SMTP (SMTP_HOST, SMTP_USER, SMTP_PASSWORD) i spróbuj ponownie."
+    },
+    "alreadyGranted": {
+      "heading": "Dostęp awaryjny został już przyznany",
+      "description": "Twoje wyznaczone kontakty otrzymały magiczne linki, aby przejąć konto. Jeśli było to niezamierzone, wyczyść poniżej stan przyznania dostępu, aby unieważnić aktywne linki.",
+      "clearButton": "Wyczyść stan przyznania"
+    },
+    "loadError": "Nie można wczytać ustawień dostępu awaryjnego.",
+    "settings": {
+      "heading": "Ustawienia",
+      "enableLabel": "Włącz dostęp awaryjny",
+      "grantAfterDaysLabel": "Dni nieaktywności przed przyznaniem dostępu",
+      "reminderAfterDaysLabel": "Dni nieaktywności przed e-mailami z przypomnieniem",
+      "saveButton": "Zapisz ustawienia",
+      "toasts": {
+        "saved": "Zapisano ustawienia dostępu awaryjnego",
+        "saveFailed": "Nie udało się zapisać ustawień"
+      }
+    },
+    "message": {
+      "heading": "Wiadomość do Twoich kontaktów",
+      "description": "Szyfrowana w spoczynku. Wyświetlenie lub edycja wymaga ponownej weryfikacji tożsamości.",
+      "unlockTimer": "Odblokowane na {mins}:{secs}",
+      "messageSet": "Wiadomość ustawiona",
+      "charCount": "({count} znaków",
+      "updatedAt": ", zaktualizowano {timestamp}",
+      "noMessage": "Brak ustawionej wiadomości",
+      "revealButton": "Pokaż wiadomość",
+      "editButton": "Edytuj wiadomość",
+      "addButton": "Dodaj wiadomość",
+      "emptyMessage": "(pusta)",
+      "lockNowButton": "Zablokuj teraz",
+      "editMessageButton": "Edytuj",
+      "messagePlaceholder": "Notatki, instrukcje, lokalizacje ważnych dokumentów...",
+      "maxCharsNote": "Maksymalnie 4000 znaków. Przechowywane w postaci zaszyfrowanej.",
+      "cancelButton": "Anuluj",
+      "saveButton": "Zapisz wiadomość",
+      "toasts": {
+        "saved": "Zapisano wiadomość",
+        "verifyAgain": "Weryfikacja wygasła -- zweryfikuj ponownie, aby zapisać",
+        "loadFailed": "Nie udało się wczytać wiadomości",
+        "saveFailed": "Nie udało się zapisać wiadomości"
+      }
+    },
+    "contacts": {
+      "heading": "Kontakty awaryjne",
+      "description": "Każdy kontakt otrzymuje magiczny link e-mailem po przyznaniu dostępu. Używa go, aby ustawić nowe hasło i przejąć Twoje konto. Wygrywa pierwszy kontakt, który go przejmie.",
+      "addButton": "Dodaj kontakt",
+      "noContacts": "Brak kontaktów.",
+      "editButton": "Edytuj",
+      "removeButton": "Usuń",
+      "contactModal": {
+        "addTitle": "Dodaj kontakt awaryjny",
+        "editTitle": "Edytuj kontakt",
+        "firstNameLabel": "Imię",
+        "emailLabel": "E-mail",
+        "addButton": "Dodaj kontakt",
+        "saveButton": "Zapisz zmiany"
+      },
+      "removeDialog": {
+        "title": "Usuń kontakt",
+        "message": "Ten kontakt nie będzie już otrzymywał dostępu awaryjnego. Możesz dodać go ponownie później.",
+        "removingButton": "Usuwanie...",
+        "removeButton": "Usuń"
+      },
+      "toasts": {
+        "added": "Dodano kontakt",
+        "updated": "Zaktualizowano kontakt",
+        "removed": "Usunięto kontakt",
+        "saveFailed": "Nie udało się zapisać kontaktu",
+        "removeFailed": "Nie udało się usunąć kontaktu"
+      }
+    },
+    "status": {
+      "heading": "Status",
+      "lastAccess": "Ostatni dostęp: ",
+      "lastReminderSent": "Ostatnie przypomnienie wysłane: ",
+      "grantStatus": "Status przyznania: ",
+      "unknown": "nieznany",
+      "never": "nigdy",
+      "daysAgo": "{count} {count, plural, one {dzień} few {dni} many {dni} other {dnia}} temu",
+      "grantedOn": "przyznano {timestamp}",
+      "notYetGranted": "jeszcze nie przyznano",
+      "timerNote": "Licznik resetuje się automatycznie za każdym razem, gdy korzystasz z aplikacji -- logowanie, przeglądanie strony, zapisanie transakcji, dowolna uwierzytelniona czynność."
+    },
+    "resetConfirm": {
+      "title": "Wyczyść stan przyznania",
+      "message": "Spowoduje to unieważnienie wszystkich nierozliczonych magicznych linków, ponowne uruchomienie rytmu przypomnień oraz umożliwi ponowne uruchomienie kaskady przyznania po kolejnym okresie nieaktywności.",
+      "clearingButton": "Czyszczenie...",
+      "clearButton": "Wyczyść",
+      "toasts": {
+        "cleared": "Wyczyszczono stan przyznania",
+        "resetFailed": "Nie udało się wyczyścić stanu przyznania"
+      }
+    },
+    "stepUp": {
+      "reason": "Zweryfikuj ponownie swoją tożsamość, aby wyświetlić lub edytować wiadomość dostępu awaryjnego."
+    },
+    "toasts": {
+      "loadFailed": "Nie udało się wczytać dostępu awaryjnego",
+      "reauthFailed": "Nie udało się potwierdzić ponownego uwierzytelnienia"
+    }
+  },
+  "aiProviders": {
+    "heading": "Dostawcy AI",
+    "addButton": "Dodaj dostawcę",
+    "encryptionWarning": "AI_ENCRYPTION_KEY nie jest skonfigurowany. Możesz używać Ollama (lokalnie, bez klucza API), ale dostawcy w chmurze wymagają szyfrowania do bezpiecznego przechowywania kluczy API.",
+    "systemDefault": {
+      "heading": "Dostępny domyślny systemowy dostawca AI",
+      "description": "Administrator skonfigurował centralnego dostawcę AI",
+      "usedAutomatically": "Zostanie użyty automatycznie, ponieważ nie masz skonfigurowanych własnych dostawców.",
+      "personalPriority": "Twoi osobiści dostawcy mają priorytet nad domyślnym dostawcą systemowym."
+    },
+    "noProviders": {
+      "withSystemDefault": "Brak skonfigurowanych osobistych dostawców AI. Zostanie użyty domyślny dostawca systemowy.",
+      "withoutSystemDefault": "Brak skonfigurowanych dostawców AI. Dodaj dostawcę, aby włączyć funkcje AI."
+    },
+    "providerCard": {
+      "activeBadge": "Aktywny",
+      "inactiveBadge": "Nieaktywny",
+      "priorityLabel": "Priorytet: {n}",
+      "modelLabel": "Model: {model}",
+      "keyLabel": "Klucz: {key}",
+      "urlLabel": "URL: {url}",
+      "costLabel": "Koszt/1M ({currency}): {input} wejście / {output} wyjście",
+      "disableButton": "Wyłącz",
+      "enableButton": "Włącz",
+      "editButton": "Edytuj",
+      "deleteButton": "Usuń"
+    },
+    "configForm": {
+      "addTitle": "Dodaj dostawcę AI",
+      "editTitle": "Edytuj dostawcę",
+      "providerLabel": "Dostawca",
+      "displayNameLabel": "Nazwa wyświetlana",
+      "modelLabel": "Model",
+      "testButton": "Testuj",
+      "testingButton": "Testowanie...",
+      "ollamaCloudNote": "Nazwy modeli muszą zawierać sufiks -cloud (np. gpt-oss:20b-cloud).",
+      "apiKeyLabel": "Klucz API",
+      "baseUrlLabel": "Bazowy adres URL",
+      "priorityLabel": "Priorytet",
+      "priorityHelp": "Niższa liczba = wyższy priorytet. Używane do kolejności przełączania awaryjnego.",
+      "costRatesHeading": "Stawki kosztów (opcjonalnie)",
+      "costRatesHelp": "Wpisz opublikowane stawki dostawcy za 1 000 000 tokenów, aby zobaczyć szacowany koszt na pulpicie Użycie. Pozostaw puste, aby pominąć szacunki kosztów.",
+      "inputCostLabel": "Koszt wejścia / 1M tokenów",
+      "outputCostLabel": "Koszt wyjścia / 1M tokenów",
+      "rateCurrencyLabel": "Waluta stawki",
+      "rateCurrencyHelp": "Jeśli różni się od Twojej waluty głównej, pulpit Użycie może przeliczyć koszty przy użyciu zapisanych kursów wymiany.",
+      "saveButton": "Zapisz zmiany",
+      "addProviderButton": "Dodaj dostawcę",
+      "modelPlaceholder": "Wpisz nazwę modelu",
+      "testModelAria": "Testuj model",
+      "apiKeyPlaceholder": "Wpisz klucz API",
+      "saveFailed": "Nie udało się zapisać konfiguracji",
+      "inputCostPlaceholder": "np. 3.00",
+      "outputCostPlaceholder": "np. 15.00",
+      "toasts": {
+        "notReachable": "Nie udało się połączyć z dostawcą.",
+        "modelUnavailable": "Model „{model}” jest niedostępny u tego dostawcy.",
+        "modelReady": "Model „{model}” jest gotowy.",
+        "success": "Połączenie udane.",
+        "testFailed": "Test modelu nie powiódł się"
+      },
+      "costCurrencies": {
+        "USD": "USD - dolar amerykański",
+        "EUR": "EUR - euro",
+        "GBP": "GBP - funt brytyjski",
+        "CAD": "CAD - dolar kanadyjski",
+        "AUD": "AUD - dolar australijski",
+        "JPY": "JPY - jen japoński",
+        "CNY": "CNY - juan chiński",
+        "INR": "INR - rupia indyjska"
+      },
+      "validation": {
+        "displayNameMax": "Nazwa wyświetlana może mieć maksymalnie 100 znaków",
+        "mustBeNumber": "Musi być liczbą",
+        "currencyCode": "Musi być 3-literowym kodem waluty"
+      }
+    },
+    "testButton": {
+      "testLabel": "Testuj",
+      "connectionFailed": "Połączenie nie powiodło się",
+      "modelUnavailable": "Model „{model}” jest niedostępny u tego dostawcy.",
+      "successWithModel": "Połączenie udane. Model „{model}” jest gotowy.",
+      "success": "Połączenie udane",
+      "testFailed": "Test połączenia nie powiódł się"
+    },
+    "toasts": {
+      "added": "Dodano dostawcę",
+      "updated": "Zaktualizowano dostawcę",
+      "removed": "Usunięto dostawcę",
+      "modelReady": "Model „{model}” jest gotowy.",
+      "notReachable": "Zapisano, ale nie udało się połączyć z dostawcą. Sprawdź adres URL/klucz API.",
+      "modelUnavailable": "Zapisano, ale model „{model}” jest niedostępny u tego dostawcy.",
+      "deleteFailed": "Nie udało się usunąć dostawcy",
+      "updateFailed": "Nie udało się zaktualizować dostawcy"
+    }
+  },
+  "usage": {
+    "heading": "Użycie",
+    "totalRequests": "Łączna liczba żądań",
+    "inputTokens": "Tokeny wejściowe",
+    "outputTokens": "Tokeny wyjściowe",
+    "estCost": "Szac. koszt",
+    "setRatesToEnable": "Ustaw stawki u dostawcy, aby włączyć",
+    "inHomeCurrency": "W {currency}",
+    "inProviderCurrency": "W walucie dostawcy",
+    "byProvider": {
+      "heading": "Według dostawcy",
+      "provider": "Dostawca",
+      "requests": "Żądania",
+      "inputTokens": "Tokeny wejściowe",
+      "outputTokens": "Tokeny wyjściowe",
+      "estCost": "Szac. koszt"
+    },
+    "recentActivity": {
+      "heading": "Ostatnia aktywność",
+      "date": "Data",
+      "provider": "Dostawca",
+      "feature": "Funkcja",
+      "tokens": "Tokeny",
+      "duration": "Czas trwania",
+      "estCost": "Szac. koszt"
+    },
+    "noUsage": "Brak danych o użyciu. Użycie pojawi się tutaj, gdy zaczniesz korzystać z funkcji AI.",
+    "periods": {
+      "d7": "7 dni",
+      "d30": "30 dni",
+      "d90": "90 dni",
+      "all": "Cały czas"
+    },
+    "estCostTooltip": "Szacowane przy użyciu stawek kosztów skonfigurowanych dla każdego dostawcy. Wyklucza aktywność, dla której nie ustawiono pasującej stawki."
+  }
+}

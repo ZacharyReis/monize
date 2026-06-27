@@ -638,6 +638,124 @@ describe('TransactionList', () => {
     });
   });
 
+  describe('touch long-press handling', () => {
+    it('opens the action sheet on a touch long-press', async () => {
+      const transaction = createTransaction();
+      vi.useFakeTimers();
+
+      render(
+        <TransactionList
+          transactions={[transaction]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          onCategoryClick={vi.fn()}
+        />
+      );
+
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      fireEvent.touchStart(row, { touches: [{ clientX: 10, clientY: 10 }] });
+      await act(async () => { vi.advanceTimersByTime(800); });
+      vi.useRealTimers();
+
+      await waitFor(() => {
+        expect(screen.getByText(/Filter by.*Groceries/)).toBeInTheDocument();
+      });
+    });
+
+    it('cancels the long-press when the finger moves beyond the threshold', async () => {
+      const transaction = createTransaction();
+      vi.useFakeTimers();
+
+      render(
+        <TransactionList
+          transactions={[transaction]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          onCategoryClick={vi.fn()}
+        />
+      );
+
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      fireEvent.touchStart(row, { touches: [{ clientX: 10, clientY: 10 }] });
+      // Move beyond the 10px threshold to cancel the pending long-press
+      fireEvent.touchMove(row, { touches: [{ clientX: 100, clientY: 100 }] });
+      await act(async () => { vi.advanceTimersByTime(800); });
+      vi.useRealTimers();
+
+      // Action sheet should NOT have opened
+      expect(screen.queryByText(/Filter by.*Groceries/)).not.toBeInTheDocument();
+    });
+
+    it('cancels the long-press on touch end before the threshold', async () => {
+      const transaction = createTransaction();
+      vi.useFakeTimers();
+
+      render(
+        <TransactionList
+          transactions={[transaction]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          onCategoryClick={vi.fn()}
+        />
+      );
+
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      fireEvent.touchStart(row, { touches: [{ clientX: 10, clientY: 10 }] });
+      fireEvent.touchEnd(row);
+      await act(async () => { vi.advanceTimersByTime(800); });
+      vi.useRealTimers();
+
+      expect(screen.queryByText(/Filter by.*Groceries/)).not.toBeInTheDocument();
+    });
+
+    it('handles a touch start with no touch point gracefully', async () => {
+      const transaction = createTransaction();
+      vi.useFakeTimers();
+
+      render(
+        <TransactionList
+          transactions={[transaction]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          onCategoryClick={vi.fn()}
+        />
+      );
+
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      // touchStart with empty touches array -> touchStartPos stays null
+      fireEvent.touchStart(row, { touches: [] });
+      await act(async () => { vi.advanceTimersByTime(800); });
+      vi.useRealTimers();
+
+      // Long-press timer still fires and opens the sheet
+      await waitFor(() => {
+        expect(screen.getByText(/Filter by.*Groceries/)).toBeInTheDocument();
+      });
+    });
+
+    it('ignores a non-primary mouse button on long-press start', async () => {
+      const transaction = createTransaction();
+      vi.useFakeTimers();
+
+      render(
+        <TransactionList
+          transactions={[transaction]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          onCategoryClick={vi.fn()}
+        />
+      );
+
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      // Right mouse button (button=2) should not start the long-press timer
+      fireEvent.mouseDown(row, { button: 2 });
+      await act(async () => { vi.advanceTimersByTime(800); });
+      vi.useRealTimers();
+
+      expect(screen.queryByText(/Filter by.*Groceries/)).not.toBeInTheDocument();
+    });
+  });
+
   describe('selection mode', () => {
     it('renders checkboxes when selectionMode is true', async () => {
       const transactions = [createTransaction()];

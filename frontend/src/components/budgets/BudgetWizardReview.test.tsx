@@ -17,6 +17,9 @@ vi.mock('@/lib/format', () => ({
   formatCurrency: vi.fn((amount: number) => `$${amount.toFixed(2)}`),
   getDecimalPlacesForCurrency: vi.fn(() => 2),
   roundToDecimals: vi.fn((v: number) => v),
+  gainLossColor: vi.fn((v: number) =>
+    v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+  ),
 }));
 
 // Mock errors

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 
 interface BackupCodesDisplayProps {
@@ -9,6 +10,7 @@ interface BackupCodesDisplayProps {
 }
 
 export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
+  const t = useTranslations('auth.backupCodes');
   const [hasCopied, setHasCopied] = useState(false);
   const [hasConfirmed, setHasConfirmed] = useState(false);
 
@@ -20,11 +22,11 @@ export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
 
   const handleDownload = () => {
     const text = [
-      'Monize 2FA Backup Codes',
+      t('file.title'),
       '========================',
       '',
-      'Each code can only be used once.',
-      'Store these codes in a safe place.',
+      t('file.usedOnce'),
+      t('file.storeSafe'),
       '',
       ...codes,
     ].join('\n');
@@ -42,11 +44,10 @@ export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
     <div className="space-y-4">
       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Save Your Backup Codes
+          {t('title')}
         </h3>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          If you lose access to your authenticator app, you can use one of these codes to sign in.
-          Each code can only be used once.
+          {t('description')}
         </p>
       </div>
 
@@ -65,17 +66,16 @@ export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
 
       <div className="flex gap-2 justify-center">
         <Button variant="outline" size="sm" onClick={handleCopy}>
-          {hasCopied ? 'Copied' : 'Copy codes'}
+          {hasCopied ? t('copied') : t('copy')}
         </Button>
         <Button variant="outline" size="sm" onClick={handleDownload}>
-          Download
+          {t('download')}
         </Button>
       </div>
 
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
         <p className="text-sm text-amber-800 dark:text-amber-300">
-          Store these codes in a safe place. You will not be able to see them again.
-          If you generate new codes, the previous ones will be invalidated.
+          {t('warning')}
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
         />
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          I have saved these backup codes
+          {t('confirm')}
         </span>
       </label>
 
@@ -98,7 +98,7 @@ export function BackupCodesDisplay({ codes, onDone }: BackupCodesDisplayProps) {
         disabled={!hasConfirmed}
         className="w-full"
       >
-        Done
+        {t('done')}
       </Button>
     </div>
   );

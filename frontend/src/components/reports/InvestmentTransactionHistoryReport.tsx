@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { format } from 'date-fns';
 import { investmentsApi } from '@/lib/investments';
 import { InvestmentTransaction, InvestmentAction } from '@/types/investment';
@@ -9,32 +10,25 @@ import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useDateRange } from '@/hooks/useDateRange';
+import { useReportData } from '@/hooks/useReportData';
 import { DateRangeSelector } from '@/components/ui/DateRangeSelector';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { MultiSelect } from '@/components/ui/MultiSelect';
+import { ReportAccountMultiSelect } from '@/components/reports/ReportAccountMultiSelect';
+import { RefreshPricesButton } from '@/components/reports/RefreshPricesButton';
+import { ReportError } from '@/components/reports/ReportError';
 import { exportToCsv } from '@/lib/csv-export';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
+import { useMainAccountName } from '@/hooks/useMainAccountName';
 
 const logger = createLogger('InvestmentTransactionHistoryReport');
 
 const MAX_PAGES = 50;
 
 type InvestmentTxSortField = 'date' | 'action' | 'security' | 'account' | 'quantity' | 'price' | 'total';
-
-const ACTION_LABELS: Record<InvestmentAction, string> = {
-  BUY: 'Buy',
-  SELL: 'Sell',
-  DIVIDEND: 'Dividend',
-  INTEREST: 'Interest',
-  CAPITAL_GAIN: 'Capital Gain',
-  SPLIT: 'Split',
-  TRANSFER_IN: 'Transfer In',
-  TRANSFER_OUT: 'Transfer Out',
-  REINVEST: 'Reinvest',
-  ADD_SHARES: 'Add Shares',
-  REMOVE_SHARES: 'Remove Shares',
-};
 
 const ACTION_COLORS: Record<InvestmentAction, string> = {
   BUY: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
@@ -57,14 +51,40 @@ interface ActionSummary {
 }
 
 export function InvestmentTransactionHistoryReport() {
+  const t = useTranslations('reports');
+  const mainAccountName = useMainAccountName();
   const { formatCurrency: formatCurrencyFull } = useNumberFormat();
   const { defaultCurrency, convertToDefault } = useExchangeRates();
-  const [transactions, setTransactions] = useState<InvestmentTransaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [selectedAction, setSelectedAction] = useState<string>('');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedActions, setSelectedActions] = useState<string[]>([]);
+
+  const actionLabels = useMemo<Record<InvestmentAction, string>>(() => ({
+    BUY: t('investmentTransactions.actionBuy'),
+    SELL: t('investmentTransactions.actionSell'),
+    DIVIDEND: t('investmentTransactions.actionDividend'),
+    INTEREST: t('investmentTransactions.actionInterest'),
+    CAPITAL_GAIN: t('investmentTransactions.actionCapitalGain'),
+    SPLIT: t('investmentTransactions.actionSplit'),
+    TRANSFER_IN: t('investmentTransactions.actionTransferIn'),
+    TRANSFER_OUT: t('investmentTransactions.actionTransferOut'),
+    REINVEST: t('investmentTransactions.actionReinvest'),
+    ADD_SHARES: t('investmentTransactions.actionAddShares'),
+    REMOVE_SHARES: t('investmentTransactions.actionRemoveShares'),
+  }), [t]);
+
+  const actionOptions = useMemo(
+    () =>
+      (Object.keys(actionLabels) as InvestmentAction[]).map((action) => ({
+        value: action,
+        label: actionLabels[action],
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t],
+  );
   const { dateRange, setDateRange, resolvedRange, isValid } = useDateRange({ defaultRange: '1y', alignment: 'month' });
-  const [isLoading, setIsLoading] = useState(true);
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
+  const isSingleAccount = selectedAccountIds.length === 1;
   const { sortField, sortDirection, handleSort } = useSortableTable<InvestmentTxSortField>(
     'reports.investment-transactions.sort',
     { field: 'date', direction: 'desc' },
@@ -76,16 +96,18 @@ export function InvestmentTransactionHistoryReport() {
     return map;
   }, [accounts]);
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+  const selectedAccount = isSingleAccount
+    ? accounts.find((a) => a.id === selectedAccountIds[0])
+    : undefined;
   const displayCurrency = selectedAccount?.currencyCode || defaultCurrency;
   const isForeign = displayCurrency !== defaultCurrency;
 
   const getTxAmount = useCallback((tx: InvestmentTransaction): number => {
     const amount = Math.abs(tx.totalAmount);
-    if (selectedAccountId) return amount;
+    if (isSingleAccount) return amount;
     const txCurrency = accountCurrencyMap.get(tx.accountId) || defaultCurrency;
     return convertToDefault(amount, txCurrency);
-  }, [selectedAccountId, accountCurrencyMap, defaultCurrency, convertToDefault]);
+  }, [isSingleAccount, accountCurrencyMap, defaultCurrency, convertToDefault]);
 
   const fmtValue = useCallback((value: number): string => {
     if (isForeign) {
@@ -101,43 +123,45 @@ export function InvestmentTransactionHistoryReport() {
       .catch((error) => logger.error('Failed to load accounts:', error));
   }, []);
 
-  useEffect(() => {
-    if (!isValid) return;
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const { start, end } = resolvedRange;
-        const allTransactions: InvestmentTransaction[] = [];
-        let page = 1;
-        let hasMore = true;
-        while (hasMore && page <= MAX_PAGES) {
-          const result = await investmentsApi.getTransactions({
-            accountIds: selectedAccountId || undefined,
-            startDate: start || undefined,
-            endDate: end,
-            action: selectedAction || undefined,
-            limit: 200,
-            page,
-          });
-          allTransactions.push(...result.data);
-          hasMore = result.pagination.hasMore;
-          page++;
-        }
-
-        setTransactions(allTransactions);
-      } catch (error) {
-        logger.error('Failed to load investment transactions:', error);
-      } finally {
-        setIsLoading(false);
+  const { data: response, isLoading, error, reload } = useReportData(
+    async () => {
+      if (!isValid) return null;
+      const allTransactions: InvestmentTransaction[] = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= MAX_PAGES) {
+        const result = await investmentsApi.getTransactions({
+          accountIds: selectedAccountIds.length > 0 ? selectedAccountIds.join(',') : undefined,
+          startDate: rangeStart || undefined,
+          endDate: rangeEnd,
+          limit: 200,
+          page,
+        });
+        allTransactions.push(...result.data);
+        hasMore = result.pagination.hasMore;
+        page++;
       }
-    };
-    loadData();
-  }, [selectedAccountId, selectedAction, resolvedRange, isValid]);
+      return allTransactions;
+    },
+    [selectedAccountIds, rangeStart, rangeEnd, isValid],
+  );
+
+  // Only the first load shows the full skeleton. Later reloads (e.g. changing
+  // the account filter) keep the existing content -- and the account dropdown --
+  // mounted so they update in place instead of unmounting the whole report.
+  const transactions = useMemo<InvestmentTransaction[]>(() => response ?? [], [response]);
+
+  // Action filtering happens client-side so toggling actions never re-fetches.
+  const filteredTransactions = useMemo(() => {
+    if (selectedActions.length === 0) return transactions;
+    const set = new Set(selectedActions);
+    return transactions.filter((tx) => set.has(tx.action));
+  }, [transactions, selectedActions]);
 
   const actionSummaries = useMemo((): ActionSummary[] => {
     const map = new Map<InvestmentAction, ActionSummary>();
 
-    transactions.forEach((tx) => {
+    filteredTransactions.forEach((tx) => {
       let entry = map.get(tx.action);
       if (!entry) {
         entry = { action: tx.action, count: 0, totalAmount: 0 };
@@ -148,11 +172,11 @@ export function InvestmentTransactionHistoryReport() {
     });
 
     return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [transactions, getTxAmount]);
+  }, [filteredTransactions, getTxAmount]);
 
   const totalAmount = useMemo(
-    () => transactions.reduce((sum, tx) => sum + getTxAmount(tx), 0),
-    [transactions, getTxAmount],
+    () => filteredTransactions.reduce((sum, tx) => sum + getTxAmount(tx), 0),
+    [filteredTransactions, getTxAmount],
   );
 
   const accountNameMap = useMemo(() => {
@@ -162,7 +186,7 @@ export function InvestmentTransactionHistoryReport() {
   }, [accounts]);
 
   const sortedTransactions = useMemo(() => {
-    const sorted = [...transactions];
+    const sorted = [...filteredTransactions];
     sorted.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -197,13 +221,13 @@ export function InvestmentTransactionHistoryReport() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return sorted;
-  }, [transactions, sortField, sortDirection, accountNameMap, getTxAmount]);
+  }, [filteredTransactions, sortField, sortDirection, accountNameMap, getTxAmount]);
 
   const getExportData = useCallback((formatted: boolean) => {
-    const headers = ['Date', 'Action', 'Security', 'Account', 'Quantity', 'Price', 'Total'];
+    const headers = [t('investmentTransactions.colDate'), t('investmentTransactions.colAction'), t('investmentTransactions.colSecurity'), t('investmentTransactions.colAccount'), t('investmentTransactions.colQuantity'), t('investmentTransactions.colPrice'), t('investmentTransactions.colTotal')];
     const rows: (string | number)[][] = sortedTransactions.map((tx) => [
       format(parseLocalDate(tx.transactionDate), 'yyyy-MM-dd'),
-      ACTION_LABELS[tx.action],
+      actionLabels[tx.action],
       tx.security?.symbol || '-',
       accountNameMap.get(tx.accountId) || '-',
       tx.quantity != null ? Math.abs(tx.quantity) : '',
@@ -211,7 +235,7 @@ export function InvestmentTransactionHistoryReport() {
       formatted ? fmtValue(Math.abs(tx.totalAmount)) : Math.abs(tx.totalAmount),
     ]);
     return { headers, rows };
-  }, [sortedTransactions, accountNameMap, fmtValue]);
+  }, [sortedTransactions, accountNameMap, fmtValue, actionLabels, t]);
 
   const handleExportCsv = useCallback(() => {
     const { headers, rows } = getExportData(false);
@@ -222,29 +246,33 @@ export function InvestmentTransactionHistoryReport() {
     const { exportToPdf } = await import('@/lib/pdf-export');
     const { headers, rows } = getExportData(true);
     const accountLabel = selectedAccount
-      ? selectedAccount.name.replace(/ - (Brokerage|Cash)$/, '')
-      : 'All Accounts';
-    const uniqueSecurities = new Set(transactions.filter((tx) => tx.security).map((tx) => tx.security!.symbol)).size;
+      ? mainAccountName(selectedAccount.name)
+      : t('investmentTransactions.allAccounts');
+    const uniqueSecurities = new Set(filteredTransactions.filter((tx) => tx.security).map((tx) => tx.security!.symbol)).size;
     await exportToPdf({
-      title: 'Investment Transaction History',
-      subtitle: `${accountLabel} | ${transactions.length} transactions | Total volume: ${fmtValue(totalAmount)}`,
+      title: t('investmentTransactions.pdfTitle'),
+      subtitle: `${accountLabel} | ${filteredTransactions.length} transactions | Total volume: ${fmtValue(totalAmount)}`,
       summaryCards: [
-        { label: 'Total Transactions', value: String(transactions.length), color: '#111827' },
-        { label: 'Total Volume', value: fmtValue(totalAmount), color: '#111827' },
-        { label: 'Action Types', value: String(actionSummaries.length), color: '#111827' },
-        { label: 'Securities Traded', value: String(uniqueSecurities), color: '#111827' },
+        { label: t('investmentTransactions.totalTransactions'), value: String(filteredTransactions.length), color: '#111827' },
+        { label: t('investmentTransactions.totalVolume'), value: fmtValue(totalAmount), color: '#111827' },
+        { label: t('investmentTransactions.actionTypes'), value: String(actionSummaries.length), color: '#111827' },
+        { label: t('investmentTransactions.securitiesTraded'), value: String(uniqueSecurities), color: '#111827' },
       ],
       tableData: { headers, rows },
       filename: 'investment-transactions',
     });
-  }, [getExportData, selectedAccount, transactions, fmtValue, totalAmount, actionSummaries]);
+  }, [getExportData, selectedAccount, filteredTransactions, fmtValue, totalAmount, actionSummaries, t, mainAccountName]);
 
-  if (isLoading) {
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
+  if (isLoading && response === null) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -255,27 +283,27 @@ export function InvestmentTransactionHistoryReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Transactions</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentTransactions.totalTransactions')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {transactions.length}
+            {filteredTransactions.length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Volume</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentTransactions.totalVolume')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {fmtValue(totalAmount)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Action Types</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentTransactions.actionTypes')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {actionSummaries.length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Securities Traded</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('investmentTransactions.securitiesTraded')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {new Set(transactions.filter((tx) => tx.security).map((tx) => tx.security!.symbol)).size}
+            {new Set(filteredTransactions.filter((tx) => tx.security).map((tx) => tx.security!.symbol)).size}
           </div>
         </div>
       </div>
@@ -284,41 +312,30 @@ export function InvestmentTransactionHistoryReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="flex gap-3 items-center">
-            <select
-              value={selectedAccountId}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
-            >
-              <option value="">All Accounts</option>
-              {accounts
-                .filter((a) => a.accountSubType !== 'INVESTMENT_BROKERAGE')
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name.replace(/ - (Brokerage|Cash)$/, '')}
-                  </option>
-                ))}
-            </select>
-            <select
-              value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value)}
-              className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
-            >
-              <option value="">All Actions</option>
-              {(Object.keys(ACTION_LABELS) as InvestmentAction[]).map((action) => (
-                <option key={action} value={action}>
-                  {ACTION_LABELS[action]}
-                </option>
-              ))}
-            </select>
+            <ReportAccountMultiSelect
+              accounts={accounts}
+              value={selectedAccountIds}
+              onChange={setSelectedAccountIds}
+            />
+            <div className="w-48">
+              <MultiSelect
+                ariaLabel={t('investmentTransactions.filterByAction')}
+                placeholder={t('investmentTransactions.allActionsPlaceholder')}
+                showSearch={false}
+                options={actionOptions}
+                value={selectedActions}
+                onChange={setSelectedActions}
+              />
+            </div>
           </div>
           <DateRangeSelector
             ranges={['6m', '1y', '2y', 'all']}
             value={dateRange}
             onChange={setDateRange}
           />
-          <div className="ml-auto shrink-0">
-            <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} disabled={transactions.length === 0} />
+          <div className="ml-auto shrink-0 flex gap-2 items-center">
+            <RefreshPricesButton onRefreshComplete={reload} />
+            <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} disabled={filteredTransactions.length === 0} />
           </div>
         </div>
       </div>
@@ -327,7 +344,7 @@ export function InvestmentTransactionHistoryReport() {
       {actionSummaries.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Activity Summary
+            {t('investmentTransactions.activitySummary')}
           </h3>
           <div className="flex flex-wrap gap-3">
             {actionSummaries.map((summary) => (
@@ -336,7 +353,7 @@ export function InvestmentTransactionHistoryReport() {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/50"
               >
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLORS[summary.action]}`}>
-                  {ACTION_LABELS[summary.action]}
+                  {actionLabels[summary.action]}
                 </span>
                 <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">
                   {summary.count}
@@ -351,17 +368,17 @@ export function InvestmentTransactionHistoryReport() {
       )}
 
       {/* Transaction List */}
-      {transactions.length === 0 ? (
+      {filteredTransactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No investment transactions found for this period.
+            {t('investmentTransactions.noTransactions')}
           </p>
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Transaction History ({transactions.length})
+              {t('investmentTransactions.transactionHistory', { count: filteredTransactions.length })}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -375,7 +392,7 @@ export function InvestmentTransactionHistoryReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Date
+                    {t('investmentTransactions.colDate')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="action"
@@ -384,7 +401,7 @@ export function InvestmentTransactionHistoryReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Action
+                    {t('investmentTransactions.colAction')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="security"
@@ -393,7 +410,7 @@ export function InvestmentTransactionHistoryReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Security
+                    {t('investmentTransactions.colSecurity')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="account"
@@ -402,7 +419,7 @@ export function InvestmentTransactionHistoryReport() {
                     onSort={handleSort}
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell"
                   >
-                    Account
+                    {t('investmentTransactions.colAccount')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="quantity"
@@ -412,7 +429,7 @@ export function InvestmentTransactionHistoryReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Quantity
+                    {t('investmentTransactions.colQuantity')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="price"
@@ -422,7 +439,7 @@ export function InvestmentTransactionHistoryReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Price
+                    {t('investmentTransactions.colPrice')}
                   </SortableHeader>
                   <SortableHeader<InvestmentTxSortField>
                     field="total"
@@ -432,7 +449,7 @@ export function InvestmentTransactionHistoryReport() {
                     align="right"
                     className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                   >
-                    Total
+                    {t('investmentTransactions.colTotal')}
                   </SortableHeader>
                 </tr>
               </thead>
@@ -444,7 +461,7 @@ export function InvestmentTransactionHistoryReport() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLORS[tx.action]}`}>
-                        {ACTION_LABELS[tx.action]}
+                        {actionLabels[tx.action]}
                       </span>
                     </td>
                     <td className="px-4 py-3">

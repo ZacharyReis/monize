@@ -1,4 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,14 +20,20 @@ export function parseIds(
       .filter((id) => id);
     for (const id of ids) {
       if (!UUID_REGEX.test(id)) {
-        throw new BadRequestException(`Invalid UUID: ${id}`);
+        throw new BadRequestException(
+          tr("errors.common.invalidUuid", `Invalid UUID: ${id}`, { id }),
+        );
       }
     }
     return ids.length > 0 ? ids : undefined;
   }
   if (singular) {
     if (!UUID_REGEX.test(singular)) {
-      throw new BadRequestException(`Invalid UUID: ${singular}`);
+      throw new BadRequestException(
+        tr("errors.common.invalidUuid", `Invalid UUID: ${singular}`, {
+          id: singular,
+        }),
+      );
     }
     return [singular];
   }
@@ -44,7 +51,9 @@ export function parseUuids(value?: string): string[] | undefined {
     .filter((id) => id);
   for (const id of ids) {
     if (!UUID_REGEX.test(id)) {
-      throw new BadRequestException(`Invalid UUID: ${id}`);
+      throw new BadRequestException(
+        tr("errors.common.invalidUuid", `Invalid UUID: ${id}`, { id }),
+      );
     }
   }
   return ids.length > 0 ? ids : undefined;
@@ -63,7 +72,11 @@ export function parseCategoryIds(value?: string): string[] | undefined {
     .filter((id) => id);
   for (const id of ids) {
     if (!specialCategoryIds.has(id) && !UUID_REGEX.test(id)) {
-      throw new BadRequestException(`Invalid category ID: ${id}`);
+      throw new BadRequestException(
+        tr("errors.common.invalidCategoryId", `Invalid category ID: ${id}`, {
+          id,
+        }),
+      );
     }
   }
   return ids.length > 0 ? ids : undefined;
@@ -76,7 +89,11 @@ export function validateDateParam(
 ): void {
   if (value !== undefined && !DATE_REGEX.test(value)) {
     throw new BadRequestException(
-      `${paramName} must be a valid date in YYYY-MM-DD format`,
+      tr(
+        "errors.common.invalidDateParam",
+        `${paramName} must be a valid date in YYYY-MM-DD format`,
+        { paramName },
+      ),
     );
   }
 }
@@ -100,7 +117,13 @@ export function assertStringParam(
     return undefined;
   }
   if (typeof value !== "string") {
-    throw new BadRequestException(`${paramName} must be a single string value`);
+    throw new BadRequestException(
+      tr(
+        "errors.common.paramMustBeString",
+        `${paramName} must be a single string value`,
+        { paramName },
+      ),
+    );
   }
   return value;
 }

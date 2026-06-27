@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface PaginationProps {
   currentPage: number;
@@ -23,6 +24,7 @@ export function Pagination({
   minimal = false,
   infoRight,
 }: PaginationProps) {
+  const t = useTranslations('common');
   const [inputPage, setInputPage] = useState(currentPage.toString());
 
   // Keep input in sync with current page
@@ -74,11 +76,11 @@ export function Pagination({
     <div className={`flex flex-col min-[820px]:flex-row items-center justify-between gap-3 ${minimal ? 'bg-transparent' : 'bg-white dark:bg-gray-800 px-4 py-3 shadow dark:shadow-gray-700/50 rounded-lg'}`}>
       {/* Showing X-Y of Z */}
       <div className="text-sm text-gray-700 dark:text-gray-300">
-        Showing{' '}
+        {t('pagination.showing')}{' '}
         <span className="font-medium">{startItem}</span>
         {' '}-{' '}
         <span className="font-medium">{endItem}</span>
-        {' '}of{' '}
+        {' '}{t('pagination.of')}{' '}
         <span className="font-medium">{totalItems}</span>
         {' '}{itemName}
       </div>
@@ -92,7 +94,7 @@ export function Pagination({
           onClick={() => goToPage(1)}
           disabled={currentPage === 1}
           className={buttonClass}
-          title="First page"
+          title={t('pagination.firstPage')}
         >
           ««
         </button>
@@ -103,7 +105,7 @@ export function Pagination({
             onClick={() => goToPage(currentPage - 10)}
             disabled={currentPage <= 1}
             className={`${buttonClass} hidden sm:inline-flex`}
-            title="Back 10 pages"
+            title={t('pagination.back10Pages')}
           >
             -10
           </button>
@@ -114,7 +116,7 @@ export function Pagination({
           onClick={() => goToPage(currentPage - 1)}
           disabled={currentPage === 1}
           className={buttonClass}
-          title="Previous page"
+          title={t('pagination.previousPage')}
         >
           ‹
         </button>
@@ -131,7 +133,7 @@ export function Pagination({
             maxLength={4}
             size={4}
             className="w-10 h-[26px] px-1 py-0 text-xs text-center font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            title="Enter page number"
+            title={t('pagination.enterPageNumber')}
           />
           <span className="text-sm text-gray-500 dark:text-gray-400">
             / {totalPages}
@@ -143,7 +145,7 @@ export function Pagination({
           onClick={() => goToPage(currentPage + 1)}
           disabled={currentPage >= totalPages}
           className={buttonClass}
-          title="Next page"
+          title={t('pagination.nextPage')}
         >
           ›
         </button>
@@ -154,7 +156,7 @@ export function Pagination({
             onClick={() => goToPage(currentPage + 10)}
             disabled={currentPage >= totalPages}
             className={`${buttonClass} hidden sm:inline-flex`}
-            title="Forward 10 pages"
+            title={t('pagination.forward10Pages')}
           >
             +10
           </button>
@@ -165,7 +167,7 @@ export function Pagination({
           onClick={() => goToPage(totalPages)}
           disabled={currentPage === totalPages}
           className={buttonClass}
-          title="Last page"
+          title={t('pagination.lastPage')}
         >
           »»
         </button>

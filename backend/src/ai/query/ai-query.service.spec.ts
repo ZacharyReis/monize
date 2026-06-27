@@ -5,7 +5,10 @@ import { AiService } from "../ai.service";
 import { AiUsageService } from "../ai-usage.service";
 import { FinancialContextBuilder } from "../context/financial-context.builder";
 import { ToolExecutorService } from "./tool-executor.service";
-import { OllamaModelDoesNotSupportToolsError } from "../providers/ollama.provider";
+import {
+  OllamaModelDoesNotSupportToolsError,
+  OllamaModelDoesNotSupportImagesError,
+} from "../providers/ollama.provider";
 
 describe("AiQueryService", () => {
   let service: AiQueryService;
@@ -85,6 +88,208 @@ describe("AiQueryService", () => {
     }
     return events;
   }
+
+  describe("attachments", () => {
+    const PNG_MAGIC = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    const makePng = (bytes: number): string => {
+      const buf = Buffer.alloc(bytes);
+      PNG_MAGIC.copy(buf, 0);
+      return buf.toString("base64");
+    };
+    const smallPng = makePng(16);
+    const smallPdf = Buffer.from("%PDF-1.4\n%mock").toString("base64");
+    const csv = Buffer.from("date,amount\n2026-01-01,9.99").toString("base64");
+
+    async function streamWith(
+      query: string,
+      attachments: Array<{
+        kind: "image" | "pdf" | "text";
+        mediaType: string;
+        filename: string;
+        data: string;
+      }>,
+      history?: Array<{ role: "user" | "assistant"; content: string }>,
+    ): Promise<StreamEvent[]> {
+      const events: StreamEvent[] = [];
+      for await (const event of service.executeQueryStream(
+        userId,
+        query,
+        history,
+
+        attachments as any,
+      )) {
+        events.push(event);
+      }
+      return events;
+    }
+
+    it("builds an ordered multimodal user message and keeps history text-only", async () => {
+      const events = await streamWith(
+        "extract this",
+        [
+          {
+            kind: "image",
+            mediaType: "image/png",
+            filename: "r.png",
+            data: smallPng,
+          },
+          {
+            kind: "pdf",
+            mediaType: "application/pdf",
+            filename: "s.pdf",
+            data: smallPdf,
+          },
+          { kind: "text", mediaType: "text/csv", filename: "t.csv", data: csv },
+        ],
+        [{ role: "user", content: "earlier turn" }],
+      );
+
+      expect(events.find((e) => e.type === "error")).toBeUndefined();
+
+      const sent = (mockProvider.completeWithTools as jest.Mock).mock
+        .calls[0][0].messages;
+      // [history (string), current user (content array), safety reminder].
+      expect(sent[0]).toEqual({ role: "user", content: "earlier turn" });
+
+      const current = sent[1];
+      expect(Array.isArray(current.content)).toBe(true);
+      expect(current.content.map((b: { type: string }) => b.type)).toEqual([
+        "document",
+        "image",
+        "text",
+        "text",
+      ]);
+      // Query text comes after the binary blocks.
+      expect(current.content[2]).toEqual({
+        type: "text",
+        text: "extract this",
+      });
+      // CSV is decoded and inlined, labelled with the filename.
+      expect(current.content[3].text).toContain("t.csv");
+      expect(current.content[3].text).toContain("date,amount");
+    });
+
+    it("sends a plain string when there are no attachments", async () => {
+      await streamWith("just text", []);
+      const sent = (mockProvider.completeWithTools as jest.Mock).mock
+        .calls[0][0].messages;
+      expect(sent[0]).toEqual({ role: "user", content: "just text" });
+    });
+
+    it("rejects an attachment whose kind mismatches its media type", async () => {
+      const events = await streamWith("q", [
+        {
+          kind: "image",
+          mediaType: "application/pdf",
+          filename: "x.pdf",
+          data: smallPdf,
+        },
+      ]);
+      expect(events.find((e) => e.type === "error")).toBeDefined();
+      expect(mockProvider.completeWithTools).not.toHaveBeenCalled();
+    });
+
+    it("rejects an attachment whose bytes don't match the declared type", async () => {
+      const notPng = Buffer.from("definitely not a png").toString("base64");
+      const events = await streamWith("q", [
+        {
+          kind: "image",
+          mediaType: "image/png",
+          filename: "x.png",
+          data: notPng,
+        },
+      ]);
+      expect(events.find((e) => e.type === "error")).toBeDefined();
+      expect(mockProvider.completeWithTools).not.toHaveBeenCalled();
+    });
+
+    it("rejects an attachment over the per-file size limit", async () => {
+      const tooBig = makePng(6 * 1024 * 1024);
+      const events = await streamWith("q", [
+        {
+          kind: "image",
+          mediaType: "image/png",
+          filename: "big.png",
+          data: tooBig,
+        },
+      ]);
+      expect(events.find((e) => e.type === "error")).toBeDefined();
+      expect(mockProvider.completeWithTools).not.toHaveBeenCalled();
+    });
+
+    it("rejects when the combined size exceeds the total limit", async () => {
+      const each = makePng(4.5 * 1024 * 1024);
+      const events = await streamWith(
+        "q",
+        Array.from({ length: 5 }, (_, i) => ({
+          kind: "image" as const,
+          mediaType: "image/png",
+          filename: `f${i}.png`,
+          data: each,
+        })),
+      );
+      expect(events.find((e) => e.type === "error")).toBeDefined();
+      expect(mockProvider.completeWithTools).not.toHaveBeenCalled();
+    });
+
+    it("executeQuery throws on an invalid attachment", async () => {
+      await expect(
+        service.executeQuery(userId, "q", undefined, [
+          {
+            kind: "image",
+            mediaType: "image/png",
+            filename: "x.png",
+            data: "bm90",
+          },
+        ] as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("surfaces a clear message when the model rejects image input (typed error)", async () => {
+      (mockProvider.completeWithTools as jest.Mock).mockRejectedValueOnce(
+        new OllamaModelDoesNotSupportImagesError("qwen3:30b-cloud"),
+      );
+      const events = await streamWith("read this", [
+        {
+          kind: "image",
+          mediaType: "image/png",
+          filename: "r.png",
+          data: smallPng,
+        },
+      ]);
+      const err = events.find((e) => e.type === "error");
+      expect(err).toBeDefined();
+      expect(err!.message).toContain("can't read images or PDFs");
+    });
+
+    it("surfaces the image message for a generic vision error when the turn has an image", async () => {
+      (mockProvider.completeWithTools as jest.Mock).mockRejectedValueOnce(
+        new Error("This model's API version does not support vision"),
+      );
+      const events = await streamWith("read this", [
+        {
+          kind: "image",
+          mediaType: "image/png",
+          filename: "r.png",
+          data: smallPng,
+        },
+      ]);
+      const err = events.find((e) => e.type === "error");
+      expect(err!.message).toContain("can't read images or PDFs");
+    });
+
+    it("uses the generic message for a vision-phrase error when the turn has no image", async () => {
+      (mockProvider.completeWithTools as jest.Mock).mockRejectedValueOnce(
+        new Error("This model's API version does not support vision"),
+      );
+      const events = await streamWith("just text", []);
+      const err = events.find((e) => e.type === "error");
+      expect(err!.message).toContain("encountered an error");
+      expect(err!.message).not.toContain("can't read images");
+    });
+  });
 
   describe("executeQueryStream()", () => {
     it("yields thinking, content, and done events for simple queries", async () => {
@@ -1017,6 +1222,99 @@ describe("AiQueryService", () => {
       expect(messages.length).toBe(22);
       // Should contain the most recent 20 from history (indices 10-29)
       expect(messages[0].content).toBe("Message 10");
+    });
+  });
+
+  describe("pending_action (human-in-the-loop write tools)", () => {
+    const pendingAction = {
+      actionId: "act-1",
+      type: "create_transaction",
+      expiresAt: Date.now() + 60_000,
+      descriptor: { type: "create_transaction", userId, actionId: "act-1" },
+      signature: "secret-signature",
+      preview: { accountName: "Checking", amount: -12.5 },
+    };
+
+    it("emits a pending_action event and feeds the LLM only a safe status", async () => {
+      mockToolExecutor.execute.mockResolvedValueOnce({
+        data: { status: "preview_shown", message: "awaiting approval" },
+        summary: "Prepared a transaction. Awaiting user confirmation.",
+        sources: [],
+        pendingAction,
+      });
+      (mockProvider.completeWithTools as jest.Mock)
+        .mockResolvedValueOnce({
+          content: "",
+          toolCalls: [
+            {
+              id: "tc-1",
+              name: "create_transaction",
+              input: { amount: -12.5 },
+            },
+          ],
+          usage: { inputTokens: 80, outputTokens: 30 },
+          model: "m",
+          provider: "anthropic",
+          stopReason: "tool_use",
+        })
+        .mockResolvedValueOnce({
+          content: "Please review the card.",
+          toolCalls: [],
+          usage: { inputTokens: 10, outputTokens: 5 },
+          model: "m",
+          provider: "anthropic",
+          stopReason: "end_turn",
+        });
+
+      const events = await collectEvents(userId, "add a $12.50 expense");
+
+      const pending = events.find((e) => e.type === "pending_action");
+      expect(pending).toBeDefined();
+      expect((pending!.action as { actionId: string }).actionId).toBe("act-1");
+
+      // The signature must reach the browser but never the model: the tool
+      // result message fed back is built from the safe `data` only.
+      const secondCall = (mockProvider.completeWithTools as jest.Mock).mock
+        .calls[1];
+      const toolMessage = secondCall[0].messages.find(
+        (m: { role: string }) => m.role === "tool",
+      );
+      expect(toolMessage.content).toContain("preview_shown");
+      expect(toolMessage.content).not.toContain("secret-signature");
+    });
+
+    it("caps to one pending action per response", async () => {
+      mockToolExecutor.execute.mockResolvedValue({
+        data: { status: "preview_shown", message: "awaiting approval" },
+        summary: "Prepared a transaction.",
+        sources: [],
+        pendingAction,
+      });
+      (mockProvider.completeWithTools as jest.Mock)
+        .mockResolvedValueOnce({
+          content: "",
+          toolCalls: [
+            { id: "tc-1", name: "create_transaction", input: { amount: -1 } },
+            { id: "tc-2", name: "create_transaction", input: { amount: -2 } },
+          ],
+          usage: { inputTokens: 80, outputTokens: 30 },
+          model: "m",
+          provider: "anthropic",
+          stopReason: "tool_use",
+        })
+        .mockResolvedValueOnce({
+          content: "Review the card.",
+          toolCalls: [],
+          usage: { inputTokens: 10, outputTokens: 5 },
+          model: "m",
+          provider: "anthropic",
+          stopReason: "end_turn",
+        });
+
+      const events = await collectEvents(userId, "add two expenses");
+
+      const pendingEvents = events.filter((e) => e.type === "pending_action");
+      expect(pendingEvents).toHaveLength(1);
     });
   });
 });

@@ -431,7 +431,7 @@ describe('ApiAccessSection', () => {
   });
 
   it('shows scope badges for each scope', async () => {
-    const multiScopeToken = { ...mockToken, scopes: 'read,write,reports' };
+    const multiScopeToken = { ...mockToken, scopes: 'read,write' };
     (authApi.getTokens as any).mockResolvedValue([multiScopeToken]);
 
     render(<ApiAccessSection />);
@@ -439,7 +439,6 @@ describe('ApiAccessSection', () => {
     await waitFor(() => {
       expect(screen.getByText('read')).toBeInTheDocument();
       expect(screen.getByText('write')).toBeInTheDocument();
-      expect(screen.getByText('reports')).toBeInTheDocument();
     });
   });
 

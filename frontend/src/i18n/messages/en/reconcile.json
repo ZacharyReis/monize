@@ -1,0 +1,58 @@
+{
+  "title": "Reconcile Account",
+  "subtitle": "Match your records against your bank statement",
+  "subtitleActive": "Reconciling: {name}",
+  "setup": {
+    "title": "Start Reconciliation",
+    "intro": "Reconcile your account against a bank statement to ensure your records match.",
+    "accountLabel": "Account",
+    "accountPlaceholder": "Select account...",
+    "statementDateLabel": "Statement Date",
+    "statementBalanceLabel": "Statement Ending Balance",
+    "start": "Start Reconciliation"
+  },
+  "summary": {
+    "statementBalance": "Statement Balance",
+    "reconciledBalance": "Reconciled Balance",
+    "selected": "Selected ({count})",
+    "difference": "Difference"
+  },
+  "list": {
+    "heading": "Unreconciled Transactions ({count})",
+    "selectAll": "Select All",
+    "selectNone": "Select None",
+    "empty": "No unreconciled transactions found for this period.",
+    "colSelect": "Select",
+    "colDate": "Date",
+    "colPayee": "Payee",
+    "colCategory": "Category",
+    "colAmount": "Amount",
+    "colStatus": "Status",
+    "finish": "Finish Reconciliation"
+  },
+  "status": {
+    "cleared": "Cleared",
+    "unreconciled": "Unreconciled",
+    "void": "Void",
+    "reconciled": "Reconciled"
+  },
+  "complete": {
+    "title": "Reconciliation Complete",
+    "message": "Your account has been successfully reconciled as of {date}.",
+    "existingPayment": "This account has a scheduled payment, <b>{name}</b>. Would you like to update its next instance to the reconciled balance of <b>{amount}</b>?",
+    "updatePayment": "Update Next Payment",
+    "noPayment": "No scheduled payment was found for this account. Would you like to create one for the reconciled balance of <b>{amount}</b>?",
+    "createPayment": "Create Scheduled Payment",
+    "backToAccounts": "Back to Accounts",
+    "reconcileAnother": "Reconcile Another Account"
+  },
+  "toasts": {
+    "loadAccountsFailed": "Failed to load accounts",
+    "fillAllFields": "Please fill in all fields",
+    "loadDataFailed": "Failed to load reconciliation data",
+    "differenceRequired": "The difference must be {amount} to finish reconciliation",
+    "noneSelected": "No transactions selected for reconciliation",
+    "success": "{count, plural, one {Successfully reconciled # transaction} other {Successfully reconciled # transactions}}",
+    "reconcileFailed": "Failed to reconcile transactions"
+  }
+}

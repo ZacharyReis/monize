@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { createPortal } from 'react-dom';
 import { cn, inputBaseClasses, inputErrorClasses } from '@/lib/utils';
@@ -31,6 +32,14 @@ interface ComboboxProps {
   alwaysShowSubtitle?: boolean;
   /** Values to sort to the top of the list when not filtering */
   priorityValues?: string[];
+  /**
+   * Open the dropdown when the input gains focus. Defaults to true. Set false
+   * when the field may be auto-focused (e.g. it is the first focusable element
+   * in a modal) so the list only opens on an explicit click, keypress, or type.
+   */
+  openOnFocus?: boolean;
+  /** Accessible name for the input when there is no visible `label`. */
+  'aria-label'?: string;
 }
 
 export function Combobox({
@@ -48,7 +57,10 @@ export function Combobox({
   usePortal = false,
   alwaysShowSubtitle = false,
   priorityValues,
+  openOnFocus = true,
+  'aria-label': ariaLabel,
 }: ComboboxProps) {
+  const t = useTranslations('common');
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(initialDisplayValue || '');
   const [selectedLabel, setSelectedLabel] = useState(initialDisplayValue || '');
@@ -140,6 +152,26 @@ export function Combobox({
   }, [value, options, isTyping, allowCustomValue, initialDisplayValue, hasInitialized]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Lift the current typed text to the parent: snap to an exact option match if
+  // one exists, otherwise commit it as a custom value. Shared by the
+  // click-outside and Tab handlers so a freshly-typed value is never discarded
+  // when focus leaves the field without explicitly picking a dropdown option.
+  const commitTypedCustomValue = useCallback(() => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    const matchedOption = options.find(
+      (opt) => opt.label.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (matchedOption) {
+      setSelectedLabel(matchedOption.label);
+      setInputValue(matchedOption.label);
+      onChange(matchedOption.value, matchedOption.label);
+    } else if (trimmed !== selectedLabel) {
+      setSelectedLabel(trimmed);
+      onChange('', trimmed);
+    }
+  }, [inputValue, options, selectedLabel, onChange]);
+
   // Close dropdown when clicking outside. In portal mode the list renders
   // outside wrapperRef, so it is checked separately; otherwise it lives inside
   // the wrapper and the listRef check is harmlessly redundant.
@@ -160,24 +192,15 @@ export function Combobox({
           setInputValue('');
           onChange('', '');
         }
-      } else if (!isSubmitButton) {
-        if (!allowCustomValue && selectedLabel) {
-          // Reset to selected value if not allowing custom
-          setInputValue(selectedLabel);
-        } else if (allowCustomValue) {
-          // For custom values, check if input matches an option exactly
-          const matchedOption = options.find(
-            opt => opt.label.toLowerCase() === inputValue.toLowerCase()
-          );
-          if (matchedOption) {
-            setSelectedLabel(matchedOption.label);
-            setInputValue(matchedOption.label);
-            onChange(matchedOption.value, matchedOption.label);
-          } else if (inputValue.trim() !== selectedLabel) {
-            setSelectedLabel(inputValue.trim());
-            onChange('', inputValue.trim());
-          }
-        }
+      } else if (allowCustomValue) {
+        // Commit the typed value -- even when the click lands on a submit button
+        // -- so a freshly-typed custom value is lifted to the parent before the
+        // form reads it. Snap to an exact option match when one exists.
+        commitTypedCustomValue();
+      } else if (!isSubmitButton && selectedLabel) {
+        // Not allowing custom values: restore the committed label, but don't
+        // fight a form submission already in progress.
+        setInputValue(selectedLabel);
       }
     }
   });
@@ -230,7 +253,10 @@ export function Combobox({
   };
 
   const handleFocus = () => {
-    openDropdown();
+    // When openOnFocus is disabled, focusing the input (e.g. a modal
+    // auto-focusing the first focusable element) must not open the dropdown;
+    // it only opens on an explicit click, keypress, or typing.
+    if (openOnFocus) openDropdown();
     // Select all text when focusing so user can easily type to filter
     if (inputRef.current && inputValue) {
       setTimeout(() => {
@@ -402,6 +428,11 @@ export function Combobox({
                 handleSelectOption(filteredOptions[optionIndex]);
               }
             }
+          } else if (allowCustomValue) {
+            // No option highlighted: lift any typed custom value to the parent so
+            // tabbing out of the field (instead of clicking away) doesn't discard
+            // it -- otherwise the form reads a blank payee on submit.
+            commitTypedCustomValue();
           }
         }
         setIsOpen(false);
@@ -446,7 +477,7 @@ export function Combobox({
           <div className="flex items-center">
             <span className="text-green-600 dark:text-green-400 mr-2">+</span>
             <span className="font-medium text-green-700 dark:text-green-300">
-              Create "{inputValue.trim()}"
+              {t('combobox.createOption', { value: inputValue.trim() })}
             </span>
           </div>
         </div>
@@ -528,6 +559,7 @@ export function Combobox({
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          aria-label={ariaLabel}
           disabled={disabled}
           className={cn(
             inputBaseClasses,

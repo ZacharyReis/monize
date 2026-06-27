@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { investmentsApi } from '@/lib/investments';
 import { getErrorMessage } from '@/lib/errors';
@@ -28,6 +29,7 @@ import { type TransactionFilters } from '@/components/investments/InvestmentTran
 const logger = createLogger('Investments');
 
 export function useInvestmentData() {
+  const t = useTranslations('investments');
   const searchParams = useSearchParams();
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -361,12 +363,30 @@ export function useInvestmentData() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    setTransactions(prev => prev.filter(tx => tx.id !== id));
+    // Deleting one leg of a security transfer cascades to its paired leg on
+    // the backend, so drop both from the list optimistically.
+    const target = transactions.find(tx => tx.id === id);
+    const removeIds = new Set<string>([id]);
+    if (target?.linkedTransactionId) removeIds.add(target.linkedTransactionId);
+    // The backend deletes both legs of a transfer, but only legs within the
+    // current filter count toward pagination.total. The deleted leg always
+    // does. The paired leg counts when either no account filter is applied (the
+    // whole portfolio is in the total, even if the leg sits on another page) or
+    // it is loaded in the current filtered list -- otherwise it belongs to an
+    // account that's filtered out and must not be subtracted.
+    const linkedLoaded =
+      !!target?.linkedTransactionId &&
+      transactions.some(tx => tx.id === target.linkedTransactionId);
+    const linkedCounts =
+      !!target?.linkedTransactionId &&
+      (selectedAccountIds.length === 0 || linkedLoaded);
+    const removedCount = linkedCounts ? 2 : 1;
+    setTransactions(prev => prev.filter(tx => !removeIds.has(tx.id)));
     // Keep the pagination summary in sync immediately so the bottom counter
     // updates without waiting for the next full reload.
     setPagination(prev => {
       if (!prev) return prev;
-      const total = Math.max(0, prev.total - 1);
+      const total = Math.max(0, prev.total - removedCount);
       const totalPages = Math.max(1, Math.ceil(total / prev.limit));
       return {
         ...prev,
@@ -384,7 +404,7 @@ export function useInvestmentData() {
       logger.error('Failed to delete transaction:', error);
       // Surface the backend's reason (e.g. "would cause holdings to go
       // negative") via toast instead of a native browser alert.
-      toast.error(getErrorMessage(error, 'Failed to delete transaction'));
+      toast.error(getErrorMessage(error, t('page.toastDeleteFailed')));
       loadAllPortfolioData(selectedAccountIds, currentPage, transactionFilters);
     }
   };

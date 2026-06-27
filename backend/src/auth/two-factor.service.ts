@@ -21,6 +21,7 @@ import { UserPreference } from "../users/entities/user-preference.entity";
 import { TrustedDevice } from "../users/entities/trusted-device.entity";
 import { encrypt, decrypt, derivePurposeKey, hashToken } from "./crypto.util";
 import { TokenService } from "./token.service";
+import { tr } from "../i18n/translate";
 
 @Injectable()
 export class TwoFactorService {
@@ -102,7 +103,10 @@ export class TwoFactorService {
     const attemptRecord = this.twoFactorAttempts.get(tempToken);
     if (attemptRecord && attemptRecord.count >= this.MAX_2FA_ATTEMPTS) {
       throw new UnauthorizedException(
-        "Too many verification attempts. Please log in again.",
+        tr(
+          "errors.auth.tooManyAttemptsLoginAgain",
+          "Too many verification attempts. Please log in again.",
+        ),
       );
     }
 
@@ -111,14 +115,21 @@ export class TwoFactorService {
       payload = this.jwtService.verify(tempToken);
     } catch {
       this.logger.warn("2FA verification failed: invalid or expired token");
-      throw new UnauthorizedException("Invalid or expired verification token");
+      throw new UnauthorizedException(
+        tr(
+          "errors.auth.invalidOrExpiredVerificationToken",
+          "Invalid or expired verification token",
+        ),
+      );
     }
 
     if (payload.type !== "2fa_pending") {
       this.logger.warn(
         `2FA verification failed: invalid token type for user ${payload.sub}`,
       );
-      throw new UnauthorizedException("Invalid token type");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidTokenType", "Invalid token type"),
+      );
     }
 
     // Per-user rate limiting: prevents brute-force multiplication via multiple tempTokens
@@ -131,7 +142,10 @@ export class TwoFactorService {
         `2FA verification blocked: too many attempts for user ${payload.sub}`,
       );
       throw new UnauthorizedException(
-        "Too many verification attempts. Your account has been temporarily locked.",
+        tr(
+          "errors.auth.tooManyAttemptsAccountLocked",
+          "Too many verification attempts. Your account has been temporarily locked.",
+        ),
       );
     }
 
@@ -143,7 +157,12 @@ export class TwoFactorService {
       this.logger.warn(
         `2FA verification failed: invalid state for user ${payload.sub}`,
       );
-      throw new UnauthorizedException("Invalid verification state");
+      throw new UnauthorizedException(
+        tr(
+          "errors.auth.invalidVerificationState",
+          "Invalid verification state",
+        ),
+      );
     }
 
     const { secret, needsReEncrypt } = this.decryptTotpSecret(
@@ -200,7 +219,9 @@ export class TwoFactorService {
       this.logger.warn(
         `2FA verification failed: invalid code for user ${user.id}`,
       );
-      throw new UnauthorizedException("Invalid verification code");
+      throw new UnauthorizedException(
+        tr("errors.auth.invalidVerificationCode", "Invalid verification code"),
+      );
     }
 
     // M4: Clear attempt tracking on success
@@ -318,12 +339,17 @@ export class TwoFactorService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.auth.userNotFound", "User not found"),
+      );
     }
 
     if (user.authProvider === "oidc") {
       throw new BadRequestException(
-        "Two-factor authentication is not available for SSO accounts",
+        tr(
+          "errors.auth.twoFactorNotAvailableForSso",
+          "Two-factor authentication is not available for SSO accounts",
+        ),
       );
     }
 
@@ -332,7 +358,10 @@ export class TwoFactorService {
     // force-enroll their own authenticator and lock out the real user.
     if (!user.passwordHash) {
       throw new BadRequestException(
-        "Two-factor authentication requires an account password",
+        tr(
+          "errors.auth.twoFactorRequiresPassword",
+          "Two-factor authentication requires an account password",
+        ),
       );
     }
     const isPasswordValid = await bcrypt.compare(
@@ -343,7 +372,12 @@ export class TwoFactorService {
       this.logger.warn(
         `2FA setup refused: invalid password for user ${userId}`,
       );
-      throw new UnauthorizedException("Current password is incorrect");
+      throw new UnauthorizedException(
+        tr(
+          "errors.auth.currentPasswordIncorrect",
+          "Current password is incorrect",
+        ),
+      );
     }
 
     const secret = otplib.generateSecret();
@@ -367,14 +401,18 @@ export class TwoFactorService {
     });
 
     if (!user || !user.pendingTwoFactorSecret) {
-      throw new BadRequestException("2FA setup not initiated");
+      throw new BadRequestException(
+        tr("errors.auth.twoFactorSetupNotInitiated", "2FA setup not initiated"),
+      );
     }
 
     const secret = decrypt(user.pendingTwoFactorSecret, this.totpEncryptionKey);
     const isValid = otplib.verifySync({ token: code, secret }).valid;
 
     if (!isValid) {
-      throw new BadRequestException("Invalid verification code");
+      throw new BadRequestException(
+        tr("errors.auth.invalidVerificationCode", "Invalid verification code"),
+      );
     }
 
     // H5: Promote pending secret to active secret on successful confirmation
@@ -403,7 +441,10 @@ export class TwoFactorService {
       "true";
     if (force2fa) {
       throw new ForbiddenException(
-        "Two-factor authentication is required by the administrator",
+        tr(
+          "errors.auth.twoFactorRequiredByAdmin",
+          "Two-factor authentication is required by the administrator",
+        ),
       );
     }
 
@@ -412,14 +453,18 @@ export class TwoFactorService {
     });
 
     if (!user || !user.twoFactorSecret) {
-      throw new BadRequestException("2FA is not enabled");
+      throw new BadRequestException(
+        tr("errors.auth.twoFactorNotEnabled", "2FA is not enabled"),
+      );
     }
 
     const { secret } = this.decryptTotpSecret(user.twoFactorSecret);
     const isValid = otplib.verifySync({ token: code, secret }).valid;
 
     if (!isValid) {
-      throw new BadRequestException("Invalid verification code");
+      throw new BadRequestException(
+        tr("errors.auth.invalidVerificationCode", "Invalid verification code"),
+      );
     }
 
     // Clear secret and disable
@@ -449,18 +494,24 @@ export class TwoFactorService {
     });
 
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.auth.userNotFound", "User not found"),
+      );
     }
 
     if (!user.twoFactorSecret) {
-      throw new BadRequestException("2FA is not enabled");
+      throw new BadRequestException(
+        tr("errors.auth.twoFactorNotEnabled", "2FA is not enabled"),
+      );
     }
 
     const { secret } = this.decryptTotpSecret(user.twoFactorSecret);
     const isValid = otplib.verifySync({ token: code, secret }).valid;
 
     if (!isValid) {
-      throw new BadRequestException("Invalid verification code");
+      throw new BadRequestException(
+        tr("errors.auth.invalidVerificationCode", "Invalid verification code"),
+      );
     }
 
     const codes: string[] = [];
@@ -705,7 +756,9 @@ export class TwoFactorService {
     });
 
     if (!device) {
-      throw new NotFoundException("Device not found");
+      throw new NotFoundException(
+        tr("errors.auth.deviceNotFound", "Device not found"),
+      );
     }
 
     await this.trustedDevicesRepository.remove(device);

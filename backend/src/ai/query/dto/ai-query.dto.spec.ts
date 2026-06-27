@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { AiQueryDto } from "./ai-query.dto";
+import { AiQueryDto, MAX_ATTACHMENTS } from "./ai-query.dto";
 
 describe("AiQueryDto", () => {
   function createDto(data: Record<string, unknown>): AiQueryDto {
@@ -98,6 +98,88 @@ describe("AiQueryDto", () => {
       });
       const errors = await validate(dto);
       expect(errors).toHaveLength(0);
+    });
+  });
+
+  describe("attachments", () => {
+    const VALID_BASE64 = "aGVsbG8="; // "hello"
+
+    it("accepts a valid image attachment", async () => {
+      const dto = createDto({
+        query: "extract this",
+        attachments: [
+          {
+            kind: "image",
+            mediaType: "image/png",
+            filename: "receipt.png",
+            data: VALID_BASE64,
+          },
+        ],
+      });
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+
+    it("rejects an unsupported media type", async () => {
+      const dto = createDto({
+        query: "q",
+        attachments: [
+          {
+            kind: "image",
+            mediaType: "image/tiff",
+            filename: "x.tiff",
+            data: VALID_BASE64,
+          },
+        ],
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it("rejects an invalid kind", async () => {
+      const dto = createDto({
+        query: "q",
+        attachments: [
+          {
+            kind: "video",
+            mediaType: "image/png",
+            filename: "x.png",
+            data: VALID_BASE64,
+          },
+        ],
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it("rejects non-base64 data", async () => {
+      const dto = createDto({
+        query: "q",
+        attachments: [
+          {
+            kind: "image",
+            mediaType: "image/png",
+            filename: "x.png",
+            data: "not base64 !!!",
+          },
+        ],
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it("rejects more than the maximum number of attachments", async () => {
+      const dto = createDto({
+        query: "q",
+        attachments: Array.from({ length: MAX_ATTACHMENTS + 1 }, (_, i) => ({
+          kind: "image",
+          mediaType: "image/png",
+          filename: `f${i}.png`,
+          data: VALID_BASE64,
+        })),
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
     });
   });
 });

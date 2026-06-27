@@ -14,6 +14,27 @@ import {
   AccountHoldings,
   AllocationItem,
 } from "./portfolio.service";
+import { roundMoney } from "../common/round.util";
+import { formatDateYMD, formatDateYMDLocal } from "../common/date-utils";
+import { mapWithConcurrency } from "../common/concurrency.util";
+import { convertWithRateLookup } from "../common/currency-conversion.util";
+import { stripBrokerageSuffix } from "../accounts/account-name.util";
+
+// "As of now" portfolio valuations fetch a live spot rate per foreign
+// currency. Cap concurrent quote-provider fetches so a portfolio spanning
+// many currencies does not burst the provider on an interactive request.
+const LIVE_FX_FETCH_CONCURRENCY = 6;
+
+/**
+ * Date-indexed history of stored daily exchange rates, keyed by the raw
+ * "{from}->{to}" pair as stored in the exchange_rates table. Each entry's
+ * rates are sorted ascending by date so an "as of" lookup can walk to the
+ * most recent rate at or before a target date. Used to value intraday chart
+ * bars that fall outside the live intraday FX series (pre-market, weekend and
+ * holiday gaps, or a failed FX fetch) at the rate that actually prevailed on
+ * that bar's own date rather than a single near-current rate.
+ */
+export type DailyRateIndex = Map<string, Array<{ date: string; rate: number }>>;
 
 /**
  * Categorised investment accounts: brokerage, standalone, and cash accounts
@@ -79,10 +100,6 @@ export interface CapitalGainEntry {
   realizedGain: number;
   unrealizedGain: number;
   totalCapitalGain: number;
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 10000) / 10000;
 }
 
 /**
@@ -258,6 +275,151 @@ export class PortfolioCalculationService {
     return amount * rate;
   }
 
+  /**
+   * Pre-populate the rate cache with live spot FX rates for every non-default
+   * currency held across the given accounts and their holdings. The portfolio
+   * summary's "as of now" valuations (holdings value, cash, allocation, net
+   * invested) then convert at the current rate -- matching the live Portfolio
+   * Value Over Time chart -- instead of the once-a-day stored snapshot used by
+   * getLatestRate.
+   *
+   * Best effort: when a live quote is unavailable for a currency the cache is
+   * left unset for that pair, so the downstream convertToDefault falls back to
+   * the stored daily rate (its existing behaviour).
+   */
+  async primeLiveRates(
+    rateCache: Map<string, number>,
+    accounts: Account[],
+    holdingsAccountIds: string[],
+    defaultCurrency: string,
+  ): Promise<void> {
+    const currencies = new Set<string>();
+    for (const account of accounts) {
+      if (account.currencyCode) currencies.add(account.currencyCode);
+    }
+
+    if (holdingsAccountIds.length > 0) {
+      const rows: Array<{ currency: string | null }> =
+        await this.holdingsRepository
+          .createQueryBuilder("h")
+          .innerJoin("h.security", "s")
+          .where("h.account_id IN (:...ids)", { ids: holdingsAccountIds })
+          .select("DISTINCT s.currency_code", "currency")
+          .getRawMany();
+      for (const row of rows) {
+        if (row.currency) currencies.add(row.currency);
+      }
+    }
+
+    currencies.delete(defaultCurrency);
+
+    await mapWithConcurrency(
+      [...currencies],
+      LIVE_FX_FETCH_CONCURRENCY,
+      async (currency) => {
+        const rate = await this.exchangeRateService.getLiveRate(
+          currency,
+          defaultCurrency,
+        );
+        if (rate !== null && rate > 0) {
+          rateCache.set(`${currency}->${defaultCurrency}`, rate);
+        }
+      },
+    );
+  }
+
+  /**
+   * Build a date-indexed history of stored daily rates for converting each of
+   * `currencies` to `defaultCurrency`, covering [startDate, endDate]. Only the
+   * pairs that involve the default currency and a requested currency are kept,
+   * in either direction, so `resolveDailyRate` can apply the same direct-then-
+   * inverse decision used everywhere else.
+   *
+   * Used by the intraday Portfolio Value Over Time chart to value bars that the
+   * live intraday FX series does not cover at the daily close that prevailed on
+   * that bar's own date, instead of the first/latest intraday rate.
+   */
+  async buildDailyRateIndex(
+    currencies: Iterable<string>,
+    defaultCurrency: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<DailyRateIndex> {
+    const needed = new Set<string>();
+    for (const c of currencies) {
+      if (c && c !== defaultCurrency) needed.add(c);
+    }
+    const index: DailyRateIndex = new Map();
+    if (needed.size === 0) return index;
+
+    const rows = await this.exchangeRateService.getRateHistory(
+      startDate,
+      endDate,
+    );
+    for (const row of rows) {
+      const from = row.fromCurrency;
+      const to = row.toCurrency;
+      const involvesPair =
+        (needed.has(from) && to === defaultCurrency) ||
+        (from === defaultCurrency && needed.has(to));
+      if (!involvesPair) continue;
+      const key = `${from}->${to}`;
+      const arr = index.get(key);
+      // rate_date is normally returned as a "YYYY-MM-DD" string (DATE columns
+      // are parsed as strings, see main.ts) but tolerate a Date instance too.
+      const rawDate: string | Date = row.rateDate;
+      const date =
+        rawDate instanceof Date
+          ? formatDateYMD(rawDate)
+          : String(rawDate).substring(0, 10);
+      const entry = { date, rate: Number(row.rate) };
+      if (arr) {
+        index.set(key, [...arr, entry]);
+      } else {
+        index.set(key, [entry]);
+      }
+    }
+
+    // getRateHistory already orders by rate_date ASC, but sort defensively so
+    // the as-of walk in resolveDailyRate never depends on query ordering.
+    for (const [key, arr] of index) {
+      index.set(
+        key,
+        [...arr].sort((a, b) =>
+          a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+        ),
+      );
+    }
+
+    return index;
+  }
+
+  /**
+   * Resolve the stored daily rate for converting 1 unit of `from` to `to` as of
+   * `dateStr` (YYYY-MM-DD) from a `DailyRateIndex`. Picks the most recent rate
+   * at or before the date; if none exists yet it uses the earliest known rate.
+   * Returns undefined when the pair is absent in either direction so callers can
+   * apply their own fallback.
+   */
+  resolveDailyRate(
+    index: DailyRateIndex,
+    from: string,
+    to: string,
+    dateStr: string,
+  ): number | undefined {
+    const result = convertWithRateLookup(1, from, to, (f, t) => {
+      const rates = index.get(`${f}->${t}`);
+      if (!rates || rates.length === 0) return undefined;
+      let best: number | undefined;
+      for (const r of rates) {
+        if (r.date <= dateStr) best = r.rate;
+        else break;
+      }
+      return best ?? rates[0].rate;
+    });
+    return result == null ? undefined : result;
+  }
+
   // ---------------------------------------------------------------------------
   // Account categorisation
   // ---------------------------------------------------------------------------
@@ -311,7 +473,7 @@ export class PortfolioCalculationService {
     for (const account of accounts) {
       effectiveBalances.set(
         account.id,
-        Math.round(Number(account.currentBalance) * 10000) / 10000,
+        roundMoney(Number(account.currentBalance)),
       );
     }
     return effectiveBalances;
@@ -421,8 +583,7 @@ export class PortfolioCalculationService {
     const result = new Map<string, number>();
     if (holdingsAccountIds.length === 0) return result;
 
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = formatDateYMDLocal(new Date());
 
     const transactions = await this.investmentTransactionRepository.find({
       where: {
@@ -492,7 +653,7 @@ export class PortfolioCalculationService {
     }
 
     for (const [key, entry] of state) {
-      result.set(key, Math.round(entry.costBasis * 10000) / 10000);
+      result.set(key, roundMoney(entry.costBasis));
     }
 
     return result;
@@ -1081,8 +1242,8 @@ export class PortfolioCalculationService {
       const accountGainLossPercent =
         accountCostBasis > 0 ? (accountGainLoss / accountCostBasis) * 100 : 0;
 
-      // Get display name (remove " - Brokerage" suffix if present)
-      const accountName = brokerageAccount.name.replace(" - Brokerage", "");
+      // Get display name (remove the localized " - Brokerage" suffix if present)
+      const accountName = stripBrokerageSuffix(brokerageAccount.name);
 
       const cashBalance = linkedCashAccount
         ? (effectiveBalances.get(linkedCashAccount.id) ??
@@ -1107,7 +1268,7 @@ export class PortfolioCalculationService {
         totalMarketValue: accountMarketValue,
         totalGainLoss: accountGainLoss,
         totalGainLossPercent: accountGainLossPercent,
-        netInvested: Math.round(accountNetInvested * 100) / 100,
+        netInvested: roundMoney(accountNetInvested),
       });
     }
 
@@ -1159,7 +1320,7 @@ export class PortfolioCalculationService {
         totalMarketValue: accountMarketValue,
         totalGainLoss: accountGainLoss,
         totalGainLossPercent: accountGainLossPercent,
-        netInvested: Math.round(standaloneNetInvested * 100) / 100,
+        netInvested: roundMoney(standaloneNetInvested),
       });
     }
 
@@ -1269,6 +1430,121 @@ export class PortfolioCalculationService {
     }
 
     allocation.sort((a, b) => b.value - a.value);
+    return allocation;
+  }
+
+  /**
+   * Build a portfolio "exposure by tag" breakdown from the already-consolidated
+   * per-security allocation (values in the default currency) and a per-symbol
+   * tag map.
+   *
+   * Multi-tag handling is option A (overlapping exposure): a security's full
+   * value counts once under EACH of its tags, so a holding tagged both "AI" and
+   * "All-World" contributes its whole value to both slices. Percentages are of
+   * the total portfolio value and can therefore sum to more than 100% -- this is
+   * an exposure view, not a strict partition. (Partitioning a multi-tagged
+   * holding's value, or charting one tag dimension at a time, are deliberately
+   * left as open follow-ups.)
+   *
+   * Securities with no tags fall into an "Untagged" bucket and cash into a
+   * "Cash" bucket, each kept as an explicit slice. A tag's own colour is used
+   * when set, otherwise a palette colour is assigned by descending value.
+   */
+  buildAllocationByTag(
+    securityItems: AllocationItem[],
+    tagsBySymbol: Map<
+      string,
+      Array<{ id: string; name: string; color: string | null }>
+    >,
+    totalCashValue: number,
+    totalPortfolioValue: number,
+    defaultCurrency: string,
+  ): AllocationItem[] {
+    const palette = [
+      "#3b82f6",
+      "#22c55e",
+      "#f97316",
+      "#8b5cf6",
+      "#ec4899",
+      "#14b8a6",
+      "#eab308",
+      "#ef4444",
+    ];
+
+    // Accumulate value per tag (overlapping) and the untagged remainder.
+    const tagBuckets = new Map<
+      string,
+      { name: string; color: string | null; value: number }
+    >();
+    let untaggedValue = 0;
+
+    for (const item of securityItems) {
+      if (item.type !== "security" || item.value <= 0) continue;
+      const tags = item.symbol ? (tagsBySymbol.get(item.symbol) ?? []) : [];
+      if (tags.length === 0) {
+        untaggedValue += item.value;
+        continue;
+      }
+      for (const tag of tags) {
+        const existing = tagBuckets.get(tag.id);
+        if (existing) {
+          existing.value += item.value;
+        } else {
+          tagBuckets.set(tag.id, {
+            name: tag.name,
+            color: tag.color,
+            value: item.value,
+          });
+        }
+      }
+    }
+
+    const pct = (value: number) =>
+      totalPortfolioValue > 0 ? (value / totalPortfolioValue) * 100 : 0;
+
+    const allocation: AllocationItem[] = [];
+
+    if (totalCashValue > 0) {
+      allocation.push({
+        name: "Cash",
+        symbol: null,
+        type: "cash",
+        value: totalCashValue,
+        percentage: pct(totalCashValue),
+        color: "#6b7280",
+        currencyCode: defaultCurrency,
+      });
+    }
+
+    const sortedTags = [...tagBuckets.values()].sort(
+      (a, b) => b.value - a.value,
+    );
+    let colorIndex = 0;
+    for (const bucket of sortedTags) {
+      allocation.push({
+        name: bucket.name,
+        symbol: null,
+        type: "tag",
+        value: bucket.value,
+        percentage: pct(bucket.value),
+        color: bucket.color || palette[colorIndex % palette.length],
+        currencyCode: defaultCurrency,
+      });
+      colorIndex++;
+    }
+
+    if (untaggedValue > 0) {
+      allocation.push({
+        name: "Untagged",
+        symbol: null,
+        type: "untagged",
+        value: untaggedValue,
+        percentage: pct(untaggedValue),
+        color: "#9ca3af",
+        currencyCode: defaultCurrency,
+      });
+    }
+
     return allocation;
   }
 

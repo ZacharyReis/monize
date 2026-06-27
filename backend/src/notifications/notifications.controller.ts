@@ -7,10 +7,14 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
+import { I18nService } from "nestjs-i18n";
+import { tr } from "../i18n/translate";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { EmailService } from "./email.service";
 import { UsersService } from "../users/users.service";
 import { testEmailTemplate } from "./email-templates";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 
 @ApiTags("Notifications")
 @Controller("notifications")
@@ -20,6 +24,7 @@ export class NotificationsController {
   constructor(
     private readonly emailService: EmailService,
     private readonly usersService: UsersService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Get("smtp-status")
@@ -34,17 +39,28 @@ export class NotificationsController {
     const status = this.emailService.getStatus();
     if (!status.configured) {
       throw new BadRequestException(
-        "SMTP is not configured. Set SMTP environment variables.",
+        tr(
+          "errors.notifications.smtpNotConfigured",
+          "SMTP is not configured. Set SMTP environment variables.",
+        ),
       );
     }
 
     const user = await this.usersService.findById(req.user.id);
     if (!user || !user.email) {
-      throw new BadRequestException("No email address on file for this user.");
+      throw new BadRequestException(
+        tr(
+          "errors.notifications.noEmailOnFile",
+          "No email address on file for this user.",
+        ),
+      );
     }
 
-    const html = testEmailTemplate(user.firstName || "");
-    await this.emailService.sendMail(user.email, "Monize Test Email", html);
+    const lang = DEFAULT_LOCALE;
+    const t = emailTranslator(this.i18n, lang);
+    const html = testEmailTemplate(user.firstName || "", t);
+    const subject = t("emails.test.subject", "Monize Test Email");
+    await this.emailService.sendMail(user.email, subject, html);
     return { message: "Test email sent successfully" };
   }
 }

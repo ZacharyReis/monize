@@ -1,10 +1,20 @@
 import {
+  confirmWrite,
   hasScope,
   requireScope,
   safeToolError,
   toolError,
   toolResult,
 } from "./mcp-context";
+
+function fakeServer(opts: { capabilities?: unknown; elicit?: jest.Mock }): any {
+  return {
+    server: {
+      getClientCapabilities: jest.fn().mockReturnValue(opts.capabilities),
+      elicitInput: opts.elicit ?? jest.fn(),
+    },
+  };
+}
 
 describe("mcp-context", () => {
   describe("hasScope", () => {
@@ -149,6 +159,97 @@ describe("mcp-context", () => {
       expect(JSON.parse(toolResult(null).content[0].text)).toBeNull();
       expect(JSON.parse(toolResult(42).content[0].text)).toBe(42);
       expect(JSON.parse(toolResult("hello").content[0].text)).toBe("hello");
+    });
+
+    describe("structuredContent", () => {
+      it("passes an object payload through unchanged", () => {
+        const data = { netWorth: 1000, totalAccounts: 2 };
+        const result = toolResult(data);
+        expect(result.structuredContent).toEqual(data);
+      });
+
+      it("wraps a bare array under 'items' (structured content must be an object)", () => {
+        const result = toolResult([{ id: "a1" }, { id: "a2" }]);
+        expect(result.structuredContent).toEqual({
+          items: [{ id: "a1" }, { id: "a2" }],
+        });
+      });
+
+      it("wraps a primitive payload under 'value'", () => {
+        expect(toolResult(42).structuredContent).toEqual({ value: 42 });
+        expect(toolResult(null).structuredContent).toEqual({ value: null });
+      });
+    });
+  });
+
+  describe("confirmWrite", () => {
+    const caps = { elicitation: { form: {} } };
+
+    it("returns 'accepted' when the user accepts the elicitation", async () => {
+      const elicit = jest.fn().mockResolvedValue({ action: "accept" });
+      const server = fakeServer({ capabilities: caps, elicit });
+      await expect(confirmWrite(server, "Confirm?", "req-1")).resolves.toBe(
+        "accepted",
+      );
+      expect(elicit).toHaveBeenCalledWith(
+        {
+          message: "Confirm?",
+          requestedSchema: { type: "object", properties: {} },
+        },
+        { timeout: expect.any(Number), relatedRequestId: "req-1" },
+      );
+    });
+
+    it("threads the tool call's request id so the elicitation rides its POST SSE stream", async () => {
+      const elicit = jest.fn().mockResolvedValue({ action: "accept" });
+      const server = fakeServer({ capabilities: caps, elicit });
+      await confirmWrite(server, "Confirm?", 42);
+      expect(elicit).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ relatedRequestId: 42 }),
+      );
+    });
+
+    it("returns 'declined' when the user declines or cancels", async () => {
+      const declineServer = fakeServer({
+        capabilities: caps,
+        elicit: jest.fn().mockResolvedValue({ action: "decline" }),
+      });
+      await expect(
+        confirmWrite(declineServer, "Confirm?", "req-1"),
+      ).resolves.toBe("declined");
+
+      const cancelServer = fakeServer({
+        capabilities: caps,
+        elicit: jest.fn().mockResolvedValue({ action: "cancel" }),
+      });
+      await expect(
+        confirmWrite(cancelServer, "Confirm?", "req-1"),
+      ).resolves.toBe("declined");
+    });
+
+    it("returns 'unsupported' without eliciting when the client lacks the capability", async () => {
+      const elicit = jest.fn();
+      const server = fakeServer({ capabilities: {}, elicit });
+      await expect(confirmWrite(server, "Confirm?", "req-1")).resolves.toBe(
+        "unsupported",
+      );
+      expect(elicit).not.toHaveBeenCalled();
+    });
+
+    it("returns 'unsupported' when capabilities are undefined", async () => {
+      const server = fakeServer({ capabilities: undefined });
+      await expect(confirmWrite(server, "Confirm?", "req-1")).resolves.toBe(
+        "unsupported",
+      );
+    });
+
+    it("returns 'declined' (never silently proceeds) when a supported dialog errors or times out", async () => {
+      const elicit = jest.fn().mockRejectedValue(new Error("timed out"));
+      const server = fakeServer({ capabilities: caps, elicit });
+      await expect(confirmWrite(server, "Confirm?", "req-1")).resolves.toBe(
+        "declined",
+      );
     });
   });
 });

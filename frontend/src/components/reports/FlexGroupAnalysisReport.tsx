@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { gainLossColor } from '@/lib/format';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
   Bar,
@@ -15,10 +17,14 @@ import {
 import { budgetsApi } from '@/lib/budgets';
 import type { Budget, FlexGroupStatus } from '@/types/budget';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useReportData } from '@/hooks/useReportData';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { ReportError } from '@/components/reports/ReportError';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
 import { createLogger } from '@/lib/logger';
+import { chartColors } from '@/lib/chart-colors';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('FlexGroupAnalysisReport');
 
@@ -26,16 +32,25 @@ type FlexGroupSortField = 'category' | 'budgeted' | 'spent' | 'remaining' | 'per
 
 
 export function FlexGroupAnalysisReport() {
+  const t = useTranslations('reports');
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
-  const [flexGroups, setFlexGroups] = useState<FlexGroupStatus[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { sortField, sortDirection, handleSort } = useSortableTable<FlexGroupSortField>(
     'reports.flex-group-analysis.sort',
     { field: 'spent', direction: 'desc' },
   );
+
+  const { data: response, isLoading, error, reload } = useReportData(
+    () =>
+      selectedBudgetId
+        ? budgetsApi.getFlexGroupStatus(selectedBudgetId)
+        : Promise.resolve<FlexGroupStatus[]>([]),
+    [selectedBudgetId],
+  );
+
+  const flexGroups = useMemo<FlexGroupStatus[]>(() => response ?? [], [response]);
 
   const sortedFlexGroups = useMemo(() => {
     return flexGroups.map((group) => {
@@ -83,29 +98,9 @@ export function FlexGroupAnalysisReport() {
     loadBudgets();
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!selectedBudgetId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const result = await budgetsApi.getFlexGroupStatus(selectedBudgetId);
-      setFlexGroups(result);
-    } catch (error) {
-      logger.error('Failed to load flex group data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedBudgetId]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   const handleExportPdf = async () => {
     const { exportToPdf } = await import('@/lib/pdf-export');
-    const headers = ['Group', 'Category', 'Budgeted', 'Spent', 'Remaining', '% Used'];
+    const headers = [t('flexGroupAnalysis.colGroup'), t('flexGroupAnalysis.colCategory'), t('flexGroupAnalysis.colBudget'), t('flexGroupAnalysis.colSpent'), t('flexGroupAnalysis.colRemaining'), t('flexGroupAnalysis.colPercentUsed')];
     const rows = flexGroups.flatMap((group) =>
       group.categories.map((cat) => [
         group.groupName,
@@ -117,19 +112,23 @@ export function FlexGroupAnalysisReport() {
       ]),
     );
     await exportToPdf({
-      title: 'Flex Group Analysis',
+      title: t('flexGroupAnalysis.pdfTitle'),
       chartContainer: chartRef.current,
       tableData: { headers, rows },
       filename: 'flex-group-analysis',
     });
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -139,7 +138,7 @@ export function FlexGroupAnalysisReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
         <p className="text-gray-500 dark:text-gray-400">
-          No budgets found. Create a budget to see flex group analysis.
+          {t('flexGroupAnalysis.noBudgets')}
         </p>
       </div>
     );
@@ -161,7 +160,7 @@ export function FlexGroupAnalysisReport() {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6 text-center">
           <p className="text-gray-500 dark:text-gray-400">
-            No flex groups configured for this budget. Edit the budget to add flex groups.
+            {t('flexGroupAnalysis.noFlexGroups')}
           </p>
         </div>
       </div>
@@ -248,16 +247,16 @@ export function FlexGroupAnalysisReport() {
                   <Legend />
                   <Bar
                     dataKey="spent"
-                    name="Spent"
-                    fill="#3b82f6"
+                    name={t('flexGroupAnalysis.seriesSpent')}
+                    fill={chartColors.primary}
                     radius={[0, 4, 4, 0]}
                   />
                   <ReferenceLine
                     x={group.totalBudgeted}
-                    stroke="#ef4444"
+                    stroke={chartColors.expense}
                     strokeWidth={2}
                     strokeDasharray="5 5"
-                    label={{ value: `Limit: ${formatCurrency(group.totalBudgeted)}`, position: 'top', fill: '#ef4444', fontSize: 11 }}
+                    label={{ value: t('flexGroupAnalysis.limitLabel', { amount: formatCurrency(group.totalBudgeted) }), position: 'top', fill: chartColors.expense, fontSize: 11 }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -275,7 +274,7 @@ export function FlexGroupAnalysisReport() {
                       onSort={handleSort}
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Category
+                      {t('flexGroupAnalysis.colCategory')}
                     </SortableHeader>
                     <SortableHeader<FlexGroupSortField>
                       field="budgeted"
@@ -285,7 +284,7 @@ export function FlexGroupAnalysisReport() {
                       align="right"
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Budget
+                      {t('flexGroupAnalysis.colBudget')}
                     </SortableHeader>
                     <SortableHeader<FlexGroupSortField>
                       field="spent"
@@ -295,7 +294,7 @@ export function FlexGroupAnalysisReport() {
                       align="right"
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Spent
+                      {t('flexGroupAnalysis.colSpent')}
                     </SortableHeader>
                     <SortableHeader<FlexGroupSortField>
                       field="remaining"
@@ -305,7 +304,7 @@ export function FlexGroupAnalysisReport() {
                       align="right"
                       className="py-2 pr-4 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      Remaining
+                      {t('flexGroupAnalysis.colRemaining')}
                     </SortableHeader>
                     <SortableHeader<FlexGroupSortField>
                       field="percentUsed"
@@ -315,7 +314,7 @@ export function FlexGroupAnalysisReport() {
                       align="right"
                       className="py-2 font-medium text-gray-500 dark:text-gray-400"
                     >
-                      % Used
+                      {t('flexGroupAnalysis.colPercentUsed')}
                     </SortableHeader>
                   </tr>
                 </thead>
@@ -325,9 +324,7 @@ export function FlexGroupAnalysisReport() {
                       <td className="py-2 pr-4 text-gray-900 dark:text-gray-100">{cat.categoryName}</td>
                       <td className="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">{formatCurrency(cat.budgeted)}</td>
                       <td className="py-2 pr-4 text-right text-gray-600 dark:text-gray-400">{formatCurrency(cat.spent)}</td>
-                      <td className={`py-2 pr-4 text-right font-medium ${
-                        cat.budgeted - cat.spent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
+                      <td className={`py-2 pr-4 text-right font-medium ${gainLossColor(cat.budgeted - cat.spent)}`}>
                         {formatCurrency(cat.budgeted - cat.spent)}
                       </td>
                       <td className={`py-2 text-right font-medium ${

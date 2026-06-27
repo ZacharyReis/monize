@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
 import toast from 'react-hot-toast';
@@ -25,6 +26,8 @@ const CategoryPayeeBarChart = dynamic(() => import('@/components/transactions/Ca
 const AccountBalancesBarChart = dynamic(() => import('@/components/transactions/AccountBalancesBarChart').then(m => m.AccountBalancesBarChart), { ssr: false, loading: ChartLoadingPlaceholder });
 import { transactionsApi } from '@/lib/transactions';
 import { accountsApi } from '@/lib/accounts';
+import { institutionsApi } from '@/lib/institutions';
+import { scheduledTransactionsApi } from '@/lib/scheduled-transactions';
 import { categoriesApi } from '@/lib/categories';
 import { payeesApi } from '@/lib/payees';
 import { tagsApi } from '@/lib/tags';
@@ -34,14 +37,20 @@ import { useTransactionSelection } from '@/hooks/useTransactionSelection';
 import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { BulkSelectionBanner } from '@/components/transactions/BulkSelectionBanner';
 import { Account } from '@/types/account';
+import { Institution } from '@/types/institution';
 import { Category } from '@/types/category';
 import { Payee } from '@/types/payee';
 import { Tag } from '@/types/tag';
+import { ScheduledTransaction } from '@/types/scheduled-transaction';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useFormModal } from '@/hooks/useFormModal';
+import { AccountFormModal } from '@/components/accounts/AccountFormModal';
+import { AccountInfoWidget } from '@/components/transactions/AccountInfoWidget';
+import { computeBalanceSummary } from '@/lib/balance-history';
+import { ChevronDoubleRightIcon } from '@heroicons/react/24/outline';
 import { Modal } from '@/components/ui/Modal';
 import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -66,6 +75,8 @@ export default function TransactionsPage() {
 }
 
 function TransactionsContent() {
+  const t = useTranslations('transactions');
+  const tc = useTranslations('common');
   const router = useRouter();
   const { formatDate } = useDateFormat();
   const weekStartsOn = (usePreferencesStore((s) => s.preferences?.weekStartsOn) ?? 1) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -73,6 +84,8 @@ function TransactionsContent() {
   const { convertToDefault } = useExchangeRates();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [scheduledTransactions, setScheduledTransactions] = useState<ScheduledTransaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -80,12 +93,16 @@ function TransactionsContent() {
   const [monthlyTotals, setMonthlyTotals] = useState<MonthlyTotal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { showForm, editingItem: editingTransaction, openCreate, openEdit, close, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<Transaction>();
+  // Separate modal instance for editing the account behind a single-account
+  // filter, reusing the same form as the Accounts page.
+  const accountModal = useFormModal<Account>();
   const [duplicatingFrom, setDuplicatingFrom] = useState<Transaction | undefined>();
   const [schedulingFrom, setSchedulingFrom] = useState<Transaction | undefined>();
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [showPayeeForm, setShowPayeeForm] = useState(false);
   const [editingPayee, setEditingPayee] = useState<Payee | undefined>();
   const [listDensity, setListDensity] = useLocalStorage<DensityLevel>('monize-transactions-density', 'normal');
+  const [accountWidgetCollapsed, setAccountWidgetCollapsed] = useLocalStorage<boolean>('monize-transactions-account-widget-collapsed', false);
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
@@ -110,22 +127,26 @@ function TransactionsContent() {
   const loadStaticData = useCallback(async () => {
     if (staticDataLoaded.current) return;
     try {
-      const [accountsData, categoriesData, payeesData, tagsData] = await Promise.all([
+      const [accountsData, categoriesData, payeesData, tagsData, institutionsData, scheduledData] = await Promise.all([
         accountsApi.getAll(true),
         categoriesApi.getAll(),
         payeesApi.getAll(),
         tagsApi.getAll(),
+        institutionsApi.getAll().catch(() => [] as Institution[]),
+        scheduledTransactionsApi.getAll().catch(() => [] as ScheduledTransaction[]),
       ]);
       setAccounts(accountsData);
       setCategories(categoriesData);
       setPayees(payeesData);
       setTags(tagsData);
+      setInstitutions(institutionsData);
+      setScheduledTransactions(scheduledData);
       staticDataLoaded.current = true;
     } catch (error) {
-      showErrorToast(error, 'Failed to load form data');
+      showErrorToast(error, t('toasts.loadFormDataFailed'));
       logger.error(error);
     }
-  }, []);
+  }, [t]);
 
   // Load transaction data and chart data in parallel
   const loadTransactions = useCallback(async (page: number) => {
@@ -221,12 +242,12 @@ function TransactionsContent() {
         budgetsApi.getCategoryBudgetStatus(categoryIds).then(setBudgetStatusMap).catch(() => {});
       }
     } catch (error) {
-      showErrorToast(error, 'Failed to load transactions');
+      showErrorToast(error, t('toasts.loadFailed'));
       logger.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [filters.filterAccountIds, filters.filterAccountStatus, filters.filteredAccounts, filters.filterCategoryIds, filters.filterPayeeIds, filters.filterTagIds, filters.filterStartDate, filters.filterEndDate, filters.filterSearch, filters.filterAmountFrom, filters.filterAmountTo, filters.filterStatuses]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters.filterAccountIds, filters.filterAccountStatus, filters.filteredAccounts, filters.filterCategoryIds, filters.filterPayeeIds, filters.filterTagIds, filters.filterStartDate, filters.filterEndDate, filters.filterSearch, filters.filterAmountFrom, filters.filterAmountTo, filters.filterStatuses, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = useCallback(async (page: number = filters.currentPage) => {
     await loadTransactions(page);
@@ -293,6 +314,16 @@ function TransactionsContent() {
     }
   }, [filters.currentPage, filters.filterAccountIds, filters.filterCategoryIds, filters.filterPayeeIds, filters.filterTagIds, filters.filterStartDate, filters.filterEndDate, filters.filterSearch, filters.filterAmountFrom, filters.filterAmountTo, filters.filterStatuses, filters.updateUrl, loadTransactions, filters.filtersInitialized, undoRedoTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Once the deep-linked transaction is actually on the page, let the flash
+  // linger briefly then clear it, so the highlight does not stick around on
+  // later interactions.
+  useEffect(() => {
+    const id = filters.highlightTransactionId;
+    if (!id || !transactions.some((tx) => tx.id === id)) return;
+    const timer = setTimeout(() => filters.setHighlightTransactionId(null), 5000);
+    return () => clearTimeout(timer);
+  }, [transactions, filters.highlightTransactionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Patch popstate handler to skip when modals open
   useEffect(() => {
     const origHandler = (_e: PopStateEvent) => {
@@ -307,7 +338,7 @@ function TransactionsContent() {
 
   const handleEdit = async (transaction: Transaction) => {
     if (transaction.linkedInvestmentTransactionId) {
-      toast('This transaction is linked to an investment. Opening in Investments page.', { icon: '📈' });
+      toast(t('page.toasts.investmentLinked'));
       router.push(`/investments?edit=${transaction.linkedInvestmentTransactionId}`);
       return;
     }
@@ -359,7 +390,7 @@ function TransactionsContent() {
   const handleScheduleFormSuccess = () => {
     setSchedulingFrom(undefined);
     setShowScheduleForm(false);
-    toast.success('Scheduled transaction created');
+    toast.success(t('page.toasts.scheduledCreated'));
   };
 
   const handleScheduleFormClose = () => {
@@ -387,7 +418,7 @@ function TransactionsContent() {
       setEditingPayee(payee);
       setShowPayeeForm(true);
     } catch (error) {
-      showErrorToast(error, 'Failed to load payee details');
+      showErrorToast(error, t('toasts.loadPayeeFailed'));
       logger.error(error);
     }
   };
@@ -401,12 +432,12 @@ function TransactionsContent() {
         notes: data.notes || undefined,
       };
       const updated = await payeesApi.update(editingPayee.id, cleanedData);
-      toast.success('Payee updated successfully');
+      toast.success(t('toasts.payeeUpdated'));
       setShowPayeeForm(false);
       setEditingPayee(undefined);
       setPayees(prev => prev.map(p => p.id === updated.id ? updated : p));
     } catch (error) {
-      showErrorToast(error, 'Failed to update payee');
+      showErrorToast(error, t('toasts.payeeUpdateFailed'));
     }
   };
 
@@ -531,6 +562,51 @@ function TransactionsContent() {
     return undefined;
   }, [accountBalances, filters.filterAccountIds, accounts]);
 
+  // When the list is narrowed to exactly one account, surface that account so
+  // its info widget can render beside the Account Balance chart.
+  const singleFilteredAccount = useMemo(() => {
+    if (filters.filterAccountIds.length !== 1) return undefined;
+    const id = filters.filterAccountIds[0];
+    return (
+      filters.selectedAccounts.find((a) => a.id === id) ??
+      accounts.find((a) => a.id === id)
+    );
+  }, [filters.filterAccountIds, filters.selectedAccounts, accounts]);
+
+  // The accounts list is fetched once per page load, so account.currentBalance
+  // goes stale as transactions are added or edited. The daily-balance series is
+  // refetched alongside the transactions, so the widget's balance is derived
+  // from it — the exact figure the Balance History chart shows as "Current".
+  const singleAccountCurrentBalance = useMemo(
+    () => computeBalanceSummary(chartBalances)?.currentBalance,
+    [chartBalances],
+  );
+
+  // Retain the last single-filtered account (and its live balance) across the
+  // moment the filter widens to multiple accounts, so the widget can stay
+  // mounted and play the same slide-out animation as the manual collapse
+  // instead of vanishing abruptly. Synced with the "info from previous render"
+  // pattern (no setState in an effect).
+  const [retainedWidget, setRetainedWidget] = useState<
+    { account: Account; currentBalance?: number } | undefined
+  >();
+  if (
+    singleFilteredAccount &&
+    (retainedWidget?.account !== singleFilteredAccount ||
+      retainedWidget?.currentBalance !== singleAccountCurrentBalance)
+  ) {
+    setRetainedWidget({
+      account: singleFilteredAccount,
+      currentBalance: singleAccountCurrentBalance,
+    });
+  }
+  const widgetAccount = retainedWidget?.account;
+
+  const widgetInstitution = useMemo(() => {
+    if (!widgetAccount?.institutionId) return undefined;
+    return institutions.find((i) => i.id === widgetAccount.institutionId);
+  }, [widgetAccount, institutions]);
+
   const selection = useTransactionSelection(
     transactions,
     pagination?.total ?? 0,
@@ -564,14 +640,14 @@ function TransactionsContent() {
     const result = await transactionsApi.bulkDelete(payload as BulkDeleteData);
 
     if (result.deleted > 0) {
-      toast.success(`${result.deleted} transaction${result.deleted !== 1 ? 's' : ''} deleted`);
+      toast.success(t('toasts.deleted', { count: result.deleted }));
     }
 
     setShowBulkDeleteConfirm(false);
     setBulkSelectMode(false);
     selection.clearSelection();
     loadAllData();
-  }, [selection, loadAllData]);
+  }, [selection, loadAllData, t]);
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -620,7 +696,7 @@ function TransactionsContent() {
       }
 
       if (allTransactions.length === 0) {
-        toast.error('No transactions to export');
+        toast.error(t('toasts.noneToExport'));
         return;
       }
 
@@ -661,56 +737,121 @@ function TransactionsContent() {
       const filename = `Monize_Transactions_${datePart}_${timePart}.csv`;
 
       exportToCsv(filename, headers, rows);
-      toast.success(`Exported ${allTransactions.length} transaction${allTransactions.length !== 1 ? 's' : ''}`);
+      toast.success(t('toasts.exported', { count: allTransactions.length }));
     } catch (error) {
-      showErrorToast(error, 'Failed to export transactions');
+      showErrorToast(error, t('toasts.exportFailed'));
       logger.error(error);
     } finally {
       setIsExporting(false);
     }
-  }, [filters.filterAccountIds, filters.filteredAccounts, filters.filterCategoryIds, filters.filterPayeeIds, filters.filterTagIds, filters.filterStartDate, filters.filterEndDate, filters.filterSearch, filters.filterAmountFrom, filters.filterAmountTo, filters.filterStatuses]);
+  }, [filters.filterAccountIds, filters.filteredAccounts, filters.filterCategoryIds, filters.filterPayeeIds, filters.filterTagIds, filters.filterStartDate, filters.filterEndDate, filters.filterSearch, filters.filterAmountFrom, filters.filterAmountTo, filters.filterStatuses, t]);
 
   return (
     <PageLayout>
       <main className="px-4 sm:px-6 lg:px-12 pt-6 pb-8">
         <PageHeader
-          title="Transactions"
-          subtitle="Manage your income and expenses"
+          title={t('page.title')}
+          subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Transactions"
-          actions={<Button onClick={handleCreateNew}>+ New Transaction</Button>}
+          actions={<Button onClick={handleCreateNew}>{t('page.newButton')}</Button>}
         />
-        {filters.filterCategoryIds.length > 0 || filters.filterPayeeIds.length > 0 || filters.filterTagIds.length > 0 || filters.filterSearch.length > 0 ? (
-          <CategoryPayeeBarChart
-            data={monthlyTotals}
-            isLoading={isLoading}
-            filterLabel={monthlyTotalsFilterLabel}
-            onMonthClick={(startDate, endDate) => {
-              filters.isFilterChange.current = true;
-              filters.setFilterStartDate(startDate);
-              filters.setFilterEndDate(endDate);
-              filters.setFilterTimePeriod('custom');
-            }}
-          />
-        ) : accountBalances.length > 1 ? (
-          <AccountBalancesBarChart
-            data={accountBalances}
-            isLoading={isLoading}
-            currencyCode={chartCurrency}
-            onAccountClick={filters.handleAccountFilterClick}
-          />
-        ) : (
-          <BalanceHistoryChart
-            data={chartBalances}
-            isLoading={isLoading}
-            currencyCode={chartCurrency}
-            accountName={balanceHistoryAccountName}
-          />
-        )}
+        {(() => {
+          const chartKind =
+            filters.filterCategoryIds.length > 0 || filters.filterPayeeIds.length > 0 || filters.filterTagIds.length > 0 || filters.filterSearch.length > 0
+              ? 'monthlyTotals'
+              : accountBalances.length > 1
+                ? 'accountBalances'
+                : 'balanceHistory';
+          // Keyed by kind so swapping chart types remounts the card and plays
+          // the fade-in, instead of one chart popping into the other.
+          const chart = (
+            <div key={chartKind} className="animate-chart-in motion-reduce:animate-none">
+              {chartKind === 'monthlyTotals' ? (
+                <CategoryPayeeBarChart
+                  data={monthlyTotals}
+                  isLoading={isLoading}
+                  filterLabel={monthlyTotalsFilterLabel}
+                  onMonthClick={(startDate, endDate) => {
+                    filters.isFilterChange.current = true;
+                    filters.setFilterStartDate(startDate);
+                    filters.setFilterEndDate(endDate);
+                    filters.setFilterTimePeriod('custom');
+                  }}
+                />
+              ) : chartKind === 'accountBalances' ? (
+                <AccountBalancesBarChart
+                  data={accountBalances}
+                  isLoading={isLoading}
+                  currencyCode={chartCurrency}
+                  onAccountClick={filters.handleAccountFilterClick}
+                />
+              ) : (
+                <BalanceHistoryChart
+                  data={chartBalances}
+                  isLoading={isLoading}
+                  currencyCode={chartCurrency}
+                  accountName={balanceHistoryAccountName}
+                />
+              )}
+            </div>
+          );
+
+          // Filtered to a single account: show its info widget (25%) to the
+          // left of the chart (75%). Stacks vertically on narrow screens. The
+          // widget can be collapsed (persisted) so the chart uses full width.
+          if (widgetAccount) {
+            // The widget animates between expanded and collapsed rather than
+            // mounting/unmounting, so both the chevron toggle and widening the
+            // filter past one account slide it out of view: its column
+            // collapses width (desktop) or height (mobile) and fades, while
+            // the chart flexes to fill the reclaimed space.
+            const widgetVisible = Boolean(singleFilteredAccount) && !accountWidgetCollapsed;
+            return (
+              <div className="flex flex-col lg:flex-row lg:items-stretch">
+                <div
+                  aria-hidden={!widgetVisible}
+                  inert={!widgetVisible}
+                  className={`flex-shrink-0 lg:relative overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
+                    widgetVisible
+                      ? 'max-h-[1000px] lg:max-h-none lg:w-1/4 lg:mr-6 opacity-100 lg:translate-x-0'
+                      : 'max-h-0 lg:max-h-none lg:w-0 lg:mr-0 opacity-0 lg:-translate-x-6 pointer-events-none'
+                  }`}
+                >
+                  <AccountInfoWidget
+                    account={widgetAccount}
+                    currentBalance={retainedWidget?.currentBalance}
+                    institution={widgetInstitution}
+                    scheduledTransactions={scheduledTransactions}
+                    onEdit={() => accountModal.openEdit(widgetAccount)}
+                    onCollapse={() => setAccountWidgetCollapsed(true)}
+                  />
+                </div>
+                <div className="lg:flex-1 min-w-0">
+                  {accountWidgetCollapsed && singleFilteredAccount && (
+                    <button
+                      type="button"
+                      onClick={() => setAccountWidgetCollapsed(false)}
+                      className="mb-2 inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <ChevronDoubleRightIcon className="h-4 w-4" />
+                      {t('accountWidget.show')}
+                    </button>
+                  )}
+                  {chart}
+                </div>
+              </div>
+            );
+          }
+          return chart;
+        })()}
+
+        {/* Account Edit Modal (shared with the Accounts page) */}
+        <AccountFormModal formModal={accountModal} onSaved={loadAllData} />
 
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={handleClose} {...modalProps} maxWidth="6xl" className="p-6 !max-w-[69rem]">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {editingTransaction ? 'Edit Transaction' : duplicatingFrom ? 'Duplicate Transaction' : 'New Transaction'}
+            {editingTransaction ? t('page.editModal.editTitle') : duplicatingFrom ? t('page.editModal.duplicateTitle') : t('page.editModal.newTitle')}
           </h2>
           <TransactionForm
             key={`${editingTransaction?.id || 'new'}-${duplicatingFrom?.id || ''}-${filters.filterAccountIds.join(',')}-${formKey}`}
@@ -737,7 +878,7 @@ function TransactionsContent() {
         {showScheduleForm && (
           <Modal isOpen={showScheduleForm} onClose={handleScheduleFormClose} maxWidth="6xl" className="p-6 !max-w-[69rem]" pushHistory>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-              Schedule as Recurring
+              {t('page.editModal.scheduleTitle')}
             </h2>
             <ScheduledTransactionForm
               key={`schedule-${schedulingFrom?.id || 'new'}`}
@@ -751,7 +892,7 @@ function TransactionsContent() {
         {/* Payee Edit Modal */}
         {editingPayee && (
           <Modal isOpen={showPayeeForm} onClose={handlePayeeFormCancel} maxWidth="lg" className="p-6" pushHistory>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Edit Payee</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('page.editModal.editPayeeTitle')}</h2>
             <PayeeForm
               payee={editingPayee}
               categories={categories}
@@ -839,16 +980,16 @@ function TransactionsContent() {
           isOpen={showBulkDeleteConfirm}
           onCancel={() => setShowBulkDeleteConfirm(false)}
           onConfirm={handleBulkDelete}
-          title="Delete Transactions"
-          message={`Are you sure you want to delete ${selection.selectionCount} transaction${selection.selectionCount !== 1 ? 's' : ''}? This will also delete any linked transfer counterparts. This action cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('page.bulkDelete.title')}
+          message={t('page.bulkDelete.message', { count: selection.selectionCount })}
+          confirmLabel={tc('delete')}
           variant="danger"
         />
 
         {/* Transactions List */}
         <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg overflow-hidden">
           {isLoading && transactions.length === 0 ? (
-            <LoadingSpinner text="Loading transactions..." />
+            <LoadingSpinner text={t('page.loading')} />
           ) : (
             <TransactionList
               transactions={transactions}
@@ -885,6 +1026,7 @@ function TransactionsContent() {
               categoryColorMap={filters.categoryColorMap}
               categoryLabelMap={filters.categoryLabelMap}
               budgetStatusMap={budgetStatusMap}
+              highlightTransactionId={filters.highlightTransactionId}
             />
           )}
         </div>
@@ -898,7 +1040,7 @@ function TransactionsContent() {
               totalItems={pagination.total}
               pageSize={PAGE_SIZE}
               onPageChange={filters.goToPage}
-              itemName="transactions"
+              itemName={t('list.itemNamePlural')}
             />
           </div>
         )}
@@ -906,7 +1048,7 @@ function TransactionsContent() {
         {/* Show total count when only one page */}
         {pagination && pagination.totalPages <= 1 && pagination.total > 0 && (
           <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {pagination.total} transaction{pagination.total !== 1 ? 's' : ''}
+            {t('page.totalCount', { count: pagination.total })}
           </div>
         )}
       </main>

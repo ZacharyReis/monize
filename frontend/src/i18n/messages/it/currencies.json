@@ -1,0 +1,117 @@
+{
+  "page": {
+    "title": "Valute",
+    "subtitle": "Gestisci le valute utilizzate nei tuoi conti e titoli",
+    "refreshRates": "Aggiorna tassi",
+    "refreshing": "Aggiornamento...",
+    "newCurrency": "+ Nuova valuta",
+    "searchPlaceholder": "Cerca per codice o nome...",
+    "statusAll": "Tutte ({count})",
+    "statusActive": "Attive ({count})",
+    "statusInactive": "Inattive ({count})",
+    "modalTitleEdit": "Modifica valuta",
+    "modalTitleNew": "Nuova valuta",
+    "loading": "Caricamento valute...",
+    "count": "{count, plural, one {# valuta} other {# valute}}",
+    "toasts": {
+      "loadFailed": "Caricamento valute non riuscito",
+      "updated": "Valuta aggiornata con successo",
+      "created": "Valuta creata con successo",
+      "updateFailed": "Aggiornamento valuta non riuscito",
+      "createFailed": "Creazione valuta non riuscita",
+      "deactivated": "Valuta disattivata",
+      "activated": "Valuta attivata",
+      "statusFailed": "Aggiornamento stato valuta non riuscito",
+      "ratesRefreshed": "Tassi di cambio aggiornati: {updated} coppie aggiornate",
+      "ratesRefreshedWithFailed": "Tassi di cambio aggiornati: {updated} aggiornati, {failed} non riusciti",
+      "ratesFailed": "Aggiornamento tassi di cambio non riuscito"
+    },
+    "summary": {
+      "totalCurrencies": "Totale valute",
+      "active": "Attive",
+      "inactive": "Inattive"
+    }
+  },
+  "list": {
+    "columns": {
+      "code": "Codice",
+      "name": "Nome",
+      "symbol": "Simbolo",
+      "decimals": "Decimali",
+      "usage": "Utilizzo",
+      "rate": "Tasso ({currency})",
+      "status": "Stato",
+      "actions": "Azioni"
+    },
+    "density": {
+      "normal": "Normale",
+      "compact": "Compatto",
+      "dense": "Denso",
+      "toggle": "Cambia densità righe"
+    },
+    "defaultBadge": "Predefinita",
+    "statusBadge": {
+      "active": "Attiva",
+      "activeShort": "Att",
+      "inactive": "Inattiva",
+      "inactiveShort": "Ina"
+    },
+    "actions": {
+      "edit": "Modifica",
+      "deactivate": "Disattiva",
+      "activate": "Attiva"
+    },
+    "contextMenu": {
+      "editCurrency": "Modifica valuta",
+      "deactivate": "Disattiva",
+      "activate": "Attiva",
+      "deleteCurrency": "Elimina valuta"
+    },
+    "usageTooltip": "{accounts} conto/i, {securities} titolo/i",
+    "usageAccounts": "{count, plural, one {# conto} other {# conti}}",
+    "usageSecurities": "{count, plural, one {# titolo} other {# titoli}}",
+    "empty": {
+      "title": "Nessuna valuta",
+      "subtitle": "Inizia aggiungendo una valuta."
+    },
+    "deleteConfirm": {
+      "title": "Eliminare \"{code}\"?",
+      "message": "Questa valuta verrà eliminata definitivamente. Funziona solo se la valuta non è in uso da nessun conto o titolo.",
+      "confirmLabel": "Elimina",
+      "cancelLabel": "Annulla"
+    },
+    "toasts": {
+      "deleted": "Valuta eliminata con successo",
+      "deleteFailed": "Eliminazione valuta non riuscita. Potrebbe essere in uso."
+    }
+  },
+  "form": {
+    "codeLabel": "Codice valuta",
+    "codePlaceholder": "es. USD, EUR, GBP",
+    "nameLabel": "Nome",
+    "namePlaceholderCreate": "es. Dollaro canadese, Malaysia, Ringgit (usato anche per la ricerca)",
+    "namePlaceholderEdit": "es. Dollaro canadese",
+    "symbolLabel": "Simbolo",
+    "symbolPlaceholder": "es. $, €, £, ¥",
+    "decimalPlacesLabel": "Cifre decimali",
+    "lookupButton": "Cerca",
+    "lookingUp": "Ricerca in corso...",
+    "clearButton": "Cancella",
+    "clearTitle": "Cancella tutti i campi",
+    "submitCreate": "Crea valuta",
+    "submitUpdate": "Aggiorna valuta",
+    "toasts": {
+      "lookupTooShort": "Inserisci un codice o nome valuta (almeno 2 caratteri) per la ricerca",
+      "found": "Trovato: {details}",
+      "notFound": "Nessuna valuta trovata per \"{query}\"",
+      "lookupFailed": "Ricerca non riuscita - riprova"
+    }
+  },
+  "validation": {
+    "codeLength": "Il codice valuta deve essere esattamente di 3 caratteri",
+    "nameRequired": "Il nome è obbligatorio",
+    "nameMax": "Il nome deve contenere al massimo 100 caratteri",
+    "symbolRequired": "Il simbolo è obbligatorio",
+    "symbolMax": "Il simbolo deve contenere al massimo 10 caratteri"
+  }
+}

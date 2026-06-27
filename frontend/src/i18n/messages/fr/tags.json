@@ -1,0 +1,80 @@
+{
+  "page": {
+    "title": "Étiquettes",
+    "subtitle": "Annotez vos transactions avec des étiquettes personnalisées",
+    "newButton": "+ Nouvelle étiquette",
+    "summary": {
+      "totalTags": "Total des étiquettes",
+      "tagsWithColour": "Étiquettes avec couleur",
+      "tagsWithIcon": "Étiquettes avec icône"
+    },
+    "search": {
+      "placeholder": "Rechercher des étiquettes..."
+    },
+    "loading": "Chargement des étiquettes...",
+    "emptyState": {
+      "title": "Aucune étiquette",
+      "body": "Les étiquettes vous permettent d'annoter et de filtrer vos transactions. Créez votre première étiquette pour commencer.",
+      "createButton": "Créer votre première étiquette"
+    },
+    "modal": {
+      "newTitle": "Nouvelle étiquette",
+      "editTitle": "Modifier l'étiquette"
+    },
+    "totalCount": "{count, plural, one {# étiquette} other {# étiquettes}}",
+    "delete": {
+      "title": "Supprimer l'étiquette",
+      "withTransactionsMessage": "Voulez-vous vraiment supprimer « {name} » ? Cette étiquette est utilisée dans {count, plural, one {# transaction} other {# transactions}}. Elle sera retirée de ces transactions.",
+      "simpleMessage": "Voulez-vous vraiment supprimer « {name} » ? Cette action est irréversible."
+    },
+    "toasts": {
+      "created": "Étiquette créée avec succès",
+      "updated": "Étiquette mise à jour avec succès",
+      "deleted": "Étiquette supprimée avec succès",
+      "loadFailed": "Échec du chargement des étiquettes",
+      "createFailed": "Échec de la création de l'étiquette",
+      "updateFailed": "Échec de la mise à jour de l'étiquette",
+      "deleteFailed": "Échec de la suppression de l'étiquette"
+    }
+  },
+  "list": {
+    "empty": {
+      "title": "Aucune étiquette trouvée",
+      "body": "Aucune étiquette ne correspond à votre recherche."
+    },
+    "density": {
+      "title": "Modifier la densité des lignes",
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense"
+    },
+    "header": {
+      "name": "Nom",
+      "icon": "Icône",
+      "transactions": "Transactions",
+      "actions": "Actions"
+    }
+  },
+  "form": {
+    "nameLabel": "Nom de l'étiquette",
+    "colourLabel": "Couleur",
+    "iconLabel": "Icône",
+    "noColour": "Aucune couleur",
+    "submitCreate": "Créer l'étiquette",
+    "submitUpdate": "Mettre à jour l'étiquette",
+    "colours": {
+      "red": "Rouge",
+      "orange": "Orange",
+      "yellow": "Jaune",
+      "green": "Vert",
+      "teal": "Sarcelle",
+      "blue": "Bleu",
+      "purple": "Violet",
+      "pink": "Rose",
+      "grey": "Gris"
+    }
+  },
+  "validation": {
+    "nameRequired": "Le nom de l'étiquette est obligatoire"
+  }
+}

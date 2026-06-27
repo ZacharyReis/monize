@@ -7,6 +7,8 @@
  * - End date calculation
  */
 
+import { roundMoney } from "../common/round.util";
+
 export type PaymentFrequency =
   | "WEEKLY"
   | "BIWEEKLY"
@@ -88,10 +90,10 @@ export function calculatePaymentSplit(
     principal = remainingBalance;
   }
 
-  // Round to 2 decimal places for currency
+  // Round to storage precision for currency
   return {
-    principal: Math.round(principal * 100) / 100,
-    interest: Math.round(interest * 100) / 100,
+    principal: roundMoney(principal),
+    interest: roundMoney(interest),
   };
 }
 
@@ -212,7 +214,7 @@ export function calculateAmortization(
   // Calculate remaining balance after first payment
   const remainingBalance = Math.max(
     0,
-    Math.round((principal - principalPayment) * 100) / 100,
+    roundMoney(principal - principalPayment),
   );
 
   // Calculate total payments
@@ -255,5 +257,5 @@ export function calculateFinalPayment(
   const interest = remainingBalance * periodicRate;
   const finalPayment = remainingBalance + interest;
 
-  return Math.round(finalPayment * 100) / 100;
+  return roundMoney(finalPayment);
 }

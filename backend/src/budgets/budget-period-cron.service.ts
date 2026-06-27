@@ -3,6 +3,9 @@ import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 import { Budget } from "./entities/budget.entity";
 import { BudgetPeriod, PeriodStatus } from "./entities/budget-period.entity";
 import { User } from "../users/entities/user.entity";
@@ -34,6 +37,7 @@ export class BudgetPeriodCronService {
     private budgetReportsService: BudgetReportsService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Cron("0 0 1 * *")
@@ -238,16 +242,28 @@ export class BudgetPeriodCronService {
       }),
     );
 
+    const lang = prefs?.language || DEFAULT_LOCALE;
+    const t = emailTranslator(this.i18n, lang);
+
     const html = budgetMonthlySummaryTemplate(
       user.firstName || "",
       summaries,
       appUrl,
+      t,
     );
 
     const subject =
       summaries.length === 1
-        ? `Monize: Monthly budget summary - ${summaries[0].periodLabel}`
-        : `Monize: Monthly budget summary for ${summaries.length} budgets`;
+        ? t(
+            "emails.budgetMonthlySummary.subject",
+            `Monize: Monthly budget summary - ${summaries[0].periodLabel}`,
+            { period: summaries[0].periodLabel },
+          )
+        : t(
+            "emails.budgetMonthlySummary.subjectPlural",
+            `Monize: Monthly budget summary for ${summaries.length} budgets`,
+            { count: summaries.length },
+          );
 
     await this.emailService.sendMail(user.email, subject, html);
     return true;

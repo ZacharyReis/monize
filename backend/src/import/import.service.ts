@@ -61,6 +61,8 @@ import { ImportRegularProcessorService } from "./import-regular-processor.servic
 import { Tag } from "../tags/entities/tag.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
+import { roundMoney } from "../common/round.util";
+import { tr } from "../i18n/translate";
 
 @Injectable()
 export class ImportService {
@@ -198,7 +200,10 @@ export class ImportService {
 
     if (result.accountBlocks.length === 0) {
       throw new BadRequestException(
-        "No account blocks found in QIF file. This file may not be a multi-account export.",
+        tr(
+          "errors.import.noAccountBlocks",
+          "No account blocks found in QIF file. This file may not be a multi-account export.",
+        ),
       );
     }
 
@@ -451,7 +456,11 @@ export class ImportService {
       );
       await queryRunner.rollbackTransaction();
       throw new BadRequestException(
-        `Import failed after ${importResult.imported} transactions: ${error.message}`,
+        tr(
+          "errors.import.importFailed",
+          `Import failed after ${importResult.imported} transactions: ${error.message}`,
+          { imported: importResult.imported, message: error.message },
+        ),
       );
     } finally {
       await queryRunner.release();
@@ -1041,7 +1050,9 @@ export class ImportService {
       where: { id, userId },
     });
     if (!mapping) {
-      throw new NotFoundException("Column mapping not found");
+      throw new NotFoundException(
+        tr("errors.import.columnMappingNotFound", "Column mapping not found"),
+      );
     }
 
     if (dto.name !== undefined && dto.name !== mapping.name) {
@@ -1050,7 +1061,11 @@ export class ImportService {
       });
       if (duplicate) {
         throw new ConflictException(
-          `A column mapping named "${dto.name}" already exists`,
+          tr(
+            "errors.import.columnMappingDuplicate",
+            `A column mapping named "${dto.name}" already exists`,
+            { name: dto.name },
+          ),
         );
       }
       mapping.name = dto.name;
@@ -1085,7 +1100,9 @@ export class ImportService {
       where: { id, userId },
     });
     if (!mapping) {
-      throw new NotFoundException("Column mapping not found");
+      throw new NotFoundException(
+        tr("errors.import.columnMappingNotFound", "Column mapping not found"),
+      );
     }
     await this.columnMappingRepository.remove(mapping);
   }
@@ -1135,7 +1152,9 @@ export class ImportService {
       where: { id: accountId, userId },
     });
     if (!account) {
-      throw new NotFoundException("Account not found");
+      throw new NotFoundException(
+        tr("errors.import.accountNotFound", "Account not found"),
+      );
     }
 
     // Validate file type matches destination account type
@@ -1145,15 +1164,21 @@ export class ImportService {
 
     if (isInvestment && !isAccountBrokerage) {
       throw new BadRequestException(
-        "This file contains investment transactions but the selected account is not an investment brokerage account. " +
-          "Please select a brokerage account for this import.",
+        tr(
+          "errors.import.investmentFileNeedsBrokerageAccount",
+          "This file contains investment transactions but the selected account is not an investment brokerage account. " +
+            "Please select a brokerage account for this import.",
+        ),
       );
     }
 
     if (!isInvestment && isAccountBrokerage) {
       throw new BadRequestException(
-        "This file contains regular banking transactions but the selected account is an investment brokerage account. " +
-          "Please select a cash account (including investment cash accounts) for this import.",
+        tr(
+          "errors.import.regularFileNeedsCashAccount",
+          "This file contains regular banking transactions but the selected account is an investment brokerage account. " +
+            "Please select a cash account (including investment cash accounts) for this import.",
+        ),
       );
     }
 
@@ -1312,7 +1337,11 @@ export class ImportService {
       );
       await queryRunner.rollbackTransaction();
       throw new BadRequestException(
-        `Import failed after ${importResult.imported} transactions: ${error.message}`,
+        tr(
+          "errors.import.importFailed",
+          `Import failed after ${importResult.imported} transactions: ${error.message}`,
+          { imported: importResult.imported, message: error.message },
+        ),
       );
     } finally {
       await queryRunner.release();
@@ -1430,7 +1459,11 @@ export class ImportService {
       for (const accId of mappedAccountIds) {
         if (!foundAccountIdSet.has(accId)) {
           throw new BadRequestException(
-            `Account mapping references an invalid account: ${accId}`,
+            tr(
+              "errors.import.invalidAccountMapping",
+              `Account mapping references an invalid account: ${accId}`,
+              { accId },
+            ),
           );
         }
       }
@@ -1449,7 +1482,11 @@ export class ImportService {
       for (const catId of mappedCategoryIds) {
         if (!foundCategoryIdSet.has(catId)) {
           throw new BadRequestException(
-            `Category mapping references an invalid category: ${catId}`,
+            tr(
+              "errors.import.invalidCategoryMapping",
+              `Category mapping references an invalid category: ${catId}`,
+              { catId },
+            ),
           );
         }
       }
@@ -1469,7 +1506,11 @@ export class ImportService {
       for (const secId of mappedSecurityIds) {
         if (!foundSecurityIdSet.has(secId)) {
           throw new BadRequestException(
-            `Security mapping references an invalid security: ${secId}`,
+            tr(
+              "errors.import.invalidSecurityMapping",
+              `Security mapping references an invalid security: ${secId}`,
+              { secId },
+            ),
           );
         }
       }
@@ -1651,36 +1692,43 @@ export class ImportService {
     // future-dated transactions are excluded. During import,
     // updateAccountBalance() adds every transaction amount regardless
     // of date, which inflates the balance when future transactions exist.
-    for (const accountId of affectedAccountIds) {
+    // Compute every affected account's balance in one grouped query and write
+    // them back in one bulk UPDATE rather than 3 queries per account.
+    const affectedIds = [...affectedAccountIds];
+    if (affectedIds.length > 0) {
       try {
-        const account = await this.accountsRepository.findOne({
-          where: { id: accountId },
-        });
-        if (account) {
-          const balanceSql = `SELECT COALESCE($2::NUMERIC, 0) + COALESCE(SUM(t.amount), 0) as balance
-             FROM transactions t
-             WHERE t.account_id = $1
-               AND (t.status IS NULL OR t.status != 'VOID')
-               AND t.parent_transaction_id IS NULL
-               AND t.transaction_date <= CURRENT_DATE`;
-
-          const result: { balance: string }[] = await this.dataSource.query(
-            balanceSql,
-            [accountId, account.openingBalance],
+        const balances: { account_id: string; balance: string }[] =
+          await this.dataSource.query(
+            `SELECT a.id as account_id,
+                    COALESCE(a.opening_balance, 0) + COALESCE(SUM(t.amount), 0) as balance
+               FROM accounts a
+               LEFT JOIN transactions t ON t.account_id = a.id
+                 AND (t.status IS NULL OR t.status != 'VOID')
+                 AND t.parent_transaction_id IS NULL
+                 AND t.transaction_date <= CURRENT_DATE
+              WHERE a.id = ANY($1)
+              GROUP BY a.id, a.opening_balance`,
+            [affectedIds],
           );
 
-          const newBalance =
-            result.length > 0
-              ? Math.round(Number(result[0].balance) * 10000) / 10000
-              : Math.round(Number(account.openingBalance) * 10000) / 10000;
-
-          await this.accountsRepository.update(accountId, {
-            currentBalance: newBalance,
-          });
+        if (balances.length > 0) {
+          const valuesClause = balances
+            .map((_, i) => `($${i * 2 + 1}::uuid, $${i * 2 + 2}::numeric)`)
+            .join(", ");
+          const params = balances.flatMap((row) => [
+            row.account_id,
+            roundMoney(Number(row.balance)),
+          ]);
+          await this.dataSource.query(
+            `UPDATE accounts SET current_balance = v.balance
+               FROM (VALUES ${valuesClause}) AS v(id, balance)
+               WHERE accounts.id = v.id`,
+            params,
+          );
         }
       } catch (err) {
         this.logger.warn(
-          `Post-import balance recalculation failed for account ${accountId}: ${err.message}`,
+          `Post-import balance recalculation failed: ${err.message}`,
         );
       }
     }

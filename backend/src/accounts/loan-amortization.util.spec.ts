@@ -63,10 +63,12 @@ describe("Loan Amortization Utility", () => {
       expect(result.principal).toBe(100);
     });
 
-    it("rounds to 2 decimal places", () => {
+    it("rounds to 4 decimal places (storage precision)", () => {
       const result = calculatePaymentSplit(10000, 3.333, 500, "MONTHLY");
-      expect(result.interest).toBe(Math.round(result.interest * 100) / 100);
-      expect(result.principal).toBe(Math.round(result.principal * 100) / 100);
+      expect(result.interest).toBe(Math.round(result.interest * 10000) / 10000);
+      expect(result.principal).toBe(
+        Math.round(result.principal * 10000) / 10000,
+      );
     });
 
     it("works with biweekly frequency", () => {
@@ -233,9 +235,9 @@ describe("Loan Amortization Utility", () => {
       expect(result).toBe(100.0);
     });
 
-    it("rounds to 2 decimal places", () => {
+    it("rounds to 4 decimal places (storage precision)", () => {
       const result = calculateFinalPayment(333.33, 7.77, "MONTHLY");
-      expect(result).toBe(Math.round(result * 100) / 100);
+      expect(result).toBe(Math.round(result * 10000) / 10000);
     });
   });
 });

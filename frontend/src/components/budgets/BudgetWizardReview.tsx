@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { gainLossColor } from '@/lib/format';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { budgetsApi } from '@/lib/budgets';
@@ -21,6 +23,7 @@ export function BudgetWizardReview({
   onComplete,
   onBack,
 }: BudgetWizardReviewProps) {
+  const t = useTranslations('budgets');
   const { formatCurrency } = useNumberFormat();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,20 +41,22 @@ export function BudgetWizardReview({
   const totalTransfers = transferEntries.reduce((sum, t) => sum + t.amount, 0);
   const net = totalIncome - totalExpenses - totalTransfers;
 
+  const unknownLabel = 'Unknown';
+
   const getCategoryName = (categoryId?: string): string => {
-    if (!categoryId) return 'Unknown';
+    if (!categoryId) return unknownLabel;
     const cat = state.analysisResult?.categories.find(
       (c) => c.categoryId === categoryId,
     );
-    return cat?.categoryName ?? 'Unknown';
+    return cat?.categoryName ?? unknownLabel;
   };
 
   const getTransferName = (accountId?: string): string => {
-    if (!accountId) return 'Transfer';
-    const t = state.analysisResult?.transfers?.find(
+    if (!accountId) return t('wizardReview.categoryTypes.transfer');
+    const transfer = state.analysisResult?.transfers?.find(
       (tr) => tr.accountId === accountId,
     );
-    return t?.accountName ?? 'Transfer';
+    return transfer?.accountName ?? t('wizardReview.categoryTypes.transfer');
   };
 
   const handleCreate = async () => {
@@ -78,10 +83,10 @@ export function BudgetWizardReview({
         config: Object.keys(config).length > 0 ? config : undefined,
         categories: allCategories,
       });
-      toast.success('Budget created successfully');
+      toast.success(t('wizardReview.toasts.created'));
       onComplete();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create budget'));
+      toast.error(getErrorMessage(error, t('wizardReview.toasts.failed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -90,35 +95,35 @@ export function BudgetWizardReview({
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-        Review Your Budget
+        {t('wizardReview.title')}
       </h3>
 
       {/* Budget details */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <dt className="text-sm text-gray-500 dark:text-gray-400">Name</dt>
+            <dt className="text-sm text-gray-500 dark:text-gray-400">{t('wizardReview.fields.name')}</dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {state.budgetName}
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-gray-500 dark:text-gray-400">Type</dt>
+            <dt className="text-sm text-gray-500 dark:text-gray-400">{t('wizardReview.fields.type')}</dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {BUDGET_TYPE_LABELS[state.budgetType] ?? state.budgetType}
             </dd>
           </div>
           <div>
             <dt className="text-sm text-gray-500 dark:text-gray-400">
-              Strategy
+              {t('wizardReview.fields.strategy')}
             </dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {state.strategy ? (STRATEGY_LABELS[state.strategy] ?? state.strategy) : 'Not selected'}
+              {state.strategy ? (STRATEGY_LABELS[state.strategy] ?? state.strategy) : t('wizardReview.strategyNotSelected')}
             </dd>
           </div>
           <div>
             <dt className="text-sm text-gray-500 dark:text-gray-400">
-              Start Date
+              {t('wizardReview.fields.startDate')}
             </dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {state.periodStart}
@@ -126,24 +131,24 @@ export function BudgetWizardReview({
           </div>
           <div>
             <dt className="text-sm text-gray-500 dark:text-gray-400">
-              Rollover
+              {t('wizardReview.fields.rollover')}
             </dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {state.defaultRolloverType === 'NONE' ? 'Off' : state.defaultRolloverType.charAt(0) + state.defaultRolloverType.slice(1).toLowerCase()}
+              {state.defaultRolloverType === 'NONE' ? t('wizardReview.rolloverOff') : state.defaultRolloverType.charAt(0) + state.defaultRolloverType.slice(1).toLowerCase()}
             </dd>
           </div>
           <div>
             <dt className="text-sm text-gray-500 dark:text-gray-400">
-              Alerts
+              {t('wizardReview.fields.alerts')}
             </dt>
             <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              Warn {state.alertWarnPercent}% / Critical {state.alertCriticalPercent}%
+              {t('wizardReview.alertsValue', { warn: String(state.alertWarnPercent), critical: String(state.alertCriticalPercent) })}
             </dd>
           </div>
           {state.incomeLinked && state.baseIncome && (
             <div>
               <dt className="text-sm text-gray-500 dark:text-gray-400">
-                Income Linked
+                {t('wizardReview.fields.incomeLinked')}
               </dt>
               <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {formatCurrency(state.baseIncome, state.currencyCode)}/mo
@@ -153,10 +158,10 @@ export function BudgetWizardReview({
           {state.excludedAccountIds.length > 0 && (
             <div>
               <dt className="text-sm text-gray-500 dark:text-gray-400">
-                Excluded Accounts
+                {t('wizardReview.fields.excludedAccounts')}
               </dt>
               <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {state.excludedAccountIds.length} account{state.excludedAccountIds.length === 1 ? '' : 's'}
+                {t('wizardReview.accountCount', { count: state.excludedAccountIds.length })}
               </dd>
             </div>
           )}
@@ -167,7 +172,7 @@ export function BudgetWizardReview({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Est. Income
+            {t('wizardReview.summaryCards.estIncome')}
           </div>
           <div className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">
             {formatCurrency(totalIncome, state.currencyCode)}
@@ -175,35 +180,33 @@ export function BudgetWizardReview({
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Total Expenses
+            {t('wizardReview.summaryCards.totalExpenses')}
           </div>
           <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
             {formatCurrency(totalExpenses, state.currencyCode)}
           </div>
           <div className="text-xs text-gray-400 dark:text-gray-500">
-            {expenseCategories.length} categories
+            {t('wizardReview.categoryCount', { count: expenseCategories.length })}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Transfers
+            {t('wizardReview.summaryCards.transfers')}
           </div>
           <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
             {formatCurrency(totalTransfers, state.currencyCode)}
           </div>
           <div className="text-xs text-gray-400 dark:text-gray-500">
-            {transferEntries.length} accounts
+            {t('wizardReview.accountsCount', { count: transferEntries.length })}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Remaining
+            {t('wizardReview.summaryCards.remaining')}
           </div>
           <div
             className={`text-lg sm:text-xl font-bold ${
-              net >= 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
+              gainLossColor(net)
             }`}
           >
             {formatCurrency(net, state.currencyCode)}
@@ -217,13 +220,13 @@ export function BudgetWizardReview({
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
               <th className="text-left py-2 px-2 sm:px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Category
+                {t('wizardReview.tableHeaders.category')}
               </th>
               <th className="text-right py-2 px-2 sm:px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Amount
+                {t('wizardReview.tableHeaders.amount')}
               </th>
               <th className="hidden sm:table-cell text-right py-2 px-4 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Type
+                {t('wizardReview.tableHeaders.type')}
               </th>
             </tr>
           </thead>
@@ -240,7 +243,7 @@ export function BudgetWizardReview({
                   {formatCurrency(cat.amount, state.currencyCode)}
                 </td>
                 <td className="hidden sm:table-cell py-2 px-4 text-sm text-right text-gray-500 dark:text-gray-400">
-                  Income
+                  {t('wizardReview.categoryTypes.income')}
                 </td>
               </tr>
             ))}
@@ -258,25 +261,25 @@ export function BudgetWizardReview({
                     {formatCurrency(cat.amount, state.currencyCode)}
                   </td>
                   <td className="hidden sm:table-cell py-2 px-4 text-sm text-right text-gray-500 dark:text-gray-400">
-                    Expense
+                    {t('wizardReview.categoryTypes.expense')}
                   </td>
                 </tr>
               ))}
             {transferEntries
               .sort((a, b) => b.amount - a.amount)
-              .map((t) => (
+              .map((entry) => (
                 <tr
-                  key={t.transferAccountId}
+                  key={entry.transferAccountId}
                   className="border-b border-gray-100 dark:border-gray-700 last:border-0"
                 >
                   <td className="py-2 px-2 sm:px-4 text-sm text-gray-900 dark:text-gray-100">
-                    {getTransferName(t.transferAccountId)}
+                    {getTransferName(entry.transferAccountId)}
                   </td>
                   <td className="py-2 px-2 sm:px-4 text-sm text-right text-blue-600 dark:text-blue-400">
-                    {formatCurrency(t.amount, state.currencyCode)}
+                    {formatCurrency(entry.amount, state.currencyCode)}
                   </td>
                   <td className="hidden sm:table-cell py-2 px-4 text-sm text-right text-blue-500 dark:text-blue-400">
-                    Transfer
+                    {t('wizardReview.categoryTypes.transfer')}
                   </td>
                 </tr>
               ))}
@@ -287,10 +290,10 @@ export function BudgetWizardReview({
       {/* Actions */}
       <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
         <Button variant="outline" onClick={onBack} disabled={isSubmitting}>
-          Back
+          {t('wizard.back')}
         </Button>
         <Button onClick={handleCreate} isLoading={isSubmitting}>
-          Create Budget
+          {t('wizardReview.createButton')}
         </Button>
       </div>
     </div>

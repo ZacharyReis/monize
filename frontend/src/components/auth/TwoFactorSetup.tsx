@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useForm, useWatch } from 'react-hook-form';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,19 +12,20 @@ import { Button } from '@/components/ui/Button';
 import { BackupCodesDisplay } from '@/components/auth/BackupCodesDisplay';
 import { authApi } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
+import { buildTotpCodeSchema } from '@/lib/zod-helpers';
 import { TwoFactorSetupResponse } from '@/types/auth';
 
-const totpCodeSchema = z.object({
-  code: z.string().length(6, 'Code must be exactly 6 digits').regex(/^\d{6}$/, 'Code must be 6 digits'),
+const buildTotpFormSchema = (tc: (key: string) => string) => z.object({
+  code: buildTotpCodeSchema(tc),
 });
 
-type TotpCodeFormData = z.infer<typeof totpCodeSchema>;
+type TotpCodeFormData = z.infer<ReturnType<typeof buildTotpFormSchema>>;
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, 'Password is required').max(128),
+const buildPasswordFormSchema = (t: (key: string) => string) => z.object({
+  currentPassword: z.string().min(1, t('validation.passwordRequired')).max(128),
 });
 
-type PasswordFormData = z.infer<typeof passwordSchema>;
+type PasswordFormData = z.infer<ReturnType<typeof buildPasswordFormSchema>>;
 
 interface TwoFactorSetupProps {
   onComplete: () => void;
@@ -32,6 +34,8 @@ interface TwoFactorSetupProps {
 }
 
 export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupProps) {
+  const t = useTranslations('auth.twoFactorSetup');
+  const tc = useTranslations('common');
   const [setupData, setSetupData] = useState<TwoFactorSetupResponse | null>(null);
   const [showManualKey, setShowManualKey] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
@@ -43,7 +47,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
     control,
     formState: { isSubmitting },
   } = useForm<TotpCodeFormData>({
-    resolver: zodResolver(totpCodeSchema),
+    resolver: zodResolver(buildTotpFormSchema(tc)),
     defaultValues: {
       code: '',
     },
@@ -60,7 +64,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
     handleSubmit: handlePasswordSubmit,
     formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
   } = useForm<PasswordFormData>({
-    resolver: zodResolver(passwordSchema),
+    resolver: zodResolver(buildPasswordFormSchema(t)),
     defaultValues: { currentPassword: '' },
   });
 
@@ -69,24 +73,24 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
       const setup = await authApi.setup2FA(data.currentPassword);
       setSetupData(setup);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Current password is incorrect'));
+      toast.error(getErrorMessage(error, t('toasts.passwordIncorrect')));
     }
   };
 
   const onSubmit = async (formData: TotpCodeFormData) => {
     try {
       await authApi.confirmSetup2FA(formData.code);
-      toast.success('Two-factor authentication enabled!');
+      toast.success(t('toasts.enabled'));
       // Generate backup codes after successful 2FA setup
       try {
         const response = await authApi.generateBackupCodes(formData.code);
         setBackupCodes(response.codes);
       } catch (error) {
-        toast.error(getErrorMessage(error, 'Failed to generate backup codes'));
+        toast.error(getErrorMessage(error, t('toasts.backupFailed')));
         onComplete();
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Invalid verification code'));
+      toast.error(getErrorMessage(error, t('toasts.invalidCode')));
       setValue('code', '');
     }
   };
@@ -100,15 +104,15 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
       <form onSubmit={handlePasswordSubmit(onPasswordSubmit)} className="space-y-4">
         <div className="text-center">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Confirm your password
+            {t('confirmTitle')}
           </h3>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Re-enter your current password to start two-factor authentication setup.
+            {t('confirmSubtitle')}
           </p>
         </div>
 
         <Input
-          label="Current password"
+          label={t('currentPasswordLabel')}
           type="password"
           autoComplete="current-password"
           error={passwordErrors.currentPassword?.message}
@@ -122,7 +126,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
           isLoading={isPasswordSubmitting}
           className="w-full"
         >
-          Continue
+          {t('continue')}
         </Button>
 
         {onSkip && !isForced && (
@@ -131,7 +135,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
             onClick={onSkip}
             className="w-full text-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            Skip for now
+            {t('skip')}
           </button>
         )}
       </form>
@@ -142,10 +146,10 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Set Up Two-Factor Authentication
+          {t('setupTitle')}
         </h3>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Scan the QR code with your authenticator app (e.g., Google Authenticator, Authy).
+          {t('setupSubtitle')}
         </p>
       </div>
 
@@ -154,7 +158,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL not optimizable by next/image */}
           <img
             src={setupData.qrCodeDataUrl}
-            alt="2FA QR Code"
+            alt={t('qrAlt')}
             className="w-48 h-48"
           />
         </div>
@@ -166,11 +170,11 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
           onClick={() => setShowManualKey(!showManualKey)}
           className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
         >
-          {showManualKey ? 'Hide manual key' : "Can't scan? Enter key manually"}
+          {showManualKey ? t('hideManualKey') : t('showManualKey')}
         </button>
         {showManualKey && (
           <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Manual entry key:</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('manualEntryKey')}</p>
             <p className="font-mono text-sm text-gray-900 dark:text-gray-100 select-all break-all">
               {setupData.secret}
             </p>
@@ -180,7 +184,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
-          label="Enter the 6-digit code from your app"
+          label={t('codeLabel')}
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
@@ -202,7 +206,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
           disabled={codeValue.length !== 6}
           className="w-full"
         >
-          Verify and Enable
+          {t('verifyEnable')}
         </Button>
 
         {onSkip && !isForced && (
@@ -211,7 +215,7 @@ export function TwoFactorSetup({ onComplete, onSkip, isForced }: TwoFactorSetupP
             onClick={onSkip}
             className="w-full text-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            Skip for now
+            {t('skip')}
           </button>
         )}
       </form>

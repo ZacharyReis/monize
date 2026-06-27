@@ -11,6 +11,7 @@ import * as bcrypt from "bcryptjs";
 import { User } from "../users/entities/user.entity";
 import { AiEncryptionService } from "../ai/ai-encryption.service";
 import { PasswordBreachService } from "../auth/password-breach.service";
+import { tr } from "../i18n/translate";
 
 const MIN_BACKUP_PASSWORD_LENGTH = 12;
 
@@ -54,16 +55,24 @@ export class BackupEncryptionService {
     const user = await this.requireUser(userId);
     if (user.authProvider !== "local" || !user.passwordHash) {
       throw new BadRequestException(
-        "Local password authentication is required",
+        tr(
+          "errors.backup.localAuthRequired",
+          "Local password authentication is required",
+        ),
       );
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
-      throw new UnauthorizedException("Invalid password");
+      throw new UnauthorizedException(
+        tr("errors.backup.invalidPassword", "Invalid password"),
+      );
     }
     if (!this.aiEncryption.isConfigured()) {
       throw new BadRequestException(
-        "Server is not configured for encryption (AI_ENCRYPTION_KEY missing)",
+        tr(
+          "errors.backup.encryptionNotConfigured",
+          "Server is not configured for encryption (AI_ENCRYPTION_KEY missing)",
+        ),
       );
     }
     user.backupPasswordEnc = this.aiEncryption.encrypt(password);
@@ -83,13 +92,19 @@ export class BackupEncryptionService {
     const user = await this.requireUser(userId);
     if (user.authProvider !== "oidc") {
       throw new BadRequestException(
-        "Backup password is only configurable for OIDC users; local users use their login password",
+        tr(
+          "errors.backup.backupPasswordOidcOnly",
+          "Backup password is only configurable for OIDC users; local users use their login password",
+        ),
       );
     }
     await this.validatePasswordStrength(newBackupPassword);
     if (!this.aiEncryption.isConfigured()) {
       throw new BadRequestException(
-        "Server is not configured for encryption (AI_ENCRYPTION_KEY missing)",
+        tr(
+          "errors.backup.encryptionNotConfigured",
+          "Server is not configured for encryption (AI_ENCRYPTION_KEY missing)",
+        ),
       );
     }
     user.backupPasswordEnc = this.aiEncryption.encrypt(newBackupPassword);
@@ -134,7 +149,9 @@ export class BackupEncryptionService {
   private async requireUser(userId: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.backup.userNotFoundRestore", "User not found"),
+      );
     }
     return user;
   }
@@ -142,13 +159,20 @@ export class BackupEncryptionService {
   private async validatePasswordStrength(password: string): Promise<void> {
     if (!password || password.length < MIN_BACKUP_PASSWORD_LENGTH) {
       throw new BadRequestException(
-        `Backup password must be at least ${MIN_BACKUP_PASSWORD_LENGTH} characters`,
+        tr(
+          "errors.backup.backupPasswordTooShort",
+          `Backup password must be at least ${MIN_BACKUP_PASSWORD_LENGTH} characters`,
+          { minLength: MIN_BACKUP_PASSWORD_LENGTH },
+        ),
       );
     }
     const breached = await this.passwordBreach.isBreached(password);
     if (breached) {
       throw new BadRequestException(
-        "This password has been found in a data breach. Please choose a different password.",
+        tr(
+          "errors.backup.backupPasswordBreached",
+          "This password has been found in a data breach. Please choose a different password.",
+        ),
       );
     }
   }

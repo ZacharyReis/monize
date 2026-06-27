@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { BudgetCategoryRow } from './BudgetCategoryRow';
 import type { CategoryBreakdown, BudgetCategory } from '@/types/budget';
 
@@ -22,6 +23,7 @@ export function BudgetCategoryList({
   pacePercent,
   onCategoryClick,
 }: BudgetCategoryListProps) {
+  const t = useTranslations('budgets');
   const [sortField, setSortField] = useState<SortField>('percentUsed');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -70,21 +72,21 @@ export function BudgetCategoryList({
     }
   };
 
-  const sortOptions: Array<{ field: SortField; label: string }> = [
-    { field: 'percentUsed', label: '% Used' },
-    { field: 'spent', label: 'Spent' },
-    { field: 'remaining', label: 'Remaining' },
-    { field: 'name', label: 'Name' },
+  const sortOptions: Array<{ field: SortField; labelKey: string }> = [
+    { field: 'percentUsed', labelKey: 'categoryList.sortOptions.percentUsed' },
+    { field: 'spent', labelKey: 'categoryList.sortOptions.spent' },
+    { field: 'remaining', labelKey: 'categoryList.sortOptions.remaining' },
+    { field: 'name', labelKey: 'categoryList.sortOptions.name' },
   ];
 
   if (sortedCategories.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Category Budgets
+          {t('categoryList.title')}
         </h2>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No expense categories in this budget.
+          {t('categoryList.empty')}
         </p>
       </div>
     );
@@ -94,19 +96,19 @@ export function BudgetCategoryList({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Category Budgets
+          {t('categoryList.title')}
         </h2>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Sort:</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t('categoryList.sort')}</span>
           <select
             value={sortField}
             onChange={(e) => handleSort(e.target.value as SortField)}
             className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            aria-label="Sort categories"
+            aria-label={t('categoryList.sortAriaLabel')}
           >
             {sortOptions.map((opt) => (
               <option key={opt.field} value={opt.field}>
-                {opt.label}
+                {t(opt.labelKey)}
               </option>
             ))}
           </select>
@@ -115,8 +117,8 @@ export function BudgetCategoryList({
               setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
             }
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-            aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}
-            title={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
+            aria-label={sortDirection === 'asc' ? t('categoryList.sortAscAriaLabel') : t('categoryList.sortDescAriaLabel')}
+            title={sortDirection === 'asc' ? t('categoryList.sortDescTitle') : t('categoryList.sortAscTitle')}
           >
             {sortDirection === 'asc' ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

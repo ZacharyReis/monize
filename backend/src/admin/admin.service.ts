@@ -11,6 +11,10 @@ import { ConfigService } from "@nestjs/config";
 import { DataSource, Repository } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
+import { I18nService } from "nestjs-i18n";
+import { tr } from "../i18n/translate";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 import { User } from "../users/entities/user.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { RefreshToken } from "../auth/entities/refresh-token.entity";
@@ -42,6 +46,7 @@ export class AdminService {
     private dataSource: DataSource,
     private configService: ConfigService,
     private emailService: EmailService,
+    private readonly i18n: I18nService,
   ) {}
 
   async findAllUsers() {
@@ -85,12 +90,18 @@ export class AdminService {
 
     if (dto.password && dto.sendInvite) {
       throw new BadRequestException(
-        "Provide either a password or an email invite, not both.",
+        tr(
+          "errors.admin.passwordOrInviteNotBoth",
+          "Provide either a password or an email invite, not both.",
+        ),
       );
     }
     if (dto.sendInvite && !this.emailService.getStatus().configured) {
       throw new BadRequestException(
-        "SMTP is not configured. Set a password for the user instead.",
+        tr(
+          "errors.admin.smtpNotConfigured",
+          "SMTP is not configured. Set a password for the user instead.",
+        ),
       );
     }
 
@@ -117,7 +128,10 @@ export class AdminService {
             existing.authProvider === "local";
           if (!claimable) {
             throw new ConflictException(
-              "A user with this email address already exists.",
+              tr(
+                "errors.admin.emailAlreadyExists",
+                "A user with this email address already exists.",
+              ),
             );
           }
           user = existing;
@@ -133,6 +147,10 @@ export class AdminService {
           // a standalone account (visible in User Management, gets its own
           // "self" context) while keeping every delegation others granted it.
           user.isDelegateOnly = false;
+          // Admin-created accounts are trusted (the admin vouches for the
+          // email, and any invite link is delivered to it), so they bypass the
+          // self-service email-verification gate.
+          user.emailVerified = true;
         } else {
           user = manager.create(User, {
             email,
@@ -141,6 +159,8 @@ export class AdminService {
             authProvider: "local",
             role,
             isDelegateOnly: false,
+            // Admin-created accounts bypass the email-verification gate.
+            emailVerified: true,
           });
         }
 
@@ -185,11 +205,13 @@ export class AdminService {
         "http://localhost:3000",
       );
       const inviteUrl = `${frontendUrl}/reset-password?token=${inviteToken}`;
+      const lang = DEFAULT_LOCALE;
+      const t = emailTranslator(this.i18n, lang);
       this.emailService
         .sendMail(
           email,
-          "Your Monize account is ready",
-          accountInviteTemplate(dto.firstName || "", inviteUrl),
+          t("emails.accountInvite.subject", "Your Monize account is ready"),
+          accountInviteTemplate(dto.firstName || "", inviteUrl, t),
         )
         .catch((err) =>
           this.logger.warn(
@@ -210,14 +232,21 @@ export class AdminService {
 
   async updateUserRole(adminId: string, targetUserId: string, role: string) {
     if (adminId === targetUserId) {
-      throw new ForbiddenException("You cannot change your own role");
+      throw new ForbiddenException(
+        tr(
+          "errors.admin.cannotChangeOwnRole",
+          "You cannot change your own role",
+        ),
+      );
     }
 
     const targetUser = await this.usersRepository.findOne({
       where: { id: targetUserId },
     });
     if (!targetUser) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.admin.userNotFound", "User not found"),
+      );
     }
 
     // Prevent removing the last admin
@@ -227,7 +256,10 @@ export class AdminService {
       });
       if (adminCount <= 1) {
         throw new BadRequestException(
-          "Cannot remove the last admin. Promote another user first.",
+          tr(
+            "errors.admin.removeLastAdmin",
+            "Cannot remove the last admin. Promote another user first.",
+          ),
         );
       }
     }
@@ -248,14 +280,21 @@ export class AdminService {
     > & { hasPassword: boolean }
   > {
     if (adminId === targetUserId) {
-      throw new ForbiddenException("You cannot disable your own account");
+      throw new ForbiddenException(
+        tr(
+          "errors.admin.cannotDisableOwnAccount",
+          "You cannot disable your own account",
+        ),
+      );
     }
 
     const targetUser = await this.usersRepository.findOne({
       where: { id: targetUserId },
     });
     if (!targetUser) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.admin.userNotFound", "User not found"),
+      );
     }
 
     targetUser.isActive = isActive;
@@ -287,14 +326,21 @@ export class AdminService {
     targetUserId: string,
   ): Promise<{ downgraded: boolean }> {
     if (adminId === targetUserId) {
-      throw new ForbiddenException("You cannot delete your own account");
+      throw new ForbiddenException(
+        tr(
+          "errors.admin.cannotDeleteOwnAccount",
+          "You cannot delete your own account",
+        ),
+      );
     }
 
     const targetUser = await this.usersRepository.findOne({
       where: { id: targetUserId },
     });
     if (!targetUser) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.admin.userNotFound", "User not found"),
+      );
     }
 
     // Prevent deleting the last admin
@@ -303,7 +349,12 @@ export class AdminService {
         where: { role: "admin" },
       });
       if (adminCount <= 1) {
-        throw new BadRequestException("Cannot delete the last admin account.");
+        throw new BadRequestException(
+          tr(
+            "errors.admin.deleteLastAdmin",
+            "Cannot delete the last admin account.",
+          ),
+        );
       }
     }
 
@@ -340,7 +391,10 @@ export class AdminService {
   ): Promise<{ temporaryPassword: string }> {
     if (adminId === targetUserId) {
       throw new ForbiddenException(
-        "You cannot reset your own password through the admin panel",
+        tr(
+          "errors.admin.cannotResetOwnPassword",
+          "You cannot reset your own password through the admin panel",
+        ),
       );
     }
 
@@ -348,12 +402,17 @@ export class AdminService {
       where: { id: targetUserId },
     });
     if (!targetUser) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException(
+        tr("errors.admin.userNotFound", "User not found"),
+      );
     }
 
     if (!targetUser.passwordHash) {
       throw new BadRequestException(
-        "Cannot reset password for accounts without a local password",
+        tr(
+          "errors.admin.noLocalPassword",
+          "Cannot reset password for accounts without a local password",
+        ),
       );
     }
 

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from 'next/navigation';
 import {
   PieChart,
@@ -11,29 +13,33 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { builtInReportsApi } from '@/lib/built-in-reports';
-import { RecurringExpenseItem, RecurringExpensesResponse } from '@/types/built-in-reports';
+import { RecurringExpenseItem } from '@/types/built-in-reports';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
-import { CHART_COLOURS } from '@/lib/chart-colours';
+import { chartSeriesColor } from '@/lib/chart-colors';
+import { resolvePdfColor } from '@/components/reports/resolve-pdf-color';
 import { exportToCsv } from '@/lib/csv-export';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
-import { createLogger } from '@/lib/logger';
-
-const logger = createLogger('RecurringExpensesReport');
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 
 type RecurringSortField = 'payee' | 'category' | 'frequency' | 'count' | 'average' | 'total' | 'lastPaid';
 
 export function RecurringExpensesReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const { formatCurrencyCompact: formatCurrency } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
-  const [recurringData, setRecurringData] = useState<RecurringExpensesResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [minOccurrences, setMinOccurrences] = useState(3);
   const { sortField, sortDirection, handleSort } = useSortableTable<RecurringSortField>(
     'reports.recurring-expenses.sort',
     { field: 'total', direction: 'desc' },
+  );
+
+  const { data: recurringData, isLoading, error, reload } = useReportData(
+    () => builtInReportsApi.getRecurringExpenses(minOccurrences),
+    [minOccurrences],
   );
 
   const sortedExpenses = useMemo(() => {
@@ -68,32 +74,25 @@ export function RecurringExpensesReport() {
     return sorted;
   }, [recurringData, sortField, sortDirection]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await builtInReportsApi.getRecurringExpenses(minOccurrences);
-        setRecurringData(data);
-      } catch (error) {
-        logger.error('Failed to load recurring expenses:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [minOccurrences]);
-
   const chartData = useMemo(() => {
     if (!recurringData) return [];
     return recurringData.data.slice(0, 10).map((item, index) => ({
       ...item,
-      color: CHART_COLOURS[index % CHART_COLOURS.length],
+      color: chartSeriesColor(index),
     }));
   }, [recurringData]);
 
   const getExportData = () => {
     if (!recurringData) return null;
-    const headers = ['Payee', 'Category', 'Frequency', 'Count', 'Avg Amount', '6-Mo Total', 'Last Paid'];
+    const headers = [
+      t('recurringExpenses.csvColPayee'),
+      t('recurringExpenses.csvColCategory'),
+      t('recurringExpenses.csvColFrequency'),
+      t('recurringExpenses.csvColCount'),
+      t('recurringExpenses.csvColAvgAmount'),
+      t('recurringExpenses.csvColSixMonthTotal'),
+      t('recurringExpenses.csvColLastPaid'),
+    ];
     const rows = recurringData.data.map((e) => [
       e.payeeName,
       e.categoryName,
@@ -117,16 +116,16 @@ export function RecurringExpensesReport() {
     if (!expData || !recurringData) return;
     const { exportToPdf } = await import('@/lib/pdf-export');
     await exportToPdf({
-      title: 'Recurring Expenses',
-      subtitle: `${recurringData.summary.uniquePayees} recurring payees identified`,
+      title: t('recurringExpenses.pdfTitle'),
+      subtitle: t('recurringExpenses.pdfSubtitle', { count: recurringData.summary.uniquePayees }),
       summaryCards: [
-        { label: 'Recurring Expenses', value: String(recurringData.summary.uniquePayees), color: '#111827' },
-        { label: '6-Month Total', value: formatCurrency(recurringData.summary.totalRecurring), color: '#dc2626' },
-        { label: 'Monthly Estimate', value: formatCurrency(recurringData.summary.monthlyEstimate), color: '#ea580c' },
+        { label: t('recurringExpenses.recurringExpenses'), value: String(recurringData.summary.uniquePayees), color: '#111827' },
+        { label: t('recurringExpenses.sixMonthTotal'), value: formatCurrency(recurringData.summary.totalRecurring), color: '#dc2626' },
+        { label: t('recurringExpenses.monthlyEstimate'), value: formatCurrency(recurringData.summary.monthlyEstimate), color: '#ea580c' },
       ],
       chartContainer: chartRef.current,
       chartLegend: chartData.map((item) => ({
-        color: item.color,
+        color: resolvePdfColor(item.color),
         label: `${item.payeeName}: ${formatCurrency(item.totalAmount)}`,
       })),
       tableData: { headers: expData.headers, rows: expData.rows },
@@ -147,13 +146,13 @@ export function RecurringExpensesReport() {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
           <p className="font-medium text-gray-900 dark:text-gray-100">{data.payeeName}</p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {data.occurrences} transactions - {data.frequency}
+            {t('recurringExpenses.tooltipTransactions', { count: data.occurrences, frequency: data.frequency })}
           </p>
           <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">
-            Total: {formatCurrency(data.totalAmount)}
+            {t('recurringExpenses.tooltipTotal', { amount: formatCurrency(data.totalAmount) })}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Avg: {formatCurrency(data.averageAmount)} per transaction
+            {t('recurringExpenses.tooltipAvg', { amount: formatCurrency(data.averageAmount) })}
           </p>
         </div>
       );
@@ -161,12 +160,16 @@ export function RecurringExpensesReport() {
     return null;
   };
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -176,7 +179,7 @@ export function RecurringExpensesReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-          Failed to load recurring expenses data.
+          {t('recurringExpenses.failedToLoad')}
         </p>
       </div>
     );
@@ -187,20 +190,20 @@ export function RecurringExpensesReport() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Recurring Expenses</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('recurringExpenses.recurringExpenses')}</div>
           <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {recurringData.summary.uniquePayees}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">identified payees</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{t('recurringExpenses.identifiedPayees')}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">6-Month Total</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('recurringExpenses.sixMonthTotal')}</div>
           <div className="text-xl font-bold text-red-600 dark:text-red-400">
             {formatCurrency(recurringData.summary.totalRecurring)}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Monthly Estimate</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('recurringExpenses.monthlyEstimate')}</div>
           <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
             {formatCurrency(recurringData.summary.monthlyEstimate)}
           </div>
@@ -211,7 +214,7 @@ export function RecurringExpensesReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            Minimum occurrences:
+            {t('recurringExpenses.minOccurrencesLabel')}
           </label>
           <select
             value={minOccurrences}
@@ -225,7 +228,7 @@ export function RecurringExpensesReport() {
             <option value={6}>6+</option>
           </select>
           <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-            (in last 6 months)
+            {t('recurringExpenses.inLast6Months')}
           </span>
           <div className="ml-auto shrink-0">
             <ExportDropdown onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} />
@@ -236,7 +239,7 @@ export function RecurringExpensesReport() {
       {recurringData.data.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No recurring expenses found with {minOccurrences}+ occurrences in the last 6 months.
+            {t('recurringExpenses.noRecurring', { count: minOccurrences })}
           </p>
         </div>
       ) : (
@@ -244,7 +247,7 @@ export function RecurringExpensesReport() {
           {/* Chart */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Top 10 Recurring Expenses
+              {t('recurringExpenses.top10ChartTitle')}
             </h3>
             <div ref={chartRef} className="h-80">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -274,7 +277,7 @@ export function RecurringExpensesReport() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                All Recurring Expenses
+                {t('recurringExpenses.allRecurringTitle')}
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -288,7 +291,7 @@ export function RecurringExpensesReport() {
                       onSort={handleSort}
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Payee
+                      {t('recurringExpenses.colPayee')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="category"
@@ -297,7 +300,7 @@ export function RecurringExpensesReport() {
                       onSort={handleSort}
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Category
+                      {t('recurringExpenses.colCategory')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="frequency"
@@ -307,7 +310,7 @@ export function RecurringExpensesReport() {
                       align="center"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Frequency
+                      {t('recurringExpenses.colFrequency')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="count"
@@ -317,7 +320,7 @@ export function RecurringExpensesReport() {
                       align="center"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Count
+                      {t('recurringExpenses.colCount')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="average"
@@ -327,7 +330,7 @@ export function RecurringExpensesReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Avg Amount
+                      {t('recurringExpenses.colAvgAmount')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="total"
@@ -337,7 +340,7 @@ export function RecurringExpensesReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      6-Mo Total
+                      {t('recurringExpenses.colSixMonthTotal')}
                     </SortableHeader>
                     <SortableHeader<RecurringSortField>
                       field="lastPaid"
@@ -347,7 +350,7 @@ export function RecurringExpensesReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
                     >
-                      Last Paid
+                      {t('recurringExpenses.colLastPaid')}
                     </SortableHeader>
                   </tr>
                 </thead>

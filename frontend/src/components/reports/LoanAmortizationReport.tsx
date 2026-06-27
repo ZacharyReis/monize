@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { format, parseISO } from 'date-fns';
 import { accountsApi } from '@/lib/accounts';
 import { transactionsApi } from '@/lib/transactions';
-import { Account } from '@/types/account';
 import { Transaction } from '@/types/transaction';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { exportToCsv } from '@/lib/csv-export';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable, compareValues } from '@/hooks/useSortableTable';
+import { useReportData } from '@/hooks/useReportData';
+import { ReportError } from '@/components/reports/ReportError';
 import { createLogger } from '@/lib/logger';
+import { useTranslations } from 'next-intl';
 
 const logger = createLogger('LoanAmortizationReport');
 
@@ -97,48 +100,47 @@ function advanceDate(date: Date, frequency: string): Date {
   return next;
 }
 
-function friendlyAccountType(type: string): string {
-  switch (type) {
-    case 'LINE_OF_CREDIT': return 'Line of Credit';
-    case 'LOAN': return 'Loan';
-    case 'MORTGAGE': return 'Mortgage';
-    default: return type.charAt(0) + type.slice(1).toLowerCase();
-  }
-}
-
 export function LoanAmortizationReport() {
+  const t = useTranslations('reports');
   const { formatCurrency } = useNumberFormat();
-  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  const friendlyAccountType = (type: string): string => {
+    switch (type) {
+      case 'LINE_OF_CREDIT': return t('loanAmortization.typeLineOfCredit');
+      case 'LOAN': return t('loanAmortization.typeLoan');
+      case 'MORTGAGE': return t('loanAmortization.typeMortgage');
+      default: return type.charAt(0) + type.slice(1).toLowerCase();
+    }
+  };
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showAllRows, setShowAllRows] = useState(false);
   const { sortField, sortDirection, handleSort } = useSortableTable<AmortizationSortField>(
     'reports.loan-amortization.sort',
     { field: 'paymentNumber', direction: 'asc' },
   );
 
-  // Load all accounts and filter for loans
-  useEffect(() => {
-    const loadAccounts = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedAccounts = await accountsApi.getAll(true);
-        const loanAccounts = fetchedAccounts.filter(
-          (a) => a.accountType === 'LOAN' || a.accountType === 'MORTGAGE' || a.accountType === 'LINE_OF_CREDIT'
-        );
-        setAccounts(loanAccounts);
-        if (loanAccounts.length > 0) {
-          setSelectedAccountId(loanAccounts[0].id);
-        }
-      } catch (error) {
-        logger.error('Failed to load accounts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadAccounts();
-  }, []);
+  // Load all accounts and filter for loans.
+  const { data: fetchedAccounts, isLoading, error, reload } = useReportData(
+    () => accountsApi.getAll(true),
+    [],
+  );
+
+  const accounts = useMemo(
+    () =>
+      (fetchedAccounts ?? []).filter(
+        (a) => a.accountType === 'LOAN' || a.accountType === 'MORTGAGE' || a.accountType === 'LINE_OF_CREDIT',
+      ),
+    [fetchedAccounts],
+  );
+
+  // Default the selection to the first loan once accounts arrive. Seeded during
+  // render (not in an effect) so the transactions fetch carries it immediately.
+  const [seededAccounts, setSeededAccounts] = useState(false);
+  if (!seededAccounts && accounts.length > 0) {
+    setSeededAccounts(true);
+    setSelectedAccountId(accounts[0].id);
+  }
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
@@ -316,7 +318,7 @@ export function LoanAmortizationReport() {
   }, [paymentHistory, selectedAccount, historicalCount, hasProjection]);
 
   const getExportData = (formatted: boolean) => {
-    const headers = ['#', 'Date', 'Payment', 'Principal', 'Interest', 'Balance', 'Type'];
+    const headers = [t('loanAmortization.colNumber'), t('loanAmortization.colDate'), t('loanAmortization.colPayment'), t('loanAmortization.colPrincipal'), t('loanAmortization.colInterest'), t('loanAmortization.colBalance'), t('loanAmortization.colType')];
     const currency = selectedAccount?.currencyCode;
     const rows = paymentHistory.map((row) => [
       row.paymentNumber,
@@ -325,7 +327,7 @@ export function LoanAmortizationReport() {
       formatted ? formatCurrency(row.principal, currency) : row.principal,
       formatted ? formatCurrency(row.interest, currency) : row.interest,
       formatted ? formatCurrency(row.balance, currency) : row.balance,
-      row.isProjected ? 'Projected' : 'Actual',
+      row.isProjected ? t('loanAmortization.typeProjected') : t('loanAmortization.typeActual'),
     ]);
     return { headers, rows };
   };
@@ -344,19 +346,19 @@ export function LoanAmortizationReport() {
     const cards = [];
     if (selectedAccount) {
       cards.push(
-        { label: 'Current Balance', value: formatCurrency(Math.abs(selectedAccount.currentBalance), currency), color: '#dc2626' },
-        { label: 'Original Amount', value: formatCurrency(summary?.originalBalance || Math.abs(selectedAccount.openingBalance), currency), color: '#111827' },
-        { label: 'Interest Rate', value: selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : 'Not set', color: '#111827' },
-        { label: summary?.hasProjection ? 'Est. Total Interest' : 'Total Interest Paid', value: formatCurrency(summary?.totalInterest || 0, currency), color: '#ea580c' },
-        { label: 'Payments Made', value: String(historicalCount), color: '#16a34a' },
+        { label: t('loanAmortization.currentBalance'), value: formatCurrency(Math.abs(selectedAccount.currentBalance), currency), color: '#dc2626' },
+        { label: t('loanAmortization.originalAmount'), value: formatCurrency(summary?.originalBalance || Math.abs(selectedAccount.openingBalance), currency), color: '#111827' },
+        { label: t('loanAmortization.interestRate'), value: selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : t('loanAmortization.notSet'), color: '#111827' },
+        { label: summary?.hasProjection ? t('loanAmortization.estTotalInterest') : t('loanAmortization.totalInterestPaid'), value: formatCurrency(summary?.totalInterest || 0, currency), color: '#ea580c' },
+        { label: t('loanAmortization.paymentsMade'), value: String(historicalCount), color: '#16a34a' },
       );
       if (summary?.hasProjection && summary.projectedPayoffDate) {
-        cards.push({ label: 'Est. Payoff', value: format(parseISO(summary.projectedPayoffDate), 'MMM yyyy'), color: '#9333ea' });
+        cards.push({ label: t('loanAmortization.estPayoff'), value: format(parseISO(summary.projectedPayoffDate), 'MMM yyyy'), color: '#9333ea' });
       }
     }
     await exportToPdf({
-      title: `Loan Amortization - ${selectedAccount?.name || 'Loan'}`,
-      subtitle: summary ? `${historicalCount} payments made, ${formatCurrency(summary.totalInterest, currency)} total interest` : undefined,
+      title: `${t('loanAmortization.pdfTitlePrefix')}${selectedAccount?.name || t('loanAmortization.typeLoan')}`,
+      subtitle: summary ? t('loanAmortization.pdfSubtitlePaymentsSummary', { count: historicalCount, interest: formatCurrency(summary.totalInterest, currency) }) : undefined,
       summaryCards: cards.length > 0 ? cards : undefined,
       tableData: { headers, rows },
       filename: `amortization-${accountName}`,
@@ -396,12 +398,16 @@ export function LoanAmortizationReport() {
     ? sortedPaymentHistory
     : sortedPaymentHistory.slice(0, 24);
 
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
@@ -411,7 +417,7 @@ export function LoanAmortizationReport() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-          No loan or mortgage accounts found. Add a loan account to see the payment history.
+          {t('loanAmortization.empty')}
         </p>
       </div>
     );
@@ -424,7 +430,7 @@ export function LoanAmortizationReport() {
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Select Loan
+              {t('loanAmortization.labelSelectLoan')}
             </label>
             <select
               value={selectedAccountId}
@@ -451,40 +457,40 @@ export function LoanAmortizationReport() {
       {selectedAccount && (
         <div className={`grid grid-cols-2 ${summary?.hasProjection ? 'md:grid-cols-6' : 'md:grid-cols-5'} gap-4`}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Current Balance</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('loanAmortization.currentBalance')}</div>
             <div className="text-lg font-bold text-red-600 dark:text-red-400">
               {formatCurrency(Math.abs(selectedAccount.currentBalance))}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Original Amount</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('loanAmortization.originalAmount')}</div>
             <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
               {formatCurrency(summary?.originalBalance || Math.abs(selectedAccount.openingBalance))}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Interest Rate</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('loanAmortization.interestRate')}</div>
             <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : 'Not set'}
+              {selectedAccount.interestRate ? `${selectedAccount.interestRate}%` : t('loanAmortization.notSet')}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {summary?.hasProjection ? 'Est. Total Interest' : 'Total Interest Paid'}
+              {summary?.hasProjection ? t('loanAmortization.estTotalInterest') : t('loanAmortization.totalInterestPaid')}
             </div>
             <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
               {formatCurrency(summary?.totalInterest || 0)}
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Payments Made</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('loanAmortization.paymentsMade')}</div>
             <div className="text-lg font-bold text-green-600 dark:text-green-400">
               {historicalCount}
             </div>
           </div>
           {summary?.hasProjection && summary.projectedPayoffDate && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
-              <div className="text-sm text-gray-500 dark:text-gray-400">Est. Payoff</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('loanAmortization.estPayoff')}</div>
               <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
                 {format(parseISO(summary.projectedPayoffDate), 'MMM yyyy')}
               </div>
@@ -498,29 +504,29 @@ export function LoanAmortizationReport() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Account Type</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('loanAmortization.accountType')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
                 {friendlyAccountType(selectedAccount.accountType)}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Payment Frequency</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('loanAmortization.paymentFrequency')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
                 {selectedAccount.paymentFrequency
                   ? selectedAccount.paymentFrequency.charAt(0) + selectedAccount.paymentFrequency.slice(1).toLowerCase().replace('_', '-')
-                  : 'Not set'}
+                  : t('loanAmortization.notSet')}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Payment Amount</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('loanAmortization.paymentAmount')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
-                {selectedAccount.paymentAmount ? formatCurrency(selectedAccount.paymentAmount) : 'Not set'}
+                {selectedAccount.paymentAmount ? formatCurrency(selectedAccount.paymentAmount) : t('loanAmortization.notSet')}
               </p>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Status</span>
+              <span className="text-gray-500 dark:text-gray-400">{t('loanAmortization.status')}</span>
               <p className="font-medium text-gray-900 dark:text-gray-100">
-                {selectedAccount.isClosed ? 'Closed' : 'Active'}
+                {selectedAccount.isClosed ? t('loanAmortization.statusClosed') : t('loanAmortization.statusActive')}
               </p>
             </div>
           </div>
@@ -531,20 +537,20 @@ export function LoanAmortizationReport() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Payment {hasProjection ? 'History & Projection' : 'History'}
+            {hasProjection ? t('loanAmortization.paymentHistoryProjection') : t('loanAmortization.paymentHistory')}
           </h3>
           {summary && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {historicalCount} payments made
-              {hasProjection && ` + ${paymentHistory.length - historicalCount} projected`}
-              {' '}totaling {formatCurrency(summary.totalPayments)}
+              {t('loanAmortization.paymentsMadeSummary', { count: historicalCount })}
+              {hasProjection && ` ${t('loanAmortization.plusProjected', { count: paymentHistory.length - historicalCount })}`}
+              {' '}{t('loanAmortization.totalingSuffix', { amount: formatCurrency(summary.totalPayments) })}
             </p>
           )}
         </div>
 
         {paymentHistory.length === 0 ? (
           <p className="px-6 py-8 text-gray-500 dark:text-gray-400 text-center">
-            No payments found for this loan. Make payments to your loan account to see them here.
+            {t('loanAmortization.noPayments')}
           </p>
         ) : (
           <>
@@ -559,7 +565,7 @@ export function LoanAmortizationReport() {
                       onSort={handleSort}
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      #
+                      {t('loanAmortization.colNumber')}
                     </SortableHeader>
                     <SortableHeader<AmortizationSortField>
                       field="date"
@@ -568,7 +574,7 @@ export function LoanAmortizationReport() {
                       onSort={handleSort}
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      Date
+                      {t('loanAmortization.colDate')}
                     </SortableHeader>
                     <SortableHeader<AmortizationSortField>
                       field="payment"
@@ -578,7 +584,7 @@ export function LoanAmortizationReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      Payment
+                      {t('loanAmortization.colPayment')}
                     </SortableHeader>
                     <SortableHeader<AmortizationSortField>
                       field="principal"
@@ -588,7 +594,7 @@ export function LoanAmortizationReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      Principal
+                      {t('loanAmortization.colPrincipal')}
                     </SortableHeader>
                     <SortableHeader<AmortizationSortField>
                       field="interest"
@@ -598,7 +604,7 @@ export function LoanAmortizationReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      Interest
+                      {t('loanAmortization.colInterest')}
                     </SortableHeader>
                     <SortableHeader<AmortizationSortField>
                       field="balance"
@@ -608,7 +614,7 @@ export function LoanAmortizationReport() {
                       align="right"
                       className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                     >
-                      Balance
+                      {t('loanAmortization.colBalance')}
                     </SortableHeader>
                   </tr>
                 </thead>
@@ -622,7 +628,7 @@ export function LoanAmortizationReport() {
                         {showSeparator && (
                           <tr className="bg-gray-100 dark:bg-gray-700">
                             <td colSpan={6} className="px-4 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                              Projected Future Payments
+                              {t('loanAmortization.projectedFuturePayments')}
                             </td>
                           </tr>
                         )}
@@ -667,8 +673,8 @@ export function LoanAmortizationReport() {
                   className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline"
                 >
                   {showAllRows
-                    ? 'Show fewer rows'
-                    : `Show all ${paymentHistory.length} payments`}
+                    ? t('loanAmortization.showLess')
+                    : t('loanAmortization.showAll', { count: paymentHistory.length })}
                 </button>
               </div>
             )}

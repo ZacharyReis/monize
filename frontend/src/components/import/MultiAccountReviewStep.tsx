@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ParsedQifMultiAccountResponse, DateFormat, DATE_FORMAT_OPTIONS } from '@/lib/import';
@@ -30,6 +31,7 @@ export function MultiAccountReviewStep({
   setStep,
   hasSecuritiesToMap,
 }: MultiAccountReviewStepProps) {
+  const t = useTranslations('import');
   const { categoryDefs, tagDefs = [], accounts, totalTransactionCount } = multiAccountData;
   const incomeCategories = categoryDefs.filter((c) => c.isIncome);
   const expenseCategories = categoryDefs.filter((c) => !c.isIncome);
@@ -37,21 +39,26 @@ export function MultiAccountReviewStep({
   return (
     <div className="max-w-2xl mx-auto">
       <h2 className="text-lg font-semibold text-foreground mb-1">
-        Multi-Account QIF Import
+        {t('multiAccountReview.heading')}
       </h2>
       <p className="text-sm text-muted-foreground mb-6">
-        This file contains {accounts.length} account{accounts.length !== 1 ? 's' : ''},{' '}
-        {categoryDefs.length} categor{categoryDefs.length !== 1 ? 'ies' : 'y'}
-        {tagDefs.length > 0 && (<>, {tagDefs.length} tag{tagDefs.length !== 1 ? 's' : ''}</>)}
-        , and {totalTransactionCount} transaction{totalTransactionCount !== 1 ? 's' : ''}.
-        Categories, accounts{tagDefs.length > 0 ? ', tags,' : ''} and transactions will be created automatically.
+        {t('multiAccountReview.description', {
+          accounts: accounts.length,
+          accountsPlural: accounts.length !== 1 ? 's' : '',
+          categories: categoryDefs.length,
+          categoriesPlural: categoryDefs.length !== 1 ? 'ies' : 'y',
+          tagsSection: tagDefs.length > 0 ? t('multiAccountReview.tagsSection', { count: tagDefs.length, tagsPlural: tagDefs.length !== 1 ? 's' : '' }) : '',
+          transactions: totalTransactionCount,
+          transactionsPlural: totalTransactionCount !== 1 ? 's' : '',
+          tagsCreated: tagDefs.length > 0 ? t('multiAccountReview.tagsCreated') : '',
+        })}
       </p>
 
       {/* Settings */}
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Currency for New Accounts
+            {t('multiAccountReview.currencyForNewAccounts')}
           </label>
           <Select
             value={currencyCode}
@@ -61,7 +68,7 @@ export function MultiAccountReviewStep({
         </div>
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Date Format
+            {t('multiAccountReview.dateFormat')}
           </label>
           <Select
             value={dateFormat}
@@ -74,7 +81,7 @@ export function MultiAccountReviewStep({
       {/* Accounts */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-2">
-          Accounts ({accounts.length})
+          {t('multiAccountReview.accountsHeading', { count: accounts.length })}
         </h3>
         <div className="bg-card border border-border rounded-lg divide-y divide-border">
           {accounts.map((acc, i) => (
@@ -85,7 +92,7 @@ export function MultiAccountReviewStep({
               </div>
               <div className="text-right">
                 <span className="text-sm text-muted-foreground">
-                  {acc.transactionCount} transaction{acc.transactionCount !== 1 ? 's' : ''}
+                  {t('multiAccountReview.transactionCount', { count: acc.transactionCount, plural: acc.transactionCount !== 1 ? 's' : '' })}
                 </span>
                 {acc.dateRange.start && (
                   <span className="text-xs text-muted-foreground ml-2">
@@ -102,13 +109,13 @@ export function MultiAccountReviewStep({
       {categoryDefs.length > 0 && (
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-2">
-            Categories ({categoryDefs.length})
+            {t('multiAccountReview.categoriesHeading', { count: categoryDefs.length })}
           </h3>
           <div className="bg-card border border-border rounded-lg p-4">
             {expenseCategories.length > 0 && (
               <div className="mb-3">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Expense ({expenseCategories.length})
+                  {t('multiAccountReview.expenseLabel', { count: expenseCategories.length })}
                 </span>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {expenseCategories.map((cat, i) => (
@@ -125,7 +132,7 @@ export function MultiAccountReviewStep({
             {incomeCategories.length > 0 && (
               <div>
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Income ({incomeCategories.length})
+                  {t('multiAccountReview.incomeLabel', { count: incomeCategories.length })}
                 </span>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {incomeCategories.map((cat, i) => (
@@ -147,7 +154,7 @@ export function MultiAccountReviewStep({
       {tagDefs.length > 0 && (
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-2">
-            Tags ({tagDefs.length})
+            {t('multiAccountReview.tagsHeading', { count: tagDefs.length })}
           </h3>
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex flex-wrap gap-1">
@@ -167,7 +174,7 @@ export function MultiAccountReviewStep({
       {/* Sample dates */}
       {multiAccountData.sampleDates.length > 0 && (
         <div className="mb-6 text-xs text-muted-foreground">
-          Sample dates: {multiAccountData.sampleDates.join(', ')} (detected as {multiAccountData.detectedDateFormat})
+          {t('multiAccountReview.sampleDates', { dates: multiAccountData.sampleDates.join(', '), format: multiAccountData.detectedDateFormat })}
         </div>
       )}
 
@@ -175,7 +182,7 @@ export function MultiAccountReviewStep({
       {hasSecuritiesToMap && (
         <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
           <p className="text-sm text-amber-800 dark:text-amber-300">
-            This file contains {multiAccountData.securities.length} securit{multiAccountData.securities.length !== 1 ? 'ies' : 'y'} that need to be mapped before import.
+            {t('multiAccountReview.securitiesNotice', { count: multiAccountData.securities.length, plural: multiAccountData.securities.length !== 1 ? 'ies' : 'y' })}
           </p>
         </div>
       )}
@@ -187,18 +194,18 @@ export function MultiAccountReviewStep({
           onClick={() => setStep('upload')}
           disabled={isLoading}
         >
-          Back
+          {t('navigation.back')}
         </Button>
         {hasSecuritiesToMap ? (
           <Button onClick={() => setStep('mapSecurities')}>
-            Next: Map Securities
+            {t('multiAccountReview.nextMapSecurities')}
           </Button>
         ) : (
           <Button
             onClick={onImport}
             isLoading={isLoading}
           >
-            Import All
+            {t('multiAccountReview.importAll')}
           </Button>
         )}
       </div>

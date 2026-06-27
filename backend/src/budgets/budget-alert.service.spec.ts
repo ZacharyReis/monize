@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
 import { BudgetAlertService } from "./budget-alert.service";
 import { Budget, BudgetType, BudgetStrategy } from "./entities/budget.entity";
 import {
@@ -201,6 +202,13 @@ describe("BudgetAlertService", () => {
         },
         { provide: EmailService, useValue: emailService },
         { provide: ConfigService, useValue: configService },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: (key: string, opts?: { defaultValue?: string }) =>
+              opts?.defaultValue ?? key,
+          },
+        },
       ],
     }).compile();
 

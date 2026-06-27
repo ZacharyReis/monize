@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/authStore';
 import { updatesApi, UpdateStatus } from '@/lib/updatesApi';
 import { createLogger } from '@/lib/logger';
@@ -13,6 +14,7 @@ const logger = createLogger('UpdateAvailableBanner');
  * preferences, so a dismissed banner re-appears once the next release lands.
  */
 export function UpdateAvailableBanner() {
+  const t = useTranslations('layout');
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [status, setStatus] = useState<UpdateStatus | null>(null);
@@ -56,8 +58,8 @@ export function UpdateAvailableBanner() {
   };
 
   const label = status.latestVersion
-    ? `Monize v${status.latestVersion} is available`
-    : 'A new version of Monize is available';
+    ? t('updateBanner.availableWithVersion', { version: status.latestVersion })
+    : t('updateBanner.availableGeneric');
 
   return (
     <div className="bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800 px-4 py-2 text-center text-sm text-blue-800 dark:text-blue-200 flex items-center justify-center gap-3">
@@ -65,7 +67,7 @@ export function UpdateAvailableBanner() {
         <span className="font-semibold">{label}</span>
         {status.currentVersion && (
           <span className="ml-1 text-blue-700/80 dark:text-blue-300/80">
-            (running v{status.currentVersion})
+            {t('updateBanner.runningVersion', { version: status.currentVersion })}
           </span>
         )}
       </span>
@@ -76,16 +78,16 @@ export function UpdateAvailableBanner() {
           rel="noopener noreferrer"
           className="underline font-medium hover:text-blue-900 dark:hover:text-blue-100"
         >
-          Release notes
+          {t('updateBanner.releaseNotes')}
         </a>
       )}
       <button
         type="button"
         onClick={handleDismiss}
-        aria-label="Dismiss update notification"
+        aria-label={t('updateBanner.dismissAriaLabel')}
         className="ml-2 text-blue-700/70 dark:text-blue-300/70 hover:text-blue-900 dark:hover:text-blue-100"
       >
-        Dismiss
+        {t('updateBanner.dismiss')}
       </button>
     </div>
   );

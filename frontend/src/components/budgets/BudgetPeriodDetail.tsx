@@ -1,6 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { format, parseISO } from 'date-fns';
+import { gainLossColor } from '@/lib/format';
 import { BudgetProgressBar } from './BudgetProgressBar';
 import type { BudgetPeriod, BudgetPeriodCategory } from '@/types/budget';
 
@@ -25,6 +27,7 @@ export function BudgetPeriodDetail({
   period,
   formatCurrency,
 }: BudgetPeriodDetailProps) {
+  const t = useTranslations('budgets');
   const categories = period.periodCategories ?? [];
   const expenseCategories = categories.filter((pc) => !isIncomeCategory(pc));
   const incomeCategories = categories.filter((pc) => isIncomeCategory(pc));
@@ -77,30 +80,28 @@ export function BudgetPeriodDetail({
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          label="Total Budgeted"
+          label={t('periodDetail.summaryCards.totalBudgeted')}
           value={formatCurrency(totalBudgeted)}
-          sublabel={`${expenseCategories.length} categories`}
+          sublabel={t('periodDetail.categorySublabel', { count: expenseCategories.length })}
         />
         <SummaryCard
-          label="Total Spent"
+          label={t('periodDetail.summaryCards.totalSpent')}
           value={formatCurrency(totalSpent)}
           sublabel={`${percentUsed}%`}
           valueColor={percentUsed > 100 ? 'text-red-600 dark:text-red-400' : undefined}
         />
         <SummaryCard
-          label={remaining >= 0 ? 'Under Budget' : 'Over Budget'}
+          label={remaining >= 0 ? t('periodDetail.summaryCards.underBudget') : t('periodDetail.summaryCards.overBudget')}
           value={formatCurrency(Math.abs(remaining))}
-          sublabel={remaining >= 0 ? 'saved' : 'overspent'}
+          sublabel={remaining >= 0 ? t('periodDetail.summaryCards.saved') : t('periodDetail.summaryCards.overspent')}
           valueColor={
-            remaining >= 0
-              ? 'text-green-600 dark:text-green-400'
-              : 'text-red-600 dark:text-red-400'
+            gainLossColor(remaining)
           }
         />
         <SummaryCard
-          label="Income"
+          label={t('periodDetail.summaryCards.income')}
           value={formatCurrency(totalIncome)}
-          sublabel={totalIncome > 0 ? `Savings: ${formatCurrency(totalIncome - totalSpent)}` : undefined}
+          sublabel={totalIncome > 0 ? t('periodDetail.summaryCards.savings', { amount: formatCurrency(totalIncome - totalSpent) }) : undefined}
         />
       </div>
 
@@ -108,17 +109,17 @@ export function BudgetPeriodDetail({
       {(totalRolloverIn > 0 || totalRolloverOut > 0) && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-            Rollover Summary
+            {t('periodDetail.rolloverSummary.title')}
           </h3>
           <div className="flex gap-6 text-sm">
             <div>
-              <span className="text-blue-600 dark:text-blue-300">Carried in: </span>
+              <span className="text-blue-600 dark:text-blue-300">{t('periodDetail.rolloverSummary.carriedIn')} </span>
               <span className="font-medium text-blue-900 dark:text-blue-100">
                 {formatCurrency(totalRolloverIn)}
               </span>
             </div>
             <div>
-              <span className="text-blue-600 dark:text-blue-300">Carried out: </span>
+              <span className="text-blue-600 dark:text-blue-300">{t('periodDetail.rolloverSummary.carriedOut')} </span>
               <span className="font-medium text-blue-900 dark:text-blue-100">
                 {formatCurrency(totalRolloverOut)}
               </span>
@@ -131,7 +132,7 @@ export function BudgetPeriodDetail({
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Overall Budget Usage
+            {t('periodDetail.overallUsage')}
           </span>
           <span className="text-sm text-gray-500 dark:text-gray-400">
             {formatCurrency(totalSpent)} / {formatCurrency(totalBudgeted)}
@@ -145,7 +146,7 @@ export function BudgetPeriodDetail({
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">
-              Expense Categories
+              {t('periodDetail.expenseCategories')}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -175,7 +176,7 @@ export function BudgetPeriodDetail({
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">
-              Income Categories
+              {t('periodDetail.incomeCategories')}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -229,6 +230,7 @@ function PeriodCategoryRow({
   formatCurrency: (amount: number) => string;
   isIncome?: boolean;
 }) {
+  const t = useTranslations('budgets');
   const name = getCategoryName(periodCategory);
   const budgeted = Number(periodCategory.effectiveBudget);
   const spent = Number(periodCategory.actualAmount);
@@ -248,7 +250,7 @@ function PeriodCategoryRow({
           </span>
           {rolloverIn > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-              +{formatCurrency(rolloverIn)} rollover
+              {t('periodDetail.rolloverBadge', { amount: formatCurrency(rolloverIn) })}
             </span>
           )}
         </div>
@@ -276,13 +278,13 @@ function PeriodCategoryRow({
         <div className="text-xs text-gray-400 dark:text-gray-500">
           {!isIncome && (
             remaining >= 0
-              ? `${formatCurrency(remaining)} under budget`
-              : `${formatCurrency(Math.abs(remaining))} over budget`
+              ? t('periodDetail.underBudgetLabel', { amount: formatCurrency(remaining) })
+              : t('periodDetail.overBudgetLabel', { amount: formatCurrency(Math.abs(remaining)) })
           )}
         </div>
         {rolloverOut > 0 && (
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            {formatCurrency(rolloverOut)} carried forward
+            {t('periodDetail.carriedForward', { amount: formatCurrency(rolloverOut) })}
           </span>
         )}
       </div>

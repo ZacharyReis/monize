@@ -203,4 +203,58 @@ describe('useDateRange', () => {
     expect(result.current.resolvedRange.start).toBe('2024-08-01');
     expect(result.current.resolvedRange.end).toBe('2025-01-15');
   });
+
+  describe('storageKey persistence', () => {
+    const KEY = 'test-date-range';
+
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    it('does not touch localStorage when no storageKey is given', () => {
+      const { result } = renderHook(() => useDateRange({ defaultRange: '3m' }));
+      act(() => {
+        result.current.setDateRange('1y');
+      });
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('persists the selected preset and restores it on remount', () => {
+      const { result, unmount } = renderHook(() =>
+        useDateRange({ defaultRange: '6m', storageKey: KEY }),
+      );
+      act(() => {
+        result.current.setDateRange('1y');
+      });
+      unmount();
+
+      // A fresh hook instance with a different default should still restore
+      // the previously selected preset from localStorage.
+      const { result: restored } = renderHook(() =>
+        useDateRange({ defaultRange: '3m', storageKey: KEY }),
+      );
+      expect(restored.current.dateRange).toBe('1y');
+    });
+
+    it('persists and restores custom start/end dates', () => {
+      const { result, unmount } = renderHook(() =>
+        useDateRange({ defaultRange: 'custom', storageKey: KEY }),
+      );
+      act(() => {
+        result.current.setDateRange('custom');
+        result.current.setStartDate('2024-03-01');
+        result.current.setEndDate('2024-09-30');
+      });
+      unmount();
+
+      const { result: restored } = renderHook(() =>
+        useDateRange({ defaultRange: '6m', storageKey: KEY }),
+      );
+      expect(restored.current.dateRange).toBe('custom');
+      expect(restored.current.startDate).toBe('2024-03-01');
+      expect(restored.current.endDate).toBe('2024-09-30');
+      expect(restored.current.resolvedRange.start).toBe('2024-03-01');
+      expect(restored.current.resolvedRange.end).toBe('2024-09-30');
+    });
+  });
 });

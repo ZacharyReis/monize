@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { Request } from "express";
+import { tr } from "../../i18n/translate";
 import {
   ALLOW_DELEGATE_KEY,
   DELEGATED_ACCOUNT_PARAM_KEY,
@@ -86,8 +87,10 @@ export class AccountDelegateGuard implements CanActivate {
     );
     if (!allowed) {
       throw new ForbiddenException(
-        "This action isn't available while you're acting on behalf of " +
-          "another user. Only the account owner can do this.",
+        tr(
+          "errors.delegation.actionNotAvailableAsDelegate",
+          "This action isn't available while you're acting on behalf of another user. Only the account owner can do this.",
+        ),
       );
     }
 
@@ -203,10 +206,14 @@ export class AccountDelegateGuard implements CanActivate {
         capability.operation,
       );
       if (!ok) {
+        const operation = capability.operation;
+        const resource = RESOURCE_LABELS[capability.resource];
         throw new ForbiddenException(
-          `The account owner has not granted you permission to ` +
-            `${capability.operation} ${RESOURCE_LABELS[capability.resource]}. ` +
-            `Ask them to enable this in your delegated-access settings.`,
+          tr(
+            "errors.delegation.capabilityNotGranted",
+            `The account owner has not granted you permission to ${operation} ${resource}. Ask them to enable this in your delegated-access settings.`,
+            { operation, resource },
+          ),
         );
       }
     }
@@ -221,9 +228,13 @@ export class AccountDelegateGuard implements CanActivate {
         section,
       );
       if (!ok) {
+        const sectionLabel = SECTION_LABELS[section];
         throw new ForbiddenException(
-          `The account owner has not shared the ${SECTION_LABELS[section]} ` +
-            `section with you.`,
+          tr(
+            "errors.delegation.sectionNotGranted",
+            `The account owner has not shared the ${sectionLabel} section with you.`,
+            { sectionLabel },
+          ),
         );
       }
     }
@@ -244,9 +255,15 @@ export class AccountDelegateGuard implements CanActivate {
     if (!ok) {
       throw new ForbiddenException(
         operation === "read"
-          ? "The account owner has not shared this account with you."
-          : `The account owner has not granted you permission to ` +
-              `${operation} transactions in this account.`,
+          ? tr(
+              "errors.delegation.accountNotShared",
+              "The account owner has not shared this account with you.",
+            )
+          : tr(
+              "errors.delegation.accountOperationNotGranted",
+              `The account owner has not granted you permission to ${operation} transactions in this account.`,
+              { operation },
+            ),
       );
     }
   }

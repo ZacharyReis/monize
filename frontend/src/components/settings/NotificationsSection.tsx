@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { userSettingsApi } from '@/lib/user-settings';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -21,6 +22,7 @@ export function NotificationsSection({
   preferences,
   onPreferencesUpdated,
 }: NotificationsSectionProps) {
+  const t = useTranslations('settings.notifications');
   const updatePreferencesStore = usePreferencesStore((state) => state.updatePreferences);
   const [notificationEmail, setNotificationEmail] = useState(initialNotificationEmail);
   const [budgetDigestEnabled, setBudgetDigestEnabled] = useState(
@@ -38,10 +40,10 @@ export function NotificationsSection({
       const updated = await userSettingsApi.updatePreferences({ notificationEmail: newValue });
       onPreferencesUpdated(updated);
       updatePreferencesStore(updated);
-      toast.success(newValue ? 'Email notifications enabled' : 'Email notifications disabled');
+      toast.success(newValue ? t('toasts.emailEnabled') : t('toasts.emailDisabled'));
     } catch (error) {
       setNotificationEmail(!newValue);
-      toast.error(getErrorMessage(error, 'Failed to update notification preference'));
+      toast.error(getErrorMessage(error, t('toasts.emailUpdateFailed')));
     }
   };
 
@@ -52,10 +54,10 @@ export function NotificationsSection({
       const updated = await userSettingsApi.updatePreferences({ budgetDigestEnabled: newValue });
       onPreferencesUpdated(updated);
       updatePreferencesStore(updated);
-      toast.success(newValue ? 'Budget digest enabled' : 'Budget digest disabled');
+      toast.success(newValue ? t('toasts.digestEnabled') : t('toasts.digestDisabled'));
     } catch (error) {
       setBudgetDigestEnabled(!newValue);
-      toast.error(getErrorMessage(error, 'Failed to update budget digest preference'));
+      toast.error(getErrorMessage(error, t('toasts.digestUpdateFailed')));
     }
   };
 
@@ -66,10 +68,10 @@ export function NotificationsSection({
       const updated = await userSettingsApi.updatePreferences({ budgetDigestDay: day });
       onPreferencesUpdated(updated);
       updatePreferencesStore(updated);
-      toast.success(`Budget digest day set to ${day.charAt(0) + day.slice(1).toLowerCase()}`);
+      toast.success(t('toasts.digestDaySet', { day: day.charAt(0) + day.slice(1).toLowerCase() }));
     } catch (error) {
       setBudgetDigestDay(previousDay);
-      toast.error(getErrorMessage(error, 'Failed to update digest day'));
+      toast.error(getErrorMessage(error, t('toasts.digestDayFailed')));
     }
   };
 
@@ -77,9 +79,9 @@ export function NotificationsSection({
     setIsSendingTestEmail(true);
     try {
       await userSettingsApi.sendTestEmail();
-      toast.success('Test email sent! Check your inbox.');
+      toast.success(t('toasts.testEmailSent'));
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to send test email'));
+      toast.error(getErrorMessage(error, t('toasts.testEmailFailed')));
     } finally {
       setIsSendingTestEmail(false);
     }
@@ -87,19 +89,19 @@ export function NotificationsSection({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50 rounded-lg p-6 mb-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Notifications</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{t('heading')}</h2>
 
       {!smtpConfigured ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Email notifications are not available. SMTP has not been configured by the administrator.
+          {t('smtpNotConfigured')}
         </p>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Email Notifications</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('emailNotificationsTitle')}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Receive email reminders for upcoming bills and budget alerts
+                {t('emailNotificationsDescription')}
               </p>
             </div>
             <button
@@ -123,21 +125,21 @@ export function NotificationsSection({
             <>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                  Budget Notifications
+                  {t('budgetNotificationsHeading')}
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">Weekly Budget Digest</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{t('weeklyBudgetDigestTitle')}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Receive a weekly summary of budget alerts and status
+                        {t('weeklyBudgetDigestDescription')}
                       </p>
                     </div>
                     <button
                       type="button"
                       role="switch"
                       aria-checked={budgetDigestEnabled}
-                      aria-label="Toggle budget digest"
+                      aria-label={t('toggleBudgetDigestLabel')}
                       onClick={handleToggleBudgetDigest}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
                         budgetDigestEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
@@ -153,15 +155,15 @@ export function NotificationsSection({
 
                   {budgetDigestEnabled && (
                     <div className="flex items-center justify-between pl-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Digest day</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{t('digestDayLabel')}</p>
                       <select
                         value={budgetDigestDay}
                         onChange={(e) => handleDigestDayChange(e.target.value as 'MONDAY' | 'FRIDAY')}
-                        aria-label="Budget digest day"
+                        aria-label={t('digestDayAriaLabel')}
                         className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="MONDAY">Monday</option>
-                        <option value="FRIDAY">Friday</option>
+                        <option value="MONDAY">{t('mondayOption')}</option>
+                        <option value="FRIDAY">{t('fridayOption')}</option>
                       </select>
                     </div>
                   )}
@@ -169,14 +171,14 @@ export function NotificationsSection({
               </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                Critical budget alerts (over budget, income shortfall) are sent immediately regardless of digest settings.
+                {t('immediateAlertsNote')}
               </p>
             </>
           )}
 
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-              Send a test email to verify your notifications are working.
+              {t('sendTestEmailDescription')}
             </p>
             <Button
               variant="outline"
@@ -184,7 +186,7 @@ export function NotificationsSection({
               onClick={handleSendTestEmail}
               disabled={isSendingTestEmail || !notificationEmail}
             >
-              {isSendingTestEmail ? 'Sending...' : 'Send Test Email'}
+              {isSendingTestEmail ? t('sendingTestEmailButton') : t('sendTestEmailButton')}
             </Button>
           </div>
         </div>

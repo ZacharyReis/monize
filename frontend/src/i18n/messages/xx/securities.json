@@ -1,0 +1,324 @@
+{
+  "priceRefresh": {
+    "noneToUpdate": "[XX-No securities to update-XX]",
+    "updated": "[XX-{count, plural, one {# security price updated} other {# security prices updated}}-XX]",
+    "partialFailure": "[XX-Prices updated: {updated} succeeded, {failed} failed{symbols}-XX]",
+    "failed": "[XX-Failed to refresh prices-XX]"
+  },
+  "page": {
+    "title": "[XX-Securities-XX]",
+    "subtitle": "[XX-Manage your stocks, ETFs, mutual funds, and other securities-XX]",
+    "newSecurity": "[XX-+ New Security-XX]",
+    "searchPlaceholder": "[XX-Search by symbol or name...-XX]",
+    "statusAll": "[XX-All ({count})-XX]",
+    "statusActive": "[XX-Active ({count})-XX]",
+    "statusInactive": "[XX-Inactive ({count})-XX]",
+    "modalTitleEdit": "[XX-Edit Security-XX]",
+    "modalTitleNew": "[XX-New Security-XX]",
+    "loading": "[XX-Loading securities...-XX]",
+    "count": "[XX-{count, plural, one {# security} other {# securities}}-XX]",
+    "toasts": {
+      "loadFailed": "[XX-Failed to load securities-XX]",
+      "updated": "[XX-Security updated successfully-XX]",
+      "created": "[XX-Security created successfully-XX]",
+      "deactivated": "[XX-Security deactivated-XX]",
+      "activated": "[XX-Security activated-XX]",
+      "statusFailed": "[XX-Failed to update security status-XX]",
+      "deleted": "[XX-Security \"{symbol}\" deleted-XX]",
+      "deleteFailed": "[XX-Failed to delete security-XX]",
+      "favouriteFailed": "[XX-Failed to update favourite-XX]",
+      "updateFailed": "[XX-Failed to update security-XX]",
+      "createFailed": "[XX-Failed to create security-XX]"
+    },
+    "deleteConfirm": {
+      "title": "[XX-Delete Security-XX]",
+      "message": "[XX-Are you sure you want to delete \"{symbol}\"? All price history will also be deleted. This action cannot be undone.-XX]",
+      "confirmLabel": "[XX-Delete-XX]",
+      "cancelLabel": "[XX-Cancel-XX]"
+    }
+  },
+  "summary": {
+    "totalSecurities": "[XX-Total Securities-XX]",
+    "types": "[XX-Types-XX]",
+    "exchanges": "[XX-Exchanges-XX]",
+    "currencies": "[XX-Currencies-XX]"
+  },
+  "list": {
+    "columns": {
+      "symbol": "[XX-Symbol-XX]",
+      "name": "[XX-Name-XX]",
+      "type": "[XX-Type-XX]",
+      "shares": "[XX-Shares-XX]",
+      "exchange": "[XX-Exchange-XX]",
+      "currency": "[XX-Currency-XX]",
+      "provider": "[XX-Provider-XX]",
+      "source": "[XX-Source-XX]",
+      "status": "[XX-Status-XX]",
+      "actions": "[XX-Actions-XX]",
+      "favourite": "[XX-Favourite-XX]"
+    },
+    "density": {
+      "normal": "[XX-Normal-XX]",
+      "compact": "[XX-Compact-XX]",
+      "dense": "[XX-Dense-XX]",
+      "toggle": "[XX-Toggle row density-XX]"
+    },
+    "statusBadge": {
+      "active": "[XX-Active-XX]",
+      "activeShort": "[XX-Act-XX]",
+      "inactive": "[XX-Inactive-XX]",
+      "inactiveShort": "[XX-Ina-XX]"
+    },
+    "providerTitle": {
+      "override": "[XX-Per-security provider override-XX]",
+      "inherited": "[XX-Inherited from your default Quote Provider preference-XX]"
+    },
+    "columnTitles": {
+      "shares": "[XX-Current shares held across all accounts-XX]",
+      "source": "[XX-Source of the most recent price-XX]"
+    },
+    "actions": {
+      "history": "[XX-History-XX]",
+      "prices": "[XX-Prices-XX]",
+      "edit": "[XX-Edit-XX]",
+      "deactivate": "[XX-Deactivate-XX]",
+      "activate": "[XX-Activate-XX]",
+      "delete": "[XX-Delete-XX]"
+    },
+    "favouriteButton": {
+      "add": "[XX-Add to favourites-XX]",
+      "remove": "[XX-Remove from favourites-XX]"
+    },
+    "empty": {
+      "title": "[XX-No securities-XX]",
+      "subtitle": "[XX-Get started by adding your first security.-XX]"
+    },
+    "contextMenu": {
+      "transactionHistory": "[XX-Transaction History-XX]",
+      "viewPrices": "[XX-View Prices-XX]",
+      "editSecurity": "[XX-Edit Security-XX]",
+      "deactivate": "[XX-Deactivate-XX]",
+      "activate": "[XX-Activate-XX]",
+      "delete": "[XX-Delete-XX]"
+    }
+  },
+  "typeLabels": {
+    "STOCK": "[XX-Stock-XX]",
+    "ETF": "[XX-ETF-XX]",
+    "MUTUAL_FUND": "[XX-Mutual Fund-XX]",
+    "BOND": "[XX-Bond-XX]",
+    "OPTION": "[XX-Option-XX]",
+    "CRYPTO": "[XX-Crypto-XX]",
+    "OTHER": "[XX-Other-XX]",
+    "STOCK_short": "[XX-Stk-XX]",
+    "ETF_short": "[XX-ETF-XX]",
+    "MUTUAL_FUND_short": "[XX-MF-XX]",
+    "BOND_short": "[XX-Bnd-XX]",
+    "OPTION_short": "[XX-Opt-XX]",
+    "CRYPTO_short": "[XX-Cry-XX]",
+    "OTHER_short": "[XX-Oth-XX]"
+  },
+  "form": {
+    "symbolLabel": "[XX-Symbol-XX]",
+    "nameLabel": "[XX-Name-XX]",
+    "typeLabel": "[XX-Type-XX]",
+    "exchangeLabel": "[XX-Exchange-XX]",
+    "currencyLabel": "[XX-Currency-XX]",
+    "quoteProviderLabel": "[XX-Quote Provider-XX]",
+    "msnIdLabel": "[XX-MSN Instrument ID (advanced)-XX]",
+    "lookupProviderAriaLabel": "[XX-Lookup provider-XX]",
+    "lookupButton": "[XX-Lookup-XX]",
+    "revertButton": "[XX-Revert-XX]",
+    "clearButton": "[XX-Clear-XX]",
+    "revertTitle": "[XX-Revert to original values-XX]",
+    "clearTitle": "[XX-Clear all fields-XX]",
+    "favouriteLabel": "[XX-Favourite-XX]",
+    "addToFavourites": "[XX-Add to favourites-XX]",
+    "removeFromFavourites": "[XX-Remove from favourites-XX]",
+    "submitCreate": "[XX-Create Security-XX]",
+    "submitUpdate": "[XX-Update Security-XX]",
+    "toasts": {
+      "lookupTooShort": "[XX-Enter a symbol or name (at least 2 characters) to lookup-XX]",
+      "notFound": "[XX-No security found for \"{query}\"-XX]",
+      "found": "[XX-Found: {details}-XX]",
+      "lookupFailed": "[XX-Lookup failed - please try again-XX]",
+      "tagCreated": "[XX-Tag \"{name}\" created-XX]"
+    },
+    "msnNotConfigured": "[XX-MSN is selected as the default quote provider, but MSN_API_KEY is not configured on the server. MSN quotes will fail until an administrator sets the env var and restarts the backend.-XX]",
+    "providers": {
+      "auto": "[XX-Auto-XX]",
+      "yahoo": "[XX-Yahoo-XX]",
+      "msn": "[XX-MSN-XX]"
+    },
+    "types": {
+      "select": "[XX-Select type...-XX]",
+      "stock": "[XX-Stock-XX]",
+      "etf": "[XX-ETF-XX]",
+      "mutualFund": "[XX-Mutual Fund-XX]",
+      "bond": "[XX-Bond-XX]",
+      "option": "[XX-Option-XX]",
+      "crypto": "[XX-Cryptocurrency-XX]",
+      "other": "[XX-Other-XX]"
+    },
+    "quoteProviderUseDefault": "[XX-Use default ({provider})-XX]",
+    "symbolPlaceholder": "[XX-e.g., AAPL, XEQT, BTC-XX]",
+    "namePlaceholder": "[XX-e.g., Apple Inc., iShares Core Equity ETF-XX]",
+    "exchangeSearchPlaceholder": "[XX-Search exchanges...-XX]",
+    "exchangePlaceholder": "[XX-Auto-resolved from ticker; override only if wrong-XX]",
+    "descriptionLabel": "[XX-Description-XX]",
+    "descriptionPlaceholder": "[XX-Notes about this security.-XX]",
+    "tagsLabel": "[XX-Tags-XX]",
+    "tagsPlaceholder": "[XX-Select tags-XX]",
+    "createNewTag": "[XX-Create new tag-XX]",
+    "newTagTitle": "[XX-New Tag-XX]",
+    "allocation": {
+      "help": "[XX-Price providers don't supply country exposure for ETFs and funds. Add it manually as percentages. Anything under 100% is shown as \"Other\". You can paste a breakdown into the AI Assistant to fill this in.-XX]",
+      "sectionTitle": "[XX-Geographical Allocation-XX]",
+      "countryPlaceholder": "[XX-Select or type a country-XX]",
+      "addRow": "[XX-Add country-XX]",
+      "removeRow": "[XX-Remove row-XX]",
+      "other": "[XX-Other-XX]",
+      "total": "[XX-Total: {total}%-XX]",
+      "overError": "[XX-Allocation adds up to more than 100%.-XX]",
+      "nameAriaLabel": "[XX-Country-XX]",
+      "weightAriaLabel": "[XX-Percentage-XX]"
+    }
+  },
+  "priceForm": {
+    "dateLabel": "[XX-Date-XX]",
+    "closePriceLabel": "[XX-Close Price-XX]",
+    "openPriceLabel": "[XX-Open Price-XX]",
+    "highPriceLabel": "[XX-High Price-XX]",
+    "lowPriceLabel": "[XX-Low Price-XX]",
+    "volumeLabel": "[XX-Volume-XX]",
+    "optionalPlaceholder": "[XX-Optional-XX]",
+    "submitCreate": "[XX-Add Price-XX]",
+    "submitUpdate": "[XX-Update Price-XX]"
+  },
+  "priceHistory": {
+    "title": "[XX-{symbol} - Price History-XX]",
+    "forceUpdateButton": "[XX-Force Update Prices-XX]",
+    "forceUpdateTitle": "[XX-Re-fetch historical prices for the entire period you've held this security-XX]",
+    "addPriceButton": "[XX-+ Add Price-XX]",
+    "addPriceSection": "[XX-Add Price-XX]",
+    "editPriceSection": "[XX-Edit Price-XX]",
+    "loading": "[XX-Loading prices...-XX]",
+    "empty": "[XX-No price history available-XX]",
+    "columns": {
+      "date": "[XX-Date-XX]",
+      "close": "[XX-Close-XX]",
+      "open": "[XX-Open-XX]",
+      "high": "[XX-High-XX]",
+      "low": "[XX-Low-XX]",
+      "volume": "[XX-Volume-XX]",
+      "source": "[XX-Source-XX]",
+      "actions": "[XX-Actions-XX]"
+    },
+    "toasts": {
+      "added": "[XX-Price added-XX]",
+      "updated": "[XX-Price updated-XX]",
+      "deleted": "[XX-Price deleted-XX]",
+      "loadFailed": "[XX-Failed to load price history-XX]",
+      "addFailed": "[XX-Failed to add price-XX]",
+      "updateFailed": "[XX-Failed to update price-XX]",
+      "deleteFailed": "[XX-Failed to delete price-XX]",
+      "updatedCount": "[XX-{count, plural, one {Updated # price for {symbol}} other {Updated # prices for {symbol}}}-XX]",
+      "noPricesFound": "[XX-No prices found for {symbol}-XX]",
+      "updatePricesFailed": "[XX-Failed to update prices for {symbol}-XX]",
+      "updateFetchFailed": "[XX-Failed to update prices-XX]"
+    },
+    "closeButton": "[XX-Close-XX]",
+    "deleteConfirm": {
+      "title": "[XX-Delete Price-XX]",
+      "confirmLabel": "[XX-Delete-XX]"
+    }
+  },
+  "transactionHistory": {
+    "inactiveBadge": "[XX-Inactive-XX]",
+    "currentShares": "[XX-Current shares-XX]",
+    "accountLabel": "[XX-Account-XX]",
+    "allAccounts": "[XX-All accounts ({shares})-XX]",
+    "accountClosed": "[XX-{name} (closed)-XX]",
+    "addTransaction": "[XX-+ Add transaction-XX]",
+    "loading": "[XX-Loading transactions...-XX]",
+    "emptyAll": "[XX-No transactions for this security.-XX]",
+    "emptyAccount": "[XX-No transactions for this security in the selected account.-XX]",
+    "editTransactionTitle": "[XX-Edit Transaction-XX]",
+    "columns": {
+      "date": "[XX-Date-XX]",
+      "account": "[XX-Account-XX]",
+      "action": "[XX-Action-XX]",
+      "quantity": "[XX-Quantity-XX]",
+      "runningTotal": "[XX-Running Total-XX]",
+      "price": "[XX-Price-XX]",
+      "amount": "[XX-Amount-XX]",
+      "actionsLabel": "[XX-Actions-XX]"
+    },
+    "actionLabels": {
+      "BUY": "[XX-Buy-XX]",
+      "SELL": "[XX-Sell-XX]",
+      "DIVIDEND": "[XX-Dividend-XX]",
+      "INTEREST": "[XX-Interest-XX]",
+      "CAPITAL_GAIN": "[XX-Capital Gain-XX]",
+      "SPLIT": "[XX-Split-XX]",
+      "TRANSFER_IN": "[XX-Transfer In-XX]",
+      "TRANSFER_OUT": "[XX-Transfer Out-XX]",
+      "REINVEST": "[XX-Reinvest-XX]",
+      "ADD_SHARES": "[XX-Add Shares-XX]",
+      "REMOVE_SHARES": "[XX-Remove Shares-XX]"
+    },
+    "toasts": {
+      "loadHistoryFailed": "[XX-Failed to load history-XX]",
+      "loadTransactionFailed": "[XX-Failed to load transaction-XX]"
+    }
+  },
+  "shareAdjustment": {
+    "heading": "[XX-Adjust shares-XX]",
+    "accountLabel": "[XX-Account-XX]",
+    "accountPlaceholder": "[XX-Select account...-XX]",
+    "actionLabel": "[XX-Action-XX]",
+    "quantityLabel": "[XX-Quantity (Shares)-XX]",
+    "dateLabel": "[XX-Date-XX]",
+    "descriptionLabel": "[XX-Description (optional)-XX]",
+    "descriptionPlaceholder": "[XX-e.g. Clean up residual shares-XX]",
+    "saving": "[XX-Saving...-XX]",
+    "submitButton": "[XX-Record adjustment-XX]",
+    "accountClosed": "[XX-{name} (closed)-XX]",
+    "adjustmentActions": {
+      "REMOVE_SHARES": "[XX-Remove Shares-XX]",
+      "ADD_SHARES": "[XX-Add Shares-XX]"
+    },
+    "toasts": {
+      "selectAccount": "[XX-Select an account-XX]",
+      "quantityRequired": "[XX-Quantity must be greater than zero-XX]",
+      "recorded": "[XX-Adjustment recorded-XX]",
+      "failed": "[XX-Failed to record adjustment-XX]"
+    }
+  },
+  "lookupPicker": {
+    "title": "[XX-Multiple matches for \"{query}\"-XX]",
+    "subtitle": "[XX-Select the security you want to use.-XX]",
+    "columns": {
+      "symbol": "[XX-Symbol-XX]",
+      "name": "[XX-Name-XX]",
+      "exchange": "[XX-Exchange-XX]",
+      "currency": "[XX-Currency-XX]",
+      "type": "[XX-Type-XX]",
+      "source": "[XX-Source-XX]"
+    },
+    "selectButton": "[XX-Select-XX]"
+  },
+  "validation": {
+    "symbolRequired": "[XX-Symbol is required-XX]",
+    "symbolMax": "[XX-Symbol must be 20 characters or less-XX]",
+    "nameRequired": "[XX-Name is required-XX]",
+    "nameMax": "[XX-Name must be 255 characters or less-XX]",
+    "currencyRequired": "[XX-Currency is required-XX]",
+    "descriptionMax": "[XX-Description must be 5000 characters or fewer-XX]"
+  },
+  "priceValidation": {
+    "dateRequired": "[XX-Date is required-XX]",
+    "priceRequired": "[XX-Price is required-XX]",
+    "priceNonNegative": "[XX-Price must be a non-negative number-XX]"
+  }
+}

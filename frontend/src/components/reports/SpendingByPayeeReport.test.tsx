@@ -30,10 +30,6 @@ vi.mock("@/hooks/useDateRange", () => ({
   }),
 }));
 
-vi.mock("@/lib/chart-colours", () => ({
-  CHART_COLOURS: ["#3b82f6", "#ef4444", "#22c55e", "#f97316"],
-}));
-
 vi.mock("@/components/ui/DateRangeSelector", () => ({
   DateRangeSelector: () => <div data-testid="date-range-selector" />,
 }));
@@ -164,14 +160,15 @@ describe("SpendingByPayeeReport", () => {
     });
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetSpendingByPayee.mockRejectedValue(new Error("Network error"));
     render(<SpendingByPayeeReport />);
     await waitFor(() => {
       expect(
-        screen.getByText("No expense data for this period."),
+        screen.getByText(/failed to load report data/i),
       ).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("navigates to transactions page with payee and date range on bar click", async () => {

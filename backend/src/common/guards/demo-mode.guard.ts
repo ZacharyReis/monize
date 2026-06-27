@@ -5,6 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { tr } from "../../i18n/translate";
 import { DemoModeService } from "../demo-mode.service";
 
 export const DEMO_RESTRICTED_KEY = "demoRestricted";
@@ -28,7 +29,10 @@ export class DemoModeGuard implements CanActivate {
 
     if (isRestricted) {
       throw new ForbiddenException(
-        "This action is not available in demo mode.",
+        tr(
+          "errors.common.demoModeRestricted",
+          "This action is not available in demo mode.",
+        ),
       );
     }
 

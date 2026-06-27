@@ -69,6 +69,9 @@ export interface AiStatusResponse {
   hasSystemDefault: boolean;
   systemDefaultProvider: string | null;
   systemDefaultModel: string | null;
+  // True when the highest-priority active provider is the MCP relay, so the
+  // chat should route prompts to the user's own agent instead of an LLM.
+  relayActive: boolean;
 }
 
 export interface AiConnectionTestResponse {

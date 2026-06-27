@@ -480,4 +480,278 @@ describe('SelectAccountStep', () => {
     );
     expect(screen.getByText(/Investment/)).toBeInTheDocument();
   });
+
+  it('changing the per-file account select calls setFileAccountId with index', () => {
+    const accounts = [
+      { id: 'acc-1', name: 'Chequing', accountType: 'CHEQUING', accountSubType: null },
+    ] as any[];
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        accounts={accounts}
+      />
+    );
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'acc-1' } });
+    expect(defaultProps.setFileAccountId).toHaveBeenCalledWith(0, 'acc-1');
+  });
+
+  it('clicking "+ Create new" in bulk mode primes the create form for that file', () => {
+    const importFiles = [
+      {
+        fileName: 'savings.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, accountType: 'SAVINGS', transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+      />
+    );
+    fireEvent.click(screen.getByText('+ Create new'));
+    expect(defaultProps.setCreatingForFileIndex).toHaveBeenCalledWith(0);
+    expect(defaultProps.setShowCreateAccount).toHaveBeenCalledWith(true);
+    expect(defaultProps.setNewAccountType).toHaveBeenCalledWith('SAVINGS');
+    // filename has its extension stripped for the suggested account name
+    expect(defaultProps.setNewAccountName).toHaveBeenCalledWith('savings');
+  });
+
+  it('typing in the bulk create form fields invokes the setters', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        showCreateAccount={true}
+        creatingForFileIndex={0}
+        newAccountName="Draft"
+      />
+    );
+    fireEvent.change(screen.getByDisplayValue('Draft'), { target: { value: 'Renamed' } });
+    expect(defaultProps.setNewAccountName).toHaveBeenCalledWith('Renamed');
+
+    fireEvent.change(screen.getByDisplayValue('Chequing'), { target: { value: 'CHEQUING' } });
+    expect(defaultProps.setNewAccountType).toHaveBeenCalledWith('CHEQUING');
+
+    fireEvent.change(screen.getByDisplayValue('CAD'), { target: { value: 'CAD' } });
+    expect(defaultProps.setNewAccountCurrency).toHaveBeenCalledWith('CAD');
+  });
+
+  it('bulk create form Create button calls handleCreateAccount with the file index', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        showCreateAccount={true}
+        creatingForFileIndex={0}
+        newAccountName="New Acct"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Create$/i }));
+    expect(defaultProps.handleCreateAccount).toHaveBeenCalledWith(0);
+  });
+
+  it('bulk create form Cancel button resets create state', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        showCreateAccount={true}
+        creatingForFileIndex={0}
+        newAccountName="New Acct"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+    expect(defaultProps.setCreatingForFileIndex).toHaveBeenCalledWith(-1);
+    expect(defaultProps.setShowCreateAccount).toHaveBeenCalledWith(false);
+    expect(defaultProps.setNewAccountName).toHaveBeenCalledWith('');
+  });
+
+  it('bulk create form shows "Creating..." while an account is being created', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: '',
+        matchConfidence: 'none' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        showCreateAccount={true}
+        creatingForFileIndex={0}
+        newAccountName="New Acct"
+        isCreatingAccount={true}
+      />
+    );
+    expect(screen.getByText('Creating...')).toBeInTheDocument();
+  });
+
+  it('bulk Back button navigates to upload step', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: 'acc-1',
+        matchConfidence: 'exact' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Back/i }));
+    expect(defaultProps.setStep).toHaveBeenCalledWith('upload');
+  });
+
+  it('bulk Next navigates to review when no mappings exist', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: 'acc-1',
+        matchConfidence: 'exact' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(defaultProps.setStep).toHaveBeenCalledWith('review');
+  });
+
+  it('bulk Next navigates to mapCategories when categoryMappings exist', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: 'acc-1',
+        matchConfidence: 'exact' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        categoryMappings={{ length: 2 }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(defaultProps.setStep).toHaveBeenCalledWith('mapCategories');
+  });
+
+  it('bulk Next navigates to mapSecurities when only securityMappings exist', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: 'acc-1',
+        matchConfidence: 'exact' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        securityMappings={{ length: 1 }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(defaultProps.setStep).toHaveBeenCalledWith('mapSecurities');
+  });
+
+  it('bulk Next navigates to mapAccounts when only shouldShowMapAccounts is set', () => {
+    const importFiles = [
+      {
+        fileName: 'file1.qif',
+        fileContent: '',
+        fileType: 'qif' as const,
+        parsedData: { ...defaultProps.parsedData, transactionCount: 5 },
+        selectedAccountId: 'acc-1',
+        matchConfidence: 'exact' as const,
+      },
+    ];
+    render(
+      <SelectAccountStep
+        {...defaultProps}
+        isBulkImport={true}
+        importFiles={importFiles}
+        shouldShowMapAccounts={true}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Next/i }));
+    expect(defaultProps.setStep).toHaveBeenCalledWith('mapAccounts');
+  });
 });

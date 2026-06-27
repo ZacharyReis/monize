@@ -10,6 +10,7 @@ import {
   RawPayeeAggregate,
   RawMonthlyCategoryAggregate,
 } from "./report-currency.service";
+import { roundMoney, sumMoney, toMoneyNumber } from "../common/round.util";
 import {
   SpendingByCategoryResponse,
   CategorySpendingItem,
@@ -90,7 +91,7 @@ export class SpendingReportsService {
 
     for (const row of rawResults) {
       const total = this.currencyService.convertAmount(
-        parseFloat(row.total) || 0,
+        toMoneyNumber(row.total),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -157,16 +158,16 @@ export class SpendingReportsService {
         categoryId: id === "uncategorized" ? null : id,
         categoryName: category?.name || "Uncategorized",
         color: category?.color || null,
-        total: Math.round(total * 100) / 100,
+        total: roundMoney(total),
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 15);
 
-    const totalSpending = data.reduce((sum, item) => sum + item.total, 0);
+    const totalSpending = sumMoney(data.map((item) => item.total));
 
     return {
       data,
-      totalSpending: Math.round(totalSpending * 100) / 100,
+      totalSpending: roundMoney(totalSpending),
     };
   }
 
@@ -230,7 +231,7 @@ export class SpendingReportsService {
     >();
     for (const row of rawResults) {
       const total = this.currencyService.convertAmount(
-        parseFloat(row.total) || 0,
+        toMoneyNumber(row.total),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -253,16 +254,16 @@ export class SpendingReportsService {
       .map((row) => ({
         payeeId: row.payeeId,
         payeeName: row.payeeName,
-        total: Math.round(row.total * 100) / 100,
+        total: roundMoney(row.total),
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
 
-    const totalSpending = data.reduce((sum, item) => sum + item.total, 0);
+    const totalSpending = sumMoney(data.map((item) => item.total));
 
     return {
       data,
-      totalSpending: Math.round(totalSpending * 100) / 100,
+      totalSpending: roundMoney(totalSpending),
     };
   }
 
@@ -328,7 +329,7 @@ export class SpendingReportsService {
     for (const row of rawResults) {
       const month = row.month;
       const total = this.currencyService.convertAmount(
-        parseFloat(row.total) || 0,
+        toMoneyNumber(row.total),
         row.currency_code,
         defaultCurrency,
         rateMap,
@@ -388,20 +389,17 @@ export class SpendingReportsService {
               categoryId: catId === "uncategorized" ? null : catId,
               categoryName: category?.name || "Uncategorized",
               color: category?.color || null,
-              total: Math.round((catData?.total || 0) * 100) / 100,
+              total: roundMoney(catData?.total || 0),
             };
           },
         );
 
-        const totalSpending = categories.reduce(
-          (sum, cat) => sum + cat.total,
-          0,
-        );
+        const totalSpending = sumMoney(categories.map((cat) => cat.total));
 
         return {
           month,
           categories,
-          totalSpending: Math.round(totalSpending * 100) / 100,
+          totalSpending: roundMoney(totalSpending),
         };
       });
 

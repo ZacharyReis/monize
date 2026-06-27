@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Payee } from '@/types/payee';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -24,6 +25,8 @@ export function MergePayeeDialog({
   onClose,
   onSuccess,
 }: MergePayeeDialogProps) {
+  const t = useTranslations('payees');
+  const tc = useTranslations('common');
   const [targetPayeeId, setTargetPayeeId] = useState('');
   const [addAsAlias, setAddAsAlias] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,19 +55,19 @@ export function MergePayeeDialog({
 
       const parts: string[] = [];
       if (result.transactionsMigrated > 0) {
-        parts.push(`${result.transactionsMigrated} transaction${result.transactionsMigrated !== 1 ? 's' : ''} migrated`);
+        parts.push(t('merge.toasts.transactionsMigrated', { count: result.transactionsMigrated }));
       }
       if (result.aliasAdded) {
-        parts.push('alias added');
+        parts.push(t('merge.toasts.aliasAdded'));
       }
-      parts.push(`"${sourcePayee.name}" deleted`);
+      parts.push(t('merge.toasts.sourceDeleted', { name: sourcePayee.name }));
 
-      toast.success(`Merged into "${targetPayee?.name}": ${parts.join(', ')}`);
+      toast.success(t('merge.toasts.merged', { target: targetPayee?.name ?? '', details: parts.join(', ') }));
       setTargetPayeeId('');
       onClose();
       onSuccess();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to merge payees'));
+      toast.error(getErrorMessage(error, t('merge.toasts.failed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -81,26 +84,26 @@ export function MergePayeeDialog({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="lg" className="p-6" allowOverflow>
       <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-        Merge Payee
+        {t('merge.title')}
       </h2>
 
       <div className="space-y-4">
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-            Merge from (will be deleted):
+            {t('merge.mergeFromLabel')}
           </p>
           <p className="font-medium text-gray-900 dark:text-gray-100">
             {sourcePayee.name}
           </p>
           {sourcePayee.transactionCount !== undefined && sourcePayee.transactionCount > 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {sourcePayee.transactionCount} transaction{sourcePayee.transactionCount !== 1 ? 's' : ''} will be migrated
+              {t('merge.transactionCount', { count: sourcePayee.transactionCount })}
             </p>
           )}
         </div>
 
         <Combobox
-          label="Merge into (target payee)"
+          label={t('merge.mergeIntoLabel')}
           placeholder="Select target payee..."
           options={payeeOptions}
           value={targetPayeeId}
@@ -114,39 +117,37 @@ export function MergePayeeDialog({
             onChange={(e) => setAddAsAlias(e.target.checked)}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          Add &quot;{sourcePayee.name}&quot; as an alias on the target payee
+          {t('merge.addAsAliasLabel', { name: sourcePayee.name })}
         </label>
 
         {targetPayee && (
           <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 text-sm">
             <p className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-              This will:
+              {t('merge.willLabel')}
             </p>
             <ul className="list-disc pl-5 text-blue-700 dark:text-blue-300 space-y-1">
               <li>
-                Move all transactions from &quot;{sourcePayee.name}&quot; to
-                &quot;{targetPayee.name}&quot;
+                {t('merge.willMoveTransactions', { source: sourcePayee.name, target: targetPayee.name })}
               </li>
               {addAsAlias && (
                 <li>
-                  Add &quot;{sourcePayee.name}&quot; as an alias so future imports
-                  auto-match
+                  {t('merge.willAddAlias', { source: sourcePayee.name })}
                 </li>
               )}
-              <li>Delete the &quot;{sourcePayee.name}&quot; payee</li>
+              <li>{t('merge.willDelete', { source: sourcePayee.name })}</li>
             </ul>
           </div>
         )}
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={handleClose}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button
             onClick={handleMerge}
             disabled={!targetPayeeId || isSubmitting}
           >
-            {isSubmitting ? 'Merging...' : 'Merge Payee'}
+            {isSubmitting ? t('merge.merging') : t('merge.mergeButton')}
           </Button>
         </div>
       </div>

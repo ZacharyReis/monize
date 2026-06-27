@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useRef } from "react";
+import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import { useRouter } from "next/navigation";
 import {
   BarChart,
@@ -22,11 +23,13 @@ import {
 } from "@/types/built-in-reports";
 import { useNumberFormat } from "@/hooks/useNumberFormat";
 import { useDateRange } from "@/hooks/useDateRange";
+import { useReportData } from "@/hooks/useReportData";
 import { DateRangeSelector } from "@/components/ui/DateRangeSelector";
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
-import { createLogger } from "@/lib/logger";
-
-const logger = createLogger("CashFlowReport");
+import { ChartTooltip } from "@/components/reports/ChartTooltip";
+import { ReportError } from "@/components/reports/ReportError";
+import { chartColors } from "@/lib/chart-colors";
+import { useTranslations } from 'next-intl';
 
 interface ChartDataItem {
   name: string;
@@ -39,19 +42,11 @@ interface ChartDataItem {
 }
 
 export function CashFlowReport() {
+  const t = useTranslations('reports');
   const router = useRouter();
   const chartRef = useRef<HTMLDivElement>(null);
   const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis } =
     useNumberFormat();
-  const [monthlyData, setMonthlyData] = useState<ChartDataItem[]>([]);
-  const [incomeItems, setIncomeItems] = useState<IncomeSourceItem[]>([]);
-  const [expenseItems, setExpenseItems] = useState<CategorySpendingItem[]>([]);
-  const [totals, setTotals] = useState({
-    totalIncome: 0,
-    totalExpenses: 0,
-    netCashFlow: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
   const {
     dateRange,
     setDateRange,
@@ -63,15 +58,12 @@ export function CashFlowReport() {
     isValid,
   } = useDateRange({ defaultRange: "6m", alignment: "month" });
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { start, end } = resolvedRange;
-      const params = {
-        startDate: start || undefined,
-        endDate: end,
-      };
+  const { start: rangeStart, end: rangeEnd } = resolvedRange;
 
+  const { data: response, isLoading, error, reload } = useReportData(
+    async () => {
+      if (!isValid) return null;
+      const params = { startDate: rangeStart || undefined, endDate: rangeEnd };
       // Fetch all data in parallel
       const [cashFlowResponse, incomeResponse, spendingResponse] =
         await Promise.all([
@@ -79,44 +71,48 @@ export function CashFlowReport() {
           builtInReportsApi.getIncomeBySource(params),
           builtInReportsApi.getSpendingByCategory(params),
         ]);
+      return { cashFlowResponse, incomeResponse, spendingResponse };
+    },
+    [isValid, rangeStart, rangeEnd],
+  );
 
-      // Map monthly data. `name` must be unique across the dataset (used as
-      // the XAxis category key); a non-unique value like "May" causes
-      // Recharts to resolve the tooltip's payload to the first matching row,
-      // showing data from the wrong year on multi-year ranges.
-      const data: ChartDataItem[] = cashFlowResponse.data.map(
-        (item: MonthlyIncomeExpenseItem) => {
-          const monthDate = parseISO(item.month + "-01");
-          return {
-            name: item.month,
-            fullName: format(monthDate, "MMM yyyy"),
-            Income: Math.round(item.income),
-            Expenses: Math.round(item.expenses),
-            Net: Math.round(item.net),
-            monthStart: format(startOfMonth(monthDate), "yyyy-MM-dd"),
-            monthEnd: format(endOfMonth(monthDate), "yyyy-MM-dd"),
-          };
-        },
-      );
+  // Map monthly data. `name` must be unique across the dataset (used as
+  // the XAxis category key); a non-unique value like "May" causes Recharts
+  // to resolve the tooltip's payload to the first matching row, showing data
+  // from the wrong year on multi-year ranges.
+  const monthlyData = useMemo<ChartDataItem[]>(
+    () =>
+      (response?.cashFlowResponse.data ?? []).map((item: MonthlyIncomeExpenseItem) => {
+        const monthDate = parseISO(item.month + "-01");
+        return {
+          name: item.month,
+          fullName: format(monthDate, "MMM yyyy"),
+          Income: Math.round(item.income),
+          Expenses: Math.round(item.expenses),
+          Net: Math.round(item.net),
+          monthStart: format(startOfMonth(monthDate), "yyyy-MM-dd"),
+          monthEnd: format(endOfMonth(monthDate), "yyyy-MM-dd"),
+        };
+      }),
+    [response],
+  );
 
-      setMonthlyData(data);
-      setIncomeItems(incomeResponse.data);
-      setExpenseItems(spendingResponse.data);
-      setTotals({
-        totalIncome: cashFlowResponse.totals.income,
-        totalExpenses: cashFlowResponse.totals.expenses,
-        netCashFlow: cashFlowResponse.totals.net,
-      });
-    } catch (error) {
-      logger.error("Failed to load data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [resolvedRange]);
-
-  useEffect(() => {
-    if (isValid) loadData();
-  }, [isValid, loadData]);
+  const incomeItems = useMemo<IncomeSourceItem[]>(
+    () => response?.incomeResponse.data ?? [],
+    [response],
+  );
+  const expenseItems = useMemo<CategorySpendingItem[]>(
+    () => response?.spendingResponse.data ?? [],
+    [response],
+  );
+  const totals = useMemo(
+    () => ({
+      totalIncome: response?.cashFlowResponse.totals.income ?? 0,
+      totalExpenses: response?.cashFlowResponse.totals.expenses ?? 0,
+      netCashFlow: response?.cashFlowResponse.totals.net ?? 0,
+    }),
+    [response],
+  );
 
   const handleExportPdf = async () => {
     const { exportToPdf } = await import("@/lib/pdf-export");
@@ -125,25 +121,25 @@ export function CashFlowReport() {
     const outflowRows = expenseItems.map((item) => [item.categoryName, formatCurrency(item.total)]);
 
     await exportToPdf({
-      title: "Cash Flow Report",
+      title: t('cashFlow.monthlyCashFlow'),
       summaryCards: [
-        { label: "Total Inflows", value: formatCurrency(totals.totalIncome), color: "#16a34a" },
-        { label: "Total Outflows", value: formatCurrency(totals.totalExpenses), color: "#dc2626" },
-        { label: "Net Cash Flow", value: `${totals.netCashFlow >= 0 ? "+" : ""}${formatCurrency(totals.netCashFlow)}`, color: totals.netCashFlow >= 0 ? "#2563eb" : "#ea580c" },
+        { label: t('cashFlow.totalInflows'), value: formatCurrency(totals.totalIncome), color: "#16a34a" },
+        { label: t('cashFlow.totalOutflows'), value: formatCurrency(totals.totalExpenses), color: "#dc2626" },
+        { label: t('cashFlow.netCashFlow'), value: `${totals.netCashFlow >= 0 ? "+" : ""}${formatCurrency(totals.netCashFlow)}`, color: totals.netCashFlow >= 0 ? "#2563eb" : "#ea580c" },
       ],
       chartContainer: chartRef.current,
       additionalTables: [
         ...(inflowRows.length > 0 ? [{
-          title: "Inflows by Category",
+          title: t('cashFlow.inflowsByCategory'),
           headers: ["Category", "Amount"],
           rows: inflowRows,
-          totalRow: ["Total Inflows", formatCurrency(totals.totalIncome)],
+          totalRow: [t('cashFlow.totalInflows'), formatCurrency(totals.totalIncome)],
         }] : []),
         ...(outflowRows.length > 0 ? [{
-          title: "Outflows by Category",
+          title: t('cashFlow.outflowsByCategory'),
           headers: ["Category", "Amount"],
           rows: outflowRows,
-          totalRow: ["Total Outflows", formatCurrency(totals.totalExpenses)],
+          totalRow: [t('cashFlow.totalOutflows'), formatCurrency(totals.totalExpenses)],
         }] : []),
       ],
       filename: "cash-flow",
@@ -182,24 +178,18 @@ export function CashFlowReport() {
       color: string;
       payload: { fullName: string };
     }>;
-  }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0]?.payload;
-      return (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
-          <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">
-            {data?.fullName}
-          </p>
-          {payload.map((entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+  }) => (
+    <ChartTooltip
+      active={active}
+      label={payload?.[0]?.payload?.fullName}
+      payload={payload}
+      formatValue={(v) => formatCurrency(v)}
+    />
+  );
+
+  if (error) {
+    return <ReportError onRetry={reload} />;
+  }
 
   if (isLoading) {
     // Render the controls block too so focus inside DateInput survives
@@ -222,9 +212,9 @@ export function CashFlowReport() {
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-64 w-full" />
           </div>
         </div>
       </div>
@@ -237,7 +227,7 @@ export function CashFlowReport() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 sm:p-6">
           <div className="text-sm text-green-600 dark:text-green-400">
-            Total Inflows
+            {t('cashFlow.totalInflows')}
           </div>
           <div className="text-2xl font-bold text-green-700 dark:text-green-300">
             {formatCurrency(totals.totalIncome)}
@@ -245,7 +235,7 @@ export function CashFlowReport() {
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 sm:p-6">
           <div className="text-sm text-red-600 dark:text-red-400">
-            Total Outflows
+            {t('cashFlow.totalOutflows')}
           </div>
           <div className="text-2xl font-bold text-red-700 dark:text-red-300">
             {formatCurrency(totals.totalExpenses)}
@@ -265,7 +255,7 @@ export function CashFlowReport() {
                 : "text-orange-600 dark:text-orange-400"
             }`}
           >
-            Net Cash Flow
+            {t('cashFlow.netCashFlow')}
           </div>
           <div
             className={`text-2xl font-bold ${
@@ -300,7 +290,7 @@ export function CashFlowReport() {
       {/* Monthly Chart */}
       <div ref={chartRef} className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 px-2 py-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 px-1 sm:px-0">
-          Monthly Cash Flow
+          {t('cashFlow.monthlyCashFlow')}
         </h3>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
@@ -310,7 +300,7 @@ export function CashFlowReport() {
               onClick={handleChartClick}
               style={{ cursor: "pointer" }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 12 }}
@@ -324,17 +314,17 @@ export function CashFlowReport() {
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <ReferenceLine y={0} stroke="#9ca3af" />
+              <ReferenceLine y={0} stroke={chartColors.axis} />
               <Bar
                 dataKey="Income"
-                fill="#22c55e"
-                name="Inflows"
+                fill={chartColors.income}
+                name={t('cashFlow.seriesInflows')}
                 radius={[4, 4, 0, 0]}
               />
               <Bar
                 dataKey="Expenses"
-                fill="#ef4444"
-                name="Outflows"
+                fill={chartColors.expense}
+                name={t('cashFlow.seriesOutflows')}
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
@@ -348,13 +338,13 @@ export function CashFlowReport() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 bg-green-50 dark:bg-green-900/20 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-green-700 dark:text-green-300">
-              Inflows by Category
+              {t('cashFlow.inflowsByCategory')}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
             {incomeItems.length === 0 ? (
               <p className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                No income in this period
+                {t('cashFlow.noIncome')}
               </p>
             ) : (
               incomeItems.map((item, index) => (
@@ -379,13 +369,13 @@ export function CashFlowReport() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
           <div className="px-6 py-4 bg-red-50 dark:bg-red-900/20 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-red-700 dark:text-red-300">
-              Outflows by Category
+              {t('cashFlow.outflowsByCategory')}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
             {expenseItems.length === 0 ? (
               <p className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                No expenses in this period
+                {t('cashFlow.noExpenses')}
               </p>
             ) : (
               expenseItems.map((item, index) => (

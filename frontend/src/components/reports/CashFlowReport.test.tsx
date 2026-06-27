@@ -169,15 +169,15 @@ describe("CashFlowReport", () => {
     expect(screen.getByText("No expenses in this period")).toBeInTheDocument();
   });
 
-  it("handles API error gracefully", async () => {
+  it("surfaces a retryable error state when the API fails", async () => {
     mockGetCashFlow.mockRejectedValue(new Error("Network error"));
     mockGetIncomeBySource.mockRejectedValue(new Error("Network error"));
     mockGetSpendingByCategory.mockRejectedValue(new Error("Network error"));
     render(<CashFlowReport />);
     await waitFor(() => {
-      // After error, should render with zero totals
-      expect(screen.getByText("Total Inflows")).toBeInTheDocument();
+      expect(screen.getByText(/failed to load report data/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 
   it("navigates to transactions page with date range on chart bar click", async () => {

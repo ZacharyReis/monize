@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@/test/render';
 import { ReactivatePayeeDialog } from './ReactivatePayeeDialog';
 import { Payee } from '@/types/payee';
 
@@ -32,7 +32,7 @@ describe('ReactivatePayeeDialog', () => {
       />,
     );
 
-    expect(getByText('"Old Store"')).toBeInTheDocument();
+    expect(getByText(/"Old Store"/)).toBeInTheDocument();
     expect(getByText('Reactivate Payee?')).toBeInTheDocument();
   });
 

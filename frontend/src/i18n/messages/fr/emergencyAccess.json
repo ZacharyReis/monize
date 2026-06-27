@@ -1,0 +1,20 @@
+{
+  "title": "Accès d'urgence",
+  "missingToken": "Jeton d'accès d'urgence manquant.",
+  "previewError": "Ce lien d'accès d'urgence est invalide, expiré ou a déjà été utilisé.",
+  "linkInvalid": "Le lien n'est plus valide.",
+  "backToSignIn": "Retour à la connexion",
+  "ownerFallback": "le titulaire du compte",
+  "ownerFirstNameFallback": "le titulaire",
+  "intro": "Bonjour {contactName}, vous avez été désigné(e) comme contact d'urgence sur le compte Monize de <b>{ownerName}</b>.",
+  "introDetail": "La définition d'un mot de passe ici vous connectera en tant que titulaire du compte et vous donnera un accès complet au compte. Les sessions existantes sont révoquées et les informations d'identification précédentes sont remplacées.",
+  "messageHeading": "Message de {name}",
+  "newPasswordLabel": "Nouveau mot de passe",
+  "confirmPasswordLabel": "Confirmer le mot de passe",
+  "submit": "Activer l'accès d'urgence",
+  "toasts": {
+    "success": "Vous avez désormais accès au compte de {name}.",
+    "failed": "Échec de l'activation de l'accès d'urgence. Le lien est peut-être expiré ou a déjà été utilisé."
+  },
+  "passwordsNoMatch": "Les mots de passe ne correspondent pas"
+}

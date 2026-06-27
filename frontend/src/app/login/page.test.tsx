@@ -15,6 +15,7 @@ vi.mock('@/lib/auth', () => ({
     }),
     login: vi.fn(),
     initiateOidc: vi.fn(),
+    resendVerification: vi.fn(),
   },
   AuthMethods: {},
 }));
@@ -317,6 +318,39 @@ describe('LoginPage', () => {
     });
   });
 
+  it('shows the verify-your-email prompt and resends when login is unverified', async () => {
+    (authApi.login as ReturnType<typeof vi.fn>).mockResolvedValue({ emailNotVerified: true });
+    (authApi.resendVerification as ReturnType<typeof vi.fn>).mockResolvedValue({ message: 'ok' });
+
+    render(<LoginPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'unverified@example.com' } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Verify your email')).toBeInTheDocument();
+    });
+    expect(mockLogin).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /resend verification email/i }));
+    });
+
+    await waitFor(() => {
+      expect(authApi.resendVerification).toHaveBeenCalledWith('unverified@example.com');
+    });
+  });
+
   it('renders remember me checkbox', async () => {
     render(<LoginPage />);
     await waitFor(() => {
@@ -359,11 +393,15 @@ describe('LoginPage', () => {
     expect(authApi.initiateOidc).toHaveBeenCalled();
   });
 
-  it('renders version number', async () => {
+  it('renders the version number linked to its GitHub release notes', async () => {
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.11.0');
     render(<LoginPage />);
-    await waitFor(() => {
-      expect(screen.getByText(/^v/)).toBeInTheDocument();
-    });
+    const link = await screen.findByRole('link', { name: 'v1.11.0' });
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/kenlasko/monize/releases/tag/v1.11.0',
+    );
+    vi.unstubAllEnvs();
   });
 
   it('shows loading indicator while fetching auth methods', async () => {

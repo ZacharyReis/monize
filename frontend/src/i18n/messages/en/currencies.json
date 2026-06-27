@@ -1,0 +1,117 @@
+{
+  "page": {
+    "title": "Currencies",
+    "subtitle": "Manage currencies used across your accounts and securities",
+    "refreshRates": "Refresh Rates",
+    "refreshing": "Refreshing...",
+    "newCurrency": "+ New Currency",
+    "searchPlaceholder": "Search by code or name...",
+    "statusAll": "All ({count})",
+    "statusActive": "Active ({count})",
+    "statusInactive": "Inactive ({count})",
+    "modalTitleEdit": "Edit Currency",
+    "modalTitleNew": "New Currency",
+    "loading": "Loading currencies...",
+    "count": "{count, plural, one {# currency} other {# currencies}}",
+    "toasts": {
+      "loadFailed": "Failed to load currencies",
+      "updated": "Currency updated successfully",
+      "created": "Currency created successfully",
+      "updateFailed": "Failed to update currency",
+      "createFailed": "Failed to create currency",
+      "deactivated": "Currency deactivated",
+      "activated": "Currency activated",
+      "statusFailed": "Failed to update currency status",
+      "ratesRefreshed": "Exchange rates refreshed: {updated} pairs updated",
+      "ratesRefreshedWithFailed": "Exchange rates refreshed: {updated} updated, {failed} failed",
+      "ratesFailed": "Failed to refresh exchange rates"
+    },
+    "summary": {
+      "totalCurrencies": "Total Currencies",
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "list": {
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "symbol": "Symbol",
+      "decimals": "Decimals",
+      "usage": "Usage",
+      "rate": "Rate ({currency})",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compact",
+      "dense": "Dense",
+      "toggle": "Toggle row density"
+    },
+    "defaultBadge": "Default",
+    "statusBadge": {
+      "active": "Active",
+      "activeShort": "Act",
+      "inactive": "Inactive",
+      "inactiveShort": "Ina"
+    },
+    "actions": {
+      "edit": "Edit",
+      "deactivate": "Deactivate",
+      "activate": "Activate"
+    },
+    "contextMenu": {
+      "editCurrency": "Edit Currency",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "deleteCurrency": "Delete Currency"
+    },
+    "usageTooltip": "{accounts} account(s), {securities} security/ies",
+    "usageAccounts": "{count, plural, one {# acct} other {# accts}}",
+    "usageSecurities": "{count, plural, one {# sec} other {# secs}}",
+    "empty": {
+      "title": "No currencies",
+      "subtitle": "Get started by adding a currency."
+    },
+    "deleteConfirm": {
+      "title": "Delete \"{code}\"?",
+      "message": "This currency will be permanently deleted. This only works if the currency is not in use by any accounts or securities.",
+      "confirmLabel": "Delete",
+      "cancelLabel": "Cancel"
+    },
+    "toasts": {
+      "deleted": "Currency deleted successfully",
+      "deleteFailed": "Failed to delete currency. It may be in use."
+    }
+  },
+  "form": {
+    "codeLabel": "Currency Code",
+    "codePlaceholder": "e.g., USD, EUR, GBP",
+    "nameLabel": "Name",
+    "namePlaceholderCreate": "e.g., Canadian Dollar, Malaysia, Ringgit (used for lookup too)",
+    "namePlaceholderEdit": "e.g., Canadian Dollar",
+    "symbolLabel": "Symbol",
+    "symbolPlaceholder": "e.g., $, €, £, ¥",
+    "decimalPlacesLabel": "Decimal Places",
+    "lookupButton": "Lookup",
+    "lookingUp": "Looking up...",
+    "clearButton": "Clear",
+    "clearTitle": "Clear all fields",
+    "submitCreate": "Create Currency",
+    "submitUpdate": "Update Currency",
+    "toasts": {
+      "lookupTooShort": "Enter a currency code or name (at least 2 characters) to lookup",
+      "found": "Found: {details}",
+      "notFound": "No currency found for \"{query}\"",
+      "lookupFailed": "Lookup failed - please try again"
+    }
+  },
+  "validation": {
+    "codeLength": "Currency code must be exactly 3 characters",
+    "nameRequired": "Name is required",
+    "nameMax": "Name must be 100 characters or less",
+    "symbolRequired": "Symbol is required",
+    "symbolMax": "Symbol must be 10 characters or less"
+  }
+}

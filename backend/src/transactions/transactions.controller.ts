@@ -56,6 +56,7 @@ import {
   UUID_REGEX,
   DATE_REGEX,
 } from "../common/query-param-utils";
+import { tr } from "../i18n/translate";
 
 const ALL_TRANSACTION_STATUSES = new Set<string>(
   Object.values(TransactionStatus),
@@ -71,7 +72,13 @@ function parseTransactionStatuses(
     .filter((s) => s);
   for (const status of statuses) {
     if (!ALL_TRANSACTION_STATUSES.has(status)) {
-      throw new BadRequestException(`Invalid transaction status: ${status}`);
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.invalidStatus",
+          `Invalid transaction status: ${status}`,
+          { status },
+        ),
+      );
     }
   }
   return statuses.length > 0 ? (statuses as TransactionStatus[]) : undefined;
@@ -225,17 +232,29 @@ export class TransactionsController {
     if (page !== undefined) {
       const pageNum = parseInt(page, 10);
       if (isNaN(pageNum) || pageNum < 1) {
-        throw new BadRequestException("page must be a positive integer");
+        throw new BadRequestException(
+          tr(
+            "errors.transactions.pagePositiveInteger",
+            "page must be a positive integer",
+          ),
+        );
       }
     }
 
     if (limit !== undefined) {
       const limitNum = parseInt(limit, 10);
       if (isNaN(limitNum) || limitNum < 1) {
-        throw new BadRequestException("limit must be a positive integer");
+        throw new BadRequestException(
+          tr(
+            "errors.transactions.limitPositiveInteger",
+            "limit must be a positive integer",
+          ),
+        );
       }
       if (limitNum > 200) {
-        throw new BadRequestException("limit must not exceed 200");
+        throw new BadRequestException(
+          tr("errors.transactions.limitMax200", "limit must not exceed 200"),
+        );
       }
     }
 
@@ -243,7 +262,12 @@ export class TransactionsController {
     validateDateParam(endDate, "endDate");
 
     if (targetTransactionId && !UUID_REGEX.test(targetTransactionId)) {
-      throw new BadRequestException("targetTransactionId must be a valid UUID");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.targetTransactionIdInvalidUuid",
+          "targetTransactionId must be a valid UUID",
+        ),
+      );
     }
 
     // Truncate search to prevent excessive ILIKE query length
@@ -253,13 +277,23 @@ export class TransactionsController {
     const parsedAmountFrom =
       amountFrom !== undefined ? parseFloat(amountFrom) : undefined;
     if (parsedAmountFrom !== undefined && isNaN(parsedAmountFrom)) {
-      throw new BadRequestException("amountFrom must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountFromMustBeNumber",
+          "amountFrom must be a number",
+        ),
+      );
     }
 
     const parsedAmountTo =
       amountTo !== undefined ? parseFloat(amountTo) : undefined;
     if (parsedAmountTo !== undefined && isNaN(parsedAmountTo)) {
-      throw new BadRequestException("amountTo must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountToMustBeNumber",
+          "amountTo must be a number",
+        ),
+      );
     }
 
     let effectiveAccountIds = parseIds(accountIds, accountId);
@@ -394,13 +428,23 @@ export class TransactionsController {
     const parsedAmountFrom =
       amountFrom !== undefined ? parseFloat(amountFrom) : undefined;
     if (parsedAmountFrom !== undefined && isNaN(parsedAmountFrom)) {
-      throw new BadRequestException("amountFrom must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountFromMustBeNumber",
+          "amountFrom must be a number",
+        ),
+      );
     }
 
     const parsedAmountTo =
       amountTo !== undefined ? parseFloat(amountTo) : undefined;
     if (parsedAmountTo !== undefined && isNaN(parsedAmountTo)) {
-      throw new BadRequestException("amountTo must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountToMustBeNumber",
+          "amountTo must be a number",
+        ),
+      );
     }
 
     return this.transactionsService.getSummary(
@@ -484,13 +528,23 @@ export class TransactionsController {
     const parsedAmountFrom =
       amountFrom !== undefined ? parseFloat(amountFrom) : undefined;
     if (parsedAmountFrom !== undefined && isNaN(parsedAmountFrom)) {
-      throw new BadRequestException("amountFrom must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountFromMustBeNumber",
+          "amountFrom must be a number",
+        ),
+      );
     }
 
     const parsedAmountTo =
       amountTo !== undefined ? parseFloat(amountTo) : undefined;
     if (parsedAmountTo !== undefined && isNaN(parsedAmountTo)) {
-      throw new BadRequestException("amountTo must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountToMustBeNumber",
+          "amountTo must be a number",
+        ),
+      );
     }
 
     let effectiveAccountIds = parseUuids(accountIds);
@@ -584,11 +638,21 @@ export class TransactionsController {
     @Query("statementBalance") statementBalance: string,
   ) {
     if (!statementDate || !DATE_REGEX.test(statementDate)) {
-      throw new BadRequestException("statementDate must be YYYY-MM-DD");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.statementDateFormat",
+          "statementDate must be YYYY-MM-DD",
+        ),
+      );
     }
     const balance = parseFloat(statementBalance);
     if (isNaN(balance)) {
-      throw new BadRequestException("statementBalance must be a number");
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.statementBalanceMustBeNumber",
+          "statementBalance must be a number",
+        ),
+      );
     }
     return this.transactionsService.getReconciliationData(
       req.user.id,

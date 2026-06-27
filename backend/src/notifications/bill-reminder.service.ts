@@ -3,11 +3,14 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ConfigService } from "@nestjs/config";
+import { I18nService } from "nestjs-i18n";
 import { ScheduledTransaction } from "../scheduled-transactions/entities/scheduled-transaction.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { User } from "../users/entities/user.entity";
 import { EmailService } from "./email.service";
 import { billReminderTemplate } from "./email-templates";
+import { emailTranslator } from "../i18n/email-translator";
+import { DEFAULT_LOCALE } from "../i18n/config";
 
 @Injectable()
 export class BillReminderService {
@@ -22,6 +25,7 @@ export class BillReminderService {
     private preferencesRepo: Repository<UserPreference>,
     private emailService: EmailService,
     private configService: ConfigService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -116,15 +120,25 @@ export class BillReminderService {
           };
         });
 
+        const lang = prefs?.language || DEFAULT_LOCALE;
+        const t = emailTranslator(this.i18n, lang);
         const html = billReminderTemplate(
           user.firstName || "",
           billData,
           appUrl,
+          t,
         );
         const subject =
           bills.length === 1
-            ? "Monize: 1 upcoming bill needs attention"
-            : `Monize: ${bills.length} upcoming bills need attention`;
+            ? t(
+                "emails.billReminder.subjectOne",
+                "Monize: 1 upcoming bill needs attention",
+              )
+            : t(
+                "emails.billReminder.subjectMany",
+                `Monize: ${bills.length} upcoming bills need attention`,
+                { count: bills.length },
+              );
 
         await this.emailService.sendMail(user.email, subject, html);
         sentCount++;

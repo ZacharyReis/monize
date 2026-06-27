@@ -23,6 +23,7 @@ import {
   calculateMortgagePaymentSplit,
   MortgagePaymentFrequency,
 } from "./mortgage-amortization.util";
+import { tr } from "../i18n/translate";
 
 @Injectable()
 export class LoanPaymentSetupService {
@@ -52,7 +53,9 @@ export class LoanPaymentSetupService {
     });
 
     if (!account) {
-      throw new NotFoundException("Account not found");
+      throw new NotFoundException(
+        tr("errors.accounts.notFound", "Account not found"),
+      );
     }
 
     if (
@@ -61,13 +64,19 @@ export class LoanPaymentSetupService {
       account.accountType !== AccountType.LINE_OF_CREDIT
     ) {
       throw new BadRequestException(
-        "Only loan, mortgage, and line of credit accounts support scheduled payment setup",
+        tr(
+          "errors.accounts.onlyLoanMortgageLoc",
+          "Only loan, mortgage, and line of credit accounts support scheduled payment setup",
+        ),
       );
     }
 
     if (account.scheduledTransactionId) {
       throw new BadRequestException(
-        "This account already has a scheduled payment configured. Edit the existing scheduled transaction instead.",
+        tr(
+          "errors.accounts.alreadyHasScheduledPayment",
+          "This account already has a scheduled payment configured. Edit the existing scheduled transaction instead.",
+        ),
       );
     }
 
@@ -76,7 +85,9 @@ export class LoanPaymentSetupService {
       where: { id: dto.sourceAccountId, userId },
     });
     if (!sourceAccount) {
-      throw new BadRequestException("Source account not found");
+      throw new BadRequestException(
+        tr("errors.accounts.sourceNotFound", "Source account not found"),
+      );
     }
 
     // Resolve interest category

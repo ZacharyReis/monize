@@ -1,19 +1,80 @@
 'use client';
 
 import { useState, useMemo, useCallback, memo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Payee } from '@/types/payee';
-import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { payeesApi } from '@/lib/payees';
 import toast from 'react-hot-toast';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
 import { useTableDensity, nextDensity, type DensityLevel } from '@/hooks/useTableDensity';
+import { HIGHLIGHT_FLASH, HIGHLIGHT_FLASH_CELL, useScrollIntoViewWhen } from '@/hooks/useHighlightTarget';
 import { SortIcon } from '@/components/ui/SortIcon';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useLongPress, type LongPressRowHandlers } from '@/hooks/useLongPress';
+import { RowActions } from '@/components/ui/row-actions/RowActions';
+import { RowActionSheet } from '@/components/ui/row-actions/RowActionSheet';
+import type { RowAction } from '@/components/ui/row-actions/rowAction';
 
 const logger = createLogger('PayeeList');
+
+type PayeeActionLabels = {
+  edit: string;
+  delete: string;
+  merge: string;
+  reactivate: string;
+};
+
+/**
+ * Builds the standard row actions for a payee. Shared by the desktop `RowActions`
+ * cell and the mobile `RowActionSheet` so both surfaces stay in sync.
+ */
+function buildPayeeActions(
+  payee: Payee,
+  labels: PayeeActionLabels,
+  handlers: {
+    onEdit: (payee: Payee) => void;
+    onDelete: (payee: Payee) => void;
+    onMerge?: (payee: Payee) => void;
+    onReactivate?: (payeeId: string) => void;
+  },
+): RowAction[] {
+  return [
+    {
+      key: 'reactivate',
+      label: labels.reactivate,
+      icon: 'reactivate',
+      tone: 'success',
+      onClick: () => handlers.onReactivate?.(payee.id),
+      hidden: payee.isActive || !handlers.onReactivate,
+    },
+    {
+      key: 'merge',
+      label: labels.merge,
+      icon: 'merge',
+      tone: 'accent',
+      onClick: () => handlers.onMerge?.(payee),
+      hidden: !handlers.onMerge || !payee.isActive,
+    },
+    {
+      key: 'edit',
+      label: labels.edit,
+      icon: 'edit',
+      tone: 'primary',
+      onClick: () => handlers.onEdit(payee),
+    },
+    {
+      key: 'delete',
+      label: labels.delete,
+      icon: 'delete',
+      tone: 'delete',
+      destructive: true,
+      onClick: () => handlers.onDelete(payee),
+    },
+  ];
+}
 
 // Re-export DensityLevel from shared hook
 export type { DensityLevel };
@@ -35,6 +96,9 @@ interface PayeeListProps {
   sortDirection?: SortDirection;
   onSort?: (field: SortField) => void;
   categoryColorMap?: Map<string, string | null>;
+  categoryLabelMap?: Map<string, string>;
+  /** Payee id to flash/scroll to (e.g. arriving from a deep link). */
+  highlightId?: string | null;
 }
 
 interface PayeeRowProps {
@@ -49,7 +113,10 @@ interface PayeeRowProps {
   showStatusColumn: boolean;
   index: number;
   categoryColorMap?: Map<string, string | null>;
+  categoryLabelMap?: Map<string, string>;
   formatDate: (date: string) => string;
+  getRowHandlers: (payee: Payee) => LongPressRowHandlers;
+  isHighlighted?: boolean;
 }
 
 const PayeeRow = memo(function PayeeRow({
@@ -64,43 +131,53 @@ const PayeeRow = memo(function PayeeRow({
   showStatusColumn,
   index,
   categoryColorMap,
+  categoryLabelMap,
   formatDate,
+  getRowHandlers,
+  isHighlighted,
 }: PayeeRowProps) {
+  const t = useTranslations('payees');
+  const tc = useTranslations('common');
+  const rowRef = useScrollIntoViewWhen<HTMLTableRowElement>(!!isHighlighted);
   const defaultCategoryColor = payee.defaultCategory
     ? (categoryColorMap?.get(payee.defaultCategory.id) ?? payee.defaultCategory.color)
     : null;
-  const handleEdit = useCallback(() => {
-    onEdit(payee);
-  }, [onEdit, payee]);
-
-  const handleDelete = useCallback(() => {
-    onDelete(payee);
-  }, [onDelete, payee]);
-
-  const handleViewTransactions = useCallback(() => {
-    onViewTransactions(payee);
-  }, [onViewTransactions, payee]);
-
-  const handleReactivate = useCallback(() => {
-    onReactivate?.(payee.id);
-  }, [onReactivate, payee.id]);
-
-  const handleMerge = useCallback(() => {
-    onMerge?.(payee);
-  }, [onMerge, payee]);
+  const defaultCategoryLabel = payee.defaultCategory
+    ? (categoryLabelMap?.get(payee.defaultCategory.id) ?? payee.defaultCategory.name)
+    : null;
+  const actions = useMemo(
+    () => buildPayeeActions(
+      payee,
+      { edit: tc('actions.edit'), delete: tc('actions.delete'), merge: tc('actions.merge'), reactivate: tc('actions.reactivate') },
+      { onEdit, onDelete, onMerge, onReactivate },
+    ),
+    [payee, tc, onEdit, onDelete, onMerge, onReactivate],
+  );
 
   return (
     <tr
-      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} ${!payee.isActive ? 'opacity-60' : ''}`}
+      ref={rowRef}
+      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer select-none ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} ${!payee.isActive ? 'opacity-60' : ''} ${isHighlighted ? HIGHLIGHT_FLASH : ''}`}
+      {...getRowHandlers(payee)}
     >
       <td className={`${cellPadding} whitespace-nowrap`}>
-        <button
-          onClick={handleViewTransactions}
-          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-left"
-          title="View transactions with this payee"
-        >
-          {payee.name}
-        </button>
+        <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onViewTransactions(payee); }}
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-left"
+            title={t('list.viewTransactionsTitle')}
+          >
+            {payee.name}
+          </button>
+          {(payee.uncategorizedCount ?? 0) > 0 && (
+            <span
+              className="inline-flex text-xs font-medium rounded-full px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+              title={t('list.uncategorizedTitle', { count: payee.uncategorizedCount ?? 0 })}
+            >
+              {t('list.uncategorizedBadge', { count: payee.uncategorizedCount ?? 0 })}
+            </span>
+          )}
+        </div>
       </td>
       <td className={`${cellPadding} whitespace-nowrap hidden sm:table-cell`}>
         {payee.defaultCategory ? (
@@ -115,10 +192,10 @@ const PayeeRow = memo(function PayeeRow({
                 : 'var(--category-text-base, #6b7280)',
             }}
           >
-            {payee.defaultCategory.name}
+            {defaultCategoryLabel}
           </span>
         ) : (
-          <span className="text-sm text-gray-400 dark:text-gray-500">None</span>
+          <span className="text-sm text-gray-400 dark:text-gray-500">{t('list.noCategory')}</span>
         )}
       </td>
       <td className={`${cellPadding} whitespace-nowrap text-right text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell`}>
@@ -137,11 +214,11 @@ const PayeeRow = memo(function PayeeRow({
         <td className={`${cellPadding} whitespace-nowrap hidden sm:table-cell`}>
           {payee.isActive ? (
             <span className="inline-flex text-xs font-medium rounded-full px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-              Active
+              {t('list.statusBadge.active')}
             </span>
           ) : (
             <span className="inline-flex text-xs font-medium rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-              Inactive
+              {t('list.statusBadge.inactive')}
             </span>
           )}
         </td>
@@ -153,43 +230,8 @@ const PayeeRow = memo(function PayeeRow({
           </div>
         </td>
       )}
-      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`}>
-        {!payee.isActive && onReactivate ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReactivate}
-            className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 mr-2"
-          >
-            {density === 'dense' ? 'Re' : 'Reactivate'}
-          </Button>
-        ) : null}
-        {onMerge && payee.isActive && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleMerge}
-            className="text-purple-600 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300 mr-2"
-          >
-            {density === 'dense' ? 'M' : 'Merge'}
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleEdit}
-          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-2"
-        >
-          {density === 'dense' ? 'E' : 'Edit'}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDelete}
-          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-        >
-          {density === 'dense' ? 'X' : 'Delete'}
-        </Button>
+      <td className={`${cellPadding} whitespace-nowrap text-right text-sm font-medium hidden min-[480px]:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800 ${isHighlighted ? HIGHLIGHT_FLASH_CELL : ''}`}>
+        <RowActions actions={actions} density={density} />
       </td>
     </tr>
   );
@@ -209,10 +251,15 @@ export function PayeeList({
   sortDirection: propSortDirection,
   onSort,
   categoryColorMap,
+  categoryLabelMap,
+  highlightId,
 }: PayeeListProps) {
+  const t = useTranslations('payees');
+  const tc = useTranslations('common');
   const router = useRouter();
   const { formatDate } = useDateFormat();
   const [deletePayee, setDeletePayee] = useState<Payee | null>(null);
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; payee: Payee | null }>({ open: false, payee: null });
   const [localDensity, setLocalDensity] = useState<DensityLevel>('normal');
   const [localSortField, setLocalSortField] = useState<SortField>('name');
   const [localSortDirection, setLocalSortDirection] = useState<SortDirection>('asc');
@@ -257,8 +304,8 @@ export function PayeeList({
       if (sortField === 'name') {
         comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       } else if (sortField === 'category') {
-        const catA = a.defaultCategory?.name || '';
-        const catB = b.defaultCategory?.name || '';
+        const catA = a.defaultCategory ? (categoryLabelMap?.get(a.defaultCategory.id) ?? a.defaultCategory.name) : '';
+        const catB = b.defaultCategory ? (categoryLabelMap?.get(b.defaultCategory.id) ?? b.defaultCategory.name) : '';
         comparison = catA.localeCompare(catB, undefined, { sensitivity: 'base' });
       } else if (sortField === 'count') {
         comparison = (a.transactionCount ?? 0) - (b.transactionCount ?? 0);
@@ -271,25 +318,30 @@ export function PayeeList({
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [payees, sortField, sortDirection, onSort]);
+  }, [payees, sortField, sortDirection, onSort, categoryLabelMap]);
 
   const handleViewTransactions = useCallback((payee: Payee) => {
     router.push(`/transactions?payeeId=${payee.id}`);
   }, [router]);
+
+  const { getRowHandlers } = useLongPress<Payee>({
+    onLongPress: (payee) => setActionSheet({ open: true, payee }),
+    onClick: onEdit,
+  });
 
   const handleConfirmDelete = async () => {
     if (!deletePayee) return;
 
     try {
       await payeesApi.delete(deletePayee.id);
-      toast.success('Payee deleted successfully');
+      toast.success(t('list.toasts.deleted'));
       if (onDelete) {
         onDelete(deletePayee.id);
       } else {
         onRefresh();
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete payee'));
+      toast.error(getErrorMessage(error, t('list.toasts.deleteFailed')));
       logger.error(error);
     } finally {
       setDeletePayee(null);
@@ -312,8 +364,8 @@ export function PayeeList({
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
           />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No payees</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new payee.</p>
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{t('list.empty.title')}</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('list.empty.subtitle')}</p>
       </div>
     );
   }
@@ -324,12 +376,12 @@ export function PayeeList({
         <button
           onClick={cycleDensity}
           className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          title="Toggle row density"
+          title={t('list.density.toggle')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {density === 'normal' ? 'Normal' : density === 'compact' ? 'Compact' : 'Dense'}
+          {density === 'normal' ? t('list.density.normal') : density === 'compact' ? t('list.density.compact') : t('list.density.dense')}
         </button>
       </div>
       <div className="overflow-x-auto">
@@ -340,50 +392,50 @@ export function PayeeList({
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
                 onClick={() => handleSort('name')}
               >
-                Name<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.name')}<SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden sm:table-cell`}
                 onClick={() => handleSort('category')}
               >
-                Default Category<SortIcon field="category" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.defaultCategory')}<SortIcon field="category" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden md:table-cell`}
                 onClick={() => handleSort('count')}
               >
-                Count<SortIcon field="count" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.count')}<SortIcon field="count" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden lg:table-cell`}
                 onClick={() => handleSort('aliases')}
               >
-                Aliases<SortIcon field="aliases" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.aliases')}<SortIcon field="aliases" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden lg:table-cell`}
                 onClick={() => handleSort('lastUsed')}
               >
-                Last Used<SortIcon field="lastUsed" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.lastUsed')}<SortIcon field="lastUsed" sortField={sortField} sortDirection={sortDirection} />
               </th>
               <th
                 className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 hidden lg:table-cell`}
                 onClick={() => handleSort('createdAt')}
               >
-                Created<SortIcon field="createdAt" sortField={sortField} sortDirection={sortDirection} />
+                {t('list.columns.created')}<SortIcon field="createdAt" sortField={sortField} sortDirection={sortDirection} />
               </th>
               {showStatusColumn && (
                 <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
-                  Status
+                  {t('list.columns.status')}
                 </th>
               )}
               {density === 'normal' && (
                 <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                  Notes
+                  {t('list.columns.notes')}
                 </th>
               )}
-              <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sticky right-0 bg-gray-50 dark:bg-gray-800`}>
-                Actions
+              <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden min-[480px]:table-cell sticky right-0 bg-gray-50 dark:bg-gray-800`}>
+                {t('list.columns.actions')}
               </th>
             </tr>
           </thead>
@@ -402,7 +454,10 @@ export function PayeeList({
                 showStatusColumn={showStatusColumn}
                 index={index}
                 categoryColorMap={categoryColorMap}
+                categoryLabelMap={categoryLabelMap}
                 formatDate={formatDate}
+                getRowHandlers={getRowHandlers}
+                isHighlighted={!!highlightId && payee.id === highlightId}
               />
             ))}
           </tbody>
@@ -411,13 +466,26 @@ export function PayeeList({
 
       <ConfirmDialog
         isOpen={deletePayee !== null}
-        title={`Delete "${deletePayee?.name}"?`}
-        message="This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('list.deleteConfirm.title', { name: deletePayee?.name ?? '' })}
+        message={t('list.deleteConfirm.message')}
+        confirmLabel={t('list.deleteConfirm.confirmLabel')}
+        cancelLabel={t('list.deleteConfirm.cancelLabel')}
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletePayee(null)}
+      />
+
+      <RowActionSheet
+        isOpen={actionSheet.open}
+        title={actionSheet.payee?.name ?? ''}
+        actions={actionSheet.payee
+          ? buildPayeeActions(
+              actionSheet.payee,
+              { edit: tc('actions.edit'), delete: tc('actions.delete'), merge: tc('actions.merge'), reactivate: tc('actions.reactivate') },
+              { onEdit, onDelete: setDeletePayee, onMerge, onReactivate },
+            )
+          : []}
+        onClose={() => setActionSheet({ open: false, payee: null })}
       />
     </div>
   );

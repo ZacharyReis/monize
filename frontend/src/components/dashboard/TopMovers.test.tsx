@@ -10,6 +10,15 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: (n: number) => `$${n.toFixed(2)}`,
+    formatCurrencyPrecise: (n: number) => {
+      const abs = Math.abs(n);
+      let digits = 2;
+      if (n !== 0 && abs < 0.005) {
+        const exp = Math.floor(Math.log10(abs));
+        digits = Math.min(6, Math.max(2, -exp + 2));
+      }
+      return `$${n.toFixed(digits)}`;
+    },
     formatPercent: (n: number) => `${n.toFixed(2)}%`,
   }),
 }));
@@ -21,6 +30,7 @@ vi.mock('@/store/preferencesStore', () => ({
 describe('TopMovers', () => {
   beforeEach(() => {
     mockPush.mockClear();
+    localStorage.clear();
   });
 
   it('renders loading state with title and pulse skeleton', () => {
@@ -53,6 +63,17 @@ describe('TopMovers', () => {
     expect(screen.getByText('MSFT')).toBeInTheDocument();
     expect(screen.getByText('Microsoft')).toBeInTheDocument();
     expect(screen.getByText('$400.00')).toBeInTheDocument();
+  });
+
+  it('expands precision for sub-penny movers instead of showing 0.00', () => {
+    const movers = [
+      { securityId: '1', symbol: 'PENNY', name: 'Sub-penny Co', currentPrice: 0.000318, dailyChange: 0.000033, dailyChangePercent: 11.4, currencyCode: 'GBP' },
+    ] as any[];
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    // Price and change reveal their real figures rather than collapsing to 0.00.
+    expect(screen.getByText(/0\.000318/)).toBeInTheDocument();
+    expect(screen.getByText(/\+\$0\.000033 \(\+11\.40%\)/)).toBeInTheDocument();
   });
 
   it('shows positive change with plus sign and green color', () => {
@@ -105,6 +126,67 @@ describe('TopMovers', () => {
     expect(screen.getByText('SYM0')).toBeInTheDocument();
     expect(screen.getByText('SYM4')).toBeInTheDocument();
     expect(screen.queryByText('SYM5')).not.toBeInTheDocument();
+  });
+
+  it('renders the All/Gainers/Losers filter selector', () => {
+    const movers = [
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currentPrice: 180, dailyChange: 5, dailyChangePercent: 2.8, currencyCode: 'USD' },
+    ] as any[];
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    expect(screen.getByText('All')).toBeInTheDocument();
+    expect(screen.getByText('Gainers')).toBeInTheDocument();
+    expect(screen.getByText('Losers')).toBeInTheDocument();
+  });
+
+  it('filters to only gainers when Gainers is selected', () => {
+    const movers = [
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currentPrice: 180, dailyChange: 5, dailyChangePercent: 2.8, currencyCode: 'USD' },
+      { securityId: '2', symbol: 'MSFT', name: 'Microsoft', currentPrice: 400, dailyChange: -2, dailyChangePercent: -0.5, currencyCode: 'USD' },
+    ] as any[];
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    fireEvent.click(screen.getByText('Gainers'));
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
+  });
+
+  it('filters to only losers when Losers is selected', () => {
+    const movers = [
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currentPrice: 180, dailyChange: 5, dailyChangePercent: 2.8, currencyCode: 'USD' },
+      { securityId: '2', symbol: 'MSFT', name: 'Microsoft', currentPrice: 400, dailyChange: -2, dailyChangePercent: -0.5, currencyCode: 'USD' },
+    ] as any[];
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    fireEvent.click(screen.getByText('Losers'));
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+    expect(screen.queryByText('AAPL')).not.toBeInTheDocument();
+  });
+
+  it('persists the selected filter to localStorage and restores it on remount', () => {
+    const movers = [
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currentPrice: 180, dailyChange: 5, dailyChangePercent: 2.8, currencyCode: 'USD' },
+      { securityId: '2', symbol: 'MSFT', name: 'Microsoft', currentPrice: 400, dailyChange: -2, dailyChangePercent: -0.5, currencyCode: 'USD' },
+    ] as any[];
+
+    const { unmount } = render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    fireEvent.click(screen.getByText('Losers'));
+    expect(localStorage.getItem('dashboard.topMovers.filter')).toBe('losers');
+    unmount();
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+    expect(screen.queryByText('AAPL')).not.toBeInTheDocument();
+  });
+
+  it('shows an empty message when the selected filter has no matches', () => {
+    const movers = [
+      { securityId: '1', symbol: 'AAPL', name: 'Apple', currentPrice: 180, dailyChange: 5, dailyChangePercent: 2.8, currencyCode: 'USD' },
+    ] as any[];
+
+    render(<TopMovers movers={movers} isLoading={false} hasInvestmentAccounts={true} />);
+    fireEvent.click(screen.getByText('Losers'));
+    expect(screen.getByText('No losers today.')).toBeInTheDocument();
   });
 
   it('shows refresh button when onRefresh is provided', () => {

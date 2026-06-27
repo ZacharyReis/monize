@@ -1,3 +1,5 @@
+import type { ColorTheme } from '@/lib/color-themes';
+
 export interface User {
   id: string;
   email: string;
@@ -8,6 +10,7 @@ export interface User {
   role: 'admin' | 'user';
   isActive: boolean;
   mustChangePassword: boolean;
+  emailVerified?: boolean;
   createdAt: string;
   updatedAt: string;
   lastLogin?: string;
@@ -51,6 +54,10 @@ export interface AuthResponse {
   user?: User;
   requires2FA?: boolean;
   tempToken?: string;
+  /** Login was rejected because the account's email is not yet verified. */
+  emailNotVerified?: boolean;
+  /** Registration succeeded but the user must verify their email before logging in. */
+  verificationRequired?: boolean;
 }
 
 export interface TwoFactorSetupResponse {
@@ -87,6 +94,7 @@ export interface UserPreferences {
   dateFormat: string; // 'browser' = use browser locale
   numberFormat: string; // 'browser' = use browser locale
   theme: 'light' | 'dark' | 'system';
+  colorTheme: ColorTheme;
   timezone: string; // 'browser' = use browser timezone
   notificationEmail: boolean;
   notificationBrowser: boolean;
@@ -102,6 +110,8 @@ export interface UserPreferences {
   defaultQuoteProvider: 'yahoo' | 'msn';
   recentTransactionsLimit: number;
   forecastLookbackMonths: number;
+  aiBubbleEnabled: boolean;
+  language: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -147,6 +157,7 @@ export interface UpdatePreferencesData {
   dateFormat?: string;
   numberFormat?: string;
   theme?: 'light' | 'dark' | 'system';
+  colorTheme?: ColorTheme;
   timezone?: string;
   notificationEmail?: boolean;
   notificationBrowser?: boolean;
@@ -161,6 +172,8 @@ export interface UpdatePreferencesData {
   defaultQuoteProvider?: 'yahoo' | 'msn';
   recentTransactionsLimit?: number;
   forecastLookbackMonths?: number;
+  aiBubbleEnabled?: boolean;
+  language?: string;
 }
 
 export interface ChangePasswordData {

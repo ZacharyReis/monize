@@ -1,0 +1,85 @@
+{
+  "page": {
+    "title": "[XX-Categories-XX]",
+    "subtitle": "[XX-Organize your transactions with custom categories-XX]",
+    "newButton": "[XX-+ New Category-XX]",
+    "searchPlaceholder": "[XX-Search categories...-XX]",
+    "filterAll": "[XX-All ({count})-XX]",
+    "filterExpenses": "[XX-Expenses ({count})-XX]",
+    "filterIncome": "[XX-Income ({count})-XX]",
+    "modalTitleNew": "[XX-New Category-XX]",
+    "modalTitleEdit": "[XX-Edit Category-XX]",
+    "countSingle": "[XX-1 category-XX]",
+    "countPlural": "[XX-{count} categories-XX]",
+    "loadingText": "[XX-Loading categories...-XX]",
+    "summaryTotal": "[XX-Total Categories-XX]",
+    "summaryIncome": "[XX-Income Categories-XX]",
+    "summaryExpense": "[XX-Expense Categories-XX]",
+    "summaryTopLevel": "[XX-Top-Level-XX]"
+  },
+  "empty": {
+    "heading": "[XX-No categories yet-XX]",
+    "description": "[XX-Categories help you organize your transactions. Get started by importing our default set of categories, or create your own from scratch.-XX]",
+    "importButton": "[XX-Import Default Categories-XX]",
+    "createButton": "[XX-Create Your Own-XX]",
+    "hint": "[XX-The default set includes common income and expense categories with subcategories-XX]"
+  },
+  "toasts": {
+    "created": "[XX-Category created successfully-XX]",
+    "updated": "[XX-Category updated successfully-XX]",
+    "deleted": "[XX-Category deleted successfully-XX]",
+    "cannotDeleteSystem": "[XX-System categories cannot be deleted-XX]",
+    "importSuccess": "[XX-Successfully imported {count} categories-XX]",
+    "loadFailed": "[XX-Failed to load categories-XX]",
+    "deleteFailed": "[XX-Failed to delete category-XX]",
+    "createFailed": "[XX-Failed to create category-XX]",
+    "updateFailed": "[XX-Failed to update category-XX]",
+    "importFailed": "[XX-Failed to import default categories-XX]"
+  },
+  "form": {
+    "nameLabel": "[XX-Category Name-XX]",
+    "parentLabel": "[XX-Parent Category-XX]",
+    "noParent": "[XX-No parent (top-level)-XX]",
+    "typeLabel": "[XX-Type-XX]",
+    "typeExpense": "[XX-Expense-XX]",
+    "typeIncome": "[XX-Income-XX]",
+    "typeInherited": "[XX-Type inherited from parent-XX]",
+    "colourLabel": "[XX-Colour-XX]",
+    "colourInherit": "[XX-Inherit from parent-XX]",
+    "colourNone": "[XX-No colour-XX]",
+    "colourInheritedFrom": "[XX-Colour inherited from parent ({name})-XX]",
+    "descriptionLabel": "[XX-Description (optional)-XX]",
+    "submitCreate": "[XX-Create Category-XX]",
+    "submitUpdate": "[XX-Update Category-XX]"
+  },
+  "list": {
+    "emptyHeading": "[XX-No categories-XX]",
+    "emptyDescription": "[XX-Get started by creating a new category.-XX]",
+    "colName": "[XX-Name-XX]",
+    "colType": "[XX-Type-XX]",
+    "colCount": "[XX-Count-XX]",
+    "colDescription": "[XX-Description-XX]",
+    "colActions": "[XX-Actions-XX]",
+    "badgeIncome": "[XX-Income-XX]",
+    "badgeExpense": "[XX-Expense-XX]",
+    "systemBadge": "[XX-(System)-XX]",
+    "inheritedColorTitle": "[XX-Inherited from parent-XX]",
+    "viewTransactionsTitle": "[XX-View transactions in this category-XX]",
+    "densityToggleTitle": "[XX-Toggle row density-XX]",
+    "densityNormal": "[XX-Normal-XX]",
+    "densityCompact": "[XX-Compact-XX]",
+    "densityDense": "[XX-Dense-XX]"
+  },
+  "deleteDialog": {
+    "title": "[XX-Delete \"{name}\"?-XX]",
+    "checkingUsage": "[XX-Checking usage...-XX]",
+    "usedBy": "[XX-This category is used by {count, plural, one {# item} other {# items}} (transactions and/or scheduled bills & deposits).-XX]",
+    "reassignLabel": "[XX-Reassign to:-XX]",
+    "leaveUncategorized": "[XX-Leave uncategorized-XX]",
+    "safeToDelete": "[XX-This category is not used. It can be safely deleted.-XX]",
+    "cannotUndo": "[XX-This action cannot be undone.-XX]"
+  },
+  "validation": {
+    "nameRequired": "[XX-Category name is required-XX]"
+  }
+}

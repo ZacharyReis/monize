@@ -13,6 +13,7 @@ import { BulkUpdateDto, BulkDeleteDto } from "./dto/bulk-update.dto";
 import { Brackets, DataSource } from "typeorm";
 
 jest.mock("../common/date-utils", () => ({
+  ...jest.requireActual("../common/date-utils"),
   isTransactionInFuture: jest.fn().mockReturnValue(false),
 }));
 
@@ -106,6 +107,7 @@ describe("TransactionBulkUpdateService", () => {
 
     tagsService = {
       setTransactionTags: jest.fn().mockResolvedValue(undefined),
+      setTransactionTagsBulk: jest.fn().mockResolvedValue(undefined),
     };
 
     // Mock QueryRunner with manager that has createQueryBuilder and getRepository
@@ -754,15 +756,10 @@ describe("TransactionBulkUpdateService", () => {
 
       await service.bulkUpdate(userId, dto);
 
-      expect(tagsService.setTransactionTags).toHaveBeenCalledTimes(2);
-      expect(tagsService.setTransactionTags).toHaveBeenCalledWith(
-        "tx-1",
-        ["tag-a", "tag-b"],
-        userId,
-        mockQueryRunner,
-      );
-      expect(tagsService.setTransactionTags).toHaveBeenCalledWith(
-        "tx-2",
+      // Tags are applied to all eligible transactions in a single bulk call
+      expect(tagsService.setTransactionTagsBulk).toHaveBeenCalledTimes(1);
+      expect(tagsService.setTransactionTagsBulk).toHaveBeenCalledWith(
+        ["tx-1", "tx-2"],
         ["tag-a", "tag-b"],
         userId,
         mockQueryRunner,
@@ -791,8 +788,8 @@ describe("TransactionBulkUpdateService", () => {
 
       await service.bulkUpdate(userId, dto);
 
-      expect(tagsService.setTransactionTags).toHaveBeenCalledWith(
-        "tx-1",
+      expect(tagsService.setTransactionTagsBulk).toHaveBeenCalledWith(
+        ["tx-1"],
         [],
         userId,
         mockQueryRunner,

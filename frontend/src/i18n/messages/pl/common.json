@@ -1,0 +1,216 @@
+{
+  "chartFlag": {
+    "dismiss": "Ukryj tę wartość"
+  },
+  "appVersion": {
+    "releaseNotes": "Zobacz informacje o wydaniu v{version}"
+  },
+  "save": "Zapisz",
+  "cancel": "Anuluj",
+  "delete": "Usuń",
+  "edit": "Edytuj",
+  "close": "Zamknij",
+  "actions": {
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "view": "Wyświetl",
+    "duplicate": "Duplikuj",
+    "merge": "Scal",
+    "reactivate": "Reaktywuj",
+    "reconcile": "Uzgodnij",
+    "post": "Zaksięguj",
+    "skip": "Pomiń",
+    "close": "Zamknij",
+    "reopen": "Otwórz ponownie",
+    "scheduleRecurring": "Ustaw jako cykliczne",
+    "more": "Więcej akcji"
+  },
+  "loading": "Wczytywanie...",
+  "pagination": {
+    "showing": "Wyświetlanie",
+    "of": "z",
+    "firstPage": "Pierwsza strona",
+    "lastPage": "Ostatnia strona",
+    "previousPage": "Poprzednia strona",
+    "nextPage": "Następna strona",
+    "back10Pages": "Cofnij o 10 stron",
+    "forward10Pages": "Do przodu o 10 stron",
+    "enterPageNumber": "Wpisz numer strony"
+  },
+  "confirmDialog": {
+    "confirm": "Potwierdź"
+  },
+  "unsavedChanges": {
+    "title": "Niezapisane zmiany",
+    "message": "Masz niezapisane zmiany. Co chcesz zrobić?",
+    "discard": "Odrzuć"
+  },
+  "exportDropdown": {
+    "export": "Eksportuj",
+    "exporting": "Eksportowanie...",
+    "exportPdf": "Eksportuj PDF",
+    "exportReport": "Eksportuj raport",
+    "failedPdf": "Nie udało się wyeksportować pliku PDF. Spróbuj ponownie."
+  },
+  "dateRange": {
+    "custom": "Niestandardowy",
+    "startDate": "Data początkowa",
+    "endDate": "Data końcowa"
+  },
+  "colorPicker": {
+    "custom": "Własny:",
+    "apply": "Zastosuj"
+  },
+  "chartDownload": {
+    "downloadAsPng": "Pobierz {filename} jako PNG",
+    "unableToCapture": "Nie udało się przechwycić obrazu wykresu",
+    "failedToDownload": "Nie udało się pobrać wykresu"
+  },
+  "chartViewToggle": {
+    "pieChart": "Wykres kołowy",
+    "barChart": "Wykres słupkowy",
+    "stackedChart": "Skumulowany wykres słupkowy 100%",
+    "lineChart": "Wykres liniowy",
+    "areaChart": "Wykres warstwowy",
+    "table": "Tabela"
+  },
+  "formActions": {
+    "cancel": "Anuluj",
+    "save": "Zapisz"
+  },
+  "themeToggle": {
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Systemowy",
+    "title": "Motyw: {label}. Kliknij, aby zmienić."
+  },
+  "errorPage": {
+    "title": "Coś poszło nie tak",
+    "description": "Wystąpił nieoczekiwany błąd. Spróbuj ponownie lub skontaktuj się z pomocą techniczną, jeśli problem będzie się powtarzał.",
+    "errorId": "Identyfikator błędu: {digest}",
+    "tryAgain": "Spróbuj ponownie",
+    "goToDashboard": "Przejdź do pulpitu"
+  },
+  "errorBoundary": {
+    "defaultMessage": "Coś poszło nie tak podczas renderowania tego komponentu."
+  },
+  "calendar": {
+    "clear": "Wyczyść",
+    "today": "Dzisiaj"
+  },
+  "multiSelect": {
+    "search": "Szukaj...",
+    "selectAll": "Zaznacz wszystko",
+    "clear": "Wyczyść",
+    "noOptions": "Nie znaleziono opcji",
+    "selectedCount": "Wybrano {count}"
+  },
+  "combobox": {
+    "createOption": "Utwórz \"{value}\""
+  },
+  "passwordInput": {
+    "show": "Pokaż treść",
+    "hide": "Ukryj treść"
+  },
+  "currencyInput": {
+    "openCalculator": "Otwórz kalkulator",
+    "calculator": "Kalkulator",
+    "toggleSign": "Zmień znak"
+  },
+  "dateInput": {
+    "shortcutsTitle": "Skróty klawiszowe",
+    "today": "Dzisiaj",
+    "firstDayOfYear": "Pierwszy dzień roku",
+    "lastDayOfYear": "Ostatni dzień roku",
+    "firstDayOfMonth": "Pierwszy dzień miesiąca",
+    "lastDayOfMonth": "Ostatni dzień miesiąca",
+    "nextDay": "Następny dzień",
+    "previousDay": "Poprzedni dzień",
+    "nextMonth": "Następny miesiąc",
+    "previousMonth": "Poprzedni miesiąc"
+  },
+  "accountTypes": {
+    "CHEQUING": "Rachunek bieżący",
+    "SAVINGS": "Oszczędności",
+    "CREDIT_CARD": "Karta kredytowa",
+    "INVESTMENT": "Inwestycja",
+    "LOAN": "Pożyczka",
+    "MORTGAGE": "Kredyt hipoteczny",
+    "CASH": "Gotówka",
+    "LINE_OF_CREDIT": "Linia kredytowa",
+    "ASSET": "Aktywo",
+    "OTHER": "Inne"
+  },
+  "accountFilter": {
+    "allAccounts": "Wszystkie konta",
+    "allBut": "Wszystkie oprócz: {names}"
+  },
+  "passwordRequirements": "Hasło musi mieć co najmniej 12 znaków oraz zawierać wielką literę, małą literę, cyfrę i znak specjalny.",
+  "passwordValidation": {
+    "min": "Hasło musi mieć co najmniej 12 znaków",
+    "max": "Hasło może mieć maksymalnie 100 znaków",
+    "lowercase": "Musi zawierać małą literę",
+    "uppercase": "Musi zawierać wielką literę",
+    "number": "Musi zawierać cyfrę",
+    "special": "Musi zawierać znak specjalny"
+  },
+  "codeValidation": {
+    "length": "Kod musi mieć dokładnie 6 cyfr",
+    "digits": "Kod musi składać się z 6 cyfr"
+  },
+  "monthsShort": [
+    "sty",
+    "lut",
+    "mar",
+    "kwi",
+    "maj",
+    "cze",
+    "lip",
+    "sie",
+    "wrz",
+    "paź",
+    "lis",
+    "gru"
+  ],
+  "weekdaysShort": [
+    "Nd",
+    "Pn",
+    "Wt",
+    "Śr",
+    "Czw",
+    "Pt",
+    "Sob"
+  ],
+  "weekdaysMin": [
+    "Nd",
+    "Pn",
+    "Wt",
+    "Śr",
+    "Cz",
+    "Pt",
+    "So"
+  ],
+  "weekdaysNarrow": [
+    "N",
+    "S",
+    "W",
+    "Ś",
+    "C",
+    "P",
+    "S"
+  ],
+  "dateFormat": {
+    "browserAuto": "Użyj ustawień regionalnych przeglądarki (wykryto {sample})",
+    "custom": "Niestandardowy..."
+  },
+  "emailInvalid": "Wprowadź prawidłowy adres e-mail",
+  "noSectionAccess": "Nie masz dostępu do tej sekcji.",
+  "undoRedo": {
+    "nothingToUndo": "Nie ma nic do cofnięcia",
+    "cannotUndo": "Nie można cofnąć tej operacji",
+    "undoFailed": "Cofnięcie nie powiodło się",
+    "nothingToRedo": "Nie ma nic do ponowienia",
+    "cannotRedo": "Nie można ponowić tej operacji",
+    "redoFailed": "Ponowienie nie powiodło się"
+  }
+}

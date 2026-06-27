@@ -1,6 +1,6 @@
 {
   "name": "monize-backend",
-  "version": "1.10.1",
+  "version": "1.11.3",
   "description": "Personal Finance Management System - Backend API",
   "author": "",
   "private": true,
@@ -14,6 +14,8 @@
     "start:prod": "node dist/main",
     "start:scheduler": "node dist/scheduler",
     "db:init": "node dist/db-init",
+    "i18n:pseudo": "node scripts/i18n-pseudo.mjs",
+    "i18n:check": "node scripts/i18n-pseudo.mjs --check",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:unit": "jest --testPathPatterns='src/.*\\.spec\\.ts$'",
@@ -49,7 +51,8 @@
     "date-fns": "^4.1.0",
     "he": "^1.2.0",
     "helmet": "^8.1.0",
-    "nodemailer": "^8.0.1",
+    "nestjs-i18n": "^10.8.4",
+    "nodemailer": "^9.0.1",
     "oidc-provider": "^9.8.3",
     "openai": "^6.22.0",
     "openid-client": "^6.8.2",
@@ -57,13 +60,14 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "pdf-parse": "^1.1.4",
     "pg": "^8.18.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "typeorm": "^0.3.28",
-    "ua-parser-js": "^2.0.9",
-    "undici": "^8.0.2",
+    "typeorm": "^0.3.30",
+    "ua-parser-js": "^2.0.10",
+    "undici": "^8.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -80,6 +84,7 @@
     "@types/oidc-provider": "^9.5.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "@types/pdf-parse": "^1.1.5",
     "@types/qrcode": "^1.5.6",
     "@types/ua-parser-js": "^0.7.39",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
@@ -100,10 +105,24 @@
   "overrides": {
     "lodash": "4.18.1",
     "ajv@>=7": "8.18.0",
+    "js-yaml": ">=4.2.0",
     "picomatch": "4.0.4",
     "path-to-regexp": "8.4.0",
     "uuid": "^14.0.0",
-    "fast-uri": "^3.1.2"
+    "fast-uri": "^3.1.2",
+    "multer": "^2.2.0",
+    "typeorm": {
+      "glob": "13.0.0"
+    },
+    "jest-config": {
+      "glob": "13.0.0"
+    },
+    "jest-runtime": {
+      "glob": "13.0.0"
+    },
+    "@jest/reporters": {
+      "glob": "13.0.0"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

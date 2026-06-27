@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
+import { I18nService } from "nestjs-i18n";
 import { DelegationService, DELEGATE_2FA_REQUIRED } from "./delegation.service";
 import { DelegateAccountFavourite } from "./entities/delegate-account-favourite.entity";
 
@@ -47,6 +48,11 @@ describe("DelegationService", () => {
     configService = { get: jest.fn() };
     dataSource = { transaction: jest.fn() };
 
+    const i18nStub = {
+      translate: (key: string, opts?: { defaultValue?: string }) =>
+        opts?.defaultValue ?? key,
+    } as unknown as I18nService;
+
     service = new DelegationService(
       delegatesRepo as any,
       grantsRepo as any,
@@ -60,6 +66,7 @@ describe("DelegationService", () => {
       emailService as any,
       configService as any,
       dataSource as any,
+      i18nStub,
     );
   });
 

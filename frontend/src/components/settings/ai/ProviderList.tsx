@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { ProviderTestButton } from './ProviderTestButton';
 import { ProviderConfigForm } from './ProviderConfigForm';
+import { useRelayStatus } from '@/components/ai/useRelayStatus';
 import type { AiProviderConfig, CreateAiProviderConfig, UpdateAiProviderConfig } from '@/types/ai';
 import { AI_PROVIDER_LABELS, AiProviderType } from '@/types/ai';
 import { aiApi } from '@/lib/ai';
@@ -20,7 +22,29 @@ interface ProviderListProps {
   disabled?: boolean;
 }
 
+const RELAY_DOT_CLASS = {
+  listening: 'bg-green-500 animate-pulse',
+  busy: 'bg-amber-500',
+  offline: 'bg-gray-400 dark:bg-gray-600',
+} as const;
+
+/** Live connection state for an MCP Relay provider row. */
+function RelayProviderStatusLine() {
+  const t = useTranslations('ai');
+  const state = useRelayStatus(true);
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className={`inline-block h-2 w-2 rounded-full ${RELAY_DOT_CLASS[state]}`}
+        aria-hidden="true"
+      />
+      <span>{t(`relay.status.${state}`)}</span>
+    </span>
+  );
+}
+
 export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, hasSystemDefault, systemDefaultProvider, systemDefaultModel, disabled }: ProviderListProps) {
+  const t = useTranslations('settings.aiProviders');
   const [showForm, setShowForm] = useState(false);
   const [editingConfig, setEditingConfig] = useState<AiProviderConfig | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -32,14 +56,14 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
     try {
       const result = await aiApi.testConnection(configId);
       if (!result.available) {
-        toast.error(result.error || 'Saved, but the provider could not be reached. Double-check the URL/API key.', { duration: 7000 });
+        toast.error(result.error || t('toasts.notReachable'), { duration: 7000 });
       } else if (result.modelAvailable === false) {
         toast.error(
-          result.modelError || `Saved, but model "${result.model ?? 'unknown'}" is not available on this provider.`,
+          result.modelError || t('toasts.modelUnavailable', { model: result.model ?? 'unknown' }),
           { duration: 7000 },
         );
       } else if (result.modelAvailable) {
-        toast.success(`Model "${result.model}" is ready.`);
+        toast.success(t('toasts.modelReady', { model: result.model ?? '' }));
       }
     } catch {
       // Non-fatal: the save itself already succeeded. Skip the noise.
@@ -48,7 +72,7 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
 
   const handleCreate = async (data: CreateAiProviderConfig | UpdateAiProviderConfig) => {
     const created = await aiApi.createConfig(data as CreateAiProviderConfig);
-    toast.success('Provider added');
+    toast.success(t('toasts.added'));
     onConfigsChanged();
     void runPostSaveTest(created.id);
   };
@@ -56,7 +80,7 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
   const handleUpdate = async (data: CreateAiProviderConfig | UpdateAiProviderConfig) => {
     if (!editingConfig) return;
     const updated = await aiApi.updateConfig(editingConfig.id, data as UpdateAiProviderConfig);
-    toast.success('Provider updated');
+    toast.success(t('toasts.updated'));
     setEditingConfig(null);
     onConfigsChanged();
     void runPostSaveTest(updated.id);
@@ -66,10 +90,10 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
     setDeletingId(id);
     try {
       await aiApi.deleteConfig(id);
-      toast.success('Provider removed');
+      toast.success(t('toasts.removed'));
       onConfigsChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to delete provider'));
+      toast.error(getErrorMessage(error, t('toasts.deleteFailed')));
     } finally {
       setDeletingId(null);
     }
@@ -80,23 +104,23 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
       await aiApi.updateConfig(config.id, { isActive: !config.isActive });
       onConfigsChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update provider'));
+      toast.error(getErrorMessage(error, t('toasts.updateFailed')));
     }
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6 mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AI Providers</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('heading')}</h2>
         <Button size="sm" onClick={() => setShowForm(true)} disabled={disabled}>
-          Add Provider
+          {t('addButton')}
         </Button>
       </div>
 
       {!encryptionAvailable && (
         <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            AI_ENCRYPTION_KEY is not configured. You can use Ollama (local, no API key needed) but cloud providers require encryption to store API keys securely.
+            {t('encryptionWarning')}
           </p>
         </div>
       )}
@@ -108,15 +132,15 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
             </svg>
             <div>
-              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">System Default AI Provider Available</h3>
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('systemDefault.heading')}</h3>
               <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                A central AI provider has been configured by your administrator
+                {t('systemDefault.description')}
                 {systemDefaultProvider && (
                   <span> ({AI_PROVIDER_LABELS[systemDefaultProvider as AiProviderType] || systemDefaultProvider}{systemDefaultModel ? `, ${systemDefaultModel}` : ''})</span>
                 )}.
-                {configs.length === 0
-                  ? ' It will be used automatically since you have no personal providers configured.'
-                  : ' Your personal providers take priority over the system default.'}
+                {' '}{configs.length === 0
+                  ? t('systemDefault.usedAutomatically')
+                  : t('systemDefault.personalPriority')}
               </p>
             </div>
           </div>
@@ -126,8 +150,8 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
       {configs.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {hasSystemDefault
-            ? 'No personal AI providers configured. The system default provider will be used.'
-            : 'No AI providers configured. Add a provider to enable AI features.'}
+            ? t('noProviders.withSystemDefault')
+            : t('noProviders.withoutSystemDefault')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -151,32 +175,35 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
                         : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                     }`}>
-                      {config.isActive ? 'Active' : 'Inactive'}
+                      {config.isActive ? t('providerCard.activeBadge') : t('providerCard.inactiveBadge')}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      Priority: {config.priority}
+                      {t('providerCard.priorityLabel', { n: config.priority })}
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                    {config.model && <span>Model: {config.model}</span>}
-                    {config.apiKeyMasked && <span>Key: {config.apiKeyMasked}</span>}
-                    {config.baseUrl && <span className="truncate max-w-xs">URL: {config.baseUrl}</span>}
+                    {config.provider === 'mcp_relay' && <RelayProviderStatusLine />}
+                    {config.model && <span>{t('providerCard.modelLabel', { model: config.model })}</span>}
+                    {config.apiKeyMasked && <span>{t('providerCard.keyLabel', { key: config.apiKeyMasked })}</span>}
+                    {config.baseUrl && <span className="truncate max-w-xs">{t('providerCard.urlLabel', { url: config.baseUrl })}</span>}
                     {(config.inputCostPer1M != null || config.outputCostPer1M != null) && (
                       <span>
-                        Cost/1M ({config.costCurrency}): {config.inputCostPer1M ?? 0} in / {config.outputCostPer1M ?? 0} out
+                        {t('providerCard.costLabel', { currency: config.costCurrency ?? '', input: config.inputCostPer1M ?? 0, output: config.outputCostPer1M ?? 0 })}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ProviderTestButton configId={config.id} disabled={disabled} />
+                  {config.provider !== 'mcp_relay' && (
+                    <ProviderTestButton configId={config.id} disabled={disabled} />
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleToggleActive(config)}
                     disabled={disabled}
                   >
-                    {config.isActive ? 'Disable' : 'Enable'}
+                    {config.isActive ? t('providerCard.disableButton') : t('providerCard.enableButton')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -184,7 +211,7 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
                     onClick={() => setEditingConfig(config)}
                     disabled={disabled}
                   >
-                    Edit
+                    {t('providerCard.editButton')}
                   </Button>
                   <Button
                     variant="danger"
@@ -193,7 +220,7 @@ export function ProviderList({ configs, encryptionAvailable, onConfigsChanged, h
                     isLoading={deletingId === config.id}
                     disabled={disabled}
                   >
-                    Delete
+                    {t('providerCard.deleteButton')}
                   </Button>
                 </div>
               </div>

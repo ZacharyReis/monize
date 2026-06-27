@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useClickOutside } from '@/hooks/useClickOutside';
 
@@ -11,6 +12,7 @@ interface ExportDropdownProps {
 }
 
 export function ExportDropdown({ onExportCsv, onExportPdf, disabled }: ExportDropdownProps) {
+  const t = useTranslations('common');
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,7 +33,7 @@ export function ExportDropdown({ onExportCsv, onExportPdf, disabled }: ExportDro
       await onExportPdf();
     } catch (error) {
       console.error('PDF export failed:', error);
-      toast.error('Failed to export PDF. Please try again.');
+      toast.error(t('exportDropdown.failedPdf'));
     } finally {
       setIsExporting(false);
     }
@@ -44,12 +46,12 @@ export function ExportDropdown({ onExportCsv, onExportPdf, disabled }: ExportDro
         onClick={handleExportPdf}
         disabled={disabled || isExporting}
         className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-        title="Export PDF"
+        title={t('exportDropdown.exportPdf')}
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
-        {isExporting ? 'Exporting...' : 'Export PDF'}
+        {isExporting ? t('exportDropdown.exporting') : t('exportDropdown.exportPdf')}
       </button>
     );
   }
@@ -60,12 +62,12 @@ export function ExportDropdown({ onExportCsv, onExportPdf, disabled }: ExportDro
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled || isExporting}
         className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-        title="Export report"
+        title={t('exportDropdown.exportReport')}
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
-        {isExporting ? 'Exporting...' : 'Export'}
+        {isExporting ? t('exportDropdown.exporting') : t('exportDropdown.export')}
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

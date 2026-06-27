@@ -31,6 +31,7 @@ import {
   validateUrlIsSafe,
   validateUrlBasicSafety,
 } from "./validators/safe-url.validator";
+import { tr } from "../i18n/translate";
 import {
   SELF_HOSTED_PROVIDERS,
   AiProviderType,
@@ -117,7 +118,12 @@ export class AiService {
       where: { id: configId, userId },
     });
     if (!config) {
-      throw new NotFoundException("AI provider configuration not found");
+      throw new NotFoundException(
+        tr(
+          "errors.ai.providerConfigNotFound",
+          "AI provider configuration not found",
+        ),
+      );
     }
     return config;
   }
@@ -137,7 +143,11 @@ export class AiService {
     });
     if (existingCount >= this.maxProvidersPerUser) {
       throw new BadRequestException(
-        `Maximum of ${this.maxProvidersPerUser} AI provider configurations per user`,
+        tr(
+          "errors.ai.maxProvidersExceeded",
+          `Maximum of ${this.maxProvidersPerUser} AI provider configurations per user`,
+          { maxProvidersPerUser: this.maxProvidersPerUser },
+        ),
       );
     }
 
@@ -158,7 +168,10 @@ export class AiService {
     if (dto.apiKey) {
       if (!this.encryptionService.isConfigured()) {
         throw new BadRequestException(
-          "AI_ENCRYPTION_KEY is not configured. Cannot store API keys securely.",
+          tr(
+            "errors.ai.encryptionKeyNotConfigured",
+            "AI_ENCRYPTION_KEY is not configured. Cannot store API keys securely.",
+          ),
         );
       }
       config.apiKeyEnc = this.encryptionService.encrypt(dto.apiKey);
@@ -198,7 +211,10 @@ export class AiService {
       if (dto.apiKey) {
         if (!this.encryptionService.isConfigured()) {
           throw new BadRequestException(
-            "AI_ENCRYPTION_KEY is not configured. Cannot store API keys securely.",
+            tr(
+              "errors.ai.encryptionKeyNotConfigured",
+              "AI_ENCRYPTION_KEY is not configured. Cannot store API keys securely.",
+            ),
           );
         }
         config.apiKeyEnc = this.encryptionService.encrypt(dto.apiKey);
@@ -275,6 +291,11 @@ export class AiService {
     config: AiProviderConfig,
     logLabel: string,
   ): Promise<AiConnectionTestResponse> {
+    // Relay has no credentials/endpoint to probe; its live connection state is
+    // shown in the chat and provider row, so there's nothing to test here.
+    if (config.provider === "mcp_relay") {
+      return { available: true };
+    }
     let provider;
     try {
       provider = this.providerFactory.createProvider(config);
@@ -351,13 +372,22 @@ export class AiService {
 
     if (configs.length === 0) {
       throw new BadRequestException(
-        "No active AI providers configured. Please configure a provider in AI Settings.",
+        tr(
+          "errors.ai.noActiveProviders",
+          "No active AI providers configured. Please configure a provider in AI Settings.",
+        ),
       );
     }
 
     const errors: string[] = [];
 
     for (const config of configs) {
+      // mcp_relay is not a callable LLM -- it routes chat to the user's own
+      // agent. Skip it here so non-chat features (insights, forecast) fall
+      // through to the next real provider.
+      if (config.provider === "mcp_relay") {
+        continue;
+      }
       const startTime = Date.now();
       try {
         const provider = this.providerFactory.createProvider(config);
@@ -398,7 +428,10 @@ export class AiService {
 
     this.logger.error(`All AI providers failed: ${errors.join("; ")}`);
     throw new BadRequestException(
-      "All AI providers failed. Please check your provider configuration and try again.",
+      tr(
+        "errors.ai.allProvidersFailed",
+        "All AI providers failed. Please check your provider configuration and try again.",
+      ),
     );
   }
 
@@ -412,6 +445,7 @@ export class AiService {
   async getStatus(userId: string): Promise<AiStatusResponse> {
     const configs = await this.configRepository.find({
       where: { userId, isActive: true },
+      order: { priority: "ASC" },
     });
 
     const defaultConfig = this.buildDefaultConfig(userId);
@@ -424,6 +458,9 @@ export class AiService {
       hasSystemDefault,
       systemDefaultProvider: hasSystemDefault ? defaultConfig.provider : null,
       systemDefaultModel: hasSystemDefault ? defaultConfig.model : null,
+      // The chat routes to the reverse MCP relay when the highest-priority
+      // active provider is mcp_relay (priority ASC -> [0] is top).
+      relayActive: configs[0]?.provider === "mcp_relay",
     };
   }
 
@@ -431,6 +468,10 @@ export class AiService {
     const configs = await this.getActiveConfigs(userId);
 
     for (const config of configs) {
+      // Relay is not an LLM; never instantiate it as one.
+      if (config.provider === "mcp_relay") {
+        continue;
+      }
       const provider = this.providerFactory.createProvider(config);
       if (provider.supportsToolUse) {
         return provider;
@@ -438,7 +479,10 @@ export class AiService {
     }
 
     throw new BadRequestException(
-      "No AI provider with tool use support configured. Natural language queries require Anthropic, OpenAI, or Ollama. Please configure one in AI Settings.",
+      tr(
+        "errors.ai.noToolUseProvider",
+        "No AI provider with tool use support configured. Natural language queries require Anthropic, OpenAI, or Ollama. Please configure one in AI Settings.",
+      ),
     );
   }
 
@@ -490,14 +534,20 @@ export class AiService {
     if (SELF_HOSTED_PROVIDERS.has(provider)) {
       if (!validateUrlBasicSafety(baseUrl)) {
         throw new BadRequestException(
-          "baseUrl must be a valid HTTP or HTTPS URL",
+          tr(
+            "errors.ai.baseUrlInvalidBasic",
+            "baseUrl must be a valid HTTP or HTTPS URL",
+          ),
         );
       }
     } else {
       const isSafe = await validateUrlIsSafe(baseUrl);
       if (!isSafe) {
         throw new BadRequestException(
-          "baseUrl must be a valid HTTP/HTTPS URL pointing to an external host",
+          tr(
+            "errors.ai.baseUrlInvalidExternal",
+            "baseUrl must be a valid HTTP/HTTPS URL pointing to an external host",
+          ),
         );
       }
     }

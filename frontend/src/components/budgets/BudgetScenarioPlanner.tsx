@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
+import { gainLossColor } from '@/lib/format';
 import type { CategoryBreakdown } from '@/types/budget';
 
 interface BudgetScenarioPlannerProps {
@@ -107,14 +109,16 @@ export function BudgetScenarioPlanner({
     onApplyChanges(changes);
   };
 
+  const t = useTranslations('budgets');
+
   if (expenseCategories.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          What-If Scenario Planner
+          {t('scenarioPlanner.title')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No expense categories to plan with.
+          {t('scenarioPlanner.empty')}
         </p>
       </div>
     );
@@ -124,7 +128,7 @@ export function BudgetScenarioPlanner({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          What-If Scenario Planner
+          {t('scenarioPlanner.title')}
         </h2>
         <div className="flex gap-2">
           {hasChanges && (
@@ -133,7 +137,7 @@ export function BudgetScenarioPlanner({
               className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               data-testid="reset-scenario"
             >
-              Reset
+              {t('scenarioPlanner.reset')}
             </button>
           )}
           {hasChanges && onApplyChanges && (
@@ -142,7 +146,7 @@ export function BudgetScenarioPlanner({
               className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
               data-testid="apply-scenario"
             >
-              Apply Changes
+              {t('scenarioPlanner.applyChanges')}
             </button>
           )}
         </div>
@@ -151,13 +155,13 @@ export function BudgetScenarioPlanner({
       {/* Summary comparison */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Current Budget</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('scenarioPlanner.currentBudget')}</p>
           <p className="text-base font-semibold text-gray-900 dark:text-gray-100" data-testid="current-total">
             {formatCurrency(originalTotal)}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Proposed Budget</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('scenarioPlanner.proposedBudget')}</p>
           <p
             className={`text-base font-semibold ${
               adjustedTotal !== originalTotal
@@ -170,12 +174,10 @@ export function BudgetScenarioPlanner({
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Projected Savings</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('scenarioPlanner.projectedSavings')}</p>
           <p
             className={`text-base font-semibold ${
-              adjustedSavings >= 0
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
+              gainLossColor(adjustedSavings)
             }`}
             data-testid="projected-savings"
           >
@@ -183,7 +185,7 @@ export function BudgetScenarioPlanner({
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Savings Change</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('scenarioPlanner.savingsChange')}</p>
           <p
             className={`text-base font-semibold ${
               savingsDifference > 0
@@ -257,7 +259,7 @@ export function BudgetScenarioPlanner({
               <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 <span>{formatCurrency(0)}</span>
                 <span className="text-gray-500 dark:text-gray-400">
-                  Original: {formatCurrency(cat.originalBudget)}
+                  {t('scenarioPlanner.original', { amount: formatCurrency(cat.originalBudget) })}
                 </span>
                 <span>{formatCurrency(maxValue)}</span>
               </div>

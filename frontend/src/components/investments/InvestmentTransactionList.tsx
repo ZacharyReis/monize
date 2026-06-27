@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef, memo, Fragment } from 'react';
+import { useState, useMemo, useCallback, memo, Fragment } from 'react';
+import { useTranslations } from 'next-intl';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { DateInput } from '@/components/ui/DateInput';
 import { InvestmentTransaction } from '@/types/investment';
@@ -10,6 +11,39 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DensityLevel, nextDensity } from '@/hooks/useTableDensity';
 import { Account } from '@/types/account';
 import { getLocalDateString } from '@/lib/utils';
+import { useLongPress, type LongPressRowHandlers } from '@/hooks/useLongPress';
+import { RowActions } from '@/components/ui/row-actions/RowActions';
+import { RowActionSheet } from '@/components/ui/row-actions/RowActionSheet';
+import type { RowAction } from '@/components/ui/row-actions/rowAction';
+
+/**
+ * Builds the standard row actions for an investment transaction. Shared by the
+ * desktop `RowActions` cell and the mobile `RowActionSheet`.
+ */
+function buildInvestmentTxActions(
+  tx: InvestmentTransaction,
+  labels: { edit: string; delete: string },
+  handlers: { onEdit?: (tx: InvestmentTransaction) => void; onDeleteClick: (tx: InvestmentTransaction) => void },
+): RowAction[] {
+  return [
+    {
+      key: 'edit',
+      label: labels.edit,
+      icon: 'edit',
+      tone: 'primary',
+      onClick: () => handlers.onEdit?.(tx),
+      hidden: !handlers.onEdit,
+    },
+    {
+      key: 'delete',
+      label: labels.delete,
+      icon: 'delete',
+      tone: 'delete',
+      destructive: true,
+      onClick: () => handlers.onDeleteClick(tx),
+    },
+  ];
+}
 
 export interface TransactionFilters {
   symbol?: string;
@@ -73,34 +107,19 @@ function formatSplitRatio(quantity: number | null | undefined): string {
   return `1:${trim(1 / ratio)}`;
 }
 
-const ACTION_LABELS: Record<string, { label: string; shortLabel: string; color: string }> = {
-  BUY: { label: 'Buy', shortLabel: 'Buy', color: 'text-green-600 dark:text-green-400' },
-  SELL: { label: 'Sell', shortLabel: 'Sell', color: 'text-red-600 dark:text-red-400' },
-  DIVIDEND: { label: 'Dividend', shortLabel: 'Div', color: 'text-blue-600 dark:text-blue-400' },
-  INTEREST: { label: 'Interest', shortLabel: 'Int', color: 'text-blue-600 dark:text-blue-400' },
-  CAPITAL_GAIN: { label: 'Capital Gain', shortLabel: 'Cap', color: 'text-purple-600 dark:text-purple-400' },
-  SPLIT: { label: 'Split', shortLabel: 'Split', color: 'text-yellow-600 dark:text-yellow-400' },
-  TRANSFER_IN: { label: 'Transfer In', shortLabel: 'In', color: 'text-green-600 dark:text-green-400' },
-  TRANSFER_OUT: { label: 'Transfer Out', shortLabel: 'Out', color: 'text-red-600 dark:text-red-400' },
-  REINVEST: { label: 'Reinvest', shortLabel: 'Reinv', color: 'text-indigo-600 dark:text-indigo-400' },
-  ADD_SHARES: { label: 'Add Shares', shortLabel: 'Add', color: 'text-teal-600 dark:text-teal-400' },
-  REMOVE_SHARES: { label: 'Remove Shares', shortLabel: 'Rem', color: 'text-orange-600 dark:text-orange-400' },
+const ACTION_COLORS: Record<string, string> = {
+  BUY: 'text-green-600 dark:text-green-400',
+  SELL: 'text-red-600 dark:text-red-400',
+  DIVIDEND: 'text-blue-600 dark:text-blue-400',
+  INTEREST: 'text-blue-600 dark:text-blue-400',
+  CAPITAL_GAIN: 'text-purple-600 dark:text-purple-400',
+  SPLIT: 'text-yellow-600 dark:text-yellow-400',
+  TRANSFER_IN: 'text-green-600 dark:text-green-400',
+  TRANSFER_OUT: 'text-red-600 dark:text-red-400',
+  REINVEST: 'text-indigo-600 dark:text-indigo-400',
+  ADD_SHARES: 'text-teal-600 dark:text-teal-400',
+  REMOVE_SHARES: 'text-orange-600 dark:text-orange-400',
 };
-
-const ACTION_OPTIONS = [
-  { value: '', label: 'All Actions' },
-  { value: 'BUY', label: 'Buy' },
-  { value: 'SELL', label: 'Sell' },
-  { value: 'DIVIDEND', label: 'Dividend' },
-  { value: 'INTEREST', label: 'Interest' },
-  { value: 'CAPITAL_GAIN', label: 'Capital Gain' },
-  { value: 'REINVEST', label: 'Reinvest' },
-  { value: 'SPLIT', label: 'Split' },
-  { value: 'TRANSFER_IN', label: 'Transfer In' },
-  { value: 'TRANSFER_OUT', label: 'Transfer Out' },
-  { value: 'ADD_SHARES', label: 'Add Shares' },
-  { value: 'REMOVE_SHARES', label: 'Remove Shares' },
-];
 
 interface InvestmentTransactionRowProps {
   tx: InvestmentTransaction;
@@ -112,10 +131,7 @@ interface InvestmentTransactionRowProps {
   formatDate: (date: string) => string;
   formatCurrency: (amount: number, currencyCode?: string, fractionDigits?: number) => string;
   formatQuantity: (value: number) => string;
-  onRowClick: (tx: InvestmentTransaction) => void;
-  onLongPressStart: (tx: InvestmentTransaction, e?: React.TouchEvent) => void;
-  onLongPressEnd: () => void;
-  onTouchMove: (e: React.TouchEvent) => void;
+  getRowHandlers: (tx: InvestmentTransaction) => LongPressRowHandlers;
   onEdit?: (tx: InvestmentTransaction) => void;
   onDeleteClick: (tx: InvestmentTransaction) => void;
   hasActions: boolean;
@@ -131,31 +147,42 @@ const InvestmentTransactionRow = memo(function InvestmentTransactionRow({
   formatDate,
   formatCurrency,
   formatQuantity,
-  onRowClick,
-  onLongPressStart,
-  onLongPressEnd,
-  onTouchMove,
+  getRowHandlers,
   onEdit,
   onDeleteClick,
   hasActions,
 }: InvestmentTransactionRowProps) {
+  const t = useTranslations('investments');
+  const tc = useTranslations('common');
+  const ACTION_LABELS: Record<string, { label: string; shortLabel: string; color: string }> = {
+    BUY: { label: t('transactionList.actionBuy'), shortLabel: t('transactionList.actionBuy'), color: ACTION_COLORS.BUY },
+    SELL: { label: t('transactionList.actionSell'), shortLabel: t('transactionList.actionSell'), color: ACTION_COLORS.SELL },
+    DIVIDEND: { label: t('transactionList.actionDividend'), shortLabel: 'Div', color: ACTION_COLORS.DIVIDEND },
+    INTEREST: { label: t('transactionList.actionInterest'), shortLabel: 'Int', color: ACTION_COLORS.INTEREST },
+    CAPITAL_GAIN: { label: t('transactionList.actionCapitalGain'), shortLabel: 'Cap', color: ACTION_COLORS.CAPITAL_GAIN },
+    SPLIT: { label: t('transactionList.actionSplit'), shortLabel: t('transactionList.actionSplit'), color: ACTION_COLORS.SPLIT },
+    TRANSFER_IN: { label: t('transactionList.actionTransferIn'), shortLabel: 'In', color: ACTION_COLORS.TRANSFER_IN },
+    TRANSFER_OUT: { label: t('transactionList.actionTransferOut'), shortLabel: 'Out', color: ACTION_COLORS.TRANSFER_OUT },
+    REINVEST: { label: t('transactionList.actionReinvest'), shortLabel: 'Reinv', color: ACTION_COLORS.REINVEST },
+    ADD_SHARES: { label: t('transactionList.actionAddShares'), shortLabel: 'Add', color: ACTION_COLORS.ADD_SHARES },
+    REMOVE_SHARES: { label: t('transactionList.actionRemoveShares'), shortLabel: 'Rem', color: ACTION_COLORS.REMOVE_SHARES },
+  };
   const actionInfo = ACTION_LABELS[tx.action] || {
     label: tx.action,
     shortLabel: tx.action,
     color: 'text-gray-600 dark:text-gray-400',
   };
 
+  const actions = buildInvestmentTxActions(
+    tx,
+    { edit: tc('actions.edit'), delete: tc('actions.delete') },
+    { onEdit, onDeleteClick },
+  );
+
   return (
     <tr
-      onClick={() => onRowClick(tx)}
-      onMouseDown={() => onLongPressStart(tx)}
-      onMouseUp={onLongPressEnd}
-      onMouseLeave={onLongPressEnd}
-      onTouchStart={(e) => onLongPressStart(tx, e)}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onLongPressEnd}
-      onTouchCancel={onLongPressEnd}
-      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} ${onEdit ? 'cursor-pointer' : ''}`}
+      {...getRowHandlers(tx)}
+      className={`group hover:bg-gray-100 dark:hover:bg-gray-800 select-none ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} ${onEdit ? 'cursor-pointer' : ''}`}
     >
       <td className={`${cellPadding} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`}>
         {formatDate(tx.transactionDate)}
@@ -202,21 +229,8 @@ const InvestmentTransactionRow = memo(function InvestmentTransactionRow({
         )}
       </td>
       {hasActions && (
-        <td className={`${cellPadding} whitespace-nowrap text-right text-sm space-x-3 hidden min-[480px]:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`}>
-          {onEdit && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-            >
-              {density === 'dense' ? '✎' : 'Edit'}
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDeleteClick(tx); }}
-            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-          >
-            {density === 'dense' ? '✕' : 'Delete'}
-          </button>
+        <td className={`${cellPadding} whitespace-nowrap text-right text-sm hidden min-[480px]:table-cell sticky right-0 ${density !== 'normal' && index % 2 === 1 ? 'bg-gray-50 dark:bg-table-stripe-dark' : 'bg-white dark:bg-gray-900'} group-hover:bg-gray-100 dark:group-hover:bg-gray-800`} onClick={(e) => e.stopPropagation()}>
+          <RowActions actions={actions} density={density} />
         </td>
       )}
     </tr>
@@ -237,7 +251,22 @@ export function InvestmentTransactionList({
   availableSymbols = [],
   viewToggle,
 }: InvestmentTransactionListProps) {
-  const { formatCurrency, numberFormat } = useNumberFormat();
+  const t = useTranslations('investments');
+  const ACTION_OPTIONS = [
+    { value: '', label: t('transactionList.allActions') },
+    { value: 'BUY', label: t('transactionList.actionBuy') },
+    { value: 'SELL', label: t('transactionList.actionSell') },
+    { value: 'DIVIDEND', label: t('transactionList.actionDividend') },
+    { value: 'INTEREST', label: t('transactionList.actionInterest') },
+    { value: 'CAPITAL_GAIN', label: t('transactionList.actionCapitalGain') },
+    { value: 'REINVEST', label: t('transactionList.actionReinvest') },
+    { value: 'SPLIT', label: t('transactionList.actionSplit') },
+    { value: 'TRANSFER_IN', label: t('transactionList.actionTransferIn') },
+    { value: 'TRANSFER_OUT', label: t('transactionList.actionTransferOut') },
+    { value: 'ADD_SHARES', label: t('transactionList.actionAddShares') },
+    { value: 'REMOVE_SHARES', label: t('transactionList.actionRemoveShares') },
+  ];
+  const { formatCurrency, formatQuantity } = useNumberFormat();
   const { formatDate } = useDateFormat();
   const { defaultCurrency } = useExchangeRates();
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a.name])), [accounts]);
@@ -259,61 +288,19 @@ export function InvestmentTransactionList({
   const [showFilters, setShowFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; transaction: InvestmentTransaction | null }>({ isOpen: false, transaction: null });
 
-  // Long-press handling for delete on mobile
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const longPressTriggered = useRef(false);
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const LONG_PRESS_MOVE_THRESHOLD = 10;
-
-  const handleLongPressStart = useCallback((transaction: InvestmentTransaction, e?: React.TouchEvent) => {
-    if (!onDelete) return;
-
-    if (e?.touches?.[0]) {
-      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else {
-      touchStartPos.current = null;
-    }
-
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setDeleteConfirm({ isOpen: true, transaction });
-    }, 750);
-  }, [onDelete]);
-
-  const handleLongPressEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    touchStartPos.current = null;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartPos.current && longPressTimer.current && e.touches?.[0]) {
-      const deltaX = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
-      const deltaY = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-      if (deltaX > LONG_PRESS_MOVE_THRESHOLD || deltaY > LONG_PRESS_MOVE_THRESHOLD) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-        touchStartPos.current = null;
-      }
-    }
-  }, []);
-
-  const handleRowClick = useCallback((transaction: InvestmentTransaction) => {
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
-      return;
-    }
-    if (onEdit) {
-      onEdit(transaction);
-    }
-  }, [onEdit]);
+  // Long-press opens a per-row action sheet on mobile (and via right-click).
+  const tc = useTranslations('common');
+  const [contextTx, setContextTx] = useState<InvestmentTransaction | null>(null);
 
   const handleDeleteClick = useCallback((tx: InvestmentTransaction) => {
     setDeleteConfirm({ isOpen: true, transaction: tx });
   }, []);
+
+  const { getRowHandlers } = useLongPress<InvestmentTransaction>({
+    onLongPress: setContextTx,
+    onClick: (transaction) => onEdit?.(transaction),
+    enabled: !!(onDelete || onEdit),
+  });
 
   const handleDeleteConfirm = useCallback(() => {
     if (deleteConfirm.transaction && onDelete) {
@@ -358,20 +345,12 @@ export function InvestmentTransactionList({
     }
   }, [density, onDensityChange]);
 
-  const formatQuantity = useCallback((value: number) => {
-    const locale = numberFormat === 'browser' ? undefined : numberFormat;
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
-    }).format(value);
-  }, [numberFormat]);
-
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-4">
         <div className="flex items-center gap-3 mb-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Recent Transactions
+            {t('transactionList.title')}
           </h3>
           {viewToggle}
         </div>
@@ -393,7 +372,7 @@ export function InvestmentTransactionList({
         <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Recent Transactions
+              {t('transactionList.title')}
             </h3>
             {viewToggle}
           </div>
@@ -402,12 +381,12 @@ export function InvestmentTransactionList({
               onClick={onNewTransaction}
               className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 sm:min-w-[14rem]"
             >
-              + New Brokerage Transaction
+              {t('transactionList.newBrokerageTransaction')}
             </button>
           )}
         </div>
         <p className="text-gray-500 dark:text-gray-400">
-          No investment transactions yet.
+          {t('transactionList.noTransactions')}
         </p>
       </div>
     );
@@ -428,15 +407,29 @@ export function InvestmentTransactionList({
     }
   };
 
+  const ACTION_LABEL_MAP: Record<string, string> = {
+    BUY: t('transactionList.actionBuy'),
+    SELL: t('transactionList.actionSell'),
+    DIVIDEND: t('transactionList.actionDividend'),
+    INTEREST: t('transactionList.actionInterest'),
+    CAPITAL_GAIN: t('transactionList.actionCapitalGain'),
+    SPLIT: t('transactionList.actionSplit'),
+    TRANSFER_IN: t('transactionList.actionTransferIn'),
+    TRANSFER_OUT: t('transactionList.actionTransferOut'),
+    REINVEST: t('transactionList.actionReinvest'),
+    ADD_SHARES: t('transactionList.actionAddShares'),
+    REMOVE_SHARES: t('transactionList.actionRemoveShares'),
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 overflow-hidden">
       <div className="px-3 pt-3 sm:px-4 sm:pt-4 flex flex-wrap justify-between items-center gap-2">
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Recent Transactions
+            {t('transactionList.title')}
             {hasActiveFilters && (
               <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                (filtered)
+                {t('transactionList.filtered')}
               </span>
             )}
           </h3>
@@ -448,8 +441,8 @@ export function InvestmentTransactionList({
             onClick={onNewTransaction}
             className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 sm:min-w-[14rem]"
           >
-            <span className="sm:hidden">+ New</span>
-            <span className="hidden sm:inline">+ New Brokerage Transaction</span>
+            <span className="sm:hidden">{t('transactionList.newBrokerageTransactionShort')}</span>
+            <span className="hidden sm:inline">{t('transactionList.newBrokerageTransaction')}</span>
           </button>
         )}
         {onFiltersChange && (
@@ -464,7 +457,7 @@ export function InvestmentTransactionList({
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter
+            {t('transactionList.filter')}
             {hasActiveFilters && (
               <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full">
                 {[filters?.symbol, filters?.action, filters?.startDate, filters?.endDate].filter(Boolean).length}
@@ -475,12 +468,12 @@ export function InvestmentTransactionList({
         <button
           onClick={cycleDensity}
           className="ml-auto inline-flex items-center px-2 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-          title="Toggle row density"
+          title={t('transactionList.densityToggleTitle')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {density === 'normal' ? 'Normal' : density === 'compact' ? 'Compact' : 'Dense'}
+          {density === 'normal' ? t('transactionList.densityNormal') : density === 'compact' ? t('transactionList.densityCompact') : t('transactionList.densityDense')}
         </button>
         </div>
       </div>
@@ -495,7 +488,7 @@ export function InvestmentTransactionList({
                 htmlFor="investment-tx-filter-symbol"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Symbol
+                {t('transactionList.symbolFilterLabel')}
               </label>
               <select
                 id="investment-tx-filter-symbol"
@@ -504,7 +497,7 @@ export function InvestmentTransactionList({
                 onChange={(e) => handleFilterChange('symbol', e.target.value)}
                 className="w-full text-sm font-sans border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">All Symbols</option>
+                <option value="">{t('transactionList.allSymbols')}</option>
                 {availableSymbols.map((symbol) => (
                   <option key={symbol} value={symbol}>{symbol}</option>
                 ))}
@@ -517,7 +510,7 @@ export function InvestmentTransactionList({
                 htmlFor="investment-tx-filter-action"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Action
+                {t('transactionList.actionFilterLabel')}
               </label>
               <select
                 id="investment-tx-filter-action"
@@ -536,12 +529,12 @@ export function InvestmentTransactionList({
                 pairing it with a manual onChange caused the user's date
                 format preference to be ignored on these two inputs. */}
             <DateInput
-              label="From"
+              label={t('transactionList.fromDateLabel')}
               value={filters?.startDate || ''}
               onDateChange={(date) => handleFilterChange('startDate', date)}
             />
             <DateInput
-              label="To"
+              label={t('transactionList.toDateLabel')}
               value={filters?.endDate || ''}
               onDateChange={(date) => handleFilterChange('endDate', date)}
             />
@@ -554,7 +547,7 @@ export function InvestmentTransactionList({
                 onClick={clearFilters}
                 className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
               >
-                Clear Filters
+                {t('transactionList.clearFilters')}
               </button>
             </div>
           )}
@@ -570,29 +563,29 @@ export function InvestmentTransactionList({
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Date
+                {t('transactionList.dateColumn')}
               </th>
               <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell`}>
-                Account
+                {t('transactionList.accountColumn')}
               </th>
               <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Action
+                {t('transactionList.actionColumn')}
               </th>
               <th className={`${headerPadding} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Symbol
+                {t('transactionList.symbolColumn')}
               </th>
               <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
-                Shares
+                {t('transactionList.sharesColumn')}
               </th>
               <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell`}>
-                Price
+                {t('transactionList.priceColumn')}
               </th>
               <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Total
+                {t('transactionList.totalColumn')}
               </th>
               {(onDelete || onEdit) && (
                 <th className={`${headerPadding} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden min-[480px]:table-cell sticky right-0 bg-gray-50 dark:bg-gray-800`}>
-                  Actions
+                  {t('transactionList.actionsColumn')}
                 </th>
               )}
             </tr>
@@ -601,7 +594,7 @@ export function InvestmentTransactionList({
             {transactions.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                  No transactions match your filters.
+                  {t('transactionList.noTransactionsFiltered')}
                 </td>
               </tr>
             ) : transactions.map((tx, index) => {
@@ -613,7 +606,7 @@ export function InvestmentTransactionList({
                       <td colSpan={colCount} className="px-0 py-0">
                         <div className="flex items-center gap-3 px-4 py-1.5">
                           <div className="flex-1 border-t border-blue-300 dark:border-blue-700" />
-                          <span className="text-xs font-medium text-blue-500 dark:text-blue-400 uppercase tracking-wider whitespace-nowrap">Today</span>
+                          <span className="text-xs font-medium text-blue-500 dark:text-blue-400 uppercase tracking-wider whitespace-nowrap">{t('transactionList.today')}</span>
                           <div className="flex-1 border-t border-blue-300 dark:border-blue-700" />
                         </div>
                       </td>
@@ -629,10 +622,7 @@ export function InvestmentTransactionList({
                     formatDate={formatDate}
                     formatCurrency={formatCurrency}
                     formatQuantity={formatQuantity}
-                    onRowClick={handleRowClick}
-                    onLongPressStart={handleLongPressStart}
-                    onLongPressEnd={handleLongPressEnd}
-                    onTouchMove={handleTouchMove}
+                    getRowHandlers={getRowHandlers}
                     onEdit={onEdit}
                     onDeleteClick={handleDeleteClick}
                     hasActions={!!(onDelete || onEdit)}
@@ -647,15 +637,32 @@ export function InvestmentTransactionList({
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
-        title="Delete Transaction"
+        title={t('transactionList.deleteTitle')}
         message={deleteConfirm.transaction
-          ? `Are you sure you want to delete this ${ACTION_LABELS[deleteConfirm.transaction.action]?.label || deleteConfirm.transaction.action} transaction${deleteConfirm.transaction.security ? ` for ${deleteConfirm.transaction.security.symbol}` : ''}?`
-          : 'Are you sure you want to delete this transaction?'}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+          ? t('transactionList.deleteConfirmMessage', {
+              action: ACTION_LABEL_MAP[deleteConfirm.transaction.action] || deleteConfirm.transaction.action,
+              security: deleteConfirm.transaction.security ? ` for ${deleteConfirm.transaction.security.symbol}` : '',
+            })
+          : t('transactionList.deleteConfirmGeneric')}
+        confirmLabel={t('transactionList.deleteConfirmLabel')}
+        cancelLabel={t('transactionList.cancelLabel')}
         variant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+
+      <RowActionSheet
+        isOpen={!!contextTx}
+        title={contextTx?.security?.symbol ?? (contextTx ? ACTION_LABEL_MAP[contextTx.action] || contextTx.action : '')}
+        subtitle={contextTx ? formatDate(contextTx.transactionDate) : undefined}
+        actions={contextTx
+          ? buildInvestmentTxActions(
+              contextTx,
+              { edit: tc('actions.edit'), delete: tc('actions.delete') },
+              { onEdit, onDeleteClick: handleDeleteClick },
+            )
+          : []}
+        onClose={() => setContextTx(null)}
       />
     </div>
   );

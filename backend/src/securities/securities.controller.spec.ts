@@ -41,6 +41,9 @@ describe("SecuritiesController", () => {
       activate: jest.fn(),
       remove: jest.fn(),
       getSecurityIdsWithTransactions: jest.fn(),
+      getFavouriteSecurities: jest.fn(),
+      getSuggestedDescription: jest.fn(),
+      getCountryOptions: jest.fn(),
     };
 
     securityPriceService = {
@@ -48,6 +51,7 @@ describe("SecuritiesController", () => {
       refreshAllPrices: jest.fn(),
       refreshPricesForSecurities: jest.fn(),
       backfillHistoricalPrices: jest.fn(),
+      backfillSecurityHoldingPeriod: jest.fn(),
       backfillTransactionPrices: jest.fn(),
       getLastUpdateTime: jest.fn(),
       getPriceHistory: jest.fn(),
@@ -278,6 +282,22 @@ describe("SecuritiesController", () => {
     });
   });
 
+  describe("getCountryOptions", () => {
+    it("delegates to securitiesService.getCountryOptions with userId", async () => {
+      securitiesService.getCountryOptions.mockResolvedValue([
+        "Canada",
+        "United States",
+      ]);
+
+      const result = await controller.getCountryOptions(req);
+
+      expect(securitiesService.getCountryOptions).toHaveBeenCalledWith(
+        "user-1",
+      );
+      expect(result).toEqual(["Canada", "United States"]);
+    });
+  });
+
   describe("findBySymbol", () => {
     it("delegates to securitiesService.findBySymbol with userId and symbol", async () => {
       securitiesService.findBySymbol.mockResolvedValue(mockSecurity);
@@ -349,6 +369,31 @@ describe("SecuritiesController", () => {
       await controller.remove(req, "sec-1");
 
       expect(securitiesService.remove).toHaveBeenCalledWith("user-1", "sec-1");
+    });
+  });
+
+  describe("getFavourites", () => {
+    it("delegates to securitiesService.getFavouriteSecurities", async () => {
+      const favourites = [
+        {
+          securityId: "sec-1",
+          symbol: "AAPL",
+          name: "Apple Inc.",
+          currencyCode: "USD",
+          currentPrice: 110,
+          previousPrice: 100,
+          dailyChange: 10,
+          dailyChangePercent: 10,
+        },
+      ];
+      securitiesService.getFavouriteSecurities.mockResolvedValue(favourites);
+
+      const result = await controller.getFavourites(req);
+
+      expect(securitiesService.getFavouriteSecurities).toHaveBeenCalledWith(
+        "user-1",
+      );
+      expect(result).toEqual(favourites);
     });
   });
 
@@ -465,6 +510,74 @@ describe("SecuritiesController", () => {
 
       expect(securityPriceService.backfillHistoricalPrices).toHaveBeenCalled();
       expect(result).toEqual(summary);
+    });
+  });
+
+  describe("backfillSecurityPrices", () => {
+    it("delegates to backfillSecurityHoldingPeriod and recalculates accounts when prices loaded", async () => {
+      const result = {
+        symbol: "AAPL",
+        success: true,
+        pricesLoaded: 250,
+        provider: "yahoo" as const,
+      };
+      securityPriceService.backfillSecurityHoldingPeriod.mockResolvedValue(
+        result,
+      );
+
+      const response = await controller.backfillSecurityPrices(req, "sec-1");
+
+      expect(
+        securityPriceService.backfillSecurityHoldingPeriod,
+      ).toHaveBeenCalledWith("user-1", "sec-1");
+      expect(response).toEqual(result);
+      // Fire-and-forget recalc runs in the background.
+      await Promise.resolve();
+      expect(netWorthService.recalculateAllAccounts).toHaveBeenCalledWith(
+        "user-1",
+      );
+    });
+
+    it("does not recalculate when no prices were loaded", async () => {
+      securityPriceService.backfillSecurityHoldingPeriod.mockResolvedValue({
+        symbol: "AAPL",
+        success: true,
+        pricesLoaded: 0,
+        provider: "yahoo",
+      });
+
+      await controller.backfillSecurityPrices(req, "sec-1");
+
+      expect(netWorthService.recalculateAllAccounts).not.toHaveBeenCalled();
+    });
+
+    it("does not recalculate when the backfill failed", async () => {
+      securityPriceService.backfillSecurityHoldingPeriod.mockResolvedValue({
+        symbol: "AAPL",
+        success: false,
+        error: "No historical data available",
+      });
+
+      const response = await controller.backfillSecurityPrices(req, "sec-1");
+
+      expect(response.success).toBe(false);
+      expect(netWorthService.recalculateAllAccounts).not.toHaveBeenCalled();
+    });
+
+    it("swallows background recalculation errors", async () => {
+      securityPriceService.backfillSecurityHoldingPeriod.mockResolvedValue({
+        symbol: "AAPL",
+        success: true,
+        pricesLoaded: 10,
+        provider: "yahoo",
+      });
+      netWorthService.recalculateAllAccounts.mockRejectedValue(
+        new Error("recalc failed"),
+      );
+
+      await expect(
+        controller.backfillSecurityPrices(req, "sec-1"),
+      ).resolves.toBeDefined();
     });
   });
 
@@ -772,6 +885,37 @@ describe("SecuritiesController", () => {
 
       expect(securitiesService.findOne).toHaveBeenCalledWith("user-1", "sec-1");
       expect(securityPriceService.deletePrice).toHaveBeenCalledWith("sec-1", 9);
+    });
+  });
+
+  describe("suggestDescription", () => {
+    it("delegates to the service with the trimmed symbol and exchange", async () => {
+      securitiesService.getSuggestedDescription.mockResolvedValue({
+        symbol: "AGGG",
+        description: "Bond ETF.",
+      });
+
+      const result = await controller.suggestDescription("AGGG", "LSE");
+
+      expect(securitiesService.getSuggestedDescription).toHaveBeenCalledWith(
+        "AGGG",
+        "LSE",
+      );
+      expect(result).toEqual({ symbol: "AGGG", description: "Bond ETF." });
+    });
+
+    it("passes undefined when no exchange is given", async () => {
+      securitiesService.getSuggestedDescription.mockResolvedValue({
+        symbol: "AAPL",
+        description: null,
+      });
+
+      await controller.suggestDescription("AAPL");
+
+      expect(securitiesService.getSuggestedDescription).toHaveBeenCalledWith(
+        "AAPL",
+        undefined,
+      );
     });
   });
 });

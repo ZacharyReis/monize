@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, within } from '@testing-library/react';
 import { render, screen, fireEvent, waitFor } from '@/test/render';
 import { PreferencesSection } from './PreferencesSection';
 import { UserPreferences } from '@/types/auth';
@@ -50,6 +50,7 @@ const mockPreferences: UserPreferences = {
   numberFormat: 'en-US',
   timezone: 'UTC',
   theme: 'system',
+  colorTheme: 'default',
   defaultCurrency: 'CAD',
   notificationEmail: false,
   notificationBrowser: false,
@@ -65,6 +66,8 @@ const mockPreferences: UserPreferences = {
   defaultQuoteProvider: 'yahoo' as const,
   recentTransactionsLimit: 5,
   forecastLookbackMonths: 3,
+  aiBubbleEnabled: false,
+  language: 'en',
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
 };
@@ -214,9 +217,34 @@ describe('PreferencesSection', () => {
     fireEvent.focus(timezoneInput);
 
     await waitFor(() => {
-      const browserOption = screen.getByText(/auto-detected as/);
+      // Scope to the timezone phrasing: the language selector's "use browser
+      // locale" option also contains "auto-detected as".
+      const browserOption = screen.getByText(/browser timezone \(auto-detected as/);
       expect(browserOption).toBeInTheDocument();
     });
+  });
+
+  it('shows the detected sample in the number-format browser option', async () => {
+    await act(async () => {
+      render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
+    });
+
+    // The number-format browser option is the only "Use browser locale" entry
+    // whose detected value is a number sample (the language option shows a name).
+    const option = screen.getByText(/Use browser locale \(auto-detected as [\d.,\s]+\)/);
+    expect(option).toBeInTheDocument();
+  });
+
+  it('shows the detected sample in the date-format browser option', async () => {
+    await act(async () => {
+      render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
+    });
+
+    // Scope to the Date Format select so the date sample is unambiguous among
+    // the other "auto-detected as" options (timezone, language, number format).
+    const dateSelect = screen.getByLabelText('Date Format');
+    const browserOption = within(dateSelect).getByText(/auto-detected as/);
+    expect(browserOption).toBeInTheDocument();
   });
 
   it('allows searching for timezones by typing', async () => {
@@ -254,19 +282,62 @@ describe('PreferencesSection', () => {
     });
   });
 
-  it('sends updated theme when changed and saved', async () => {
+  it('persists the theme immediately on change, without waiting for save', async () => {
     (userSettingsApi.updatePreferences as ReturnType<typeof vi.fn>).mockResolvedValue(mockPreferences);
 
     render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
 
-    fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'dark' } });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'dark' } });
+    });
+
+    await waitFor(() => {
+      expect(userSettingsApi.updatePreferences).toHaveBeenCalledWith({ theme: 'dark' });
+    });
+  });
+
+  it('does not include theme in the bulk Save Preferences payload', async () => {
+    (userSettingsApi.updatePreferences as ReturnType<typeof vi.fn>).mockResolvedValue(mockPreferences);
+
+    render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
+
     fireEvent.click(screen.getByRole('button', { name: 'Save Preferences' }));
 
     await waitFor(() => {
-      expect(userSettingsApi.updatePreferences).toHaveBeenCalledWith(
-        expect.objectContaining({ theme: 'dark' })
-      );
+      expect(userSettingsApi.updatePreferences).toHaveBeenCalled();
     });
+    expect(userSettingsApi.updatePreferences).toHaveBeenCalledWith(
+      expect.not.objectContaining({ theme: expect.anything() }),
+    );
+  });
+
+  it('persists the colour theme immediately on change, without waiting for save', async () => {
+    (userSettingsApi.updatePreferences as ReturnType<typeof vi.fn>).mockResolvedValue(mockPreferences);
+
+    render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Colour theme'), { target: { value: 'latte' } });
+    });
+
+    await waitFor(() => {
+      expect(userSettingsApi.updatePreferences).toHaveBeenCalledWith({ colorTheme: 'latte' });
+    });
+  });
+
+  it('does not include colorTheme in the bulk Save Preferences payload', async () => {
+    (userSettingsApi.updatePreferences as ReturnType<typeof vi.fn>).mockResolvedValue(mockPreferences);
+
+    render(<PreferencesSection preferences={mockPreferences} onPreferencesUpdated={mockOnPreferencesUpdated} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Preferences' }));
+
+    await waitFor(() => {
+      expect(userSettingsApi.updatePreferences).toHaveBeenCalled();
+    });
+    expect(userSettingsApi.updatePreferences).toHaveBeenCalledWith(
+      expect.not.objectContaining({ colorTheme: expect.anything() }),
+    );
   });
 
   it('renders the Week starts on dropdown', async () => {

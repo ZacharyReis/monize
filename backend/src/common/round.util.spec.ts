@@ -1,4 +1,35 @@
-import { roundToDecimals } from "./round.util";
+import {
+  roundToDecimals,
+  roundMoney,
+  sumMoney,
+  toMoneyNumber,
+} from "./round.util";
+
+describe("toMoneyNumber", () => {
+  it("parses a decimal SQL string to a number", () => {
+    expect(toMoneyNumber("12.3400")).toBe(12.34);
+  });
+
+  it("maps null/undefined/empty to 0", () => {
+    expect(toMoneyNumber(null)).toBe(0);
+    expect(toMoneyNumber(undefined)).toBe(0);
+    expect(toMoneyNumber("")).toBe(0);
+  });
+
+  it("maps non-numeric garbage to 0 (unlike parseFloat)", () => {
+    expect(toMoneyNumber("abc")).toBe(0);
+    // parseFloat("12.34abc") would be 12.34; Number() rejects it -> 0
+    expect(toMoneyNumber("12.34abc")).toBe(0);
+  });
+
+  it("rounds to 4dp money precision", () => {
+    expect(toMoneyNumber(1.234567)).toBe(1.2346);
+  });
+
+  it("passes through plain numbers", () => {
+    expect(toMoneyNumber(42)).toBe(42);
+  });
+});
 
 describe("roundToDecimals", () => {
   describe("basic rounding", () => {
@@ -81,5 +112,73 @@ describe("roundToDecimals", () => {
       expect(roundToDecimals(1.2345, 3)).toBe(1.235);
       expect(roundToDecimals(1.2344, 3)).toBe(1.234);
     });
+
+    it("handles tiny magnitudes that stringify in exponential notation", () => {
+      // toString() would give "1e-7", and "1e-7e8" parses to NaN; the
+      // exponential decomposition handles it.
+      expect(roundToDecimals(1e-7, 8)).toBe(1e-7);
+      expect(roundToDecimals(1.2345e-5, 8)).toBe(0.00001235);
+      expect(roundToDecimals(8e-7, 6)).toBe(0.000001);
+      expect(roundToDecimals(-1e-7, 8)).toBe(-1e-7);
+    });
+
+    it("rounds tiny magnitudes to zero at coarser precision", () => {
+      expect(roundToDecimals(1e-7, 4)).toBe(0);
+      expect(roundToDecimals(8e-7, 4)).toBe(0);
+    });
+
+    it("handles zero without producing -0 or NaN", () => {
+      expect(roundToDecimals(0, 4)).toBe(0);
+      expect(Object.is(roundToDecimals(0, 4), 0)).toBe(true);
+    });
+  });
+});
+
+describe("roundMoney", () => {
+  it("rounds to 4 decimal places (storage precision)", () => {
+    expect(roundMoney(1.23456)).toBe(1.2346);
+    expect(roundMoney(1.23454)).toBe(1.2345);
+    expect(roundMoney(1000)).toBe(1000);
+    expect(roundMoney(17.99)).toBe(17.99);
+  });
+
+  it("preserves sub-cent precision that 2dp rounding would lose", () => {
+    expect(roundMoney(1234.5678)).toBe(1234.5678);
+    expect(roundMoney(0.0001)).toBe(0.0001);
+  });
+
+  it("rounds half away from zero, fixing IEEE 754 midpoints", () => {
+    // 10 * 1.59735 = 15.9735 mathematically; naive *10000 would drop the digit
+    expect(roundMoney(1.23455)).toBe(1.2346);
+    expect(roundMoney(-1.23455)).toBe(-1.2346);
+  });
+
+  it("passes through non-finite values", () => {
+    expect(roundMoney(Infinity)).toBe(Infinity);
+    expect(roundMoney(NaN)).toBeNaN();
+  });
+});
+
+describe("sumMoney", () => {
+  it("sums without floating-point drift", () => {
+    expect(sumMoney([0.1, 0.2])).toBe(0.3);
+    expect(sumMoney([10.0001, 20.0002])).toBe(30.0003);
+  });
+
+  it("returns 0 for an empty array", () => {
+    expect(sumMoney([])).toBe(0);
+  });
+
+  it("matches a careful reduce over many sub-cent values", () => {
+    const values = Array.from({ length: 1000 }, () => 0.0001);
+    expect(sumMoney(values)).toBe(0.1);
+  });
+
+  it("handles negative values", () => {
+    expect(sumMoney([100, -33.33, -33.33, -33.34])).toBe(0);
+  });
+
+  it("ignores non-finite entries", () => {
+    expect(sumMoney([1.5, NaN, 2.5, Infinity])).toBe(4);
   });
 });

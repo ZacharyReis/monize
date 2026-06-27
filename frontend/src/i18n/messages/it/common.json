@@ -1,0 +1,179 @@
+{
+  "chartFlag": {
+    "dismiss": "Nascondi questo valore"
+  },
+  "appVersion": {
+    "releaseNotes": "Visualizza le note di rilascio della v{version}"
+  },
+  "save": "Salva",
+  "cancel": "Annulla",
+  "delete": "Elimina",
+  "edit": "Modifica",
+  "close": "Chiudi",
+  "actions": {
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "view": "Visualizza",
+    "duplicate": "Duplica",
+    "merge": "Unisci",
+    "reactivate": "Riattiva",
+    "reconcile": "Riconcilia",
+    "post": "Registra",
+    "skip": "Salta",
+    "close": "Chiudi",
+    "reopen": "Riapri",
+    "scheduleRecurring": "Rendi ricorrente",
+    "more": "Altre azioni"
+  },
+  "loading": "Caricamento...",
+  "pagination": {
+    "showing": "Visualizzazione",
+    "of": "di",
+    "firstPage": "Prima pagina",
+    "lastPage": "Ultima pagina",
+    "previousPage": "Pagina precedente",
+    "nextPage": "Pagina successiva",
+    "back10Pages": "Indietro di 10 pagine",
+    "forward10Pages": "Avanti di 10 pagine",
+    "enterPageNumber": "Inserisci numero pagina"
+  },
+  "confirmDialog": {
+    "confirm": "Conferma"
+  },
+  "unsavedChanges": {
+    "title": "Modifiche non salvate",
+    "message": "Hai modifiche non salvate. Cosa vuoi fare?",
+    "discard": "Ignora"
+  },
+  "exportDropdown": {
+    "export": "Esporta",
+    "exporting": "Esportazione...",
+    "exportPdf": "Esporta PDF",
+    "exportReport": "Esporta report",
+    "failedPdf": "Esportazione PDF non riuscita. Riprova."
+  },
+  "dateRange": {
+    "custom": "Personalizzato",
+    "startDate": "Data inizio",
+    "endDate": "Data fine"
+  },
+  "colorPicker": {
+    "custom": "Personalizzato:",
+    "apply": "Applica"
+  },
+  "chartDownload": {
+    "downloadAsPng": "Scarica {filename} come PNG",
+    "unableToCapture": "Impossibile acquisire l'immagine del grafico",
+    "failedToDownload": "Download del grafico non riuscito"
+  },
+  "chartViewToggle": {
+    "pieChart": "Grafico a torta",
+    "barChart": "Grafico a barre",
+    "stackedChart": "Grafico a barre impilate 100%",
+    "lineChart": "Grafico a linee",
+    "areaChart": "Grafico ad area",
+    "table": "Tabella"
+  },
+  "formActions": {
+    "cancel": "Annulla",
+    "save": "Salva"
+  },
+  "themeToggle": {
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema",
+    "title": "Tema: {label}. Clicca per cambiare."
+  },
+  "errorPage": {
+    "title": "Qualcosa è andato storto",
+    "description": "Si è verificato un errore imprevisto. Riprova o contatta l'assistenza se il problema persiste.",
+    "errorId": "ID errore: {digest}",
+    "tryAgain": "Riprova",
+    "goToDashboard": "Vai al pannello di controllo"
+  },
+  "errorBoundary": {
+    "defaultMessage": "Si è verificato un errore durante il rendering di questo componente."
+  },
+  "calendar": {
+    "clear": "Cancella",
+    "today": "Oggi"
+  },
+  "multiSelect": {
+    "search": "Cerca...",
+    "selectAll": "Seleziona tutto",
+    "clear": "Cancella",
+    "noOptions": "Nessuna opzione trovata",
+    "selectedCount": "{count} selezionati"
+  },
+  "combobox": {
+    "createOption": "Crea \"{value}\""
+  },
+  "passwordInput": {
+    "show": "Mostra input",
+    "hide": "Nascondi input"
+  },
+  "currencyInput": {
+    "openCalculator": "Apri calcolatrice",
+    "calculator": "Calcolatrice",
+    "toggleSign": "Cambia segno"
+  },
+  "dateInput": {
+    "shortcutsTitle": "Scorciatoie da tastiera",
+    "today": "Oggi",
+    "firstDayOfYear": "Primo giorno dell'anno",
+    "lastDayOfYear": "Ultimo giorno dell'anno",
+    "firstDayOfMonth": "Primo giorno del mese",
+    "lastDayOfMonth": "Ultimo giorno del mese",
+    "nextDay": "Giorno successivo",
+    "previousDay": "Giorno precedente",
+    "nextMonth": "Mese successivo",
+    "previousMonth": "Mese precedente"
+  },
+  "accountTypes": {
+    "CHEQUING": "Conto corrente",
+    "SAVINGS": "Conto di risparmio",
+    "CREDIT_CARD": "Carta di credito",
+    "INVESTMENT": "Investimento",
+    "LOAN": "Prestito",
+    "MORTGAGE": "Mutuo",
+    "CASH": "Contanti",
+    "LINE_OF_CREDIT": "Linea di credito",
+    "ASSET": "Attività",
+    "OTHER": "Altro"
+  },
+  "accountFilter": {
+    "allAccounts": "Tutti i conti",
+    "allBut": "Tutti tranne {names}"
+  },
+  "passwordRequirements": "La password deve contenere almeno 12 caratteri e includere una lettera maiuscola, una lettera minuscola, un numero e un carattere speciale.",
+  "passwordValidation": {
+    "min": "La password deve contenere almeno 12 caratteri",
+    "max": "La password deve contenere al massimo 100 caratteri",
+    "lowercase": "Deve contenere una lettera minuscola",
+    "uppercase": "Deve contenere una lettera maiuscola",
+    "number": "Deve contenere un numero",
+    "special": "Deve contenere un carattere speciale"
+  },
+  "codeValidation": {
+    "length": "Il codice deve essere esattamente di 6 cifre",
+    "digits": "Il codice deve essere di 6 cifre"
+  },
+  "monthsShort": ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"],
+  "weekdaysShort": ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
+  "weekdaysMin": ["Do", "Lu", "Ma", "Me", "Gi", "Ve", "Sa"],
+  "weekdaysNarrow": ["D", "L", "M", "M", "G", "V", "S"],
+  "dateFormat": {
+    "browserAuto": "Usa localizzazione del browser (rilevata automaticamente: {sample})",
+    "custom": "Personalizzato..."
+  },
+  "emailInvalid": "Inserisci un indirizzo email valido",
+  "noSectionAccess": "Non hai accesso a questa sezione.",
+  "undoRedo": {
+    "nothingToUndo": "Niente da annullare",
+    "cannotUndo": "Impossibile annullare questa azione",
+    "undoFailed": "Annullamento non riuscito",
+    "nothingToRedo": "Niente da ripristinare",
+    "cannotRedo": "Impossibile ripristinare questa azione",
+    "redoFailed": "Ripristino non riuscito"
+  }
+}

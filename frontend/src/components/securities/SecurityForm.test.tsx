@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/render';
+import { render, screen, fireEvent, waitFor, act } from '@/test/render';
 import { SecurityForm } from './SecurityForm';
 import { Security } from '@/types/investment';
 import { investmentsApi } from '@/lib/investments';
@@ -36,6 +36,22 @@ vi.mock('@/lib/investments', () => ({
       yahoo: { ready: true },
       msn: { ready: true },
     }),
+    getSuggestedDescription: vi
+      .fn()
+      .mockResolvedValue({ symbol: 'AAPL', description: null }),
+    getCountryOptions: vi
+      .fn()
+      .mockResolvedValue(['United States', 'Canada']),
+  },
+}));
+
+vi.mock('@/lib/tags', () => ({
+  tagsApi: {
+    getAll: vi.fn().mockResolvedValue([
+      { id: 'tag-1', userId: 'u1', name: 'AI', color: '#abcdef', icon: null, createdAt: '', updatedAt: '' },
+      { id: 'tag-2', userId: 'u1', name: 'Bonds', color: null, icon: null, createdAt: '', updatedAt: '' },
+    ]),
+    create: vi.fn(),
   },
 }));
 
@@ -61,10 +77,12 @@ function createSecurity(overrides: Partial<Security> = {}): Security {
     exchange: 'NASDAQ',
     currencyCode: 'USD',
     isActive: true,
+    isFavourite: false,
     skipPriceUpdates: false,
     sector: null,
     industry: null,
     sectorWeightings: null,
+    countryWeightings: null,
     quoteProvider: null,
     msnInstrumentId: null,
     createdAt: '2025-01-01T00:00:00Z',
@@ -132,6 +150,23 @@ describe('SecurityForm', () => {
       expect(screen.getByDisplayValue('XEQT')).toBeInTheDocument();
     });
     expect(screen.getByDisplayValue('iShares Core Equity ETF')).toBeInTheDocument();
+  });
+
+  it('shows the security\'s own currency when editing, not the user base currency', async () => {
+    // Base currency is CAD (useNumberFormat mock); this security is in USD.
+    // Currencies load asynchronously, so the controlled select must still
+    // reflect the security's value once the options arrive (regression test).
+    const security = createSecurity({ currencyCode: 'USD' });
+
+    render(<SecurityForm security={security} onSubmit={onSubmit} onCancel={onCancel} />);
+
+    await waitFor(() => {
+      expect(exchangeRatesApi.getCurrencies).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      const currencySelect = screen.getByLabelText('Currency') as HTMLSelectElement;
+      expect(currencySelect.value).toBe('USD');
+    });
   });
 
   it('shows Lookup button for new security form', async () => {
@@ -299,6 +334,31 @@ describe('SecurityForm', () => {
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalled();
     });
+  });
+
+  it('defaults a new security to not favourite and can toggle it on before submit', async () => {
+    render(<SecurityForm onSubmit={onSubmit} onCancel={onCancel} />);
+
+    fireEvent.change(screen.getByLabelText('Symbol'), { target: { value: 'MSFT' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Microsoft Corporation' } });
+
+    // Star starts as "Add to favourites"; click it to mark favourite.
+    fireEvent.click(screen.getByTitle('Add to favourites'));
+    expect(screen.getByTitle('Remove from favourites')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Create Security'));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ isFavourite: true }));
+    });
+  });
+
+  it('shows an existing favourite security as already starred', async () => {
+    const security = createSecurity({ isFavourite: true });
+    render(<SecurityForm security={security} onSubmit={onSubmit} onCancel={onCancel} />);
+    expect(screen.getByTitle('Remove from favourites')).toBeInTheDocument();
+    // Flush the async state update on mount so it is wrapped in act().
+    await act(async () => {});
   });
 
   it('shows validation error when symbol is empty', async () => {
@@ -552,6 +612,228 @@ describe('SecurityForm', () => {
 
     await waitFor(() => {
       expect(investmentsApi.lookupSecurityCandidates).toHaveBeenCalledWith('Apple Inc', undefined, 'auto');
+    });
+  });
+
+  describe('description and tags', () => {
+    it('renders the description field and tag picker', async () => {
+      render(<SecurityForm onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Description')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Tags')).toBeInTheDocument();
+    });
+
+    it('populates the description from the provider during Lookup', async () => {
+      (investmentsApi.lookupSecurityCandidates as any).mockResolvedValue([
+        {
+          symbol: 'AAPL',
+          name: 'Apple Inc.',
+          exchange: 'NASDAQ',
+          securityType: 'STOCK',
+          currencyCode: 'USD',
+          provider: 'yahoo',
+          msnInstrumentId: null,
+        },
+      ]);
+      (investmentsApi.getSuggestedDescription as any).mockResolvedValue({
+        symbol: 'AAPL',
+        description: 'Apple Inc. designs smartphones.',
+      });
+      render(<SecurityForm onSubmit={onSubmit} onCancel={onCancel} />);
+
+      fireEvent.change(screen.getByLabelText('Symbol'), { target: { value: 'AAPL' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Lookup'));
+      });
+
+      await waitFor(() => {
+        expect(investmentsApi.getSuggestedDescription).toHaveBeenCalledWith('AAPL', 'NASDAQ');
+      });
+      const textarea = screen.getByPlaceholderText(
+        'Notes about this security.',
+      ) as HTMLTextAreaElement;
+      await waitFor(() => {
+        expect(textarea.value).toBe('Apple Inc. designs smartphones.');
+      });
+    });
+
+    it('submits the description and tag IDs', async () => {
+      render(<SecurityForm onSubmit={onSubmit} onCancel={onCancel} />);
+
+      fireEvent.change(screen.getByLabelText('Symbol'), { target: { value: 'MSFT' } });
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Microsoft' } });
+      fireEvent.change(
+        screen.getByPlaceholderText(
+          'Notes about this security.',
+        ),
+        { target: { value: 'A software company.' } },
+      );
+
+      fireEvent.click(screen.getByText('Create Security'));
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description: 'A software company.',
+            tagIds: [],
+          }),
+        );
+      });
+    });
+
+    it('pre-fills description and selected tags when editing', async () => {
+      const security = createSecurity({
+        description: 'Existing notes.',
+        tags: [
+          { id: 'tag-1', userId: 'u1', name: 'AI', color: '#abcdef', icon: null, createdAt: '', updatedAt: '' },
+        ],
+      });
+      render(<SecurityForm security={security} onSubmit={onSubmit} onCancel={onCancel} />);
+
+      await waitFor(() => {
+        const textarea = screen.getByPlaceholderText(
+          'Notes about this security.',
+        ) as HTMLTextAreaElement;
+        expect(textarea.value).toBe('Existing notes.');
+      });
+
+      fireEvent.click(screen.getByText('Update Security'));
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({ tagIds: ['tag-1'] }),
+        );
+      });
+    });
+  });
+
+  describe('country allocation', () => {
+    it('hides the country allocation editor for non-fund securities', async () => {
+      const stock = createSecurity({ securityType: 'STOCK' });
+      render(<SecurityForm security={stock} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('AAPL')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Geographical Allocation')).not.toBeInTheDocument();
+    });
+
+    it('shows and prefills the country allocation editor for an ETF', async () => {
+      const etf = createSecurity({
+        securityType: 'ETF',
+        countryWeightings: [
+          { name: 'United States', weight: 0.6 },
+          { name: 'Canada', weight: 0.25 },
+        ],
+      });
+      render(<SecurityForm security={etf} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Geographical Allocation')).toBeInTheDocument();
+      });
+      // Stored decimals are shown as percentages.
+      expect(screen.getByDisplayValue('60')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('25')).toBeInTheDocument();
+    });
+
+    it('does not surface a provider "Other" slice as a country row', async () => {
+      const etf = createSecurity({
+        securityType: 'ETF',
+        countryWeightings: [
+          { name: 'United States', weight: 0.6 },
+          { name: 'Other', weight: 0.1 },
+        ],
+      });
+      render(<SecurityForm security={etf} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Geographical Allocation')).toBeInTheDocument();
+      });
+      // The real country shows as an editable row...
+      expect(screen.getByDisplayValue('60')).toBeInTheDocument();
+      // ...but the provider "Other" (10) is not rendered as its own row.
+      expect(screen.queryByDisplayValue('10')).not.toBeInTheDocument();
+    });
+
+    it('submits the country allocation back as decimals (0-1)', async () => {
+      const etf = createSecurity({
+        securityType: 'ETF',
+        countryWeightings: [{ name: 'United States', weight: 0.6 }],
+      });
+      render(<SecurityForm security={etf} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Geographical Allocation')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Update Security'));
+      });
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            countryWeightings: [{ name: 'United States', weight: 0.6 }],
+          }),
+        );
+      });
+    });
+
+    it('offers custom countries fetched from the backend in the picker', async () => {
+      (investmentsApi.getCountryOptions as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(['Canada', 'Iceland', 'United States']);
+      const etf = createSecurity({
+        securityType: 'ETF',
+        countryWeightings: [{ name: 'United States', weight: 0.6 }],
+      });
+      render(<SecurityForm security={etf} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Geographical Allocation')).toBeInTheDocument();
+      });
+      expect(investmentsApi.getCountryOptions).toHaveBeenCalled();
+
+      // Opening the row's combobox surfaces the user's custom country.
+      const countryInput = screen.getByDisplayValue('United States');
+      await act(async () => {
+        fireEvent.focus(countryInput);
+      });
+      expect(screen.getByText('Iceland')).toBeInTheDocument();
+    });
+
+    it('submits a custom country typed straight into a new row', async () => {
+      const etf = createSecurity({ securityType: 'ETF', countryWeightings: [] });
+      render(<SecurityForm security={etf} onSubmit={onSubmit} onCancel={onCancel} />);
+      await waitFor(() => {
+        expect(screen.getByText('Geographical Allocation')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Add country'));
+      });
+
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText('Country'), {
+          target: { value: 'Narnia' },
+        });
+      });
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText('Percentage'), {
+          target: { value: '50' },
+        });
+      });
+
+      // Mousedown commits the typed custom value; the click then submits the form.
+      const submit = screen.getByText('Update Security');
+      await act(async () => {
+        fireEvent.mouseDown(submit);
+      });
+      await act(async () => {
+        fireEvent.click(submit);
+      });
+
+      await waitFor(() => {
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            countryWeightings: [{ name: 'Narnia', weight: 0.5 }],
+          }),
+        );
+      });
     });
   });
 });

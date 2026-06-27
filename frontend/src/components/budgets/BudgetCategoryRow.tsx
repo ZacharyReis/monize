@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { BudgetProgressBar } from './BudgetProgressBar';
 import type { CategoryBreakdown } from '@/types/budget';
 
@@ -12,18 +13,11 @@ interface BudgetCategoryRowProps {
   onClick?: () => void;
 }
 
-function getPaceLabel(percentUsed: number, pacePercent: number): {
-  text: string;
-  className: string;
-} {
+function getPaceStatus(percentUsed: number, pacePercent: number): 'over' | 'under' | 'on' {
   const diff = percentUsed - pacePercent;
-  if (diff > 5) {
-    return { text: 'Over pace', className: 'text-red-600 dark:text-red-400' };
-  }
-  if (diff < -5) {
-    return { text: 'Under pace', className: 'text-green-600 dark:text-green-400' };
-  }
-  return { text: 'On pace', className: 'text-blue-600 dark:text-blue-400' };
+  if (diff > 5) return 'over';
+  if (diff < -5) return 'under';
+  return 'on';
 }
 
 export function BudgetCategoryRow({
@@ -34,10 +28,17 @@ export function BudgetCategoryRow({
   flexGroup,
   onClick,
 }: BudgetCategoryRowProps) {
+  const t = useTranslations('budgets');
   const isOverBudget = category.percentUsed > 100;
-  const paceLabel = pacePercent !== undefined
-    ? getPaceLabel(category.percentUsed, pacePercent)
+  const paceStatus = pacePercent !== undefined
+    ? getPaceStatus(category.percentUsed, pacePercent)
     : undefined;
+  const paceLabelMap = {
+    over: { text: t('categoryRow.overPace'), className: 'text-red-600 dark:text-red-400' },
+    under: { text: t('categoryRow.underPace'), className: 'text-green-600 dark:text-green-400' },
+    on: { text: t('categoryRow.onPace'), className: 'text-blue-600 dark:text-blue-400' },
+  };
+  const paceLabel = paceStatus !== undefined ? paceLabelMap[paceStatus] : undefined;
 
   return (
     <button
@@ -92,7 +93,7 @@ export function BudgetCategoryRow({
       <div className="flex items-center justify-between mt-1.5">
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           {rolloverType && rolloverType !== 'NONE' && (
-            <span>Rollover: {rolloverType.toLowerCase()}</span>
+            <span>{t('categoryRow.rollover', { type: rolloverType.toLowerCase() })}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -103,8 +104,8 @@ export function BudgetCategoryRow({
           )}
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {category.remaining >= 0
-              ? `${formatCurrency(category.remaining)} left`
-              : `${formatCurrency(Math.abs(category.remaining))} over`}
+              ? t('categoryRow.remaining', { amount: formatCurrency(category.remaining) })
+              : t('categoryRow.over', { amount: formatCurrency(Math.abs(category.remaining)) })}
           </span>
         </div>
       </div>

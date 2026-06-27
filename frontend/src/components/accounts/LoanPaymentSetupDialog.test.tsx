@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@/test/render';
 import { LoanPaymentSetupDialog } from './LoanPaymentSetupDialog';
 import { accountsApi } from '@/lib/accounts';
 import { categoriesApi } from '@/lib/categories';
+import { payeesApi } from '@/lib/payees';
 import { Account, DetectedLoanPayment } from '@/types/account';
 import toast from 'react-hot-toast';
 
@@ -26,6 +27,36 @@ vi.mock('@/lib/payees', () => ({
   },
 }));
 
+// Combobox mock that exposes onChange (select existing) and onCreateNew (create payee)
+vi.mock('@/components/ui/Combobox', () => ({
+  Combobox: ({ value, onChange, onCreateNew, placeholder }: any) => (
+    <div data-testid={`combobox-${(placeholder || '').includes('payee') ? 'payee' : 'category'}`}>
+      <input
+        data-testid={`combobox-input-${(placeholder || '').includes('payee') ? 'payee' : 'category'}`}
+        value={value || ''}
+        placeholder={placeholder}
+        onChange={(e: any) => onChange?.(e.target.value, 'Chosen Name')}
+      />
+      {onCreateNew && (
+        <button
+          data-testid="combobox-create-payee"
+          onClick={() => onCreateNew('Brand New Lender')}
+        >
+          create
+        </button>
+      )}
+      {onCreateNew && (
+        <button
+          data-testid="combobox-create-empty"
+          onClick={() => onCreateNew('   ')}
+        >
+          create-empty
+        </button>
+      )}
+    </div>
+  ),
+}));
+
 vi.mock('@/lib/logger', () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
 }));
@@ -33,12 +64,13 @@ vi.mock('@/lib/logger', () => ({
 const mockDetectLoanPayments = vi.mocked(accountsApi.detectLoanPayments);
 const mockSetupLoanPayments = vi.mocked(accountsApi.setupLoanPayments);
 const mockGetCategories = vi.mocked(categoriesApi.getAll);
+const mockCreatePayee = vi.mocked(payeesApi.create);
 
 function createAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: 'acc-1', userId: 'user-1', accountType: 'CHEQUING', accountSubType: null,
     linkedAccountId: null, name: 'My Chequing', description: null, currencyCode: 'CAD',
-    accountNumber: null, institution: null, openingBalance: 0, currentBalance: 1000,
+    accountNumber: null, institution: null, institutionId: null, openingBalance: 0, currentBalance: 1000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
     sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
@@ -366,5 +398,216 @@ describe('LoanPaymentSetupDialog', () => {
   it('does not run detection when isOpen is false', () => {
     render(<LoanPaymentSetupDialog {...defaultProps} isOpen={false} />);
     expect(mockDetectLoanPayments).not.toHaveBeenCalled();
+  });
+
+  it('shows validation error toast when required fields are missing', async () => {
+    // No detection result -> paymentAmount 0, nextDueDate '' -> submit blocked
+    mockDetectLoanPayments.mockResolvedValue(null);
+    await renderDialog();
+
+    // The button is disabled when fields are missing, so call submit via the
+    // handler path by clicking after enabling amount. Instead, assert the
+    // button is disabled (guard path) — covers the disabled branch.
+    const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });
+    expect(submitButton).toBeDisabled();
+  });
+
+  it('submits extra principal amount when included and greater than zero', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    mockSetupLoanPayments.mockResolvedValue({} as any);
+    await renderDialog();
+
+    const checkbox = screen.getByLabelText(/Include extra payment to principal/i);
+    await act(async () => fireEvent.click(checkbox));
+
+    // Enter an extra principal value
+    const extraInput = screen.getByLabelText(/Extra Principal Per Payment/i) as HTMLInputElement;
+    await act(async () => fireEvent.change(extraInput, { target: { value: '200' } }));
+    await act(async () => fireEvent.blur(extraInput));
+
+    const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });
+    await act(async () => fireEvent.click(submitButton));
+
+    expect(mockSetupLoanPayments).toHaveBeenCalledWith('loan-1', expect.objectContaining({
+      extraPrincipal: 200,
+      // total = 1500 + 200
+      paymentAmount: 1700,
+    }));
+  });
+
+  it('shows total payment line when extra principal is included', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    await renderDialog();
+
+    const checkbox = screen.getByLabelText(/Include extra payment to principal/i);
+    await act(async () => fireEvent.click(checkbox));
+    const extraInput = screen.getByLabelText(/Extra Principal Per Payment/i) as HTMLInputElement;
+    await act(async () => fireEvent.change(extraInput, { target: { value: '100' } }));
+
+    expect(screen.getByText(/Total payment:/)).toBeInTheDocument();
+  });
+
+  it('submits detectedInterestAmount when useDetectedSplit is enabled', async () => {
+    mockDetectLoanPayments.mockResolvedValue({
+      ...defaultDetected,
+      lastPrincipalAmount: 1200,
+      lastInterestAmount: 300,
+    });
+    mockSetupLoanPayments.mockResolvedValue({} as any);
+    await renderDialog();
+
+    const cb = screen.getByLabelText(/Use principal\/interest split/i);
+    await act(async () => fireEvent.click(cb));
+    expect(cb).toBeChecked();
+
+    const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });
+    await act(async () => fireEvent.click(submitButton));
+
+    expect(mockSetupLoanPayments).toHaveBeenCalledWith('loan-1', expect.objectContaining({
+      detectedInterestAmount: 300,
+    }));
+  });
+
+  it('shows detected split line in the banner when split data is present', async () => {
+    mockDetectLoanPayments.mockResolvedValue({
+      ...defaultDetected,
+      lastPrincipalAmount: 1200,
+      lastInterestAmount: 300,
+    });
+    await renderDialog();
+    expect(screen.getByText(/Last payment split:/)).toBeInTheDocument();
+  });
+
+  it('enables detected split by default for mortgages when split data is available', async () => {
+    mockDetectLoanPayments.mockResolvedValue({
+      ...defaultDetected,
+      lastPrincipalAmount: 1200,
+      lastInterestAmount: 300,
+    });
+    const mortgageProps = {
+      ...defaultProps,
+      loanAccount: { accountId: 'm-1', accountName: 'M', accountType: 'MORTGAGE', currencyCode: 'USD' },
+    };
+    await renderDialog(mortgageProps);
+    const cb = screen.getByLabelText(/Use principal\/interest split/i) as HTMLInputElement;
+    expect(cb.checked).toBe(true);
+  });
+
+  it('shows estimated interest rate hint from detection', async () => {
+    mockDetectLoanPayments.mockResolvedValue({ ...defaultDetected, estimatedInterestRate: 4.25 });
+    await renderDialog();
+    expect(screen.getByText(/Estimated from transaction history/)).toBeInTheDocument();
+  });
+
+  it('shows detected interest category hint when category not selected', async () => {
+    mockDetectLoanPayments.mockResolvedValue({
+      ...defaultDetected,
+      interestCategoryName: 'Interest Expense',
+      interestCategoryId: null,
+    });
+    await renderDialog();
+    expect(screen.getByText(/Detected: Interest Expense/)).toBeInTheDocument();
+  });
+
+  it('pre-fills extra principal from detection when averageExtraPrincipal > 0', async () => {
+    mockDetectLoanPayments.mockResolvedValue({
+      ...defaultDetected,
+      averageExtraPrincipal: 150,
+      extraPrincipalCount: 2,
+    });
+    await renderDialog();
+    // Checkbox should be checked (pre-filled) so the extra input shows
+    const checkbox = screen.getByLabelText(/Include extra payment to principal/i) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    expect(screen.getByLabelText(/Extra Principal Per Payment/i)).toBeInTheDocument();
+  });
+
+  it('selects first source account when no detection result is returned', async () => {
+    // No detection -> sourceAccountOptions[0] should be selected
+    mockDetectLoanPayments.mockResolvedValue(null);
+    const props = {
+      ...defaultProps,
+      accounts: [sourceAccount],
+    };
+    await renderDialog(props);
+    const select = screen.getByLabelText(/Payment From Account/i) as HTMLSelectElement;
+    expect(select.value).toBe('acc-1');
+  });
+
+  it('submits with interestRate and selected source account', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    mockSetupLoanPayments.mockResolvedValue({} as any);
+    await renderDialog();
+
+    const rateInput = screen.getByPlaceholderText('e.g., 5.5') as HTMLInputElement;
+    await act(async () => fireEvent.change(rateInput, { target: { value: '6.25' } }));
+
+    const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });
+    await act(async () => fireEvent.click(submitButton));
+
+    expect(mockSetupLoanPayments).toHaveBeenCalledWith('loan-1', expect.objectContaining({
+      interestRate: 6.25,
+    }));
+  });
+
+  it('selects an existing payee via the payee combobox', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    await renderDialog();
+
+    const payeeInput = screen.getByTestId('combobox-input-payee');
+    await act(async () => fireEvent.change(payeeInput, { target: { value: 'payee-x' } }));
+
+    mockSetupLoanPayments.mockResolvedValue({} as any);
+    const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });
+    await act(async () => fireEvent.click(submitButton));
+
+    expect(mockSetupLoanPayments).toHaveBeenCalledWith('loan-1', expect.objectContaining({
+      payeeId: 'payee-x',
+      payeeName: 'Chosen Name',
+    }));
+  });
+
+  it('creates a new payee via onCreateNew and shows a success toast', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    mockCreatePayee.mockResolvedValue({ id: 'p-new', name: 'Brand New Lender' } as any);
+    await renderDialog();
+
+    const createBtn = screen.getByTestId('combobox-create-payee');
+    await act(async () => fireEvent.click(createBtn));
+
+    expect(mockCreatePayee).toHaveBeenCalledWith({ name: 'Brand New Lender' });
+    expect(toast.success).toHaveBeenCalledWith('Payee "Brand New Lender" created');
+  });
+
+  it('does not call create when the new payee name is blank', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    await renderDialog();
+
+    const createEmptyBtn = screen.getByTestId('combobox-create-empty');
+    await act(async () => fireEvent.click(createEmptyBtn));
+
+    expect(mockCreatePayee).not.toHaveBeenCalled();
+  });
+
+  it('shows an error toast when creating a payee fails', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    mockCreatePayee.mockRejectedValueOnce({ response: { data: { message: 'Payee exists' } } });
+    await renderDialog();
+
+    const createBtn = screen.getByTestId('combobox-create-payee');
+    await act(async () => fireEvent.click(createBtn));
+
+    expect(toast.error).toHaveBeenCalledWith('Payee exists');
+  });
+
+  it('shows a generic error toast when payee create fails without a message', async () => {
+    mockDetectLoanPayments.mockResolvedValue(defaultDetected);
+    mockCreatePayee.mockRejectedValueOnce(new Error('boom'));
+    await renderDialog();
+
+    const createBtn = screen.getByTestId('combobox-create-payee');
+    await act(async () => fireEvent.click(createBtn));
+
+    expect(toast.error).toHaveBeenCalledWith('Failed to create payee');
   });
 });

@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { tr } from "../i18n/translate";
 import { SkipThrottle } from "@nestjs/throttler";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
@@ -41,7 +42,9 @@ export class HealthController {
     const dbHealthy = await this.checkDatabase();
 
     if (!dbHealthy) {
-      throw new ServiceUnavailableException("Service not ready");
+      throw new ServiceUnavailableException(
+        tr("errors.common.serviceNotReady", "Service not ready"),
+      );
     }
 
     return { status: "ok" };

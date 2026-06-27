@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { UseFormRegister, UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
@@ -65,6 +66,7 @@ export function NormalTransactionFields({
   transaction,
   createdAtSlot,
 }: NormalTransactionFieldsProps) {
+  const t = useTranslations('transactions');
   const historyButtonRef = useRef<HTMLButtonElement>(null);
   const [showRecentPopover, setShowRecentPopover] = useState(false);
 
@@ -73,11 +75,11 @@ export function NormalTransactionFields({
       {/* Row 1: Account, Date, and optionally Create Date */}
       <div className={`grid grid-cols-1 gap-4 ${createdAtSlot ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <Select
-          label="Account"
+          label={t('form.fields.account')}
           error={errors.accountId?.message as string | undefined}
           value={watchedAccountId || ''}
           options={[
-            { value: '', label: 'Select account...' },
+            { value: '', label: t('form.placeholders.selectAccount') },
             ...buildAccountDropdownOptions(
               accounts,
               (account) =>
@@ -88,7 +90,7 @@ export function NormalTransactionFields({
           {...register('accountId')}
         />
         <DateInput
-          label="Date"
+          label={t('form.fields.date')}
           error={errors.transactionDate?.message as string | undefined}
           onDateChange={(date) => setValue('transactionDate', date, { shouldDirty: true, shouldValidate: true })}
           {...register('transactionDate')}
@@ -101,8 +103,8 @@ export function NormalTransactionFields({
         <div className="flex items-stretch space-x-2">
           <div className="flex-1 min-w-0">
             <Combobox
-              label="Payee"
-              placeholder="Select or type payee name..."
+              label={t('form.fields.payee')}
+              placeholder={t('form.placeholders.selectOrTypePayee')}
               options={payees.map(payee => ({
                 value: payee.id,
                 label: payee.name,
@@ -127,12 +129,12 @@ export function NormalTransactionFields({
               onClick={() => setShowRecentPopover((v) => !v)}
               aria-label={
                 selectedPayeeId || watchedPayeeName
-                  ? 'Show recent transactions for this payee'
-                  : 'Show recent transactions'
+                  ? t('form.ariaHistoryForPayee')
+                  : t('form.ariaHistory')
               }
               aria-haspopup="dialog"
               aria-expanded={showRecentPopover}
-              title="Quick fill from a recent transaction"
+              title={t('form.historyTitle')}
               className="flex-shrink-0 mt-6 flex items-center justify-center px-2.5 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             >
               <svg
@@ -167,8 +169,8 @@ export function NormalTransactionFields({
           <div className="flex items-stretch sm:space-x-2">
             <div className="flex-1">
               <Combobox
-                label="Category"
-                placeholder="Select or create category..."
+                label={t('form.fields.category')}
+                placeholder={t('form.placeholders.selectOrCreateCategory')}
                 options={categoryOptions}
                 value={selectedCategoryId}
                 initialDisplayValue={transaction?.category?.name || ''}
@@ -184,7 +186,7 @@ export function NormalTransactionFields({
               onClick={() => handleModeChange('split')}
               className="hidden sm:flex items-center justify-center flex-shrink-0 mt-6 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap"
             >
-              Split Transaction
+              {t('form.splitTransaction')}
             </button>
           </div>
           <button
@@ -192,7 +194,7 @@ export function NormalTransactionFields({
             onClick={() => handleModeChange('split')}
             className="sm:hidden mt-2 w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
           >
-            Split Transaction
+            {t('form.splitTransaction')}
           </button>
         </div>
       </div>
@@ -200,16 +202,17 @@ export function NormalTransactionFields({
       {/* Row 3: Amount and Reference Number */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <CurrencyInput
-          label="Amount"
+          label={t('form.fields.amount')}
           prefix={getCurrencySymbol(watchedCurrencyCode)}
           value={watchedAmount}
           onChange={handleAmountChange}
+          allowSignToggle
           error={errors.amount?.message as string | undefined}
         />
         <Input
-          label="Reference Number"
+          label={t('form.fields.referenceNumber')}
           type="text"
-          placeholder="Cheque #, confirmation #..."
+          placeholder={t('form.placeholders.referenceNumber')}
           error={errors.referenceNumber?.message as string | undefined}
           {...register('referenceNumber')}
         />

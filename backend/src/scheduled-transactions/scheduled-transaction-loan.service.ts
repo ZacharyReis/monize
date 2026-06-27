@@ -11,6 +11,7 @@ import {
   MortgagePaymentFrequency,
 } from "../accounts/mortgage-amortization.util";
 import { getPeriodsPerYear } from "../accounts/loan-amortization.util";
+import { roundMoney } from "../common/round.util";
 
 @Injectable()
 export class ScheduledTransactionLoanService {
@@ -127,8 +128,8 @@ export class ScheduledTransactionLoanService {
 
       const totalPrevPrincipal = prevPrincipal + extraPrincipalAmount;
       newInterest = prevInterest - totalPrevPrincipal * periodicRate;
-      newInterest = Math.max(0, Math.round(newInterest * 100) / 100);
-      newPrincipal = Math.round((basePaymentAmount - newInterest) * 100) / 100;
+      newInterest = Math.max(0, roundMoney(newInterest));
+      newPrincipal = roundMoney(basePaymentAmount - newInterest);
 
       if (newPrincipal < 0) {
         newPrincipal = 0;
@@ -150,8 +151,8 @@ export class ScheduledTransactionLoanService {
             )
           : interestRate / 100 / periodsPerYear;
 
-      newInterest = Math.round(currentBalance * periodicRate * 100) / 100;
-      newPrincipal = Math.round((basePaymentAmount - newInterest) * 100) / 100;
+      newInterest = roundMoney(currentBalance * periodicRate);
+      newPrincipal = roundMoney(basePaymentAmount - newInterest);
       if (newPrincipal < 0) newPrincipal = 0;
       if (newPrincipal > currentBalance) newPrincipal = currentBalance;
     }

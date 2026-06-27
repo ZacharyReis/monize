@@ -4,6 +4,7 @@ import { Repository, DataSource } from "typeorm";
 import { SpendingReportsService } from "./spending-reports.service";
 import { IncomeReportsService } from "./income-reports.service";
 import { ReportCurrencyService } from "./report-currency.service";
+import { roundMoney, sumMoney } from "../common/round.util";
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { PortfolioService, TopMover } from "../securities/portfolio.service";
 import {
@@ -293,20 +294,20 @@ export class MonthlyComparisonService {
         color: c.color,
         currentTotal: c.currentTotal,
         previousTotal: c.previousTotal,
-        change: Math.round((c.currentTotal - c.previousTotal) * 100) / 100,
+        change: roundMoney(c.currentTotal - c.previousTotal),
         changePercent: this.percentChange(c.previousTotal, c.currentTotal),
       }))
       .sort((a, b) => b.currentTotal - a.currentTotal);
 
-    const currentTotal = currentData.reduce((sum, c) => sum + c.total, 0);
-    const previousTotal = previousData.reduce((sum, c) => sum + c.total, 0);
+    const currentTotal = sumMoney(currentData.map((c) => c.total));
+    const previousTotal = sumMoney(previousData.map((c) => c.total));
 
     return {
       currentMonth,
       previousMonth,
       comparison,
-      currentTotal: Math.round(currentTotal * 100) / 100,
-      previousTotal: Math.round(previousTotal * 100) / 100,
+      currentTotal: roundMoney(currentTotal),
+      previousTotal: roundMoney(previousTotal),
     };
   }
 

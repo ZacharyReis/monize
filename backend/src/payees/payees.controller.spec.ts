@@ -1,13 +1,19 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { PayeesController } from "./payees.controller";
 import { PayeesService } from "./payees.service";
+import { PayeeAutoMergeService } from "./payee-auto-merge.service";
 
 describe("PayeesController", () => {
   let controller: PayeesController;
   let mockPayeesService: Record<string, jest.Mock>;
+  let mockAutoMergeService: Record<string, jest.Mock>;
   const mockReq = { user: { id: "user-1" } };
 
   beforeEach(async () => {
+    mockAutoMergeService = {
+      previewAutoMerge: jest.fn(),
+      applyAutoMerge: jest.fn(),
+    };
     mockPayeesService = {
       create: jest.fn(),
       findAll: jest.fn(),
@@ -38,6 +44,10 @@ describe("PayeesController", () => {
         {
           provide: PayeesService,
           useValue: mockPayeesService,
+        },
+        {
+          provide: PayeeAutoMergeService,
+          useValue: mockAutoMergeService,
         },
       ],
     }).compile();
@@ -544,6 +554,114 @@ describe("PayeesController", () => {
       expect(mockPayeesService.getRecentlyUsed).toHaveBeenCalledWith(
         "user-1",
         200,
+      );
+    });
+  });
+
+  describe("previewAutoMerge()", () => {
+    it("delegates with clamped options", async () => {
+      mockAutoMergeService.previewAutoMerge.mockResolvedValue({ groups: [] });
+
+      await controller.previewAutoMerge(
+        mockReq,
+        2,
+        0.85,
+        3,
+        false,
+        "off",
+        false,
+        5,
+      );
+
+      expect(mockAutoMergeService.previewAutoMerge).toHaveBeenCalledWith(
+        "user-1",
+        {
+          minGroupSize: 2,
+          similarityThreshold: 0.85,
+          minTokenLength: 3,
+          includeInactive: false,
+          categoryMatch: "off",
+          ignoreCommonWords: false,
+          commonWordMinVariants: 5,
+        },
+      );
+    });
+
+    it("clamps out-of-range knobs into safe bounds", async () => {
+      mockAutoMergeService.previewAutoMerge.mockResolvedValue({ groups: [] });
+
+      await controller.previewAutoMerge(
+        mockReq,
+        1,
+        0.1,
+        99,
+        true,
+        "subcategory",
+        true,
+        99,
+      );
+
+      expect(mockAutoMergeService.previewAutoMerge).toHaveBeenCalledWith(
+        "user-1",
+        {
+          minGroupSize: 2,
+          similarityThreshold: 0.5,
+          minTokenLength: 10,
+          includeInactive: true,
+          categoryMatch: "subcategory",
+          ignoreCommonWords: true,
+          commonWordMinVariants: 50,
+        },
+      );
+    });
+
+    it("falls back to 'off' for an unknown categoryMatch value", async () => {
+      mockAutoMergeService.previewAutoMerge.mockResolvedValue({ groups: [] });
+
+      await controller.previewAutoMerge(
+        mockReq,
+        2,
+        0.85,
+        3,
+        false,
+        "bogus",
+        false,
+        5,
+      );
+
+      expect(mockAutoMergeService.previewAutoMerge).toHaveBeenCalledWith(
+        "user-1",
+        expect.objectContaining({ categoryMatch: "off" }),
+      );
+    });
+  });
+
+  describe("applyAutoMerge()", () => {
+    it("delegates groups to the auto-merge service", async () => {
+      const groups = [
+        {
+          canonicalPayeeId: "payee-1",
+          sourcePayeeIds: ["payee-2"],
+          alias: "*LIDL*",
+        },
+      ];
+      const expected = {
+        groupsMerged: 1,
+        payeesMerged: 1,
+        transactionsMigrated: 3,
+        aliasesCreated: 1,
+        skippedAliases: 0,
+      };
+      mockAutoMergeService.applyAutoMerge.mockResolvedValue(expected);
+
+      const result = await controller.applyAutoMerge(mockReq, {
+        groups,
+      } as any);
+
+      expect(result).toEqual(expected);
+      expect(mockAutoMergeService.applyAutoMerge).toHaveBeenCalledWith(
+        "user-1",
+        groups,
       );
     });
   });

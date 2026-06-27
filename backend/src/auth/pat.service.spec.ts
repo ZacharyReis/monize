@@ -117,10 +117,10 @@ describe("PatService", () => {
 
       const result = await service.create("user-1", {
         name: "Full Access",
-        scopes: "read,write,reports",
+        scopes: "read,write",
       });
 
-      expect(result.token.scopes).toBe("read,write,reports");
+      expect(result.token.scopes).toBe("read,write");
     });
 
     it("should set expiration date when provided", async () => {

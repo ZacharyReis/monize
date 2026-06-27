@@ -1,12 +1,54 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useNumberFormat } from './useNumberFormat';
+import { useNumberFormat, getEffectiveLocale } from './useNumberFormat';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
 vi.mock('@/store/preferencesStore', () => ({
   usePreferencesStore: vi.fn((selector: any) =>
     selector({ preferences: { numberFormat: 'en-US', defaultCurrency: 'USD' } })
   ),
 }));
+
+describe('getEffectiveLocale', () => {
+  it('returns an explicit number format verbatim', () => {
+    expect(getEffectiveLocale('en-GB', 'fr')).toBe('en-GB');
+    expect(getEffectiveLocale('de-DE', undefined)).toBe('de-DE');
+  });
+
+  it('falls back to the UI language when set to "browser"', () => {
+    expect(getEffectiveLocale('browser', 'fr')).toBe('fr');
+    expect(getEffectiveLocale('browser', 'en-GB')).toBe('en-GB');
+  });
+
+  it('returns undefined (browser default) for a browser/xx/unset language', () => {
+    expect(getEffectiveLocale('browser', 'browser')).toBeUndefined();
+    expect(getEffectiveLocale('browser', 'xx')).toBeUndefined();
+    expect(getEffectiveLocale('browser', undefined)).toBeUndefined();
+  });
+});
+
+describe('useNumberFormat with a "browser" UI language', () => {
+  afterEach(() => {
+    vi.mocked(usePreferencesStore).mockImplementation((selector: any) =>
+      selector({ preferences: { numberFormat: 'en-US', defaultCurrency: 'USD' } }),
+    );
+  });
+
+  it('does not pass the "browser" sentinel to Intl', () => {
+    vi.mocked(usePreferencesStore).mockImplementation((selector: any) =>
+      selector({
+        preferences: {
+          numberFormat: 'browser',
+          defaultCurrency: 'USD',
+          language: 'browser',
+        },
+      }),
+    );
+    const { result } = renderHook(() => useNumberFormat());
+    expect(() => result.current.formatCurrency(1234.56)).not.toThrow();
+    expect(result.current.formatCurrency(1234.56)).toMatch(/1.?234/);
+  });
+});
 
 describe('useNumberFormat', () => {
   it('returns formatting functions', () => {
@@ -29,6 +71,31 @@ describe('useNumberFormat', () => {
     const { result } = renderHook(() => useNumberFormat());
     const formatted = result.current.formatCurrency(1000, 'EUR');
     expect(formatted).toContain('1,000.00');
+  });
+
+  it('formatCurrencyPrecise matches formatCurrency for normal values', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatCurrencyPrecise(1234.56)).toBe(
+      result.current.formatCurrency(1234.56),
+    );
+  });
+
+  it('formatCurrencyPrecise expands precision for sub-penny values', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    // Would render as $0.00 with the default 2dp formatter.
+    expect(result.current.formatCurrency(0.000318)).toContain('0.00');
+    const precise = result.current.formatCurrencyPrecise(0.000318);
+    expect(precise).toContain('0.000318');
+    expect(precise).not.toMatch(/0\.00($|[^0])/);
+  });
+
+  it('formatCurrencyPrecise honours a higher base precision via minFractionDigits', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    // A 4dp price column keeps 4 decimals for a normal value...
+    expect(result.current.formatCurrencyPrecise(12.3456, 'USD', 4)).toContain('12.3456');
+    // ...and only expands when even 4dp would read as zero.
+    const tiny = result.current.formatCurrencyPrecise(0.00001, 'USD', 4);
+    expect(tiny).toContain('0.00001');
   });
 
   it('formatCurrencyCompact omits decimals', () => {
@@ -122,6 +189,47 @@ describe('useNumberFormat', () => {
     const { result } = renderHook(() => useNumberFormat());
     const formatted = result.current.formatCurrencyLabel(50);
     expect(formatted).not.toMatch(/[KMBT]/);
+  });
+
+  it('formatSignedPercent adds a leading + for non-negative values', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatSignedPercent(12.5)).toBe('+12.50%');
+    expect(result.current.formatSignedPercent(0)).toBe('+0.00%');
+  });
+
+  it('formatSignedPercent keeps the minus sign for negatives', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatSignedPercent(-3.4)).toBe('-3.40%');
+  });
+
+  it('formatSignedPercent renders a tiny negative that rounds to zero as +0.00%, not +-0.00%', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    // -0.001 rounds to -0; without -0 normalization Intl emits "-0.00" and the
+    // leading "+" produces the malformed "+-0.00%".
+    expect(result.current.formatSignedPercent(-0.001)).toBe('+0.00%');
+    expect(result.current.formatSignedPercent(-0.004, 2)).toBe('+0.00%');
+  });
+
+  it('formatSignedPercent honours the decimals argument', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatSignedPercent(7.123, 1)).toBe('+7.1%');
+  });
+
+  it('formatSignedPercent renders a sign-less zero for non-finite input', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatSignedPercent(NaN)).toBe('0.00%');
+  });
+
+  it('formatQuantity trims trailing zeros up to 4dp', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatQuantity(100)).toBe('100');
+    expect(result.current.formatQuantity(1.5)).toBe('1.5');
+    expect(result.current.formatQuantity(1.23456)).toBe('1.2346');
+  });
+
+  it('formatQuantity adds thousands separators', () => {
+    const { result } = renderHook(() => useNumberFormat());
+    expect(result.current.formatQuantity(1234.5)).toBe('1,234.5');
   });
 });
 

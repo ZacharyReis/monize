@@ -12,6 +12,7 @@ export interface Payee {
   transactionCount?: number;
   lastUsedDate?: string | null;
   aliasCount?: number;
+  uncategorizedCount?: number;
 }
 
 export interface PayeeAlias {
@@ -29,8 +30,11 @@ export interface CreatePayeeData {
   notes?: string;
 }
 
+export type ApplyCategoryToTransactions = 'none' | 'uncategorized' | 'all';
+
 export interface UpdatePayeeData extends Partial<CreatePayeeData> {
   isActive?: boolean;
+  applyCategoryToTransactions?: ApplyCategoryToTransactions;
 }
 
 export interface CreatePayeeAliasData {
@@ -48,6 +52,54 @@ export interface MergePayeeResult {
   transactionsMigrated: number;
   aliasAdded: boolean;
   sourcePayeeDeleted: boolean;
+}
+
+export type CategoryMatchMode = 'off' | 'category' | 'subcategory';
+
+export interface AutoMergePreviewParams {
+  minGroupSize: number;
+  similarityThreshold: number;
+  minTokenLength: number;
+  includeInactive: boolean;
+  categoryMatch: CategoryMatchMode;
+  ignoreCommonWords: boolean;
+  commonWordMinVariants: number;
+}
+
+export interface AutoMergeMember {
+  payeeId: string;
+  name: string;
+  transactionCount: number;
+  isCanonical: boolean;
+}
+
+export interface AutoMergeGroup {
+  groupKey: string;
+  suggestedCanonicalPayeeId: string;
+  suggestedName: string;
+  suggestedAlias: string;
+  suggestedCategoryId: string | null;
+  uncategorizedTransactionCount: number;
+  members: AutoMergeMember[];
+  totalTransactions: number;
+}
+
+export interface ApplyAutoMergeGroup {
+  canonicalPayeeId: string;
+  canonicalName?: string;
+  sourcePayeeIds: string[];
+  alias?: string;
+  defaultCategoryId?: string;
+  backfillTransactions?: boolean;
+}
+
+export interface ApplyAutoMergeResult {
+  groupsMerged: number;
+  payeesMerged: number;
+  transactionsMigrated: number;
+  aliasesCreated: number;
+  skippedAliases: number;
+  transactionsBackfilled: number;
 }
 
 export interface PayeeSummary {
@@ -68,6 +120,7 @@ export interface CategorySuggestion {
   transactionCount: number;
   categoryCount: number;
   percentage: number;
+  uncategorizedCount: number;
 }
 
 export interface CategorySuggestionsParams {
@@ -79,6 +132,7 @@ export interface CategorySuggestionsParams {
 export interface CategoryAssignment {
   payeeId: string;
   categoryId: string;
+  backfillTransactions?: boolean;
 }
 
 export interface DeactivationPreviewParams {
@@ -95,3 +149,5 @@ export interface DeactivationCandidate {
 }
 
 export type PayeeStatusFilter = 'active' | 'inactive' | 'all';
+
+export type PayeeCategoryFilter = 'all' | 'noDefaultCategory' | 'uncategorizedTransactions';

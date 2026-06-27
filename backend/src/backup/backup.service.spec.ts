@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { gzipSync, gunzipSync } from "zlib";
 import { PassThrough } from "stream";
+import { randomUUID } from "crypto";
 import { BackupService, RestoreBackupInput } from "./backup.service";
 import { User } from "../users/entities/user.entity";
 import { OidcService } from "../auth/oidc/oidc.service";
@@ -19,6 +20,18 @@ jest.mock("bcryptjs");
 
 function compressBackupData(data: Record<string, unknown>): Buffer {
   return gzipSync(Buffer.from(JSON.stringify(data), "utf-8"));
+}
+
+// Parses an INSERT call captured by the query mock into a { column: value }
+// map, pairing the column list in the SQL with the parameter array. Used to
+// read back the (remapped) values the restore actually inserted.
+function insertColumnMap(call: unknown[]): Record<string, unknown> {
+  const sql = call[0] as string;
+  const colMatch = sql.match(/\(([^)]*)\)\s*VALUES/i);
+  if (!colMatch) return {};
+  const columns = colMatch[1].split(",").map((c) => c.trim().replace(/"/g, ""));
+  const values = (call[1] as unknown[]) ?? [];
+  return Object.fromEntries(columns.map((col, i) => [col, values[i]]));
 }
 
 describe("BackupService", () => {
@@ -62,6 +75,7 @@ describe("BackupService", () => {
       "opening_balance",
       "is_active",
       "institution",
+      "institution_id",
       "account_number",
       "notes",
       "sort_order",
@@ -198,6 +212,7 @@ describe("BackupService", () => {
       "is_active",
       "type",
       "investment_security_id",
+      "tag_ids",
       "created_at",
       "updated_at",
     ],
@@ -272,6 +287,20 @@ describe("BackupService", () => {
       "created_at",
       "updated_at",
     ],
+    investment_reports: [
+      "id",
+      "user_id",
+      "name",
+      "description",
+      "icon",
+      "background_color",
+      "group_by",
+      "config",
+      "is_favourite",
+      "sort_order",
+      "created_at",
+      "updated_at",
+    ],
     import_column_mappings: [
       "id",
       "user_id",
@@ -293,6 +322,19 @@ describe("BackupService", () => {
       "user_id",
       "payee_id",
       "alias",
+      "created_at",
+      "updated_at",
+    ],
+    institutions: [
+      "id",
+      "user_id",
+      "name",
+      "website",
+      "country",
+      "logo_data",
+      "logo_content_type",
+      "has_logo",
+      "logo_fetched_at",
       "created_at",
       "updated_at",
     ],
@@ -320,7 +362,10 @@ describe("BackupService", () => {
       const cols =
         tableName && schemaColumns[tableName] ? schemaColumns[tableName] : [];
       return Promise.resolve(
-        cols.map((col) => ({ column_name: col, data_type: "text" })),
+        cols.map((col) => ({
+          column_name: col,
+          data_type: col === "logo_data" ? "bytea" : "text",
+        })),
       );
     }
     return Promise.resolve([]);
@@ -430,6 +475,25 @@ describe("BackupService", () => {
       expect(result.accounts).toEqual([]);
     });
 
+    it("should include investment_reports in the exported payload", async () => {
+      const mockInvestmentReports = [
+        { id: "ir-1", name: "By Symbol", user_id: userId },
+      ];
+      mockDataSource.query.mockImplementation((sql: string) => {
+        if (sql.includes("investment_reports")) {
+          return Promise.resolve(mockInvestmentReports);
+        }
+        return Promise.resolve([]);
+      });
+
+      const mockRes = new PassThrough();
+      const resultPromise = collectGzipOutput(mockRes);
+      await service.streamExport(userId, mockRes as any);
+      const result = await resultPromise;
+
+      expect(result.investment_reports).toEqual(mockInvestmentReports);
+    });
+
     it("writes an encrypted envelope when a password is provided", async () => {
       mockDataSource.query.mockResolvedValue([]);
       const mockCategories = [{ id: "cat-1", name: "Food", user_id: userId }];
@@ -521,6 +585,7 @@ describe("BackupService", () => {
       categories: [],
       payees: [],
       payee_aliases: [],
+      institutions: [],
       accounts: [],
       tags: [],
       transactions: [],
@@ -540,6 +605,7 @@ describe("BackupService", () => {
       budget_period_categories: [],
       budget_alerts: [],
       custom_reports: [],
+      investment_reports: [],
       import_column_mappings: [],
       monthly_account_balances: [],
     };
@@ -684,6 +750,77 @@ describe("BackupService", () => {
       expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
+    it("should restore investment_reports rows and scope them to the current user", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const backupWithInvestmentReports = {
+        ...validBackupData,
+        investment_reports: [
+          {
+            id: "ir-1",
+            user_id: "different-user-id",
+            name: "By Symbol",
+            description: null,
+            icon: null,
+            background_color: null,
+            group_by: "SYMBOL",
+            config: { columns: ["symbol"], accountIds: [] },
+            is_favourite: false,
+            sort_order: 0,
+          },
+        ],
+      };
+
+      const result = await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backupWithInvestmentReports }),
+      );
+
+      expect(result.restored.investmentReports).toBe(1);
+
+      const insertCalls = mockQueryRunner.query.mock.calls.filter(
+        (call: unknown[]) =>
+          typeof call[0] === "string" &&
+          call[0].includes('INSERT INTO "investment_reports"'),
+      );
+      expect(insertCalls).toHaveLength(1);
+      const inserted = insertColumnMap(insertCalls[0]);
+      expect(inserted.user_id).toBe(userId);
+      expect(inserted.name).toBe("By Symbol");
+      expect(inserted.group_by).toBe("SYMBOL");
+    });
+
+    it("should delete existing investment_reports during restore wipe", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await service.restoreData(userId, makeInput({ password: "test" }));
+
+      const deleteCalls = mockQueryRunner.query.mock.calls.filter(
+        (call: unknown[]) =>
+          typeof call[0] === "string" &&
+          call[0].includes("DELETE FROM investment_reports"),
+      );
+      expect(deleteCalls).toHaveLength(1);
+      expect(deleteCalls[0][1]).toEqual([userId]);
+    });
+
+    it("should delete existing action_history during restore wipe", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await service.restoreData(userId, makeInput({ password: "test" }));
+
+      const deleteCalls = mockQueryRunner.query.mock.calls.filter(
+        (call: unknown[]) =>
+          typeof call[0] === "string" &&
+          call[0].includes("DELETE FROM action_history"),
+      );
+      expect(deleteCalls).toHaveLength(1);
+      expect(deleteCalls[0][1]).toEqual([userId]);
+    });
+
     it("should rollback transaction on error", async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -767,25 +904,29 @@ describe("BackupService", () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
+      const securityId = randomUUID();
+      const schedId = randomUUID();
+      const splitId = randomUUID();
+      const accountId = randomUUID();
       const backupWithInvSplit = {
         ...validBackupData,
         securities: [
-          { id: "sec-1", user_id: userId, symbol: "VEA", name: "Vanguard" },
+          { id: securityId, user_id: userId, symbol: "VEA", name: "Vanguard" },
         ],
         scheduled_transactions: [
           {
-            id: "sched-1",
+            id: schedId,
             user_id: userId,
-            account_id: "acc-1",
-            investment_security_id: "sec-1",
+            account_id: accountId,
+            investment_security_id: securityId,
           },
         ],
         scheduled_transaction_splits: [
           {
-            id: "ss-1",
-            scheduled_transaction_id: "sched-1",
+            id: splitId,
+            scheduled_transaction_id: schedId,
             amount: -5,
-            investment_security_id: "sec-1",
+            investment_security_id: securityId,
           },
         ],
       };
@@ -808,7 +949,19 @@ describe("BackupService", () => {
       // The forward FK to securities(id) must be stripped from the INSERT.
       expect(splitInsert![0]).not.toContain("investment_security_id");
 
-      // ...and restored via a Phase-3 UPDATE keyed by the split id.
+      // Primary keys are remapped to fresh UUIDs on restore, so read back the
+      // ids the inserts actually used to verify the deferred UPDATE keeps the
+      // security -> split relationship intact.
+      const securityInsert = insertCalls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && c[0].includes('"securities"'),
+      );
+      const newSecurityId = insertColumnMap(securityInsert!).id;
+      const newSplitId = insertColumnMap(splitInsert!).id;
+      expect(newSecurityId).not.toBe(securityId);
+      expect(newSplitId).not.toBe(splitId);
+
+      // ...and restored via a Phase-3 UPDATE keyed by the (remapped) split id.
       const update = mockQueryRunner.query.mock.calls.find(
         (c: unknown[]) =>
           typeof c[0] === "string" &&
@@ -816,59 +969,66 @@ describe("BackupService", () => {
           c[0].includes('"investment_security_id"'),
       );
       expect(update).toBeDefined();
-      expect(update![1]).toEqual(["sec-1", "ss-1"]);
+      expect(update![1]).toEqual([newSecurityId, newSplitId]);
     });
 
     it("should defer circular FK columns and update them after all inserts", async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
+      const catParentId = randomUUID();
+      const catChildId = randomUUID();
+      const acc1Id = randomUUID();
+      const acc2Id = randomUUID();
+      const schedId = randomUUID();
+      const txn1Id = randomUUID();
+      const txn2Id = randomUUID();
       const backupWithFks = {
         ...validBackupData,
         categories: [
           {
-            id: "cat-parent",
+            id: catParentId,
             user_id: userId,
             name: "Parent",
             parent_id: null,
           },
           {
-            id: "cat-child",
+            id: catChildId,
             user_id: userId,
             name: "Child",
-            parent_id: "cat-parent",
+            parent_id: catParentId,
           },
         ],
         accounts: [
           {
-            id: "acc-1",
+            id: acc1Id,
             user_id: userId,
             name: "Checking",
-            linked_account_id: "acc-2",
-            scheduled_transaction_id: "sched-1",
+            linked_account_id: acc2Id,
+            scheduled_transaction_id: schedId,
           },
           {
-            id: "acc-2",
+            id: acc2Id,
             user_id: userId,
             name: "Savings",
-            linked_account_id: "acc-1",
+            linked_account_id: acc1Id,
           },
         ],
         scheduled_transactions: [
-          { id: "sched-1", user_id: userId, account_id: "acc-1" },
+          { id: schedId, user_id: userId, account_id: acc1Id },
         ],
         transactions: [
           {
-            id: "txn-1",
+            id: txn1Id,
             user_id: userId,
-            account_id: "acc-1",
-            linked_transaction_id: "txn-2",
+            account_id: acc1Id,
+            linked_transaction_id: txn2Id,
           },
           {
-            id: "txn-2",
+            id: txn2Id,
             user_id: userId,
-            account_id: "acc-2",
-            linked_transaction_id: "txn-1",
+            account_id: acc2Id,
+            linked_transaction_id: txn1Id,
           },
         ],
       };
@@ -903,7 +1063,14 @@ describe("BackupService", () => {
           call[0].includes('"parent_id"'),
       );
       expect(parentIdUpdate).toBeDefined();
-      expect(parentIdUpdate![1]).toEqual(["cat-parent", "cat-child"]);
+      // Ids are remapped to fresh UUIDs, so the deferred parent_id UPDATE must
+      // key off the remapped ids the inserts used -- never the backup ids.
+      const catRows = categoryInserts.map(insertColumnMap);
+      const parent = catRows.find((r) => r.name === "Parent");
+      const child = catRows.find((r) => r.name === "Child");
+      expect(parent!.id).not.toBe(catParentId);
+      expect(child!.id).not.toBe(catChildId);
+      expect(parentIdUpdate![1]).toEqual([parent!.id, child!.id]);
 
       const linkedAccountUpdate = updateCalls.find(
         (call: unknown[]) =>
@@ -912,6 +1079,443 @@ describe("BackupService", () => {
           call[0].includes('"linked_account_id"'),
       );
       expect(linkedAccountUpdate).toBeDefined();
+    });
+
+    it("restores institutions before accounts and defers institution_id", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const institutionId = randomUUID();
+      const accountId = randomUUID();
+      const backup = {
+        ...validBackupData,
+        institutions: [
+          {
+            id: institutionId,
+            user_id: userId,
+            name: "TD Canada Trust",
+            website: "https://www.td.com",
+            country: "CA",
+            logo_data: null,
+            has_logo: false,
+          },
+        ],
+        accounts: [
+          {
+            id: accountId,
+            user_id: userId,
+            name: "Checking",
+            institution_id: institutionId,
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backup }),
+      );
+
+      const insertCalls = mockQueryRunner.query.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && c[0].includes("INSERT INTO"),
+      );
+
+      // Institutions must be inserted before the accounts that reference them.
+      const instIdx = insertCalls.findIndex((c: unknown[]) =>
+        (c[0] as string).includes('"institutions"'),
+      );
+      const acctIdx = insertCalls.findIndex((c: unknown[]) =>
+        (c[0] as string).includes('"accounts"'),
+      );
+      expect(instIdx).toBeGreaterThanOrEqual(0);
+      expect(acctIdx).toBeGreaterThan(instIdx);
+
+      // institution_id is a deferred FK column, stripped from the account INSERT.
+      const accountInsert = insertCalls[acctIdx];
+      expect(accountInsert[0]).not.toContain("institution_id");
+
+      // ...and re-applied in Phase 3 via a guarded UPDATE keyed on remapped ids.
+      const instRow = insertColumnMap(insertCalls[instIdx]);
+      const acctRow = insertColumnMap(accountInsert);
+      expect(instRow.id).not.toBe(institutionId);
+      expect(acctRow.id).not.toBe(accountId);
+
+      const institutionUpdate = mockQueryRunner.query.mock.calls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes('UPDATE "accounts"') &&
+          c[0].includes('"institution_id"'),
+      );
+      expect(institutionUpdate).toBeDefined();
+      // The guard only sets the FK when the referenced institution exists.
+      expect(institutionUpdate![0]).toContain(
+        'EXISTS (SELECT 1 FROM "institutions"',
+      );
+      expect(institutionUpdate![1]).toEqual([instRow.id, acctRow.id]);
+    });
+
+    it("restores a legacy backup whose accounts reference institutions not in the backup", async () => {
+      // Backups taken before institutions were added to the export still carry
+      // accounts.institution_id. With no matching institution row, a naive
+      // restore violates fk_accounts_institution. The deferral + EXISTS guard
+      // must drop the dangling reference instead of failing the restore.
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const accountId = randomUUID();
+      const danglingInstitutionId = randomUUID();
+      const legacyBackup = {
+        ...validBackupData,
+        // No institutions key at all (legacy shape).
+        institutions: undefined,
+        accounts: [
+          {
+            id: accountId,
+            user_id: userId,
+            name: "Checking",
+            institution_id: danglingInstitutionId,
+          },
+        ],
+      };
+
+      await expect(
+        service.restoreData(
+          userId,
+          makeInput({ password: "test", data: legacyBackup as any }),
+        ),
+      ).resolves.toBeDefined();
+
+      const accountInsert = mockQueryRunner.query.mock.calls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes("INSERT INTO") &&
+          c[0].includes('"accounts"'),
+      );
+      // institution_id must not be inserted directly.
+      expect(accountInsert![0]).not.toContain("institution_id");
+
+      // The Phase-3 UPDATE is still guarded; with no institution it sets nothing.
+      const institutionUpdate = mockQueryRunner.query.mock.calls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes('UPDATE "accounts"') &&
+          c[0].includes('"institution_id"'),
+      );
+      expect(institutionUpdate).toBeDefined();
+      expect(institutionUpdate![0]).toContain(
+        'EXISTS (SELECT 1 FROM "institutions"',
+      );
+      // The dangling original id is never reused (no remap target existed).
+      expect(institutionUpdate![1]).toEqual([
+        danglingInstitutionId,
+        insertColumnMap(accountInsert!).id,
+      ]);
+    });
+
+    it("base64-decodes institution logo_data (bytea) on restore", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const institutionId = randomUUID();
+      const logoBase64 = Buffer.from("fake-png-bytes").toString("base64");
+      const backup = {
+        ...validBackupData,
+        institutions: [
+          {
+            id: institutionId,
+            user_id: userId,
+            name: "RBC",
+            website: "https://www.rbc.com",
+            logo_data: logoBase64,
+            logo_content_type: "image/png",
+            has_logo: true,
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backup }),
+      );
+
+      const institutionInsert = mockQueryRunner.query.mock.calls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes("INSERT INTO") &&
+          c[0].includes('"institutions"'),
+      );
+      expect(institutionInsert).toBeDefined();
+      // The bytea placeholder is wrapped in decode(..., 'base64').
+      expect(institutionInsert![0]).toContain("decode(");
+      expect(institutionInsert![0]).toContain("'base64'");
+      // The base64 string is passed through unchanged as the bound parameter.
+      expect(institutionInsert![1]).toContain(logoBase64);
+    });
+
+    it("exports institutions with base64-encoded logo_data", async () => {
+      const mockInstitutions = [
+        { id: "inst-1", name: "TD", user_id: userId, logo_data: "YWJj" },
+      ];
+      const issuedSql: string[] = [];
+      mockDataSource.query.mockImplementation((sql: string) => {
+        issuedSql.push(sql);
+        if (sql.includes("FROM institutions")) {
+          return Promise.resolve(mockInstitutions);
+        }
+        return Promise.resolve([]);
+      });
+
+      const buf = await service.exportToBuffer(userId);
+      const json = JSON.parse(gunzipSync(buf).toString("utf-8"));
+
+      expect(json.institutions).toEqual(mockInstitutions);
+      expect(
+        issuedSql.some((s) => s.includes("encode(logo_data, 'base64')")),
+      ).toBe(true);
+    });
+
+    it("deletes existing institutions during restore wipe", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await service.restoreData(userId, makeInput({ password: "test" }));
+
+      const deletedInstitutions = mockQueryRunner.query.mock.calls.some(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && c[0].includes("DELETE FROM institutions"),
+      );
+      expect(deletedInstitutions).toBe(true);
+    });
+
+    it("remaps backup primary keys so a restore never reuses another user's row ids", async () => {
+      // Reproduces the multi-user restore bug: UserB restoring UserA's backup
+      // must NOT write using UserA's original row ids (which would collide with
+      // or mutate UserA's existing rows). Every id must be remapped to a fresh
+      // UUID, and all references -- FK columns and ids nested in JSONB -- must
+      // be rewritten to match.
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const tagId = randomUUID();
+      const catId = randomUUID();
+      const acctId = randomUUID();
+      const txnId = randomUUID();
+      const schedId = randomUUID();
+      const backup = {
+        ...validBackupData,
+        tags: [{ id: tagId, user_id: "other-user", name: "Bills" }],
+        categories: [
+          { id: catId, user_id: "other-user", name: "Food", parent_id: null },
+        ],
+        accounts: [{ id: acctId, user_id: "other-user", name: "Checking" }],
+        transactions: [
+          {
+            id: txnId,
+            user_id: "other-user",
+            account_id: acctId,
+            category_id: catId,
+          },
+        ],
+        transaction_tags: [{ transaction_id: txnId, tag_id: tagId }],
+        scheduled_transactions: [
+          {
+            id: schedId,
+            user_id: "other-user",
+            account_id: acctId,
+            tag_ids: [tagId],
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backup }),
+      );
+
+      const backupIds = [catId, acctId, txnId, tagId, schedId];
+      const writeCalls = mockQueryRunner.query.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0].includes("INSERT INTO") || c[0].startsWith('UPDATE "')),
+      );
+
+      // No INSERT/UPDATE may reference any original backup id, even nested in a
+      // serialised JSONB value.
+      for (const call of writeCalls) {
+        const params = (call[1] as unknown[]) ?? [];
+        const flat = params.flatMap((p) => (Array.isArray(p) ? p : [p]));
+        for (const id of backupIds) {
+          expect(flat).not.toContain(id);
+        }
+        for (const p of params) {
+          if (typeof p === "string") {
+            for (const id of backupIds) {
+              expect(p.includes(id)).toBe(false);
+            }
+          }
+        }
+      }
+
+      // References stay internally consistent across the remap.
+      const inserts = writeCalls.filter((c: unknown[]) =>
+        (c[0] as string).includes("INSERT INTO"),
+      );
+      const findInsert = (table: string) =>
+        insertColumnMap(
+          inserts.find((c: unknown[]) =>
+            (c[0] as string).includes(`"${table}"`),
+          )!,
+        );
+
+      const acctRow = findInsert("accounts");
+      const txnRow = findInsert("transactions");
+      expect(acctRow.id).not.toBe(acctId);
+      expect(txnRow.account_id).toBe(acctRow.id);
+
+      const tagRow = findInsert("tags");
+      const txnTagRow = findInsert("transaction_tags");
+      expect(txnTagRow.tag_id).toBe(tagRow.id);
+      expect(txnTagRow.transaction_id).toBe(txnRow.id);
+
+      // The id nested in the scheduled transaction's JSONB tag_ids is remapped.
+      const schedRow = findInsert("scheduled_transactions");
+      expect(schedRow.tag_ids).toContain(tagRow.id as string);
+    });
+
+    it("strips sequence-backed id columns so PG auto-assigns fresh values on restore", async () => {
+      // security_prices.id is BIGSERIAL. If we passed the backup's bigint id
+      // through, it would either be remapped to a UUID (the original bug --
+      // "invalid input syntax for type bigint") or collide on the shared
+      // sequence with another user's row and be silently skipped by
+      // ON CONFLICT DO NOTHING. Stripping the column lets PG assign a fresh
+      // value, mirroring how UUID primary keys get remapped to fresh UUIDs.
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const securityId = randomUUID();
+      mockQueryRunner.query.mockImplementation(
+        (sql: string, params?: unknown[]) => {
+          if (
+            typeof sql === "string" &&
+            sql.includes("information_schema.columns") &&
+            Array.isArray(params) &&
+            params[0] === "security_prices"
+          ) {
+            return Promise.resolve([
+              {
+                column_name: "id",
+                data_type: "bigint",
+                column_default: "nextval('security_prices_id_seq'::regclass)",
+              },
+              {
+                column_name: "security_id",
+                data_type: "uuid",
+                column_default: null,
+              },
+              {
+                column_name: "price_date",
+                data_type: "date",
+                column_default: null,
+              },
+              {
+                column_name: "close_price",
+                data_type: "numeric",
+                column_default: null,
+              },
+            ]);
+          }
+          return mockQueryHandler(sql, params);
+        },
+      );
+
+      const backup = {
+        ...validBackupData,
+        securities: [
+          {
+            id: securityId,
+            user_id: userId,
+            symbol: "VEA",
+            name: "Vanguard",
+          },
+        ],
+        security_prices: [
+          {
+            id: "5",
+            security_id: securityId,
+            price_date: "2024-06-01",
+            close_price: 100.5,
+          },
+          {
+            id: "6",
+            security_id: securityId,
+            price_date: "2024-06-02",
+            close_price: 101.25,
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backup }),
+      );
+
+      const priceInserts = mockQueryRunner.query.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes('INSERT INTO "security_prices"'),
+      );
+      expect(priceInserts.length).toBe(2);
+      for (const call of priceInserts) {
+        // id column is stripped entirely so PG assigns from the sequence.
+        // Without this, the original bug remapped the bigint id to a UUID
+        // and sent it into the bigint column.
+        expect(call[0]).not.toContain('"id"');
+        // The UUID FK to securities is still remapped to the new security id.
+        const row = insertColumnMap(call);
+        expect(row.security_id).not.toBe(securityId);
+      }
+    });
+
+    it("does not remap non-UUID string values that happen to match a bigint id", async () => {
+      // The original buildBackupIdRemap matched any string id, so a bigint
+      // like "5" would land in the remap and deepRemapIds would rewrite every
+      // string "5" in the backup -- including unrelated bigint values -- to
+      // a UUID. The UUID-only filter prevents that.
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const acctId = randomUUID();
+      const backup = {
+        ...validBackupData,
+        // A bigserial-style id and a non-id field with the same string value.
+        // Neither should be rewritten as a UUID.
+        security_prices: [
+          { id: "5", security_id: acctId, price_date: "2024-06-01" },
+        ],
+        accounts: [
+          {
+            id: acctId,
+            user_id: userId,
+            name: "Checking",
+            account_number: "5",
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backup }),
+      );
+
+      const acctInsert = mockQueryRunner.query.mock.calls.find(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && c[0].includes('INSERT INTO "accounts"'),
+      );
+      expect(acctInsert).toBeDefined();
+      const row = insertColumnMap(acctInsert!);
+      // The bigint-shaped string is preserved as-is; only UUID-format ids
+      // get remapped.
+      expect(row.account_number).toBe("5");
     });
 
     it("should ensure referenced currencies exist before restoring data", async () => {

@@ -1,0 +1,117 @@
+{
+  "page": {
+    "title": "Divisas",
+    "subtitle": "Gestiona las divisas utilizadas en tus cuentas y valores",
+    "refreshRates": "Actualizar tipos",
+    "refreshing": "Actualizando...",
+    "newCurrency": "+ Nueva divisa",
+    "searchPlaceholder": "Buscar por código o nombre...",
+    "statusAll": "Todas ({count})",
+    "statusActive": "Activas ({count})",
+    "statusInactive": "Inactivas ({count})",
+    "modalTitleEdit": "Editar divisa",
+    "modalTitleNew": "Nueva divisa",
+    "loading": "Cargando divisas...",
+    "count": "{count, plural, one {# divisa} other {# divisas}}",
+    "toasts": {
+      "loadFailed": "Error al cargar las divisas",
+      "updated": "Divisa actualizada correctamente",
+      "created": "Divisa creada correctamente",
+      "updateFailed": "Error al actualizar la divisa",
+      "createFailed": "Error al crear la divisa",
+      "deactivated": "Divisa desactivada",
+      "activated": "Divisa activada",
+      "statusFailed": "Error al actualizar el estado de la divisa",
+      "ratesRefreshed": "Tipos de cambio actualizados: {updated} pares actualizados",
+      "ratesRefreshedWithFailed": "Tipos de cambio actualizados: {updated} actualizados, {failed} con error",
+      "ratesFailed": "Error al actualizar los tipos de cambio"
+    },
+    "summary": {
+      "totalCurrencies": "Total de divisas",
+      "active": "Activas",
+      "inactive": "Inactivas"
+    }
+  },
+  "list": {
+    "columns": {
+      "code": "Código",
+      "name": "Nombre",
+      "symbol": "Símbolo",
+      "decimals": "Decimales",
+      "usage": "Uso",
+      "rate": "Tipo ({currency})",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "density": {
+      "normal": "Normal",
+      "compact": "Compacto",
+      "dense": "Denso",
+      "toggle": "Cambiar densidad de filas"
+    },
+    "defaultBadge": "Predeterminada",
+    "statusBadge": {
+      "active": "Activa",
+      "activeShort": "Act",
+      "inactive": "Inactiva",
+      "inactiveShort": "Ina"
+    },
+    "actions": {
+      "edit": "Editar",
+      "deactivate": "Desactivar",
+      "activate": "Activar"
+    },
+    "contextMenu": {
+      "editCurrency": "Editar divisa",
+      "deactivate": "Desactivar",
+      "activate": "Activar",
+      "deleteCurrency": "Eliminar divisa"
+    },
+    "usageTooltip": "{accounts} cuenta(s), {securities} valor(es)",
+    "usageAccounts": "{count, plural, one {# cta} other {# ctas}}",
+    "usageSecurities": "{count, plural, one {# val} other {# vals}}",
+    "empty": {
+      "title": "Sin divisas",
+      "subtitle": "Comienza añadiendo una divisa."
+    },
+    "deleteConfirm": {
+      "title": "¿Eliminar \"{code}\"?",
+      "message": "Esta divisa se eliminará permanentemente. Solo funciona si la divisa no está siendo utilizada por ninguna cuenta o valor.",
+      "confirmLabel": "Eliminar",
+      "cancelLabel": "Cancelar"
+    },
+    "toasts": {
+      "deleted": "Divisa eliminada correctamente",
+      "deleteFailed": "Error al eliminar la divisa. Puede estar en uso."
+    }
+  },
+  "form": {
+    "codeLabel": "Código de divisa",
+    "codePlaceholder": "p. ej., USD, EUR, GBP",
+    "nameLabel": "Nombre",
+    "namePlaceholderCreate": "p. ej., Dólar canadiense, Malasia, Ringgit (también sirve para búsqueda)",
+    "namePlaceholderEdit": "p. ej., Dólar canadiense",
+    "symbolLabel": "Símbolo",
+    "symbolPlaceholder": "p. ej., $, €, £, ¥",
+    "decimalPlacesLabel": "Decimales",
+    "lookupButton": "Buscar",
+    "lookingUp": "Buscando...",
+    "clearButton": "Limpiar",
+    "clearTitle": "Limpiar todos los campos",
+    "submitCreate": "Crear divisa",
+    "submitUpdate": "Actualizar divisa",
+    "toasts": {
+      "lookupTooShort": "Introduce un código o nombre de divisa (al menos 2 caracteres) para buscar",
+      "found": "Encontrado: {details}",
+      "notFound": "No se encontró ninguna divisa para \"{query}\"",
+      "lookupFailed": "Error en la búsqueda - inténtalo de nuevo"
+    }
+  },
+  "validation": {
+    "codeLength": "El código de divisa debe tener exactamente 3 caracteres",
+    "nameRequired": "El nombre es obligatorio",
+    "nameMax": "El nombre no puede superar los 100 caracteres",
+    "symbolRequired": "El símbolo es obligatorio",
+    "symbolMax": "El símbolo no puede superar los 10 caracteres"
+  }
+}

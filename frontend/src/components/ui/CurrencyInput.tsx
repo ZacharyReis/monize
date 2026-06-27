@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, InputHTMLAttributes, FocusEvent } from 'react';
+import { useTranslations } from 'next-intl';
 import { CalculatorIcon } from '@heroicons/react/24/outline';
 import { cn, inputBaseClasses, inputErrorClasses } from '@/lib/utils';
 import { formatAmountWithCommas, formatAmount, parseAmount, filterCurrencyInput, filterCalculatorInput, hasCalculatorOperators, evaluateExpression } from '@/lib/format';
@@ -25,6 +26,8 @@ interface CurrencyInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
   allowNegative?: boolean;
   /** Allow calculator expressions like "100*1.13" (default: true) */
   allowCalculator?: boolean;
+  /** Show an in-field button to flip the value's sign (default: false) */
+  allowSignToggle?: boolean;
 }
 
 /**
@@ -45,6 +48,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       onChange,
       allowNegative = true,
       allowCalculator = true,
+      allowSignToggle = false,
       className,
       id,
       onBlur,
@@ -54,6 +58,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     },
     ref
   ) => {
+    const t = useTranslations('common');
     // Local display state - allows free typing
     const [displayValue, setDisplayValue] = useState(() => formatAmountWithCommas(value));
     const [isFocused, setIsFocused] = useState(false);
@@ -94,6 +99,11 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     }, [value]);
 
     const inputId = id || `input-${label?.toLowerCase().replace(/\s+/g, '-')}`;
+
+    // Reserve right padding so typed text never runs under the in-field buttons.
+    const rightButtonCount = (allowSignToggle ? 1 : 0) + (allowCalculator ? 1 : 0);
+    const inputPaddingRight =
+      rightButtonCount === 0 ? undefined : rightButtonCount === 1 ? '2.25rem' : '3.75rem';
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       // Use calculator filter if calculator is enabled, otherwise standard currency filter
@@ -190,6 +200,18 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       onFocus?.(e);
     };
 
+    // Flip the value's sign. For a defined, non-zero value we notify the parent
+    // with the negated number and let the sync effects update the display. When
+    // empty or zero there is no magnitude yet, so we just flip the leading minus
+    // on the display text so a subsequently typed number takes the chosen sign.
+    const toggleSign = () => {
+      if (value !== undefined && value !== 0) {
+        onChange(-value);
+        return;
+      }
+      setDisplayValue(prev => (prev.startsWith('-') ? prev.replace(/^-/, '') : '-' + prev));
+    };
+
     // --- Calculator modal logic ---
 
     const openCalculator = useCallback(() => {
@@ -275,7 +297,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
             disabled={disabled}
             style={{
               paddingLeft: prefix ? `${1.15 + prefix.length * 0.6}rem` : undefined,
-              paddingRight: allowCalculator ? '2.25rem' : undefined,
+              paddingRight: inputPaddingRight,
             }}
             className={cn(
               inputBaseClasses,
@@ -284,17 +306,36 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
             )}
             {...props}
           />
-          {allowCalculator && (
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label="Open calculator"
-              disabled={disabled}
-              onClick={openCalculator}
-              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <CalculatorIcon className="h-5 w-5" />
-            </button>
+          {rightButtonCount > 0 && (
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 gap-1.5">
+              {allowSignToggle && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={t('currencyInput.toggleSign')}
+                  disabled={disabled}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    toggleSign();
+                  }}
+                  className="flex items-center text-base leading-none font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {'±'}
+                </button>
+              )}
+              {allowCalculator && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={t('currencyInput.openCalculator')}
+                  disabled={disabled}
+                  onClick={openCalculator}
+                  className="flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <CalculatorIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           )}
         </div>
         {error && (
@@ -304,7 +345,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         {/* Calculator modal */}
         <Modal isOpen={calcOpen} onClose={() => setCalcOpen(false)} maxWidth="sm" pushHistory>
           <div className="p-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Calculator</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('currencyInput.calculator')}</h3>
 
             <input
               ref={calcInputRef}

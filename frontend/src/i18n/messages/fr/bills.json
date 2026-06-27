@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "Factures et dépôts",
+    "subtitle": "Gérez vos transactions récurrentes et paiements récurrents",
+    "newButton": "+ Nouveau calendrier",
+    "summaryActiveBills": "Factures actives",
+    "summaryActiveDeposits": "Dépôts actifs",
+    "summaryMonthlyNet": "Net mensuel",
+    "summaryDueNow": "À payer maintenant",
+    "loadingText": "Chargement des transactions récurrentes...",
+    "chartUnavailable": "Graphique temporairement indisponible"
+  },
+  "viewTabs": {
+    "list": "Liste",
+    "calendar": "Calendrier",
+    "filterAll": "Tous ({count})",
+    "filterBills": "Factures ({count})",
+    "filterDeposits": "Dépôts ({count})",
+    "todayButton": "Aujourd'hui"
+  },
+  "form": {
+    "titleNew": "Nouvelle transaction récurrente",
+    "titleEdit": "Modifier la transaction récurrente"
+  },
+  "overrideConfirm": {
+    "title": "Remplacements existants détectés",
+    "message": "Cette transaction récurrente comporte {count, plural, one {# occurrence individuelle} other {# occurrences individuelles}} avec des modifications personnalisées.",
+    "question": "Que souhaitez-vous faire de ces modifications lors de la mise à jour du modèle de base ?",
+    "keepButton": "Conserver les modifications",
+    "deleteButton": "Supprimer toutes les modifications"
+  },
+  "forecast": {
+    "title": "Prévision de trésorerie",
+    "scheduledCount": "{count, plural, one {# transaction récurrente} other {# transactions récurrentes}} dans la prévision",
+    "tooltipTransactions": "Transactions :",
+    "tooltipMore": "+{count} de plus",
+    "noData": "Aucune donnée à afficher",
+    "noAccounts": "Aucun compte trouvé",
+    "noScheduled": "Aucune transaction récurrente",
+    "noMatchingAccount": "Sélectionnez un compte avec des transactions récurrentes",
+    "noUpcoming": "Aucune transaction à venir sur cette période - affichage du solde actuel",
+    "summaryStarting": "Départ",
+    "summaryEnding": "Fin",
+    "summaryLowest": "Le plus bas",
+    "summaryMinBalance": "Solde min.",
+    "allAccounts": "Tous les comptes"
+  },
+  "calendar": {
+    "days": {
+      "sun": "Dim",
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mer",
+      "thu": "Jeu",
+      "fri": "Ven",
+      "sat": "Sam"
+    },
+    "more": "+{count} de plus"
+  },
+  "toasts": {
+    "overridesDeleted": "Remplacements supprimés",
+    "notFound": "Paiement récurrent introuvable",
+    "loadFailed": "Échec du chargement des transactions récurrentes",
+    "overridesDeleteFailed": "Échec de la suppression des remplacements"
+  }
+}

@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In, DataSource } from "typeorm";
 import { Cron } from "@nestjs/schedule";
@@ -21,6 +22,7 @@ import { getTradingDateFromQuote } from "./providers/trading-date.util";
 import { CreateSecurityPriceDto } from "./dto/create-security-price.dto";
 import { UpdateSecurityPriceDto } from "./dto/update-security-price.dto";
 import { formatDateYMD } from "../common/date-utils";
+import { mapWithConcurrency } from "../common/concurrency.util";
 
 export { SecurityLookupResult } from "./providers/quote-provider.interface";
 
@@ -31,6 +33,10 @@ const TRANSACTION_SOURCES = [
   "transfer_in",
   "transfer_out",
 ];
+
+// Cap simultaneous external quote fetches so a large securities universe does
+// not fire hundreds of concurrent Yahoo/MSN requests and trip rate limits.
+const QUOTE_FETCH_CONCURRENCY = 6;
 
 function sourceFor(provider: QuoteProviderName | undefined): string {
   return provider === "msn" ? "msn_finance" : "yahoo_finance";
@@ -309,21 +315,48 @@ export class SecurityPriceService {
 
   // ─── Refresh (current price) ─────────────────────────────────────────────
 
-  async refreshAllPrices(): Promise<PriceRefreshSummary> {
+  /**
+   * @param skipFresh When true, skip securities that already have a
+   *   provider-fetched price for today so a post-close re-run of the scheduled
+   *   job does not re-fetch quotes it just stored. Only the scheduled cron
+   *   passes true; on-demand/manual refreshes pass false (the default) and
+   *   always re-fetch every eligible security. Manual price entries
+   *   (source = 'manual') never count as fresh, so a user-entered intraday
+   *   price does not suppress the official close fetch.
+   */
+  async refreshAllPrices(skipFresh = false): Promise<PriceRefreshSummary> {
     const startTime = Date.now();
     this.logger.log("Starting price refresh for all securities");
 
     const allActive = await this.securitiesRepository.find({
       where: { isActive: true },
     });
-    const securities = allActive.filter((s) => isRefreshEligible(s));
+    const eligible = allActive.filter((s) => isRefreshEligible(s));
+
+    let securities = eligible;
+    let skipped = 0;
+    if (skipFresh && eligible.length > 0) {
+      const today = formatDateYMD(new Date());
+      const freshRows: { security_id: string }[] =
+        (await this.dataSource.query(
+          `SELECT DISTINCT security_id FROM security_prices
+           WHERE security_id = ANY($1) AND price_date >= $2
+             AND source IS DISTINCT FROM 'manual'`,
+          [eligible.map((s) => s.id), today],
+        )) ?? [];
+      const freshIds = new Set(freshRows.map((r) => r.security_id));
+      if (freshIds.size > 0) {
+        securities = eligible.filter((s) => !freshIds.has(s.id));
+        skipped = eligible.length - securities.length;
+      }
+    }
 
     if (securities.length === 0) {
       return {
-        totalSecurities: 0,
+        totalSecurities: eligible.length,
         updated: 0,
         failed: 0,
-        skipped: 0,
+        skipped,
         results: [],
         lastUpdated: new Date(),
       };
@@ -336,7 +369,6 @@ export class SecurityPriceService {
     const results: PriceUpdateResult[] = [];
     let updated = 0;
     let failed = 0;
-    const skipped = 0;
 
     const symbolGroups = new Map<string, Security[]>();
     for (const security of securities) {
@@ -347,15 +379,17 @@ export class SecurityPriceService {
     }
 
     const groups = [...symbolGroups.values()];
-    const quotes = await Promise.all(
-      groups.map((group) => {
+    const quotes = await mapWithConcurrency(
+      groups,
+      QUOTE_FETCH_CONCURRENCY,
+      (group) => {
         const rep = group[0];
         const ctx = userContexts.get(rep.userId) || {
           defaultQuoteProvider: DEFAULT_QUOTE_PROVIDER,
           preferredExchanges: [],
         };
         return this.fetchQuoteWithFallback(rep, ctx);
-      }),
+      },
     );
 
     for (let i = 0; i < groups.length; i++) {
@@ -471,14 +505,16 @@ export class SecurityPriceService {
     let updated = 0;
     let failed = 0;
 
-    const quotes = await Promise.all(
-      securities.map((security) => {
+    const quotes = await mapWithConcurrency(
+      securities,
+      QUOTE_FETCH_CONCURRENCY,
+      (security) => {
         const ctx = userContexts.get(security.userId) || {
           defaultQuoteProvider: DEFAULT_QUOTE_PROVIDER,
           preferredExchanges: [],
         };
         return this.fetchQuoteWithFallback(security, ctx);
-      }),
+      },
     );
 
     for (let i = 0; i < securities.length; i++) {
@@ -687,6 +723,41 @@ export class SecurityPriceService {
       if (results.length > 0) return results;
     }
     return [];
+  }
+
+  /**
+   * Fetch the instrument's authoritative trading currency from a live quote
+   * (provider `meta.currency`, GBX-normalized to GBP). Used at security-create
+   * time to correct the exchange-guessed currency from the lookup, which is
+   * wrong for non-local-currency listings (e.g. a USD ETF on the LSE). Returns
+   * null if no provider reports a currency, so callers keep their fallback.
+   */
+  async fetchAuthoritativeCurrency(
+    userId: string,
+    symbol: string,
+    exchange: string | null,
+  ): Promise<string | null> {
+    const contexts = await this.loadUserContexts([userId]);
+    const ctx = contexts.get(userId) || {
+      defaultQuoteProvider: DEFAULT_QUOTE_PROVIDER,
+      preferredExchanges: [],
+    };
+    const ordered = this.providers.resolveForSecurity(
+      { quoteProvider: null },
+      ctx.defaultQuoteProvider,
+    );
+    for (const p of ordered) {
+      try {
+        const quote = await p.fetchQuote(symbol, exchange);
+        const currency = quote?.currencyCode?.trim();
+        if (currency) return currency;
+      } catch (err) {
+        this.logger.warn(
+          `${p.name} currency lookup failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    return null;
   }
 
   async getLastUpdateTime(): Promise<Date | null> {
@@ -948,7 +1019,7 @@ export class SecurityPriceService {
   async scheduledPriceRefresh(): Promise<void> {
     this.logger.log("Running scheduled price refresh");
     try {
-      const result = await this.refreshAllPrices();
+      const result = await this.refreshAllPrices(true);
       if (result.updated > 0) {
         this.logger.log(
           "Recalculating investment snapshots after price refresh",
@@ -1021,6 +1092,128 @@ export class SecurityPriceService {
   }
 
   /**
+   * Force-refresh historical prices for a single security across the full
+   * period the user has held it (earliest investment transaction through the
+   * latest available price), overwriting any existing rows. Unlike the
+   * scheduled backfill this bypasses the skipPriceUpdates eligibility check:
+   * the user has explicitly requested the update, and imports flag securities
+   * with skipPriceUpdates=true, so this is how a user opts a single corrected
+   * symbol back in. Scoped by userId for multi-tenancy.
+   */
+  async backfillSecurityHoldingPeriod(
+    userId: string,
+    securityId: string,
+  ): Promise<HistoricalBackfillResult> {
+    const security = await this.securitiesRepository.findOne({
+      where: { id: securityId, userId },
+    });
+    if (!security) {
+      throw new NotFoundException(
+        tr(
+          "errors.securities.notFoundBySecurityId",
+          `Security ${securityId} not found`,
+          { securityId },
+        ),
+      );
+    }
+
+    const ctx = (await this.loadUserContexts([userId])).get(userId) ?? {
+      defaultQuoteProvider: DEFAULT_QUOTE_PROVIDER,
+      preferredExchanges: [],
+    };
+
+    // Earliest date the user has held the security. Null when there are no
+    // transactions yet (e.g. a watchlist-only security) -- fall back to 1y.
+    const earliestRows: Array<{ earliest: string | null }> =
+      await this.dataSource.query(
+        `SELECT MIN(transaction_date)::TEXT as earliest
+         FROM investment_transactions
+         WHERE security_id = $1`,
+        [securityId],
+      );
+    const earliestTx = earliestRows[0]?.earliest ?? null;
+
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    oneYearAgo.setHours(0, 0, 0, 0);
+    const oneYearAgoStr = oneYearAgo.toISOString().substring(0, 10);
+
+    const needsOlderData = !!earliestTx && earliestTx < oneYearAgoStr;
+
+    const daily = await this.fetchHistoricalWithFallback(security, "1y", ctx);
+    const maxBundle = needsOlderData
+      ? await this.fetchHistoricalWithFallback(security, "max", ctx)
+      : null;
+
+    if (!daily && !maxBundle) {
+      return {
+        symbol: security.symbol,
+        success: false,
+        error: "No historical data available",
+      };
+    }
+
+    const winner = daily || maxBundle!;
+    if (winner.provider === "msn") {
+      await this.persistMsnInstrumentIdIfResolved(security, "msn", ctx);
+    }
+
+    let allPrices =
+      maxBundle && daily
+        ? this.mergePrices(maxBundle.prices, daily.prices, oneYearAgo)
+        : (daily?.prices ?? maxBundle!.prices);
+
+    const seen = new Set<string>();
+    allPrices = allPrices.filter((p) => {
+      const key = p.date.toISOString().substring(0, 10);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Clip to the holding period: from the first transaction date (or 1y ago
+    // when the security has never been transacted) through the latest price.
+    const cutoffStr = earliestTx ?? oneYearAgoStr;
+    const cutoff = new Date(cutoffStr);
+    cutoff.setHours(0, 0, 0, 0);
+    const prices = allPrices.filter((p) => p.date >= cutoff);
+
+    if (prices.length === 0) {
+      return {
+        symbol: security.symbol,
+        success: true,
+        pricesLoaded: 0,
+        provider: winner.provider,
+      };
+    }
+
+    const source = sourceFor(winner.provider);
+    try {
+      await this.bulkUpsertPrices(security.id, prices, source);
+    } catch (error) {
+      this.logger.error(
+        `Failed to force-backfill prices for ${security.symbol}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        symbol: security.symbol,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    this.logger.log(
+      `Force-backfilled ${prices.length} prices for ${security.symbol} via ${winner.provider} (from ${cutoffStr})`,
+    );
+
+    return {
+      symbol: security.symbol,
+      success: true,
+      pricesLoaded: prices.length,
+      provider: winner.provider,
+    };
+  }
+
+  /**
    * Upsert a transaction-derived price for a security on a given date.
    * Computes average price from all price-relevant transactions on that date.
    * Never overwrites provider-sourced (yahoo_finance, msn_finance) or manual
@@ -1031,6 +1224,9 @@ export class SecurityPriceService {
     securityId: string,
     transactionDate: string,
   ): Promise<void> {
+    // Only actual trades (BUY/SELL/REINVEST) imply a market price. TRANSFER_IN/
+    // TRANSFER_OUT legs carry the carried cost basis, not the market price on
+    // the transfer date, so they are excluded from the derived price.
     const rows: Array<{
       avg_price: string;
       latest_action: string;
@@ -1038,13 +1234,13 @@ export class SecurityPriceService {
       `SELECT AVG(price::numeric) as avg_price,
               (SELECT action FROM investment_transactions
                WHERE security_id = $1 AND transaction_date = $2
-                 AND action IN ('BUY', 'SELL', 'REINVEST', 'TRANSFER_IN', 'TRANSFER_OUT')
+                 AND action IN ('BUY', 'SELL', 'REINVEST')
                  AND price IS NOT NULL
                ORDER BY created_at DESC LIMIT 1) as latest_action
        FROM investment_transactions
        WHERE security_id = $1
          AND transaction_date = $2
-         AND action IN ('BUY', 'SELL', 'REINVEST', 'TRANSFER_IN', 'TRANSFER_OUT')
+         AND action IN ('BUY', 'SELL', 'REINVEST')
          AND price IS NOT NULL`,
       [securityId, transactionDate],
     );
@@ -1094,13 +1290,13 @@ export class SecurityPriceService {
               (SELECT it2.action FROM investment_transactions it2
                WHERE it2.security_id = it.security_id
                  AND it2.transaction_date = it.transaction_date
-                 AND it2.action IN ('BUY', 'SELL', 'REINVEST', 'TRANSFER_IN', 'TRANSFER_OUT')
+                 AND it2.action IN ('BUY', 'SELL', 'REINVEST')
                  AND it2.price IS NOT NULL
                ORDER BY it2.created_at DESC LIMIT 1) as latest_action
        FROM investment_transactions it
        WHERE it.security_id IS NOT NULL
          AND it.price IS NOT NULL
-         AND it.action IN ('BUY', 'SELL', 'REINVEST', 'TRANSFER_IN', 'TRANSFER_OUT')
+         AND it.action IN ('BUY', 'SELL', 'REINVEST')
        GROUP BY it.security_id, it.transaction_date`,
     );
 
@@ -1194,7 +1390,9 @@ export class SecurityPriceService {
     });
 
     if (!price) {
-      throw new NotFoundException("Security price not found");
+      throw new NotFoundException(
+        tr("errors.securities.priceNotFound", "Security price not found"),
+      );
     }
 
     if (dto.closePrice !== undefined) price.closePrice = dto.closePrice;
@@ -1214,7 +1412,9 @@ export class SecurityPriceService {
     });
 
     if (!price) {
-      throw new NotFoundException("Security price not found");
+      throw new NotFoundException(
+        tr("errors.securities.priceNotFound", "Security price not found"),
+      );
     }
 
     const priceDate = price.priceDate;

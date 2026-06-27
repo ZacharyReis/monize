@@ -4,6 +4,8 @@ import { Repository } from "typeorm";
 import { Transaction } from "../../transactions/entities/transaction.entity";
 import { ScheduledTransaction } from "../../scheduled-transactions/entities/scheduled-transaction.entity";
 import { AccountsService } from "../../accounts/accounts.service";
+import { TransactionAnalyticsService } from "../../transactions/transaction-analytics.service";
+import { RecurringCharge } from "../../transactions/recurring-charges.util";
 
 export interface MonthlyHistoryEntry {
   month: string;
@@ -57,15 +59,7 @@ export interface ForecastAggregates {
   today: string;
 }
 
-export interface RecurringCharge {
-  payeeName: string;
-  amounts: number[];
-  dates: string[];
-  frequency: string;
-  currentAmount: number;
-  previousAmount: number;
-  categoryName: string | null;
-}
+export { RecurringCharge };
 
 @Injectable()
 export class ForecastAggregatorService {
@@ -78,6 +72,7 @@ export class ForecastAggregatorService {
     private readonly scheduledTransactionRepo: Repository<ScheduledTransaction>,
     @Inject(forwardRef(() => AccountsService))
     private readonly accountsService: AccountsService,
+    private readonly transactionAnalytics: TransactionAnalyticsService,
   ) {}
 
   async computeAggregates(
@@ -101,7 +96,12 @@ export class ForecastAggregatorService {
       this.getAccountBalances(userId),
       this.getActiveScheduledTransactions(userId),
       this.getIncomePatterns(userId, twelveMonthsAgo, today),
-      this.getRecurringCharges(userId, twelveMonthsAgo, today),
+      this.transactionAnalytics.getRecurringCharges(
+        userId,
+        twelveMonthsAgo,
+        today,
+        { uncategorizedLabel: "Uncategorized" },
+      ),
     ]);
 
     return {
@@ -291,94 +291,5 @@ export class ForecastAggregatorService {
     }
 
     return { monthlyIncome, averageMonthlyIncome, incomeVariability };
-  }
-
-  private async getRecurringCharges(
-    userId: string,
-    startDate: string,
-    endDate: string,
-  ): Promise<RecurringCharge[]> {
-    const rows = await this.transactionRepo
-      .createQueryBuilder("t")
-      .leftJoin("t.category", "cat")
-      .select("COALESCE(t.payeeName, 'Unknown')", "payeeName")
-      .addSelect("COALESCE(cat.name, 'Uncategorized')", "categoryName")
-      .addSelect(
-        "ARRAY_AGG(ABS(t.amount) ORDER BY t.transactionDate ASC)",
-        "amounts",
-      )
-      .addSelect(
-        "ARRAY_AGG(TO_CHAR(t.transactionDate, 'YYYY-MM-DD') ORDER BY t.transactionDate ASC)",
-        "dates",
-      )
-      .addSelect("COUNT(*)", "txnCount")
-      .where("t.userId = :userId", { userId })
-      .andWhere("t.transactionDate >= :startDate", { startDate })
-      .andWhere("t.transactionDate <= :endDate", { endDate })
-      .andWhere("t.amount < 0")
-      .andWhere("t.status != 'VOID'")
-      .andWhere("t.isTransfer = false")
-      .andWhere("t.parentTransactionId IS NULL")
-      .andWhere("t.payeeName IS NOT NULL")
-      // Exclude investment-linked cash debits so regular BUY activity
-      // isn't picked up as a "recurring charge".
-      .andWhere(
-        "NOT EXISTS (SELECT 1 FROM investment_transactions it WHERE it.transaction_id = t.id)",
-      )
-      .groupBy("t.payeeName")
-      .addGroupBy("cat.name")
-      .having("COUNT(*) >= 3")
-      .orderBy("COUNT(*)", "DESC")
-      .getRawMany();
-
-    return rows
-      .map((r) => {
-        const amounts: number[] = (r.amounts || []).map(Number);
-        const dates: string[] = r.dates || [];
-        const frequency = this.detectFrequency(dates);
-        const currentAmount =
-          amounts.length > 0 ? amounts[amounts.length - 1] : 0;
-        const previousAmount =
-          amounts.length > 1 ? amounts[amounts.length - 2] : currentAmount;
-
-        return {
-          payeeName: r.payeeName,
-          amounts,
-          dates,
-          frequency,
-          currentAmount,
-          previousAmount,
-          categoryName: r.categoryName,
-        };
-      })
-      .filter((r) => r.frequency !== "irregular");
-  }
-
-  private detectFrequency(dates: string[]): string {
-    if (dates.length < 3) return "irregular";
-
-    const gaps: number[] = [];
-    for (let i = 1; i < dates.length; i++) {
-      const d1 = new Date(dates[i - 1]);
-      const d2 = new Date(dates[i]);
-      gaps.push(
-        Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)),
-      );
-    }
-
-    const avgGap = gaps.reduce((sum, g) => sum + g, 0) / gaps.length;
-    const variance =
-      gaps.reduce((sum, g) => sum + Math.pow(g - avgGap, 2), 0) / gaps.length;
-    const stdDev = Math.sqrt(variance);
-
-    if (stdDev > avgGap * 0.4) return "irregular";
-
-    if (avgGap >= 5 && avgGap <= 10) return "weekly";
-    if (avgGap >= 12 && avgGap <= 18) return "biweekly";
-    if (avgGap >= 25 && avgGap <= 35) return "monthly";
-    if (avgGap >= 80 && avgGap <= 100) return "quarterly";
-    if (avgGap >= 350 && avgGap <= 380) return "yearly";
-
-    return "irregular";
   }
 }

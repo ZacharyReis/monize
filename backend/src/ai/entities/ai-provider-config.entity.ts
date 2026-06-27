@@ -22,6 +22,10 @@ export const AI_PROVIDERS = [
   "ollama",
   "ollama-cloud",
   "openai-compatible",
+  // Not a callable LLM: marks that this user answers chat via their own MCP
+  // agent (reverse relay). Carries priority/isActive like any provider, but is
+  // skipped by LLM resolution and routed through the relay broker instead.
+  "mcp_relay",
 ] as const;
 
 export type AiProviderType = (typeof AI_PROVIDERS)[number];

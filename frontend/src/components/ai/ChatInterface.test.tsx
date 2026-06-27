@@ -30,6 +30,9 @@ const mockAbortController = { abort: vi.fn() };
 vi.mock('@/lib/ai', () => ({
   aiApi: {
     getStatus: vi.fn().mockResolvedValue({ configured: true }),
+    getRelayStatus: vi
+      .fn()
+      .mockResolvedValue({ state: 'listening', queued: 0 }),
     queryStream: vi.fn((_query: string, callbacks: StreamCallbacks) => {
       capturedCallbacks = callbacks;
       return mockAbortController;
@@ -623,6 +626,148 @@ describe('ChatInterface', () => {
         screen.queryByText('Conversation saved in your browser'),
       ).not.toBeInTheDocument();
       expect(screen.queryByText('Clear conversation')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('attachments', () => {
+    beforeEach(() => {
+      // jsdom doesn't implement object URLs; image previews need them.
+      URL.createObjectURL = vi.fn(() => 'blob:mock');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    function fileInputOf(container: HTMLElement): HTMLInputElement {
+      return container.querySelector('input[type="file"]') as HTMLInputElement;
+    }
+
+    const pngFile = () =>
+      new File([new Uint8Array([1, 2, 3])], 'receipt.png', { type: 'image/png' });
+
+    it('attaches a selected file and shows a removable chip', async () => {
+      const { container } = await renderChat();
+
+      await act(async () => {
+        fireEvent.change(fileInputOf(container), {
+          target: { files: [pngFile()] },
+        });
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('receipt.png')).toBeInTheDocument(),
+      );
+
+      fireEvent.click(screen.getByLabelText('Remove attachment'));
+      await waitFor(() =>
+        expect(screen.queryByText('receipt.png')).not.toBeInTheDocument(),
+      );
+    });
+
+    it('enables send with an attachment but no typed text', async () => {
+      const { container } = await renderChat();
+      expect(screen.getByTitle('Send')).toBeDisabled();
+
+      await act(async () => {
+        fireEvent.change(fileInputOf(container), {
+          target: { files: [pngFile()] },
+        });
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('receipt.png')).toBeInTheDocument(),
+      );
+      expect(screen.getByTitle('Send')).not.toBeDisabled();
+    });
+
+    it('submits the base64 payload and clears chips on send', async () => {
+      const { aiApi } = await import('@/lib/ai');
+      const { container } = await renderChat();
+
+      await act(async () => {
+        fireEvent.change(fileInputOf(container), {
+          target: { files: [pngFile()] },
+        });
+      });
+      await waitFor(() =>
+        expect(screen.getByText('receipt.png')).toBeInTheDocument(),
+      );
+
+      const textarea = screen.getByPlaceholderText('Ask about your finances...');
+      fireEvent.change(textarea, { target: { value: 'extract this' } });
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Send'));
+      });
+
+      const call = vi.mocked(aiApi.queryStream).mock.calls[0];
+      expect(call[0]).toBe('extract this');
+      // 5th arg is the attachment payload; bytes [1,2,3] base64-encode to "AQID".
+      expect(call[4]).toEqual([
+        { kind: 'image', mediaType: 'image/png', filename: 'receipt.png', data: 'AQID' },
+      ]);
+
+      // The composer chip (with its remove button) clears; the filename still
+      // shows on the sent message bubble, so assert via the remove control.
+      await waitFor(() =>
+        expect(
+          screen.queryByLabelText('Remove attachment'),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
+    it('attaches an image pasted from the clipboard', async () => {
+      const { container } = await renderChat();
+      const textarea = screen.getByPlaceholderText('Ask about your finances...');
+      const file = new File([new Uint8Array([1, 2, 3])], 'pasted.png', {
+        type: 'image/png',
+      });
+
+      await act(async () => {
+        fireEvent.paste(textarea, {
+          clipboardData: {
+            items: [{ kind: 'file', getAsFile: () => file }],
+            getData: () => '',
+          },
+        });
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('pasted.png')).toBeInTheDocument(),
+      );
+      // The container is referenced to keep the file-input query consistent.
+      expect(fileInputOf(container)).toBeInTheDocument();
+    });
+
+    it('allows attachments when relay is active and sends them on the relay path', async () => {
+      const { aiApi } = await import('@/lib/ai');
+      vi.mocked(aiApi.getStatus).mockResolvedValueOnce({
+        configured: true,
+        relayActive: true,
+      } as never);
+
+      const { container } = await renderChat();
+      // The attach button stays available in relay mode.
+      expect(screen.getByLabelText('Add attachment')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.change(fileInputOf(container), {
+          target: { files: [pngFile()] },
+        });
+      });
+      await waitFor(() =>
+        expect(screen.getByText('receipt.png')).toBeInTheDocument(),
+      );
+
+      const textarea = screen.getByPlaceholderText('Ask about your finances...');
+      fireEvent.change(textarea, { target: { value: 'read this' } });
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Send'));
+      });
+
+      const call = vi.mocked(aiApi.queryStream).mock.calls[0];
+      // opts (4th arg) carries relay:true; attachments (5th arg) ride along.
+      expect(call[3]).toMatchObject({ relay: true });
+      expect(call[4]).toEqual([
+        { kind: 'image', mediaType: 'image/png', filename: 'receipt.png', data: 'AQID' },
+      ]);
     });
   });
 });

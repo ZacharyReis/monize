@@ -9,6 +9,8 @@
  * - Calculates payment amount based on amortization period
  */
 
+import { roundMoney } from "../common/round.util";
+
 export type MortgagePaymentFrequency =
   | "MONTHLY"
   | "SEMI_MONTHLY" // 24 payments/year (1st and 15th)
@@ -133,14 +135,14 @@ export function calculatePaymentAmount(
 ): number {
   // Handle 0% interest
   if (periodicRate === 0) {
-    return Math.round((principal / totalPayments) * 100) / 100;
+    return roundMoney(principal / totalPayments);
   }
 
   const payment =
     (principal * (periodicRate * Math.pow(1 + periodicRate, totalPayments))) /
     (Math.pow(1 + periodicRate, totalPayments) - 1);
 
-  return Math.round(payment * 100) / 100;
+  return roundMoney(payment);
 }
 
 /**
@@ -186,7 +188,7 @@ export function calculateMortgagePayment(
       isCanadian,
       isVariableRate,
     );
-    return Math.round((monthlyPayment / 2) * 100) / 100;
+    return roundMoney(monthlyPayment / 2);
   }
 
   if (paymentFrequency === "ACCELERATED_WEEKLY") {
@@ -197,7 +199,7 @@ export function calculateMortgagePayment(
       isCanadian,
       isVariableRate,
     );
-    return Math.round((monthlyPayment / 4) * 100) / 100;
+    return roundMoney(monthlyPayment / 4);
   }
 
   // For standard frequencies, calculate based on that frequency's periods
@@ -368,9 +370,8 @@ export function calculateMortgageAmortization(
     isCanadian,
     isVariableRate,
   );
-  const interestPayment = Math.round(principal * periodicRate * 100) / 100;
-  const principalPayment =
-    Math.round((paymentAmount - interestPayment) * 100) / 100;
+  const interestPayment = roundMoney(principal * periodicRate);
+  const principalPayment = roundMoney(paymentAmount - interestPayment);
 
   // Calculate end date
   const endDate = calculateMortgageEndDate(
@@ -381,7 +382,7 @@ export function calculateMortgageAmortization(
 
   // Calculate total interest
   const totalPaid = paymentAmount * totalPayments;
-  const totalInterest = Math.round((totalPaid - principal) * 100) / 100;
+  const totalInterest = roundMoney(totalPaid - principal);
 
   // Calculate effective annual rate
   const effectiveAnnualRate = calculateEffectiveAnnualRate(
@@ -471,7 +472,7 @@ export function calculateMortgagePaymentSplit(
   }
 
   return {
-    principal: Math.round(principal * 100) / 100,
-    interest: Math.round(interest * 100) / 100,
+    principal: roundMoney(principal),
+    interest: roundMoney(interest),
   };
 }

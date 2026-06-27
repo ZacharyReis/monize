@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "Rachunki i wpłaty",
+    "subtitle": "Zarządzaj cyklicznymi transakcjami i zaplanowanymi płatnościami",
+    "newButton": "+ Nowy harmonogram",
+    "summaryActiveBills": "Aktywne rachunki",
+    "summaryActiveDeposits": "Aktywne wpłaty",
+    "summaryMonthlyNet": "Saldo miesięczne",
+    "summaryDueNow": "Do zapłaty teraz",
+    "loadingText": "Wczytywanie zaplanowanych transakcji...",
+    "chartUnavailable": "Wykres chwilowo niedostępny"
+  },
+  "viewTabs": {
+    "list": "Lista",
+    "calendar": "Kalendarz",
+    "filterAll": "Wszystkie ({count})",
+    "filterBills": "Rachunki ({count})",
+    "filterDeposits": "Wpłaty ({count})",
+    "todayButton": "Dzisiaj"
+  },
+  "form": {
+    "titleNew": "Nowa zaplanowana transakcja",
+    "titleEdit": "Edytuj zaplanowaną transakcję"
+  },
+  "overrideConfirm": {
+    "title": "Znaleziono istniejące wyjątki",
+    "message": "Ta zaplanowana transakcja ma {count, plural, one {# pojedyncze wystąpienie} few {# pojedyncze wystąpienia} many {# pojedynczych wystąpień} other {# pojedynczych wystąpień}} z niestandardowymi modyfikacjami.",
+    "question": "Co chcesz zrobić z tymi modyfikacjami podczas aktualizacji szablonu bazowego?",
+    "keepButton": "Zachowaj modyfikacje",
+    "deleteButton": "Usuń wszystkie modyfikacje"
+  },
+  "forecast": {
+    "title": "Prognoza przepływów pieniężnych",
+    "scheduledCount": "{count, plural, one {# zaplanowana transakcja} few {# zaplanowane transakcje} many {# zaplanowanych transakcji} other {# zaplanowanych transakcji}} w prognozie",
+    "tooltipTransactions": "Transakcje:",
+    "tooltipMore": "+{count} więcej",
+    "noData": "Brak danych do wyświetlenia",
+    "noAccounts": "Nie znaleziono kont",
+    "noScheduled": "Brak zaplanowanych transakcji",
+    "noMatchingAccount": "Wybierz konto z zaplanowanymi transakcjami",
+    "noUpcoming": "Brak nadchodzących transakcji w tym okresie - pokazano bieżące saldo",
+    "summaryStarting": "Saldo początkowe",
+    "summaryEnding": "Saldo końcowe",
+    "summaryLowest": "Najniższe",
+    "summaryMinBalance": "Min. saldo",
+    "allAccounts": "Wszystkie konta"
+  },
+  "calendar": {
+    "days": {
+      "sun": "Nd",
+      "mon": "Pn",
+      "tue": "Wt",
+      "wed": "Śr",
+      "thu": "Czw",
+      "fri": "Pt",
+      "sat": "Sob"
+    },
+    "more": "+{count} więcej"
+  },
+  "toasts": {
+    "overridesDeleted": "Usunięto wyjątki",
+    "notFound": "Nie znaleziono zaplanowanej płatności",
+    "loadFailed": "Nie udało się wczytać zaplanowanych transakcji",
+    "overridesDeleteFailed": "Nie udało się usunąć wyjątków"
+  }
+}

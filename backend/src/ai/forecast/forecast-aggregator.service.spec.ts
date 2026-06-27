@@ -4,12 +4,14 @@ import { ForecastAggregatorService } from "./forecast-aggregator.service";
 import { Transaction } from "../../transactions/entities/transaction.entity";
 import { ScheduledTransaction } from "../../scheduled-transactions/entities/scheduled-transaction.entity";
 import { AccountsService } from "../../accounts/accounts.service";
+import { TransactionAnalyticsService } from "../../transactions/transaction-analytics.service";
 
 describe("ForecastAggregatorService", () => {
   let service: ForecastAggregatorService;
   let mockTransactionRepo: Record<string, jest.Mock>;
   let mockScheduledTransactionRepo: Record<string, jest.Mock>;
   let mockAccountsService: Record<string, jest.Mock>;
+  let mockTransactionAnalytics: Record<string, jest.Mock>;
 
   const userId = "user-1";
 
@@ -60,6 +62,10 @@ describe("ForecastAggregatorService", () => {
       ]),
     };
 
+    mockTransactionAnalytics = {
+      getRecurringCharges: jest.fn().mockResolvedValue([]),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ForecastAggregatorService,
@@ -74,6 +80,10 @@ describe("ForecastAggregatorService", () => {
         {
           provide: AccountsService,
           useValue: mockAccountsService,
+        },
+        {
+          provide: TransactionAnalyticsService,
+          useValue: mockTransactionAnalytics,
         },
       ],
     }).compile();
@@ -225,47 +235,32 @@ describe("ForecastAggregatorService", () => {
       expect(result.incomePatterns.incomeVariability).toBeGreaterThan(0.3);
     });
 
-    it("detects recurring charges from 12-month history", async () => {
-      const recurringData = [
+    it("includes recurring charges from the shared analytics service", async () => {
+      // Recurring-charge detection lives on TransactionAnalyticsService; the
+      // forecast aggregator surfaces whatever the shared method returns and
+      // requests the "Uncategorized" label for charges with no category.
+      const charges = [
         {
           payeeName: "Netflix",
+          amounts: [15.99, 17.99],
+          dates: ["2025-11-01", "2025-12-01"],
+          frequency: "monthly",
+          currentAmount: 17.99,
+          previousAmount: 15.99,
           categoryName: "Entertainment",
-          amounts: [15.99, 15.99, 15.99, 17.99],
-          dates: ["2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01"],
-          txnCount: "4",
         },
       ];
-
-      mockTransactionRepo.createQueryBuilder.mockImplementation(() =>
-        mockQueryBuilder(recurringData),
-      );
+      mockTransactionAnalytics.getRecurringCharges.mockResolvedValue(charges);
 
       const result = await service.computeAggregates(userId, "USD");
 
-      expect(result.recurringCharges).toHaveLength(1);
-      expect(result.recurringCharges[0].payeeName).toBe("Netflix");
-      expect(result.recurringCharges[0].frequency).toBe("monthly");
-      expect(result.recurringCharges[0].currentAmount).toBe(17.99);
-    });
-
-    it("filters out irregular charges", async () => {
-      const irregularData = [
-        {
-          payeeName: "Random Store",
-          categoryName: "Shopping",
-          amounts: [50, 20, 150],
-          dates: ["2025-08-10", "2025-09-25", "2025-12-01"],
-          txnCount: "3",
-        },
-      ];
-
-      mockTransactionRepo.createQueryBuilder.mockImplementation(() =>
-        mockQueryBuilder(irregularData),
+      expect(mockTransactionAnalytics.getRecurringCharges).toHaveBeenCalledWith(
+        userId,
+        expect.any(String),
+        expect.any(String),
+        { uncategorizedLabel: "Uncategorized" },
       );
-
-      const result = await service.computeAggregates(userId, "USD");
-
-      expect(result.recurringCharges).toHaveLength(0);
+      expect(result.recurringCharges).toEqual(charges);
     });
 
     it("filters out void transactions and transfers", async () => {
@@ -283,9 +278,10 @@ describe("ForecastAggregatorService", () => {
     });
 
     it("excludes investment-linked cash transactions from every forecast query", async () => {
-      // Forecast queries touch monthly history, income patterns, and
-      // recurring-charge detection. All three must strip out BUY/SELL/
-      // DIVIDEND cash side-effects so they don't skew the forecast.
+      // The forecast aggregator's own queries (monthly history, income
+      // patterns) must strip out BUY/SELL/DIVIDEND cash side-effects so they
+      // don't skew the forecast. (Recurring-charge detection applies the same
+      // exclusion, but now lives in TransactionAnalyticsService.)
       const qb = mockQueryBuilder();
       mockTransactionRepo.createQueryBuilder.mockReturnValue(qb);
 
@@ -297,9 +293,9 @@ describe("ForecastAggregatorService", () => {
       const investmentExclusion =
         "NOT EXISTS (SELECT 1 FROM investment_transactions it WHERE it.transaction_id = t.id)";
       const matches = andWhereCalls.filter((c) => c === investmentExclusion);
-      // Must be applied by every forecast query builder
-      // (getMonthlyHistory, getIncomePatterns, getRecurringCharges).
-      expect(matches.length).toBeGreaterThanOrEqual(3);
+      // Applied by both remaining forecast query builders
+      // (getMonthlyHistory, getIncomePatterns).
+      expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
     it("handles empty account list", async () => {

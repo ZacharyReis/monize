@@ -1,4 +1,6 @@
-export type AiProviderType = 'anthropic' | 'openai' | 'ollama' | 'ollama-cloud' | 'openai-compatible';
+import type { InvestmentAction } from './investment';
+
+export type AiProviderType = 'anthropic' | 'openai' | 'ollama' | 'ollama-cloud' | 'openai-compatible' | 'mcp_relay';
 
 export interface AiProviderConfig {
   id: string;
@@ -102,6 +104,11 @@ export interface AiStatus {
   hasSystemDefault: boolean;
   systemDefaultProvider: string | null;
   systemDefaultModel: string | null;
+  /**
+   * True when the highest-priority active provider is the MCP relay, so the
+   * chat routes prompts to the user's own agent instead of an LLM.
+   */
+  relayActive: boolean;
 }
 
 export interface AiConnectionTestResult {
@@ -124,6 +131,7 @@ export const AI_PROVIDER_LABELS: Record<AiProviderType, string> = {
   ollama: 'Ollama (Local)',
   'ollama-cloud': 'Ollama Cloud',
   'openai-compatible': 'OpenAI-Compatible',
+  mcp_relay: 'MCP Relay',
 };
 
 export const AI_PROVIDER_DEFAULT_MODELS: Record<AiProviderType, string[]> = {
@@ -141,6 +149,7 @@ export const AI_PROVIDER_DEFAULT_MODELS: Record<AiProviderType, string[]> = {
     'deepseek-v3.1:671b-cloud',
   ],
   'openai-compatible': [],
+  mcp_relay: [],
 };
 
 // Natural Language Query types
@@ -152,12 +161,198 @@ export interface QueryResult {
   usage: { inputTokens: number; outputTokens: number; toolCalls: number };
 }
 
+// Attachment types: a user can attach images/PDFs/CSVs to a query so the AI
+// can OCR or read them. `image`/`pdf` are sent as base64 binary; `text` (csv/
+// plain) is decoded server-side and inlined as text.
+export type AttachmentKind = 'image' | 'pdf' | 'text';
+
+/** Wire shape sent in the query JSON body (base64 payload, no `data:` prefix). */
+export interface AttachmentPayload {
+  kind: AttachmentKind;
+  mediaType: string;
+  filename: string;
+  data: string;
+}
+
+/**
+ * UI-side attachment in the composer: the wire payload plus transient fields
+ * (client id, decoded size, image object-URL preview) that are never sent to
+ * the server or persisted to localStorage.
+ */
+export interface ChatAttachment extends AttachmentPayload {
+  id: string;
+  size: number;
+  previewUrl?: string;
+}
+
+/**
+ * Lightweight attachment metadata kept on a sent chat message and persisted to
+ * localStorage. Deliberately omits the base64 `data` so the conversation in
+ * storage stays small and binaries don't leak across reloads.
+ */
+export interface ChatAttachmentMeta {
+  kind: AttachmentKind;
+  mediaType: string;
+  filename: string;
+}
+
 export type ChartType = 'bar' | 'pie' | 'line' | 'area';
 
 export interface ChartPayload {
   type: ChartType;
   title: string;
   data: Array<{ label: string; value: number }>;
+}
+
+export type AiActionType =
+  | 'create_transaction'
+  | 'categorize_transaction'
+  | 'create_payee'
+  | 'update_payee'
+  | 'delete_payee'
+  | 'create_security'
+  | 'update_security'
+  | 'delete_security'
+  | 'create_investment_transaction'
+  | 'create_transactions'
+  | 'create_investment_transactions'
+  | 'update_transaction'
+  | 'delete_transaction'
+  | 'update_investment_transaction'
+  | 'delete_investment_transaction'
+  | 'create_transfer'
+  | 'update_transfer'
+  // Generic bulk envelope for update/delete/transfer-create batches proposed by
+  // the unified manage_transactions tool. The descriptor carries an `operation`
+  // discriminator the bulk card reads to pick its title and row layout.
+  | 'batch_actions';
+
+export type PendingActionStatus =
+  | 'pending'
+  | 'confirming'
+  | 'confirmed'
+  | 'cancelled'
+  | 'error'
+  | 'expired';
+
+/** One category-split line shown on a split transaction confirmation card. */
+export interface PendingActionSplit {
+  categoryName?: string | null;
+  amount: number;
+  memo?: string | null;
+}
+
+export interface PendingActionPreview {
+  accountName?: string;
+  amount?: number;
+  currencyCode?: string;
+  transactionDate?: string;
+  // Transfer display fields (create_transfer / update_transfer): the "from" leg
+  // reuses accountName/amount/currencyCode above; these carry the "to" leg.
+  fromAccountName?: string;
+  toAccountName?: string;
+  toAmount?: number | null;
+  toCurrencyCode?: string | null;
+  payeeName?: string | null;
+  /** True when approving a create_transaction will also create a new payee. */
+  payeeWillBeCreated?: boolean;
+  categoryName?: string | null;
+  newCategoryName?: string | null;
+  currentCategoryName?: string | null;
+  description?: string | null;
+  name?: string | null;
+  /**
+   * Category-split lines for a split create_transaction / update_transaction.
+   * When present the card shows the breakdown in place of the single category.
+   */
+  splits?: PendingActionSplit[];
+  // create_investment_transaction display fields.
+  investmentAction?: InvestmentAction;
+  symbol?: string | null;
+  securityName?: string | null;
+  securityCurrency?: string | null;
+  quantity?: number | null;
+  price?: number | null;
+  commission?: number;
+  totalAmount?: number;
+  cashAccountName?: string | null;
+  cashCurrency?: string | null;
+  cashAmount?: number | null;
+  // create_security display fields (symbol/securityName/securityCurrency above
+  // are reused for the ticker, full name, and currency).
+  securityType?: string | null;
+  exchange?: string | null;
+  isFavourite?: boolean;
+  /**
+   * Per-row previews for the bulk actions (`create_transactions`,
+   * `create_investment_transactions`). Every pasted row in order -- both the
+   * valid rows and the flagged ones the bulk card greys out.
+   */
+  rows?: PendingActionPreviewRow[];
+}
+
+/** One row in a bulk confirmation card; `status: 'error'` rows are flagged. */
+export interface PendingActionPreviewRow {
+  status: 'ok' | 'error';
+  error?: string;
+  // Payee display field (batch_actions with a payee operation).
+  name?: string | null;
+  accountName?: string;
+  amount?: number;
+  currencyCode?: string;
+  transactionDate?: string;
+  // Transfer row fields (batch_actions with operation === 'create_transfer').
+  fromAccountName?: string;
+  toAccountName?: string;
+  toAmount?: number | null;
+  toCurrencyCode?: string | null;
+  payeeName?: string | null;
+  payeeWillBeCreated?: boolean;
+  categoryName?: string | null;
+  description?: string | null;
+  investmentAction?: InvestmentAction;
+  symbol?: string | null;
+  securityName?: string | null;
+  securityCurrency?: string | null;
+  quantity?: number | null;
+  price?: number | null;
+  commission?: number;
+  totalAmount?: number;
+  cashAccountName?: string | null;
+  cashCurrency?: string | null;
+  cashAmount?: number | null;
+}
+
+/**
+ * A write action the assistant proposed via a `pending_action` SSE event. The
+ * `descriptor` + `signature` are echoed back verbatim to the confirm endpoint;
+ * `status` is client-side UI state tracked by the chat store.
+ */
+export interface PendingAction {
+  actionId: string;
+  type: AiActionType;
+  preview: PendingActionPreview;
+  descriptor: Record<string, unknown>;
+  signature: string;
+  expiresAt: number;
+  status: PendingActionStatus;
+  resultId?: string;
+  /** Number of entities created by a bulk action (set on success). */
+  resultCount?: number;
+  /** Rows the bulk confirm skipped, by input index (set on success). */
+  resultSkipped?: Array<{ index: number; reason: string }>;
+  errorMessage?: string;
+}
+
+export interface ConfirmActionResponse {
+  type: AiActionType;
+  id: string;
+  /** Bulk actions: ids of every created entity. */
+  ids?: string[];
+  /** Bulk actions: number of entities created. */
+  count?: number;
+  /** Bulk actions: rows skipped best-effort, by input index. */
+  skipped?: Array<{ index: number; reason: string }>;
 }
 
 export interface StreamEvent {
@@ -167,11 +362,17 @@ export interface StreamEvent {
     | 'tool_start'
     | 'tool_result'
     | 'chart'
+    | 'pending_action'
     | 'content'
     | 'sources'
     | 'done'
+    // Relay only: sent first so the client knows its promptId and can pick up a
+    // late answer if the stream dies before the agent responds.
+    | 'prompt_id'
     | 'error';
   message?: string;
+  // Relay only: the id of the prompt this stream is serving (on `prompt_id`).
+  promptId?: string;
   name?: string;
   description?: string;
   summary?: string;
@@ -188,6 +389,10 @@ export interface StreamEvent {
   // valid payload. The frontend attaches these to the active assistant
   // message so <ResultChart> can render them with recharts.
   chart?: ChartPayload;
+  // Emitted when the model proposes a write action (create/categorize). The
+  // frontend attaches it to the assistant message and renders a confirmation
+  // card the user must approve before anything is persisted.
+  action?: Omit<PendingAction, 'status'>;
 }
 
 export interface StreamCallbacks {

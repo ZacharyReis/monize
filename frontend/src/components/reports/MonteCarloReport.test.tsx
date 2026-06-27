@@ -2115,7 +2115,7 @@ describe('MonteCarloReport', () => {
         fireEvent.click(pdfOption);
       });
       const args = (exportToPdf as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(args.title).toBe('Monte Carlo: Scenario');
+      expect(args.title).toBe('Monte Carlo: Untitled scenario');
     });
 
     // Summary stat: successRate == null renders "—" on screen

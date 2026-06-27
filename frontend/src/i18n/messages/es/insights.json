@@ -1,0 +1,44 @@
+{
+  "page": {
+    "title": "Análisis de gastos",
+    "subtitle": "Análisis impulsado por AI de tus patrones de gasto y anomalías"
+  },
+  "list": {
+    "lastUpdated": "Última actualización: {date} {time}",
+    "refreshButton": "Actualizar análisis",
+    "generating": "Generando...",
+    "allTypes": "Todos los tipos",
+    "allSeverities": "Todas las gravedades",
+    "showDismissed": "Mostrar descartados",
+    "emptyNoInsights": "Aún no se han generado análisis. Haz clic en \"Actualizar análisis\" para analizar tus patrones de gasto.",
+    "emptyFiltered": "Ningún análisis coincide con los filtros actuales.",
+    "generateButton": "Generar análisis",
+    "alertCount": "{count, plural, one {# alerta} other {# alertas}}",
+    "warningCount": "{count, plural, one {# aviso} other {# avisos}}",
+    "errorLoadFailed": "Error al cargar los análisis. Inténtalo de nuevo.",
+    "errorGenerateFailed": "Error al generar los análisis. Asegúrate de tener un proveedor de AI configurado.",
+    "errorTimeout": "La generación de análisis está tardando más de lo esperado. Espera o actualiza la página."
+  },
+  "card": {
+    "dismiss": "Descartar",
+    "dismissing": "Descartando..."
+  },
+  "notConfigured": {
+    "heading": "AI no configurado",
+    "message": "No hay ningún proveedor de AI configurado. Para usar Análisis de gastos, {link} en tu configuración.",
+    "linkText": "configura un proveedor de AI"
+  },
+  "insightTypes": {
+    "anomaly": "Anomalía",
+    "trend": "Tendencia",
+    "subscription": "Suscripción",
+    "budget_pace": "Ritmo de presupuesto",
+    "seasonal": "Estacional",
+    "new_recurring": "Nuevo recurrente"
+  },
+  "insightSeverities": {
+    "info": "Info",
+    "warning": "Aviso",
+    "alert": "Alerta"
+  }
+}

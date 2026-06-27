@@ -16,6 +16,7 @@ import { RefreshToken } from "../auth/entities/refresh-token.entity";
 import { PersonalAccessToken } from "../auth/entities/personal-access-token.entity";
 import { PasswordBreachService } from "../auth/password-breach.service";
 import { ModuleRef } from "@nestjs/core";
+import { I18nContext } from "nestjs-i18n";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
 import { BackupEncryptionService } from "../backup/backup-encryption.service";
 
@@ -464,6 +465,8 @@ describe("UsersService", () => {
       ["timeFormat", "24h"],
       ["defaultQuoteProvider", "yahoo"],
       ["recentTransactionsLimit", 25],
+      ["language", "fr"],
+      ["colorTheme", "latte"],
     ])(
       "updates the %s field when provided",
       async (field: string, value: any) => {
@@ -475,6 +478,40 @@ describe("UsersService", () => {
         expect(savedData[field]).toEqual(value);
       },
     );
+
+    it("leaves colorTheme untouched when not provided", async () => {
+      preferencesRepository.findOne.mockResolvedValue({
+        ...mockPreferences,
+        colorTheme: "nord",
+      });
+
+      await service.updatePreferences("user-1", { theme: "dark" });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      expect(savedData.colorTheme).toBe("nord");
+    });
+
+    it("seeds language='en' when creating default preferences", async () => {
+      preferencesRepository.findOne.mockResolvedValue(null);
+      preferencesRepository.save.mockImplementation((data) => data);
+
+      const result = await service.getPreferences("user-1");
+
+      expect(result.language).toBe("en");
+    });
+
+    it("seeds language from the request locale when creating default preferences", async () => {
+      preferencesRepository.findOne.mockResolvedValue(null);
+      preferencesRepository.save.mockImplementation((data) => data);
+      const spy = jest
+        .spyOn(I18nContext, "current")
+        .mockReturnValue({ lang: "pl" } as never);
+
+      const result = await service.getPreferences("user-1");
+
+      expect(result.language).toBe("pl");
+      spy.mockRestore();
+    });
   });
 
   describe("changePassword", () => {

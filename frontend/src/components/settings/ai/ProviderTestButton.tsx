@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { aiApi } from '@/lib/ai';
 import { getErrorMessage } from '@/lib/errors';
@@ -14,6 +15,7 @@ interface ProviderTestButtonProps {
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 export function ProviderTestButton({ configId, disabled }: ProviderTestButtonProps) {
+  const t = useTranslations('settings.aiProviders.testButton');
   const [status, setStatus] = useState<TestStatus>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -30,24 +32,24 @@ export function ProviderTestButton({ configId, disabled }: ProviderTestButtonPro
       const testResult = await aiApi.testConnection(configId);
       if (!testResult.available) {
         setStatus('error');
-        toast.error(testResult.error || 'Connection failed');
+        toast.error(testResult.error || t('connectionFailed'));
       } else if (testResult.modelAvailable === false) {
         // Server reachable but the configured model won't work. This is
         // the most common failure mode (typo, model not pulled, etc.)
         // so surface the specific reason instead of a generic "failed".
         setStatus('error');
-        toast.error(testResult.modelError || `Model "${testResult.model ?? 'unknown'}" is not available on this provider.`, { duration: 6000 });
+        toast.error(testResult.modelError || t('modelUnavailable', { model: testResult.model ?? 'unknown' }), { duration: 6000 });
       } else {
         setStatus('success');
         toast.success(
           testResult.modelAvailable
-            ? `Connection successful. Model "${testResult.model}" is ready.`
-            : 'Connection successful',
+            ? t('successWithModel', { model: testResult.model ?? '' })
+            : t('success'),
         );
       }
     } catch (error) {
       setStatus('error');
-      toast.error(getErrorMessage(error, 'Connection test failed'));
+      toast.error(getErrorMessage(error, t('testFailed')));
     }
     timerRef.current = setTimeout(() => setStatus('idle'), 3000);
   };
@@ -82,7 +84,7 @@ export function ProviderTestButton({ configId, disabled }: ProviderTestButtonPro
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       )}
-      <span className={status !== 'idle' ? 'hidden sm:inline' : ''}>Test</span>
+      <span className={status !== 'idle' ? 'hidden sm:inline' : ''}>{t('testLabel')}</span>
     </Button>
   );
 }

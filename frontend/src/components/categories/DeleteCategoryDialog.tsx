@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Category } from '@/types/category';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -22,6 +23,8 @@ export function DeleteCategoryDialog({
   onConfirm,
   onCancel,
 }: DeleteCategoryDialogProps) {
+  const t = useTranslations('categories');
+  const tc = useTranslations('common');
   const [transactionCount, setTransactionCount] = useState<number | null>(null);
   const [reassignTo, setReassignTo] = useState<string>('');
 
@@ -96,34 +99,30 @@ export function DeleteCategoryDialog({
         </div>
         <div className="ml-4 flex-1">
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            Delete "{category.name}"?
+            {t('deleteDialog.title', { name: category.name })}
           </h3>
 
           {isLoading ? (
             <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 dark:border-gray-500 mr-2"></div>
-              Checking usage...
+              {t('deleteDialog.checkingUsage')}
             </div>
           ) : transactionCount && transactionCount > 0 ? (
             <div className="mt-2">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                This category is used by{' '}
-                <span className="font-semibold text-gray-700 dark:text-gray-300">
-                  {transactionCount} item{transactionCount !== 1 ? 's' : ''}
-                </span>
-                {' '}(transactions and/or scheduled bills & deposits).
+                {t('deleteDialog.usedBy', { count: transactionCount })}
               </p>
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Reassign to:
+                  {t('deleteDialog.reassignLabel')}
                 </label>
                 <select
                   value={reassignTo}
                   onChange={(e) => setReassignTo(e.target.value)}
                   className="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:focus:border-blue-400 dark:focus:ring-blue-400 font-sans text-sm dark:bg-gray-700 dark:text-gray-100"
                 >
-                  <option value="">Leave uncategorized</option>
+                  <option value="">{t('deleteDialog.leaveUncategorized')}</option>
                   {availableCategories.map(({ category: cat }) => {
                     const parentCategory = cat.parentId
                       ? categories.find(c => c.id === cat.parentId)
@@ -142,26 +141,26 @@ export function DeleteCategoryDialog({
             </div>
           ) : (
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              This category is not used. It can be safely deleted.
+              {t('deleteDialog.safeToDelete')}
             </p>
           )}
 
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-            This action cannot be undone.
+            {t('deleteDialog.cannotUndo')}
           </p>
         </div>
       </div>
 
       <div className="mt-6 flex justify-end space-x-3">
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {tc('cancel')}
         </Button>
         <button
           onClick={handleConfirm}
           disabled={isLoading}
           className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 dark:bg-red-700 border border-transparent rounded-md hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-red-500 disabled:opacity-50"
         >
-          Delete
+          {tc('delete')}
         </button>
       </div>
     </Modal>

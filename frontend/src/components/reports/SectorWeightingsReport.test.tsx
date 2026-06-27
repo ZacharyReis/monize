@@ -178,11 +178,9 @@ describe('SectorWeightingsReport', () => {
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     mockGetSecurities.mockResolvedValue(mockSecurities);
     render(<SectorWeightingsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
 
-    fireEvent.click(screen.getByText('Accounts'));
+    fireEvent.click(trigger);
 
     // Brokerage account should be visible, cash account should not
     expect(screen.getByText('TFSA')).toBeInTheDocument();
@@ -194,11 +192,9 @@ describe('SectorWeightingsReport', () => {
     mockGetInvestmentAccounts.mockResolvedValue([]);
     mockGetSecurities.mockResolvedValue(mockSecurities);
     render(<SectorWeightingsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Securities')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by security' });
 
-    fireEvent.click(screen.getByText('Securities'));
+    fireEvent.click(trigger);
 
     expect(screen.getByText('AAPL - Apple Inc.')).toBeInTheDocument();
     expect(screen.getByText('VTI - Vanguard Total Stock')).toBeInTheDocument();
@@ -210,19 +206,16 @@ describe('SectorWeightingsReport', () => {
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     mockGetSecurities.mockResolvedValue(mockSecurities);
     render(<SectorWeightingsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
+    await screen.findByRole('button', { name: 'Filter by account' });
 
     // Open account filter and select an account
-    fireEvent.click(screen.getByText('Accounts'));
-    fireEvent.click(screen.getByText('TFSA'));
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by account' }));
+    await act(async () => { fireEvent.click(screen.getByText('TFSA')); });
 
     // Selecting a filter triggers reload; wait for it to settle
     await waitFor(() => {
       expect(screen.getByText('Clear Filters')).toBeInTheDocument();
     });
-    expect(screen.getByText('Accounts (1)')).toBeInTheDocument();
   });
 
   it('exports pdf', async () => {
@@ -242,14 +235,15 @@ describe('SectorWeightingsReport', () => {
     expect(exportToPdf).toHaveBeenCalled();
   });
 
-  it('handles error in static load and weightings load', async () => {
+  it('shows a retryable error when the weightings load fails', async () => {
     mockGetSectorWeightings.mockRejectedValue(new Error('boom'));
     mockGetInvestmentAccounts.mockRejectedValue(new Error('boom'));
     mockGetSecurities.mockRejectedValue(new Error('boom'));
     render(<SectorWeightingsReport />);
     await waitFor(() => {
-      expect(screen.getByText(/No investment holdings/)).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load report data/)).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument();
   });
 
   it('clears filters', async () => {
@@ -257,11 +251,9 @@ describe('SectorWeightingsReport', () => {
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     mockGetSecurities.mockResolvedValue(mockSecurities);
     render(<SectorWeightingsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByText('Accounts'));
-    fireEvent.click(screen.getByText('TFSA'));
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
+    fireEvent.click(trigger);
+    await act(async () => { fireEvent.click(screen.getByText('TFSA')); });
     await waitFor(() => {
       expect(screen.getByText('Clear Filters')).toBeInTheDocument();
     });
@@ -273,17 +265,15 @@ describe('SectorWeightingsReport', () => {
     mockGetInvestmentAccounts.mockResolvedValue(mockAccounts);
     mockGetSecurities.mockResolvedValue(mockSecurities);
     render(<SectorWeightingsReport />);
-    await waitFor(() => {
-      expect(screen.getByText('Accounts')).toBeInTheDocument();
-    });
+    const trigger = await screen.findByRole('button', { name: 'Filter by account' });
 
     // Open account filter
-    fireEvent.click(screen.getByText('Accounts'));
+    fireEvent.click(trigger);
     expect(screen.getByText('TFSA')).toBeInTheDocument();
 
     // Click outside
     fireEvent.mouseDown(document.body);
-    expect(screen.queryByText('TFSA')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('TFSA')).not.toBeInTheDocument());
   });
 
   it('exercises every sortable column on the sector table', async () => {

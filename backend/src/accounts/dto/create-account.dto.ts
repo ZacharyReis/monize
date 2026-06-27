@@ -15,6 +15,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AccountType } from "../entities/account.entity";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
+import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
 
 export const PAYMENT_FREQUENCIES = [
   "WEEKLY",
@@ -71,8 +72,7 @@ export class CreateAccountDto {
     description: "ISO 4217 currency code (USD, CAD, EUR, etc.)",
     maxLength: 3,
   })
-  @IsString()
-  @MaxLength(3)
+  @IsCurrencyCode()
   currencyCode: string;
 
   @ApiPropertyOptional({
@@ -87,13 +87,20 @@ export class CreateAccountDto {
 
   @ApiPropertyOptional({
     example: "TD Canada Trust",
-    description: "Financial institution name",
+    description: "Legacy free-text financial institution name (deprecated)",
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   @SanitizeHtml()
   institution?: string;
+
+  @ApiPropertyOptional({
+    description: "ID of the financial institution this account belongs to",
+  })
+  @IsOptional()
+  @IsUUID()
+  institutionId?: string;
 
   @ApiPropertyOptional({
     example: 1000.0,

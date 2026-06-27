@@ -278,7 +278,7 @@ describe('BudgetDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Edit')).toBeInTheDocument();
-      expect(screen.getByText('Back')).toBeInTheDocument();
+      expect(screen.getByText('Back to Budgets')).toBeInTheDocument();
     });
   });
 
@@ -332,8 +332,8 @@ describe('BudgetDetailPage', () => {
 
   it('navigates to budgets list when Back button is clicked', async () => {
     render(<BudgetDetailPage />);
-    await waitFor(() => expect(screen.getByText('Back')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Back'));
+    await waitFor(() => expect(screen.getByText('Back to Budgets')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByText('Back to Budgets')[0]);
     expect(mockPush).toHaveBeenCalledWith('/budgets');
   });
 
