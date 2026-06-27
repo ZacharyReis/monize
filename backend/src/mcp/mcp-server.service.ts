@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { UserContextResolver } from "./mcp-context";
 import { AiRelayService } from "../ai/relay/ai-relay.service";
@@ -10,6 +10,7 @@ import { McpPayeesTools } from "./tools/payees.tool";
 import { McpReportsTools } from "./tools/reports.tool";
 import { McpInvestmentsTools } from "./tools/investments.tool";
 import { McpScheduledTools } from "./tools/scheduled.tool";
+import { McpManorCompatTools } from "./tools/manor-compat.tool";
 import { McpCalculateTools } from "./tools/calculate.tool";
 import { McpBudgetsTools } from "./tools/budgets.tool";
 import { McpRelayTools } from "./tools/relay.tool";
@@ -52,6 +53,10 @@ export class McpServerService {
     private readonly budgetCheckPrompt: McpBudgetCheckPrompt,
     private readonly transactionLookupPrompt: McpTransactionLookupPrompt,
     private readonly spendingAnalysisPrompt: McpSpendingAnalysisPrompt,
+    @Optional()
+    private readonly manorCompatTools: McpManorCompatTools = {
+      register: () => undefined,
+    } as unknown as McpManorCompatTools,
   ) {}
 
   createServer(resolve: UserContextResolver): McpServer {
@@ -119,6 +124,7 @@ export class McpServerService {
     this.reportsTools.register(server, resolve);
     this.investmentsTools.register(server, resolve);
     this.scheduledTools.register(server, resolve);
+    this.manorCompatTools.register(server, resolve);
     this.calculateTools.register(server);
     this.budgetsTools.register(server, resolve);
     this.relayTools.register(server, resolve);

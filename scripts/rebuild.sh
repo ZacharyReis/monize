@@ -67,8 +67,10 @@ build_frontend() {
     npm run build
 
     log "Copying static files to standalone output..."
-    cp -r .next/static .next/standalone/frontend/.next/static
-    [ -d public ] && cp -r public .next/standalone/frontend/public
+    # v1.11.3: next.config pins turbopack.root to this app, so standalone output
+    # is flat (.next/standalone/server.js) rather than nested (.next/standalone/frontend/).
+    cp -r .next/static .next/standalone/.next/static
+    [ -d public ] && cp -r public .next/standalone/public
 
     log "Frontend build complete (standalone + static files)."
 }

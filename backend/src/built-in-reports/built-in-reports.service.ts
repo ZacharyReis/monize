@@ -187,6 +187,9 @@ export class BuiltInReportsService {
       lookbackMonths,
       accountId,
       forecastDays,
+    );
+  }
+
   getMonthlyCategoryBreakdown(
     userId: string,
     startDate: string | undefined,

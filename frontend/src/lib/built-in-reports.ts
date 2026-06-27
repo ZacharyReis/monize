@@ -175,6 +175,11 @@ export const builtInReportsApi = {
   ): Promise<SpendingTrendsResponse> => {
     const response = await apiClient.get<SpendingTrendsResponse>(
       '/built-in-reports/spending-trends',
+      { params },
+    );
+    return response.data;
+  },
+
   getMonthlyCategoryBreakdown: async (
     params: ReportQueryParams,
   ): Promise<MonthlyCategoryBreakdownResponse> => {

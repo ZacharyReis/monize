@@ -222,6 +222,8 @@ export class UpdatePreferencesDto {
   @IsInt()
   @IsIn([1, 2, 3, 6, 9, 12])
   forecastLookbackMonths?: number;
+
+  @ApiPropertyOptional({
     description:
       "UI language. 'browser' to follow the browser's configured language, an ISO 639-1 code (e.g. 'en', 'fr'), or a BCP 47 tag (e.g. 'pt-BR'). Must be 'browser' or one of the SUPPORTED_LOCALES values.",
     example: "en",

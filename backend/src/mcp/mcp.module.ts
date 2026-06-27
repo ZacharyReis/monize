@@ -24,6 +24,7 @@ import { McpPayeesTools } from "./tools/payees.tool";
 import { McpReportsTools } from "./tools/reports.tool";
 import { McpInvestmentsTools } from "./tools/investments.tool";
 import { McpScheduledTools } from "./tools/scheduled.tool";
+import { McpManorCompatTools } from "./tools/manor-compat.tool";
 import { McpCalculateTools } from "./tools/calculate.tool";
 import { McpBudgetsTools } from "./tools/budgets.tool";
 import { McpRelayTools } from "./tools/relay.tool";
@@ -66,6 +67,7 @@ import { McpSpendingAnalysisPrompt } from "./prompts/spending-analysis.prompt";
     McpReportsTools,
     McpInvestmentsTools,
     McpScheduledTools,
+    McpManorCompatTools,
     McpCalculateTools,
     McpBudgetsTools,
     McpAccountListResource,

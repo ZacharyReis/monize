@@ -263,6 +263,9 @@ export class BuiltInReportsController {
       query.lookbackMonths ?? 3,
       query.accountId ?? "all",
       query.forecastDays ?? 365,
+    );
+  }
+
   @Get("monthly-category-breakdown")
   @ApiOperation({
     summary: "Get expense and income amounts broken down by category and month",
