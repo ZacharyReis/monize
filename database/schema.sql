@@ -280,7 +280,10 @@ CREATE INDEX idx_transactions_user_cleared ON transactions(user_id, is_cleared);
 -- Trigram indexes accelerate the register/report search (ILIKE '%term%')
 CREATE INDEX idx_transactions_payee_name_trgm ON transactions USING gin (payee_name gin_trgm_ops);
 CREATE INDEX idx_transactions_description_trgm ON transactions USING gin (description gin_trgm_ops);
-CREATE INDEX idx_transactions_user_account_fitid ON transactions (user_id, account_id, fitid) WHERE fitid IS NOT NULL;
+-- Partial-UNIQUE: a bank FITID can never physically land twice in the same
+-- account (money-safety backstop for the import-resolve path). NULL fitid rows
+-- (hand-entered / QIF / CSV) are exempt via the partial predicate.
+CREATE UNIQUE INDEX idx_transactions_user_account_fitid ON transactions (user_id, account_id, fitid) WHERE fitid IS NOT NULL;
 
 -- Transaction Splits (details for split transactions)
 CREATE TABLE transaction_splits (

@@ -408,6 +408,7 @@ export class TransactionsService {
     await queryRunner.startTransaction();
 
     let accountId: string;
+    let updated: Transaction;
     try {
       // Criterion 2: pessimistic write-lock + revalidate INSIDE the txn.
       const locked = await queryRunner.manager.findOne(Transaction, {
@@ -428,16 +429,19 @@ export class TransactionsService {
       }
       accountId = locked.accountId;
       const oldDate = locked.transactionDate;
+      // Adopt the bank reference only when present; never blank an existing.
+      const newReferenceNumber =
+        opts.referenceNumber ?? locked.referenceNumber ?? null;
+      // Fill an empty description from the bank memo; never clobber user text.
+      const newDescription = locked.description || opts.bankMemo || null;
 
       // Criterion 1: status + date + fitid + reference + description atomically.
       await queryRunner.manager.update(Transaction, transactionId, {
         status: TransactionStatus.CLEARED,
         transactionDate: opts.bankDate,
         fitid: opts.fitid,
-        // Adopt the bank reference only when present; never blank an existing.
-        referenceNumber: opts.referenceNumber ?? locked.referenceNumber ?? null,
-        // Fill an empty description from the bank memo; never clobber user text.
-        description: locked.description || opts.bankMemo || null,
+        referenceNumber: newReferenceNumber,
+        description: newDescription,
       });
 
       // Balance moves only on a future<->past date shift (amount unchanged).
@@ -448,6 +452,21 @@ export class TransactionsService {
         queryRunner,
       );
 
+      // Hydrate the return view from the row we already hold INSIDE the txn.
+      // Money-safety invariant: once commitTransaction() succeeds below, this
+      // method has NO further await/throw point -- it cannot fail post-commit.
+      // A post-commit read failure was the double-count vector (the caller's
+      // catch would revert the candidate to pending, and a retry would apply
+      // the balance a SECOND time). Reflecting the applied state onto `locked`
+      // instead of a post-commit findOne closes that path: ImportMatchService's
+      // revert-to-pending now runs ONLY on a genuine pre-commit failure.
+      locked.status = TransactionStatus.CLEARED;
+      locked.transactionDate = opts.bankDate;
+      locked.fitid = opts.fitid;
+      locked.referenceNumber = newReferenceNumber;
+      locked.description = newDescription;
+      updated = locked;
+
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -456,8 +475,9 @@ export class TransactionsService {
       await queryRunner.release();
     }
 
+    // Post-commit: only non-throwing, fire-and-forget work is permitted here.
     this.netWorthService.triggerDebouncedRecalc(accountId, userId);
-    return this.findOne(userId, transactionId);
+    return updated;
   }
 
   /**
@@ -478,7 +498,7 @@ export class TransactionsService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    let savedId: string;
+    let saved: Transaction;
     try {
       const transaction = queryRunner.manager.create(Transaction, {
         accountId: dto.accountId,
@@ -493,8 +513,10 @@ export class TransactionsService {
         fitid,
         userId,
       });
-      const saved = await queryRunner.manager.save(transaction);
-      savedId = saved.id;
+      // save() returns the inserted entity carrying the generated id (+ created/
+      // updated timestamps) and every field set above, so it is a complete view
+      // of the new row WITHOUT a post-commit read.
+      saved = await queryRunner.manager.save(transaction);
 
       await this.applyInsertBalanceEffect(
         dto.accountId,
@@ -512,8 +534,15 @@ export class TransactionsService {
       await queryRunner.release();
     }
 
+    // Money-safety invariant: once commitTransaction() succeeds above, this
+    // method has NO further await/throw point. Returning the in-transaction
+    // `saved` entity (instead of a post-commit findOne that could throw on a
+    // DB/network hiccup) removes the double-count vector: ImportMatchService's
+    // keepBoth catch would otherwise revert the candidate to pending and a
+    // retry would insert a SECOND CLEARED row and apply the balance AGAIN.
+    // Post-commit only non-throwing, fire-and-forget work is permitted here.
     this.netWorthService.triggerDebouncedRecalc(dto.accountId, userId);
-    return this.findOne(userId, savedId);
+    return saved;
   }
 
   /**

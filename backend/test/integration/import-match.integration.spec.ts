@@ -274,6 +274,130 @@ describe("Import match resolve (integration)", () => {
       expect(row.status).toBe(TransactionStatus.UNRECONCILED);
       expect(row.fitid).toBeNull();
     });
+
+    it("MONEY-CRITICAL: a post-commit read failure cannot revert the candidate or leave the merge half-applied", async () => {
+      // applyImportedMatch used to hydrate its return with a post-commit findOne.
+      // A throw there (after commit) reverted the candidate to pending; a retry
+      // then hit an already-CLEARED row and jammed. The fix builds the return
+      // view inside the txn, so nothing after commit can throw.
+      const target = await txService.create(userId, {
+        accountId,
+        transactionDate: "2026-01-15",
+        amount: -50,
+        currencyCode: "USD",
+      });
+      const cand = await stageCandidate({
+        candidateTransactionIds: [target.id],
+        bankAmount: -50,
+        bankDate: "2026-06-15",
+        fitid: "FIT-PCR-MERGE",
+      });
+      jest
+        .spyOn(txService, "findOne")
+        .mockRejectedValue(new Error("simulated post-commit read failure"));
+
+      await expect(
+        matchService.merge(userId, cand.id, target.id),
+      ).resolves.toBeUndefined();
+
+      const row = await dataSource.manager.findOneOrFail(Transaction, {
+        where: { id: target.id },
+      });
+      expect(row.status).toBe(TransactionStatus.CLEARED);
+      expect(row.fitid).toBe("FIT-PCR-MERGE");
+
+      // Candidate is terminally `merged` -- NOT reverted to pending.
+      const c = await dataSource.manager.findOneOrFail(ImportMatchCandidate, {
+        where: { id: cand.id },
+      });
+      expect(c.state).toBe("merged");
+      expect(await balanceOf()).toBe(950);
+    });
+  });
+
+  // Fix 2 (defense-in-depth): a duplicate bank FITID can never physically land
+  // twice in an account, so even a logic slip on the resolve path cannot become
+  // a double-counted duplicate row.
+  describe("fitid partial-unique backstop", () => {
+    it("rejects a second row with the same (user, account, fitid) at the DB level", async () => {
+      await dataSource.manager.insert(Transaction, {
+        userId,
+        accountId,
+        transactionDate: "2026-06-15",
+        amount: -10,
+        currencyCode: "USD",
+        exchangeRate: 1,
+        status: TransactionStatus.CLEARED,
+        fitid: "DUP-FIT",
+      });
+
+      await expect(
+        dataSource.manager.insert(Transaction, {
+          userId,
+          accountId,
+          transactionDate: "2026-06-16",
+          amount: -20,
+          currencyCode: "USD",
+          exchangeRate: 1,
+          status: TransactionStatus.CLEARED,
+          fitid: "DUP-FIT",
+        }),
+      ).rejects.toThrow(/duplicate key|unique|23505/i);
+    });
+
+    it("still allows many NULL-fitid rows in one account (partial predicate exempts hand-entered / QIF / CSV)", async () => {
+      await dataSource.manager.insert(Transaction, {
+        userId,
+        accountId,
+        transactionDate: "2026-06-15",
+        amount: -10,
+        currencyCode: "USD",
+        exchangeRate: 1,
+        status: TransactionStatus.CLEARED,
+        fitid: null,
+      });
+      await expect(
+        dataSource.manager.insert(Transaction, {
+          userId,
+          accountId,
+          transactionDate: "2026-06-16",
+          amount: -20,
+          currencyCode: "USD",
+          exchangeRate: 1,
+          status: TransactionStatus.CLEARED,
+          fitid: null,
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it("allows the SAME fitid in a DIFFERENT account (index is per-account)", async () => {
+      const other = await createTestAccount(dataSource, userId, {
+        openingBalance: 0,
+        currentBalance: 0,
+      });
+      await dataSource.manager.insert(Transaction, {
+        userId,
+        accountId,
+        transactionDate: "2026-06-15",
+        amount: -10,
+        currencyCode: "USD",
+        exchangeRate: 1,
+        status: TransactionStatus.CLEARED,
+        fitid: "SHARED-FIT",
+      });
+      await expect(
+        dataSource.manager.insert(Transaction, {
+          userId,
+          accountId: other.id,
+          transactionDate: "2026-06-15",
+          amount: -10,
+          currencyCode: "USD",
+          exchangeRate: 1,
+          status: TransactionStatus.CLEARED,
+          fitid: "SHARED-FIT",
+        }),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe("keepBoth", () => {
@@ -326,6 +450,50 @@ describe("Import match resolve (integration)", () => {
       });
       expect(rows).toHaveLength(1);
       expect(await balanceOf()).toBeCloseTo(987.5, 4);
+    });
+
+    it("MONEY-CRITICAL: a post-commit read failure cannot revert the candidate or double-apply the balance", async () => {
+      // Regression for the double-count vector: createImportedRow used to hydrate
+      // its return with a post-commit findOne. If that read threw AFTER commit
+      // (DB/network hiccup) the money was already committed, but keepBoth's catch
+      // reverted the candidate to `pending`, so a retry inserted a SECOND CLEARED
+      // row and applied the balance AGAIN. The fix returns the in-transaction
+      // entity, so nothing after commit can throw. Force findOne to always throw:
+      // pre-fix this made keepBoth reject and leave the candidate pending; post-fix
+      // the resolve path never touches findOne, so it must still succeed cleanly.
+      jest
+        .spyOn(txService, "findOne")
+        .mockRejectedValue(new Error("simulated post-commit read failure"));
+
+      const cand = await stageCandidate({ bankAmount: -59.03, fitid: "FIT-PCR" });
+
+      const created = await matchService.keepBoth(userId, cand.id);
+      expect(created.status).toBe(TransactionStatus.CLEARED);
+      expect(created.fitid).toBe("FIT-PCR");
+      expect(Number(created.amount)).toBe(-59.03);
+
+      // Candidate is terminally `kept` -- NOT reverted to pending.
+      const c = await dataSource.manager.findOneOrFail(ImportMatchCandidate, {
+        where: { id: cand.id },
+      });
+      expect(c.state).toBe("kept");
+
+      // Balance applied exactly once, and exactly one row carries the fitid.
+      expect(await balanceOf()).toBeCloseTo(940.97, 4);
+      const rows = await dataSource.manager.find(Transaction, {
+        where: { fitid: "FIT-PCR" },
+      });
+      expect(rows).toHaveLength(1);
+
+      // A retry is a no-op 409 (candidate already resolved) -- never a 2nd row.
+      await expect(matchService.keepBoth(userId, cand.id)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      const rowsAfterRetry = await dataSource.manager.find(Transaction, {
+        where: { fitid: "FIT-PCR" },
+      });
+      expect(rowsAfterRetry).toHaveLength(1);
+      expect(await balanceOf()).toBeCloseTo(940.97, 4);
     });
   });
 

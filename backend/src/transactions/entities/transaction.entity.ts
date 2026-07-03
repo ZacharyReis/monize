@@ -9,6 +9,7 @@ import {
   OneToMany,
   JoinColumn,
   JoinTable,
+  Index,
 } from "typeorm";
 import { Account } from "../../accounts/entities/account.entity";
 import { Payee } from "../../payees/entities/payee.entity";
@@ -24,6 +25,15 @@ export enum TransactionStatus {
   VOID = "VOID",
 }
 
+// Money-safety backstop for the OFX/QIF/CSV import-resolve path: a bank FITID
+// can never physically land twice in the same account, so a post-commit read
+// failure on the resolve path can never be turned into a double-counted
+// duplicate row on retry. Partial (fitid IS NOT NULL) so NULL-fitid rows
+// (hand-entered / QIF / CSV) are exempt. Mirrors schema.sql + migration 090.
+@Index("idx_transactions_user_account_fitid", ["userId", "accountId", "fitid"], {
+  unique: true,
+  where: '"fitid" IS NOT NULL',
+})
 @Entity("transactions")
 export class Transaction {
   @PrimaryGeneratedColumn("uuid")
