@@ -25,7 +25,9 @@ Adversarial plan-review by Codex/Wren, session `019f2974-dad8-7591-8bdb-a932dd01
 | R2-5 | High | claim runs outside the financial txn (crash window) | Accepted residual: claim-before is money-safe (stuck candidate ≫ double-charge); documented |
 | R2-6 | Med | test mock invents `candidate.currencyCode`, hiding R2-4 | Task 6: test mocks `AccountsService.findOne` instead |
 
-**R2-5 residual (documented, accepted):** resolves do the atomic claim (a conditional `UPDATE … WHERE state='pending'`, `affected===1`) *before* the financial action, and revert to `pending` if that action throws before committing. A process crash *between* claim and action leaves a candidate stuck in `merged`/`kept` with no/partial financial effect — **recoverable and never a balance corruption** (a stuck candidate is strictly safer than a double-charge). Full cross-service atomicity would require a shared transaction across `ImportMatchService` and `TransactionsService`; out of scope for v1. Keep-both is a single vetted `create` call, so its only crash window is claim→create (leaves a stuck `kept` candidate, no row).
+**R2-5 residual (documented, accepted):** resolves do the atomic claim (a conditional `UPDATE … WHERE state='pending'`, `affected===1`) *before* the financial action, and revert to `pending` if that action throws before committing. A process crash *between* claim and action leaves a candidate stuck in `merged`/`kept` with no/partial financial effect — **recoverable and never a balance corruption** (a stuck candidate is strictly safer than a double-charge).
+
+**Round 3** — 5 of 6 R2 folds confirmed RESOLVED; keep-both money path "basically sound". 3 residuals remained, **all in the merge path** and all *implementation-level* (not plan-shape): (Crit) merge's fitid copy was non-atomic with the balance update → a fitid-less CLEARED row re-duplicates on a later import; (High) merge revalidate→update TOCTOU; (High) `fitid` on the public `CreateTransactionDto` is an abuse vector. **Zach's decision (2026-07-03): build now and close these in code.** They are encoded as **binding Task-6 Acceptance Criteria 1-5** (internal atomic `applyImportedMatch`/`createImportedRow`, `SELECT … FOR UPDATE` revalidation, `fitid` internal-only, integration test, final code-level Wren re-gate on the *real* Task-6 code before merge). Tasks 1-5 carry no residuals and are GO.
 
 ## Global Constraints
 
@@ -569,23 +571,25 @@ Wire into `processTransaction`, after FITID dedup (Task 4) and before `resolvePa
 
 ### Task 6: Resolve API — merge / keep-both / list (vetted-path delegation, atomic claim)
 
-> Folds Crit #2/#3/#4 and R2-1..R2-6. **keepBoth** = one atomic `create` (status+fitid in the DTO). **merge** = `update` (status + adopt bank date → balance recalc) + balance-neutral marker copy.
+> Folds Crit #2/#3/#4 and R2-1..R2-6, **plus the three round-3 residuals below**. **keepBoth** and **merge** both go through a NEW *internal, non-public* atomic path so `fitid` (which is load-bearing for future dedup) is written in the same transaction as status/date/balance.
 
-**Files:** Create `import-match.service.ts` + `.spec.ts`, `import-match.controller.ts`; Modify `dto/import.dto.ts` (`MergeMatchDto`), `dto/create-transaction.dto.ts` (`fitid?`), `import.module.ts`.
+> **⚠️ MANDATORY ACCEPTANCE CRITERIA (Wren round-3 — close during implementation against the REAL `TransactionsService` code; the reference code in Steps 5-6 shows shape only and MUST be adapted to satisfy these):**
+> 1. **Atomic fitid (R3-Crit).** A merge must set `status`, `transactionDate`, `fitid`, `referenceNumber`, `description` in **ONE database transaction**. `fitid` is NOT a cosmetic marker — a `CLEARED` row left without `fitid` re-duplicates on the next import. Do **not** split the balance-affecting change from the `fitid` copy. Implement a new **internal** `TransactionsService` method (e.g. `applyImportedMatch(userId, transactionId, { bankDate, fitid, referenceNumber, description })`) that reuses the existing create/update balance + net-worth recalc logic (extract a shared private helper if needed) and writes all fields atomically. keepBoth likewise creates the row **and** its `fitid`+`status=CLEARED` in one atomic internal call.
+> 2. **Row-lock revalidation (R3-High TOCTOU).** Revalidate the target inside that transaction with `SELECT … FOR UPDATE` (pessimistic write lock) — re-check `status=UNRECONCILED`, same `account_id`, `!is_split`, `!is_transfer`, and the exact amount — so a concurrent user edit/void between the pre-check and the write cannot clear/re-date the wrong row.
+> 3. **`fitid` stays internal (R3-High abuse).** Do **NOT** add `fitid` to the public `CreateTransactionDto`/`UpdateTransactionDto`. It must be settable **only** through the internal import-apply path, never via the public `POST/PATCH /transactions` API (which would let a client pre-seed a FITID to suppress a real future import). Global `ValidationPipe` `whitelist`+`forbidNonWhitelisted` will already reject an unknown `fitid` on the public DTO — keep it that way.
+> 4. **Integration test (not just unit).** Add a DB-backed integration test proving atomicity: a simulated failure/rollback between the balance write and the fitid write must leave **either** a fully-applied row (CLEARED + fitid) **or** an untouched UNRECONCILED row — never a CLEARED-without-fitid row; and a re-import must never double-count.
+> 5. **Final code-level re-gate.** Before merging Task 6, send the **actual implemented Task-6 code** (not this plan) to Wren for a focused review; only merge on its GO.
+
+**Files:** Create `import-match.service.ts` + `.spec.ts`, `import-match.controller.ts`; Modify `dto/import.dto.ts` (`MergeMatchDto`), `transactions.service.ts` (**internal** `applyImportedMatch` + `createImportedRow` atomic methods; **NOT** the public DTO), `transactions.module.ts` / `import.module.ts` (wiring).
 
 **Interfaces:** Consumes `ImportMatchCandidate`, `Transaction`, `TransactionStatus`, `TransactionsService.create`/`.update`, `AccountsService.findOne`. Produces `listPending`/`merge`/`keepBoth`; routes `GET import/matches`, `POST import/matches/:id/merge`, `POST import/matches/:id/keep-both`.
 
-- [ ] **Step 1: Add `fitid` to `CreateTransactionDto`** — in `backend/src/transactions/dto/create-transaction.dto.ts` (imports `IsOptional`, `IsString`, `MaxLength` from `class-validator`; `ApiPropertyOptional` from `@nestjs/swagger`):
+- [ ] **Step 1: Add internal atomic import-apply methods to `TransactionsService`** (satisfies Acceptance Criteria 1-3; `fitid` stays OFF the public DTO). Read `create()` (~line 193) and `update()` (~line 1663) first; factor their balance + `netWorthService.triggerDebouncedRecalc` logic into a shared private helper so these two methods reuse it rather than re-implement it.
 
-```ts
-  @ApiPropertyOptional({ description: "Bank FITID (import dedup); normally set only by import matching" })
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  fitid?: string;
-```
+  - `async applyImportedMatch(userId, transactionId, opts: { bankDate: string; fitid: string | null; referenceNumber: string | null; bankMemo: string | null }): Promise<Transaction>` — in ONE `queryRunner` transaction: `SELECT … FOR UPDATE` the row; re-validate `status===UNRECONCILED && account matches && !is_split && !is_transfer` (throw `ConflictException` otherwise); then set `status=CLEARED`, `transactionDate=bankDate`, `fitid`, `referenceNumber ?? existing`, `description = existing.description || bankMemo`; run the balance recalc for any future↔past date shift; commit; trigger net-worth recalc. All fields (incl. `fitid`) land atomically.
+  - `async createImportedRow(userId, dto, fitid: string | null): Promise<Transaction>` — like `create()` but sets `status=CLEARED` and `fitid` on the entity inside the same insert transaction (no post-insert stamp). Reuse the shared balance/net-worth helper.
 
-`create()` spreads `...transactionData` into the entity, so this persists `fitid` at insert with no extra step. (`UpdateTransactionDto = PartialType(CreateTransactionDto)` inherits it, but `update()` enumerates fields, so `merge` copies `fitid` via the balance-neutral marker update, not through `update()`.)
+  Both are internal (called only by `ImportMatchService`); export `TransactionsService` from `TransactionsModule` if not already. **Write the failing test for each first** (see Step 3), then implement.
 
 - [ ] **Step 2: Add `MergeMatchDto`** — in `dto/import.dto.ts` (`IsUUID` from `class-validator`):
 
@@ -796,27 +800,18 @@ export class ImportMatchService {
       throw new ConflictException("Match candidate already resolved");
     }
     try {
-      // Balance-affecting change through the vetted path. Adopting the bank's
-      // posted date fixes the future-dated current-balance exclusion (R2-2);
-      // update() recalculates balance on the status/date change.
-      await this.transactionsService.update(userId, transactionId, {
-        status: TransactionStatus.CLEARED,
-        transactionDate: candidate.bankDate,
+      // ATOMIC (Acceptance Criteria 1-2): status + bankDate + fitid + reference +
+      // description in ONE transaction, with a SELECT … FOR UPDATE re-validation
+      // inside it. fitid is written in the same txn — never a separate copy.
+      await this.transactionsService.applyImportedMatch(userId, transactionId, {
+        bankDate: candidate.bankDate,
+        fitid: candidate.fitid,
+        referenceNumber: candidate.bankReference,
+        bankMemo: candidate.bankMemo,
       });
     } catch (err) {
       await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert; nothing committed
       throw err;
-    }
-    // Balance-neutral marker copy. If this fails, the row is already CLEARED and
-    // balance-correct; leave the candidate 'merged' (retrying would double-process).
-    try {
-      await this.transactionsRepo.update(transactionId, {
-        fitid: candidate.fitid,
-        referenceNumber: candidate.bankReference ?? existing.referenceNumber,
-        description: existing.description || candidate.bankMemo,
-      });
-    } catch (err) {
-      this.logger.warn(`merge: marker copy failed for txn ${transactionId} (row CLEARED, balance correct): ${err}`);
     }
   }
 
@@ -827,10 +822,10 @@ export class ImportMatchService {
       throw new ConflictException("Match candidate already resolved");
     }
     try {
-      // Single atomic vetted call: create() spreads DTO fields into the entity,
-      // so status=CLEARED and fitid are set at insert; balance + net-worth recalc
-      // fire like a normal create. No post-insert stamp -> no double-count window.
-      return await this.transactionsService.create(userId, {
+      // ATOMIC internal create (Acceptance Criteria 1 & 3): sets status=CLEARED +
+      // fitid inside the insert txn, reusing the vetted balance/net-worth logic.
+      // fitid never touches the public DTO.
+      return await this.transactionsService.createImportedRow(userId, {
         accountId: candidate.accountId,
         transactionDate: candidate.bankDate,
         amount: Number(candidate.bankAmount),
@@ -838,9 +833,7 @@ export class ImportMatchService {
         payeeName: candidate.bankName ?? undefined,
         description: candidate.bankMemo ?? undefined,
         referenceNumber: candidate.bankReference ?? undefined,
-        status: TransactionStatus.CLEARED,
-        fitid: candidate.fitid ?? undefined,
-      });
+      }, candidate.fitid);
     } catch (err) {
       await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert; nothing created
       throw err;
