@@ -254,6 +254,7 @@ CREATE TABLE transactions (
     exchange_rate NUMERIC(20, 10) DEFAULT 1, -- rate at transaction time
     description TEXT,
     reference_number VARCHAR(100), -- check number, confirmation number, etc
+    fitid VARCHAR(64), -- bank-provided FITID for OFX import dedup
     is_cleared BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
     is_reconciled BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
     reconciled_date DATE,
@@ -279,6 +280,7 @@ CREATE INDEX idx_transactions_user_cleared ON transactions(user_id, is_cleared);
 -- Trigram indexes accelerate the register/report search (ILIKE '%term%')
 CREATE INDEX idx_transactions_payee_name_trgm ON transactions USING gin (payee_name gin_trgm_ops);
 CREATE INDEX idx_transactions_description_trgm ON transactions USING gin (description gin_trgm_ops);
+CREATE INDEX idx_transactions_user_account_fitid ON transactions (user_id, account_id, fitid) WHERE fitid IS NOT NULL;
 
 -- Transaction Splits (details for split transactions)
 CREATE TABLE transaction_splits (

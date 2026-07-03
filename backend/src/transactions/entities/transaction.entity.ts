@@ -108,6 +108,9 @@ export class Transaction {
   })
   referenceNumber: string | null;
 
+  @Column({ type: "varchar", name: "fitid", length: 64, nullable: true })
+  fitid: string | null;
+
   @Column({
     type: "varchar",
     length: 20,
