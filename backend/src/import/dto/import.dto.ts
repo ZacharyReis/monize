@@ -904,6 +904,16 @@ export class UpdateColumnMappingDto {
 
 // --- Response DTOs ---
 
+// --- Import match resolution DTOs ---
+
+export class MergeMatchDto {
+  @ApiProperty({
+    description: "The UNRECONCILED transaction to merge the bank row into",
+  })
+  @IsUUID()
+  transactionId: string;
+}
+
 export class CsvHeadersResponseDto {
   @ApiProperty({ type: [String] })
   headers: string[];

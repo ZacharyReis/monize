@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Inject,
   forwardRef,
   Logger,
@@ -305,20 +306,13 @@ export class TransactionsService {
         );
       }
 
-      if (savedTransaction.status !== TransactionStatus.VOID) {
-        if (isTransactionInFuture(createTransactionDto.transactionDate)) {
-          await this.accountsService.recalculateCurrentBalance(
-            createTransactionDto.accountId,
-            queryRunner,
-          );
-        } else {
-          await this.accountsService.updateBalance(
-            createTransactionDto.accountId,
-            Number(createTransactionDto.amount),
-            queryRunner,
-          );
-        }
-      }
+      await this.applyInsertBalanceEffect(
+        createTransactionDto.accountId,
+        Number(createTransactionDto.amount),
+        createTransactionDto.transactionDate,
+        savedTransaction.status,
+        queryRunner,
+      );
 
       await queryRunner.commitTransaction();
     } catch (error) {
@@ -336,6 +330,190 @@ export class TransactionsService {
     const result = await this.findOne(userId, savedTransactionId);
     this.recordTransactionAction(userId, result, "create");
     return result;
+  }
+
+  /**
+   * Balance effect of INSERTING a single (non-split) transaction, applied
+   * inside the caller's queryRunner transaction. Single source of truth shared
+   * by create() and createImportedRow(): VOID rows never move the balance, a
+   * future-dated row triggers a full recalc (it must not count yet), and any
+   * other row applies its amount directly.
+   */
+  private async applyInsertBalanceEffect(
+    accountId: string,
+    amount: number,
+    transactionDate: string,
+    status: TransactionStatus,
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    if (status === TransactionStatus.VOID) {
+      return;
+    }
+    if (isTransactionInFuture(transactionDate)) {
+      await this.accountsService.recalculateCurrentBalance(
+        accountId,
+        queryRunner,
+      );
+    } else {
+      await this.accountsService.updateBalance(accountId, amount, queryRunner);
+    }
+  }
+
+  /**
+   * Balance effect of changing ONLY the DATE of an existing non-split,
+   * non-void transaction whose amount and account are unchanged, applied inside
+   * the caller's transaction. Mirrors update()'s "anyFuture -> recalc" branch:
+   * a future<->past shift is the only thing that moves the current balance.
+   */
+  private async applyDateShiftBalanceEffect(
+    accountId: string,
+    oldDate: string,
+    newDate: string,
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    if (isTransactionInFuture(oldDate) || isTransactionInFuture(newDate)) {
+      await this.accountsService.recalculateCurrentBalance(
+        accountId,
+        queryRunner,
+      );
+    }
+  }
+
+  /**
+   * INTERNAL import-apply path (not exposed via any public DTO). Merges an
+   * incoming bank row into an existing UNRECONCILED transaction, writing
+   * status + transactionDate + fitid + referenceNumber + description in ONE
+   * database transaction so the load-bearing `fitid` can never be split from
+   * the balance-affecting change (Task-6 Criterion 1). The target row is
+   * re-validated under a pessimistic write lock (SELECT ... FOR UPDATE) so a
+   * concurrent edit/void/split cannot corrupt the wrong row (Criterion 2).
+   *
+   * Only callable from ImportMatchService; `fitid` is deliberately absent from
+   * CreateTransactionDto/UpdateTransactionDto (Criterion 3).
+   */
+  async applyImportedMatch(
+    userId: string,
+    transactionId: string,
+    opts: {
+      bankDate: string;
+      fitid: string | null;
+      referenceNumber: string | null;
+      bankMemo: string | null;
+      expectedAccountId: string;
+      expectedAmount: number;
+    },
+  ): Promise<Transaction> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let accountId: string;
+    try {
+      // Criterion 2: pessimistic write-lock + revalidate INSIDE the txn.
+      const locked = await queryRunner.manager.findOne(Transaction, {
+        where: { id: transactionId, userId },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (
+        !locked ||
+        locked.accountId !== opts.expectedAccountId ||
+        locked.status !== TransactionStatus.UNRECONCILED ||
+        locked.isSplit ||
+        locked.isTransfer ||
+        Math.abs(Number(locked.amount) - Number(opts.expectedAmount)) > 0.00005
+      ) {
+        throw new ConflictException(
+          "Transaction is no longer eligible to merge",
+        );
+      }
+      accountId = locked.accountId;
+      const oldDate = locked.transactionDate;
+
+      // Criterion 1: status + date + fitid + reference + description atomically.
+      await queryRunner.manager.update(Transaction, transactionId, {
+        status: TransactionStatus.CLEARED,
+        transactionDate: opts.bankDate,
+        fitid: opts.fitid,
+        // Adopt the bank reference only when present; never blank an existing.
+        referenceNumber: opts.referenceNumber ?? locked.referenceNumber ?? null,
+        // Fill an empty description from the bank memo; never clobber user text.
+        description: locked.description || opts.bankMemo || null,
+      });
+
+      // Balance moves only on a future<->past date shift (amount unchanged).
+      await this.applyDateShiftBalanceEffect(
+        accountId,
+        oldDate,
+        opts.bankDate,
+        queryRunner,
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    this.netWorthService.triggerDebouncedRecalc(accountId, userId);
+    return this.findOne(userId, transactionId);
+  }
+
+  /**
+   * INTERNAL import-apply path. Creates a NEW row for the "keep both" choice,
+   * setting `status=CLEARED` and the load-bearing `fitid` inside the SAME
+   * insert transaction (no post-insert stamp) and reusing the shared insert
+   * balance/net-worth logic. `fitid` is never accepted on a public DTO.
+   * Only callable from ImportMatchService.
+   */
+  async createImportedRow(
+    userId: string,
+    dto: CreateTransactionDto,
+    fitid: string | null,
+  ): Promise<Transaction> {
+    await this.accountsService.findOne(userId, dto.accountId);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let savedId: string;
+    try {
+      const transaction = queryRunner.manager.create(Transaction, {
+        accountId: dto.accountId,
+        transactionDate: dto.transactionDate,
+        amount: dto.amount,
+        currencyCode: dto.currencyCode,
+        payeeName: dto.payeeName ?? null,
+        description: dto.description ?? null,
+        referenceNumber: dto.referenceNumber ?? null,
+        exchangeRate: dto.exchangeRate || 1,
+        status: TransactionStatus.CLEARED,
+        fitid,
+        userId,
+      });
+      const saved = await queryRunner.manager.save(transaction);
+      savedId = saved.id;
+
+      await this.applyInsertBalanceEffect(
+        dto.accountId,
+        Number(dto.amount),
+        dto.transactionDate,
+        TransactionStatus.CLEARED,
+        queryRunner,
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    this.netWorthService.triggerDebouncedRecalc(dto.accountId, userId);
+    return this.findOne(userId, savedId);
   }
 
   /**
