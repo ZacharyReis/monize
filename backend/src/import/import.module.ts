@@ -14,6 +14,7 @@ import { Security } from "../securities/entities/security.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
 import { Holding } from "../securities/entities/holding.entity";
 import { ImportColumnMapping } from "./entities/import-column-mapping.entity";
+import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 import { NetWorthModule } from "../net-worth/net-worth.module";
 import { SecuritiesModule } from "../securities/securities.module";
 import { CurrenciesModule } from "../currencies/currencies.module";
@@ -30,6 +31,7 @@ import { CurrenciesModule } from "../currencies/currencies.module";
       InvestmentTransaction,
       Holding,
       ImportColumnMapping,
+      ImportMatchCandidate,
     ]),
     forwardRef(() => NetWorthModule),
     forwardRef(() => SecuritiesModule),
