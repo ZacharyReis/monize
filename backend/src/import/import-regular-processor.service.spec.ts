@@ -21,6 +21,7 @@ describe("ImportRegularProcessorService", () => {
     accountsCreated: 0,
     payeesCreated: 0,
     securitiesCreated: 0,
+    proposedMatches: [],
   });
 
   const makeMockQueryBuilder = (result: any = null) => {
@@ -83,6 +84,8 @@ describe("ImportRegularProcessorService", () => {
       affectedAccountIds: new Set(),
       importResult: makeImportResult(),
       transferDupCounts: new Map(),
+      importBatchId: "batch-1",
+      stagedThisRow: [],
       ...overrides,
     };
   };
@@ -2186,6 +2189,38 @@ describe("ImportRegularProcessorService", () => {
       const created = calls[calls.length - 1];
       expect(created[1]).toEqual(expect.objectContaining({ fitid: "20260702000000011041" }));
       expect(ctx.importResult.imported).toBe(1);
+    });
+  });
+
+  describe("heuristic match staging", () => {
+    const clearedBankRow = (over = {}) => ({
+      date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
+      number: "", fitid: "20260702000000011041",
+      cleared: true, reconciled: false, void: false, isTransfer: false,
+      transferAccount: "", splits: [], tagNames: [], ...over,
+    });
+
+    it("stages a candidate and does NOT insert a Transaction when an UNRECONCILED row matches", async () => {
+      const existing = { id: "txn-existing", transactionDate: "2026-07-02", amount: -11.04, payeeName: "Google", description: null };
+      const ctx = makeContext();
+      const dedupeQb = makeMockQueryBuilder();       // isFitidDuplicate getCount -> 0
+      const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing]
+      const stageDedupeQb = makeMockQueryBuilder();  // pre-stage dedupe getCount -> 0
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock)
+        .mockReturnValueOnce(dedupeQb).mockReturnValueOnce(candQb).mockReturnValueOnce(stageDedupeQb);
+      await service.processTransaction(ctx, clearedBankRow());
+      expect(ctx.stagedThisRow).toHaveLength(1);
+      expect(ctx.stagedThisRow![0].candidates[0].id).toBe("txn-existing");
+      expect(ctx.importResult.imported).toBe(0);
+      const createdTypes = (ctx.queryRunner.manager.create as jest.Mock).mock.calls.map((c) => c[0]?.name);
+      expect(createdTypes).not.toContain("Transaction");
+      expect(createdTypes).toContain("ImportMatchCandidate");
+    });
+
+    it("does NOT stage a non-CLEARED (void) incoming row", async () => {
+      const ctx = makeContext();
+      await service.processTransaction(ctx, clearedBankRow({ void: true, cleared: false }));
+      expect(ctx.stagedThisRow).toHaveLength(0);
     });
   });
 });
