@@ -173,17 +173,30 @@ export class ImportRegularProcessorService {
   ): Promise<void> {
     const amount = roundMoney(Number(qifTx.amount));
     // Sequential dedupe fast-path: skip a second pending candidate for the same
-    // account/amount/date(/fitid). (Concurrent imports are backstopped by the
+    // account/amount/date/fitid. (Concurrent imports are backstopped by the
     // partial UNIQUE index uq_import_match_candidate_pending_fitid — a losing
     // insert 23505s and its per-row savepoint rolls back: money-safe.)
-    const existingQb = ctx.queryRunner.manager
-      .createQueryBuilder(ImportMatchCandidate, "c")
-      .where("c.account_id = :accountId", { accountId: ctx.accountId })
-      .andWhere("c.state = :state", { state: "pending" })
-      .andWhere("c.bank_amount = :amount", { amount })
-      .andWhere("c.bank_date = :date", { date: qifTx.date });
-    if (qifTx.fitid) existingQb.andWhere("c.fitid = :fitid", { fitid: qifTx.fitid });
-    if ((await existingQb.getCount()) > 0) return;
+    //
+    // Only applied when the incoming row carries a bank fitid: that is the
+    // only reliable "same real transaction" signal. For fitid-less rows
+    // (QIF/CSV), amount+date cannot distinguish two genuinely-distinct
+    // transactions that happen to land on the same day for the same amount —
+    // running the guard there would silently drop the second one (no insert,
+    // no stage, no counter moved: untraceable data loss). A duplicate staged
+    // *candidate* is a harmless review-queue item the user can reject; a
+    // silent drop is not. So for fitid-less rows we skip the guard entirely
+    // and always proceed to stage.
+    if (qifTx.fitid) {
+      const existingCount = await ctx.queryRunner.manager
+        .createQueryBuilder(ImportMatchCandidate, "c")
+        .where("c.account_id = :accountId", { accountId: ctx.accountId })
+        .andWhere("c.state = :state", { state: "pending" })
+        .andWhere("c.bank_amount = :amount", { amount })
+        .andWhere("c.bank_date = :date", { date: qifTx.date })
+        .andWhere("c.fitid = :fitid", { fitid: qifTx.fitid })
+        .getCount();
+      if (existingCount > 0) return;
+    }
 
     const candidate = ctx.queryRunner.manager.create(ImportMatchCandidate, {
       userId: ctx.userId,
