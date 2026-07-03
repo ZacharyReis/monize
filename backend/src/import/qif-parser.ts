@@ -30,6 +30,11 @@ export interface QifTransaction {
   payee: string;
   memo: string;
   number: string;
+  /**
+   * Bank-provided transaction identifier (FITID in OFX).
+   * Only populated for OFX imports; undefined for QIF/CSV.
+   */
+  fitid?: string;
   cleared: boolean;
   reconciled: boolean;
   /**
