@@ -2156,4 +2156,36 @@ describe("ImportRegularProcessorService", () => {
       expect(ctx.importResult.imported).toBe(1);
     });
   });
+
+  describe("FITID dedup", () => {
+    it("skips an incoming row whose FITID already exists in the account", async () => {
+      const ctx = makeContext();
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock).mockReturnValue(
+        makeMockQueryBuilder({}), // getCount -> 1
+      );
+      await service.processTransaction(ctx, {
+        date: "2026-07-02", amount: -11.04, payee: "Google", memo: "",
+        number: "", fitid: "20260702000000011041",
+        cleared: true, reconciled: false, isTransfer: false,
+        transferAccount: "", splits: [], tagNames: [],
+      });
+      expect(ctx.importResult.skipped).toBe(1);
+      expect(ctx.importResult.imported).toBe(0);
+      expect(ctx.queryRunner.manager.save).not.toHaveBeenCalled();
+    });
+
+    it("stamps the FITID onto a newly inserted transaction", async () => {
+      const ctx = makeContext();
+      await service.processTransaction(ctx, {
+        date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
+        number: "", fitid: "20260702000000011041",
+        cleared: true, reconciled: false, isTransfer: false,
+        transferAccount: "", splits: [], tagNames: [],
+      });
+      const calls = (ctx.queryRunner.manager.create as jest.Mock).mock.calls;
+      const created = calls[calls.length - 1];
+      expect(created[1]).toEqual(expect.objectContaining({ fitid: "20260702000000011041" }));
+      expect(ctx.importResult.imported).toBe(1);
+    });
+  });
 });

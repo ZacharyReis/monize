@@ -29,6 +29,14 @@ export class ImportRegularProcessorService {
       return;
     }
 
+    // Re-import guard: skip a row already imported under the same bank FITID.
+    // MUST run after the transfer checks so it never short-circuits transfer
+    // duplicate-counting (which must observe every same-signature row).
+    if (await this.isFitidDuplicate(ctx, qifTx)) {
+      ctx.importResult.skipped++;
+      return;
+    }
+
     // Get or create payee (with alias matching)
     const resolvedPayee = await this.resolvePayee(ctx, qifTx);
 
@@ -72,6 +80,7 @@ export class ImportRegularProcessorService {
       payeeId: resolvedPayee.payeeId,
       description: qifTx.memo,
       referenceNumber: qifTx.number,
+      fitid: qifTx.fitid ?? null,
       categoryId: effectiveCategoryId,
       status,
       currencyCode: ctx.account.currencyCode,
@@ -107,6 +116,20 @@ export class ImportRegularProcessorService {
     }
 
     ctx.importResult.imported++;
+  }
+
+  private async isFitidDuplicate(
+    ctx: ImportContext,
+    qifTx: any,
+  ): Promise<boolean> {
+    if (!qifTx.fitid) return false;
+    const existingCount = await ctx.queryRunner.manager
+      .createQueryBuilder(Transaction, "t")
+      .where("t.user_id = :userId", { userId: ctx.userId })
+      .andWhere("t.account_id = :accountId", { accountId: ctx.accountId })
+      .andWhere("t.fitid = :fitid", { fitid: qifTx.fitid })
+      .getCount();
+    return existingCount > 0;
   }
 
   private async isDuplicateTransfer(
