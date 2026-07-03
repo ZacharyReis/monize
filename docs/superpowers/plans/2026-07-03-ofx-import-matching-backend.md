@@ -4,79 +4,61 @@
 
 **Goal:** Give the import pipeline a matching engine so a bank `CLEARED` row is matched against a hand-entered `UNRECONCILED` row (amount + date window), staged for human review, and merged on confirm — instead of blindly inserting a duplicate.
 
-**Architecture:** A `fitid` column + OFX parser extraction enables deterministic re-import dedup. In `ImportRegularProcessorService.processTransaction`, *after* the existing transfer checks, two new gates run: (1) FITID exact-dedup skips re-imports; (2) for incoming **CLEARED** rows only, an amount+date+account heuristic finds `UNRECONCILED` candidates and, on a hit, stages an `ImportMatchCandidate` row (buffered onto the import response, flushed only after the row's savepoint releases) instead of inserting. A separate `ImportMatchService` + controller resolves each staged match — **merge** (atomically claim the candidate, revalidate, flip the user's row to `CLEARED`, copy FITID/reference, keep their payee) or **keep both** (atomically claim, then create the bank row through the vetted `TransactionsService.create` path and stamp its FITID).
+**Architecture:** A `fitid` column + OFX parser extraction enables deterministic re-import dedup. In `ImportRegularProcessorService.processTransaction`, *after* the existing transfer checks, two new gates run: (1) FITID exact-dedup skips re-imports; (2) for incoming **CLEARED** rows only, an amount+date+account heuristic finds `UNRECONCILED` candidates and, on a hit, stages an `ImportMatchCandidate` row (buffered onto the import response, flushed only after the row's savepoint releases) instead of inserting. A separate `ImportMatchService` + controller resolves each staged match by **delegating to the vetted transaction paths**: **merge** = atomically claim → revalidate → `TransactionsService.update` (status `CLEARED` + adopt the bank's posted date, which recalculates balance) → balance-neutral marker copy; **keep both** = atomically claim → `TransactionsService.create` with `status:CLEARED`+`fitid` in one call (balance + net-worth handled by the vetted path, no post-insert stamp).
 
 **Tech Stack:** NestJS, TypeORM (runtime-only, `synchronize: false`), PostgreSQL, custom SQL migrations, Jest (`ts-jest`, colocated `*.spec.ts`, **ES2021 target**).
 
 ## Codex Review
 
-Adversarial plan-review by Codex/Wren, session `019f2974-dad8-7591-8bdb-a932dd0158df` (resume to re-gate after folding). It raised **5 Critical, 4 High, 3 Medium** — all verified real against the source and **all folded into this revision**:
+Adversarial plan-review by Codex/Wren, session `019f2974-dad8-7591-8bdb-a932dd0158df`.
 
-| # | Sev | Finding | Folded into |
-|---|-----|---------|-------------|
-| 1 | Crit | FITID dedup placed first breaks transfer dedup counting | Task 4 (moved after transfer checks) |
-| 2 | Crit | merge/keepBoth not atomic with candidate state → double-insert | Task 6 (atomic conditional claim) |
-| 3 | Crit | merge doesn't revalidate the row is still UNRECONCILED/current | Task 6 (revalidate at resolve) |
-| 4 | Crit | keepBoth balance diverges from normal paths (no net-worth recalc, 2-dp) | Task 6 (reuse `TransactionsService.create`) |
-| 5 | Crit | matcher stages any row incl. VOID; keepBoth always inserts CLEARED | Task 5 (gate to incoming CLEARED only) |
-| 6 | High | `importBatchId` required breaks multi-account + investment spec sites | Task 5 (optional + set at all orchestrator sites) |
-| 7 | High | candidate query excludes splits but not transfers | Task 5 (`is_transfer=false`, `linked_transaction_id IS NULL`) |
-| 8 | High | duplicate pending staging not prevented | Task 5 (pre-stage dedupe guard) |
-| 9 | High | `proposedMatches` pushed inside savepoint can desync on rollback | Task 5 (buffer + flush after RELEASE) |
-| 10 | Med | amount canonicalization across OFX/QIF/CSV | Task 5 (`roundMoney` once for match path) |
-| 11 | Med | tests use `.at(-1)` but target is ES2021 | Tasks 4/5/6 (`calls[calls.length-1]`) |
-| 12 | Med | controller needs `ParseUUIDPipe` + `@IsUUID()` DTO | Task 6 (`MergeMatchDto`) |
+**Round 1** — 5 Critical, 4 High, 3 Medium, all verified real and folded (FITID-after-transfers; atomic claim; revalidate; reuse create path; CLEARED-gated staging; optional context fields; transfer exclusion; dedupe guard; buffer-after-release; roundMoney; ES2021 tests; ParseUUIDPipe). Round-1 re-gate confirmed all 12 **RESOLVED**.
+
+**Round 2** — the resolve-path fixes exposed 6 residuals (3 Crit / 2 High / 1 Med), all folded here:
+
+| # | Sev | Finding | Fold |
+|---|-----|---------|------|
+| R2-1 | Crit | keepBoth create-then-stamp window → double-count on stamp failure | Task 6: `create()` sets `status:CLEARED`+`fitid` atomically (DTO spread) — **no post-insert stamp** |
+| R2-2 | Crit | merge leaves a future-dated row → current-balance excludes it | Task 6: merge **adopts `bankDate`** via `update()`, which recalculates balance |
+| R2-3 | Crit | staging race (check-then-insert, no unique constraint) → double keepBoth | Task 3: partial **UNIQUE index** on `(account_id, fitid) WHERE state='pending'` |
+| R2-4 | High | `candidate.currencyCode` doesn't exist (compile blocker) | Task 6: fetch currency via `AccountsService.findOne` |
+| R2-5 | High | claim runs outside the financial txn (crash window) | Accepted residual: claim-before is money-safe (stuck candidate ≫ double-charge); documented |
+| R2-6 | Med | test mock invents `candidate.currencyCode`, hiding R2-4 | Task 6: test mocks `AccountsService.findOne` instead |
+
+**R2-5 residual (documented, accepted):** resolves do the atomic claim (a conditional `UPDATE … WHERE state='pending'`, `affected===1`) *before* the financial action, and revert to `pending` if that action throws before committing. A process crash *between* claim and action leaves a candidate stuck in `merged`/`kept` with no/partial financial effect — **recoverable and never a balance corruption** (a stuck candidate is strictly safer than a double-charge). Full cross-service atomicity would require a shared transaction across `ImportMatchService` and `TransactionsService`; out of scope for v1. Keep-both is a single vetted `create` call, so its only crash window is claim→create (leaves a stuck `kept` candidate, no row).
 
 ## Global Constraints
 
 - **Branch:** `t-235-ofx-import-matching` (monize repo). Do all work here.
-- **Migrations are custom SQL, NOT TypeORM.** Author hand-numbered idempotent files in `database/migrations/NNN_*.sql`. **Next free number is `090`.** Use `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`. **Never** run `npm run migration:generate` (dead upstream script — no DataSource exists). Mirror every DDL change into `database/schema.sql`. Playbook: `database/CLAUDE.md`.
+- **Migrations are custom SQL, NOT TypeORM.** Idempotent files `database/migrations/NNN_*.sql`; **next free = `090`**. `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS` / `CREATE [UNIQUE] INDEX IF NOT EXISTS`. **Never** `npm run migration:generate`. Mirror every DDL change into `database/schema.sql`. Playbook: `database/CLAUDE.md`.
 - **Apply migrations (bare-metal Manor):** `./scripts/rebuild.sh --migrate-only` or `--backend-only`.
-- **Match gates (exact):** the incoming row must derive to **CLEARED** (`qifTx.cleared && !qifTx.void && !qifTx.reconciled`); candidate rows are same **target** account (`ctx.accountId`, never OFX `BANKACCTFROM`), `UNRECONCILED`, `is_split = false`, `is_transfer = false`, `linked_transaction_id IS NULL`; **exact `roundMoney`-canonicalized amount**; `|transaction_date − bank date| ≤ 7 days`. **Never** gate on payee.
-- **Amount canonicalization:** compute `roundMoney(Number(qifTx.amount))` ONCE and use it for matching, staging (`bankAmount`), and the keep-both insert. OFX pre-rounds; QIF/CSV do not — this prevents `NUMERIC(20,4)` vs raw-float match misses.
-- **Merge rule:** flip the user's row to `CLEARED`; copy `fitid` + `referenceNumber`; backfill `description` **only if empty**; **never overwrite `payeeName`/`payeeId`/`categoryId`**.
-- **Resolve atomicity:** every resolve (`merge`/`keepBoth`) FIRST atomically claims the candidate with a conditional `UPDATE ... WHERE id=? AND user_id=? AND state='pending'` and asserts `affected === 1` (throw `ConflictException` otherwise) BEFORE any insert/update — prevents double-click double-processing. Revalidate the target row at resolve time (still `UNRECONCILED`, same account, non-split, non-transfer).
-- **Balance safety:** staging inserts nothing and touches no balance. Merge is balance-neutral (UNRECONCILED already counts toward `current_balance`; UNRECONCILED→CLEARED changes nothing). Keep-both MUST create through `TransactionsService.create` so balance (`AccountsService.updateBalance`, 4-dp) and `netWorthService.triggerDebouncedRecalc` fire exactly like a normal create; then stamp `fitid` + `status=CLEARED` via `manager.update` (balance-neutral flip).
-- **Persistence idiom:** `queryRunner.manager.update(Transaction, id, { ...partial })` (not `save`), matching `TransactionReconciliationService`.
-- **Test target is ES2021** (`backend/tsconfig.json`). Do **not** use `Array.prototype.at`; use `arr[arr.length - 1]`.
-- **Legacy backlog:** UNRECONCILED-only matcher (Zach's Accept + backfill decision). Legacy FITID-less `CLEARED` rows aren't re-import-protected; `/built-in-reports/duplicate-transactions` is the fallback. Optional one-time backfill = Task 7 (deferred).
-- **Scope:** backend only. Frontend review UX is a **separate follow-on plan** consuming `proposedMatches` + the `import/matches` endpoints.
+- **Match gates (exact):** incoming row must derive to **CLEARED** (`qifTx.cleared && !qifTx.void && !qifTx.reconciled`); candidate rows same **target** account (`ctx.accountId`, never OFX `BANKACCTFROM`), `UNRECONCILED`, `is_split=false`, `is_transfer=false`, `linked_transaction_id IS NULL`; **exact `roundMoney`-canonicalized amount**; `|transaction_date − bank date| ≤ 7 days`. **Never** gate on payee.
+- **Amount canonicalization:** `roundMoney(Number(qifTx.amount))` ONCE for matching + staging.
+- **Merge rule:** flip user's row to `CLEARED`; **adopt the bank's posted date** (`transactionDate = bankDate`) via `TransactionsService.update` so balance recalculates correctly for a formerly-future row; copy `fitid` + `referenceNumber`; backfill `description` **only if empty**; **never overwrite `payeeName`/`payeeId`/`categoryId`**.
+- **Keep-both rule:** create through `TransactionsService.create` with `status:CLEARED` + `fitid` set in the DTO (create spreads DTO fields into the entity), `currencyCode` fetched from the account. One atomic vetted call — balance (`updateBalance`, 4-dp) + `netWorthService.triggerDebouncedRecalc` fire like a normal create. **No post-insert stamp.**
+- **Resolve atomicity:** each resolve revalidates the target (still `UNRECONCILED`, same account, non-split, non-transfer), then atomically **claims** the candidate (`UPDATE … WHERE id=? AND user_id=? AND state='pending'`, `affected===1` → else `ConflictException`) *before* the financial action; reverts to `pending` iff the balance-affecting action throws before commit. Balance-neutral marker copies (fitid/ref/description) that fail leave the claim as-is (row already correct; no retry → no double-process). See R2-5 residual.
+- **Persistence idiom:** `repo.update(id, { ...partial })` / `manager.update(Transaction, id, {...})` (not `save`).
+- **Test target is ES2021** — no `Array.prototype.at`; use `arr[arr.length - 1]`.
+- **Legacy backlog:** UNRECONCILED-only matcher (Accept + backfill). `/built-in-reports/duplicate-transactions` is the fallback. Optional backfill = Task 7 (deferred).
+- **Scope:** backend only. Frontend review UX = separate follow-on plan.
 - **Test commands:** single file `npm test -- <path>`; single case `npx jest <path> -t "<name>"`.
 - **Design spec:** `docs/superpowers/specs/2026-07-03-ofx-import-transaction-matching-design.md`.
 
 ## File Structure
 
-**Create:**
-- `database/migrations/090_transaction_fitid.sql`, `database/migrations/091_import_match_candidate.sql`
-- `backend/src/import/entities/import-match-candidate.entity.ts`
-- `backend/src/import/import-match.util.ts` + `.spec.ts` (pure `matchDateWindow`)
-- `backend/src/import/import-match.service.ts` + `.spec.ts` (`listPending`/`merge`/`keepBoth`)
-- `backend/src/import/import-match.controller.ts`
+**Create:** `database/migrations/090_transaction_fitid.sql`, `091_import_match_candidate.sql`; `backend/src/import/entities/import-match-candidate.entity.ts`; `backend/src/import/import-match.util.ts` + `.spec.ts`; `backend/src/import/import-match.service.ts` + `.spec.ts`; `backend/src/import/import-match.controller.ts`.
 
-**Modify:**
-- `database/schema.sql` — mirror both DDL changes.
-- `backend/src/transactions/entities/transaction.entity.ts` — `fitid` property.
-- `backend/src/import/qif-parser.ts` — `fitid?: string` on `QifTransaction`.
-- `backend/src/import/ofx-parser.ts` (+ `ofx-parser.spec.ts`) — extract `<FITID>`.
-- `backend/src/import/dto/import.dto.ts` — `ProposedMatchDto`, `MergeMatchDto`, `ImportResultDto.proposedMatches?`.
-- `backend/src/import/import-context.ts` — `importBatchId?: string`, `stagedThisRow?: ProposedMatchDto[]`.
-- `backend/src/import/import.service.ts` — generate `importBatchId` (single **and** multi-account context sites); per-row `stagedThisRow` reset + flush after `RELEASE SAVEPOINT`.
-- `backend/src/import/import-regular-processor.service.ts` (+ spec) — dedup after transfers, CLEARED-gated candidate detection, dedupe-guarded staging, `fitid` on inserts.
-- `backend/src/import/import.module.ts` — register entity, service, controller; ensure `TransactionsModule`/`TransactionsService` available for `keepBoth` (forwardRef if circular).
+**Modify:** `database/schema.sql`; `backend/src/transactions/entities/transaction.entity.ts` (`fitid`); `backend/src/transactions/dto/create-transaction.dto.ts` (`fitid?`); `backend/src/import/qif-parser.ts` (`fitid?`); `backend/src/import/ofx-parser.ts` (+ spec); `backend/src/import/dto/import.dto.ts` (`ProposedMatchDto`, `MergeMatchDto`, `proposedMatches?`); `backend/src/import/import-context.ts` (`importBatchId?`, `stagedThisRow?`); `backend/src/import/import.service.ts` (batch id at both sites; per-row flush); `backend/src/import/import-regular-processor.service.ts` (+ spec); `backend/src/import/import.module.ts` (register + import TransactionsModule/AccountsModule).
 
 ---
 
 ### Task 1: `fitid` column on transactions
 
-**Files:**
-- Create: `database/migrations/090_transaction_fitid.sql`
-- Modify: `database/schema.sql:244-268`
-- Modify: `backend/src/transactions/entities/transaction.entity.ts:103-116`
+**Files:** Create `database/migrations/090_transaction_fitid.sql`; Modify `database/schema.sql:244-268`, `backend/src/transactions/entities/transaction.entity.ts:103-116`.
 
-**Interfaces:**
-- Produces: `Transaction.fitid: string | null` (`fitid VARCHAR(64)`), partial index `idx_transactions_user_account_fitid`.
+**Interfaces:** Produces `Transaction.fitid: string | null`, partial index `idx_transactions_user_account_fitid`.
 
-- [ ] **Step 1: Write the migration** — create `database/migrations/090_transaction_fitid.sql`:
+- [ ] **Step 1: Migration** — `database/migrations/090_transaction_fitid.sql`:
 
 ```sql
 -- 090_transaction_fitid.sql
@@ -91,49 +73,28 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_account_fitid
     WHERE fitid IS NOT NULL;
 ```
 
-- [ ] **Step 2: Mirror into `database/schema.sql`** — in the `CREATE TABLE transactions (...)` block (after `reference_number VARCHAR(100)`, ~line 254) add:
-
-```sql
-    fitid VARCHAR(64), -- bank-provided OFX FITID for import dedup; NULL for manual/QIF/CSV
-```
-
-and add the index next to the other `transactions` indexes:
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_transactions_user_account_fitid
-    ON transactions (user_id, account_id, fitid) WHERE fitid IS NOT NULL;
-```
-
-- [ ] **Step 3: Add the entity property** — in `transaction.entity.ts`, after `referenceNumber` (line 109):
+- [ ] **Step 2: Mirror `schema.sql`** — add `fitid VARCHAR(64),` in the `transactions` block (after `reference_number`), and the index alongside the other `transactions` indexes.
+- [ ] **Step 3: Entity property** — after `referenceNumber` (line 109):
 
 ```ts
   @Column({ type: "varchar", name: "fitid", length: 64, nullable: true })
   fitid: string | null;
 ```
 
-- [ ] **Step 4: Apply** — `cd ~/Gentoo_Dev/monize && ./scripts/rebuild.sh --migrate-only`. Expected: `090` applies with no error.
-- [ ] **Step 5: Verify** — `psql -U postgres -d monize -c "\d transactions" | grep -E "fitid|idx_transactions_user_account_fitid"`. Expected: column + partial index present.
-- [ ] **Step 6: Compile** — `cd ~/Gentoo_Dev/monize/backend && npx tsc --noEmit`. Expected: no new errors.
-- [ ] **Step 7: Commit**
-
-```bash
-git add database/migrations/090_transaction_fitid.sql database/schema.sql backend/src/transactions/entities/transaction.entity.ts
-git commit -m "feat(t-235): add fitid column to transactions for import dedup"
-```
+- [ ] **Step 4: Apply** — `cd ~/Gentoo_Dev/monize && ./scripts/rebuild.sh --migrate-only`.
+- [ ] **Step 5: Verify** — `psql -U postgres -d monize -c "\d transactions" | grep -E "fitid|idx_transactions_user_account_fitid"`.
+- [ ] **Step 6: Compile** — `cd ~/Gentoo_Dev/monize/backend && npx tsc --noEmit`.
+- [ ] **Step 7: Commit** — `git commit -m "feat(t-235): add fitid column to transactions for import dedup"`.
 
 ---
 
 ### Task 2: Extract FITID in the OFX parser
 
-**Files:**
-- Modify: `backend/src/import/qif-parser.ts:27-53`
-- Modify: `backend/src/import/ofx-parser.ts:205-240`
-- Test: `backend/src/import/ofx-parser.spec.ts` (create if absent)
+**Files:** Modify `qif-parser.ts:27-53`, `ofx-parser.ts:205-240`; Test `ofx-parser.spec.ts`.
 
-**Interfaces:**
-- Produces: `QifTransaction.fitid?: string` — set by `parseOfx` from `<FITID>`; `undefined` for QIF/CSV.
+**Interfaces:** Produces `QifTransaction.fitid?: string`.
 
-- [ ] **Step 1: Write the failing test** — in `backend/src/import/ofx-parser.spec.ts`:
+- [ ] **Step 1: Failing test** — `backend/src/import/ofx-parser.spec.ts`:
 
 ```ts
 import { parseOfx } from "./ofx-parser";
@@ -154,46 +115,29 @@ describe("parseOfx FITID extraction", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails** — `npm test -- src/import/ofx-parser.spec.ts -t "captures the FITID"`. Expected: FAIL (`fitid` undefined).
-- [ ] **Step 3: Add the field** — in `qif-parser.ts`, after `number: string;`:
-
-```ts
-  /** OFX financial-institution transaction id. Present only for OFX imports;
-   *  undefined for QIF/CSV. Used for import re-dedup. */
-  fitid?: string;
-```
-
-- [ ] **Step 4: Extract it** — in `ofx-parser.ts`, after `const checkNum = getTagValue(block, "CHECKNUM");` (line 205):
+- [ ] **Step 2: Fails** — `npm test -- src/import/ofx-parser.spec.ts -t "captures the FITID"`.
+- [ ] **Step 3: Interface field** — in `qif-parser.ts`, after `number: string;`: `fitid?: string;` (with a doc comment).
+- [ ] **Step 4: Extract** — in `ofx-parser.ts` after `const checkNum = getTagValue(block, "CHECKNUM");`:
 
 ```ts
     const fitidRaw = getTagValue(block, "FITID");
     const fitid = fitidRaw ? truncate(fitidRaw, 64) : undefined;
 ```
 
-and add `fitid,` to the `const tx: QifTransaction = { ... }` literal (after `number: truncate(checkNum, 100),`).
+add `fitid,` to the `tx` literal.
 
-- [ ] **Step 5: Run to verify pass** — `npm test -- src/import/ofx-parser.spec.ts -t "captures the FITID"`. Expected: PASS.
-- [ ] **Step 6: Commit**
-
-```bash
-git add backend/src/import/qif-parser.ts backend/src/import/ofx-parser.ts backend/src/import/ofx-parser.spec.ts
-git commit -m "feat(t-235): extract OFX FITID into parsed transaction"
-```
+- [ ] **Step 5: Passes** — `npm test -- src/import/ofx-parser.spec.ts -t "captures the FITID"`.
+- [ ] **Step 6: Commit** — `git commit -m "feat(t-235): extract OFX FITID into parsed transaction"`.
 
 ---
 
 ### Task 3: `ImportMatchCandidate` staging table + entity
 
-**Files:**
-- Create: `database/migrations/091_import_match_candidate.sql`
-- Modify: `database/schema.sql`
-- Create: `backend/src/import/entities/import-match-candidate.entity.ts`
-- Modify: `backend/src/import/import.module.ts:23-33`
+**Files:** Create `database/migrations/091_import_match_candidate.sql`, `backend/src/import/entities/import-match-candidate.entity.ts`; Modify `database/schema.sql`, `backend/src/import/import.module.ts:23-33`.
 
-**Interfaces:**
-- Produces: entity `ImportMatchCandidate` (table `import_match_candidate`), fields `id, userId, accountId, importBatchId, bankAmount, bankDate, fitid, bankName, bankMemo, bankReference, candidateTransactionIds: string[], state: "pending"|"merged"|"kept", createdAt, updatedAt`.
+**Interfaces:** Produces `ImportMatchCandidate` (fields `id, userId, accountId, importBatchId, bankAmount, bankDate, fitid, bankName, bankMemo, bankReference, candidateTransactionIds: string[], state, createdAt, updatedAt`).
 
-- [ ] **Step 1: Write the migration** — `database/migrations/091_import_match_candidate.sql`:
+- [ ] **Step 1: Migration** — `database/migrations/091_import_match_candidate.sql`:
 
 ```sql
 -- 091_import_match_candidate.sql
@@ -222,22 +166,24 @@ CREATE INDEX IF NOT EXISTS idx_import_match_candidate_batch
     ON import_match_candidate (import_batch_id);
 CREATE INDEX IF NOT EXISTS idx_import_match_candidate_user_state
     ON import_match_candidate (user_id, state);
--- Dedup guard support (Task 5): look up pending candidates by account + amount + date.
+-- Sequential dedupe fast-path (Task 5): look up pending candidates by acct+amount+date.
 CREATE INDEX IF NOT EXISTS idx_import_match_candidate_dedupe
     ON import_match_candidate (account_id, state, bank_amount, bank_date);
+-- Race guard (R2-3): at most one PENDING candidate per account+fitid. A second
+-- concurrent import staging the same OFX fitid loses the insert (23505); its
+-- per-row savepoint rolls back — money-safe (no double stage), tiny UX cost.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_match_candidate_pending_fitid
+    ON import_match_candidate (account_id, fitid)
+    WHERE state = 'pending' AND fitid IS NOT NULL;
 ```
 
-- [ ] **Step 2: Mirror into `database/schema.sql`** — append the full `CREATE TABLE` + all three `CREATE INDEX` statements near the other import/transaction tables.
+- [ ] **Step 2: Mirror `schema.sql`** — append the full `CREATE TABLE` + **all four** index statements (three plain + the partial UNIQUE).
 
-- [ ] **Step 3: Create the entity** — `backend/src/import/entities/import-match-candidate.entity.ts`:
+- [ ] **Step 3: Entity** — `backend/src/import/entities/import-match-candidate.entity.ts`:
 
 ```ts
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
 } from "typeorm";
 
 export type ImportMatchState = "pending" | "merged" | "kept";
@@ -288,32 +234,23 @@ export class ImportMatchCandidate {
 }
 ```
 
-- [ ] **Step 4: Register in the module** — in `import.module.ts` add `import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";` and add it to `TypeOrmModule.forFeature([...])`.
-- [ ] **Step 5: Apply** — `./scripts/rebuild.sh --migrate-only`. Expected: `091` applies.
-- [ ] **Step 6: Verify** — `psql -U postgres -d monize -c "\d import_match_candidate"`. Expected: all columns, indexes, and the state check constraint.
-- [ ] **Step 7: Compile** — `cd ~/Gentoo_Dev/monize/backend && npx tsc --noEmit`. Expected: no new errors.
-- [ ] **Step 8: Commit**
-
-```bash
-git add database/migrations/091_import_match_candidate.sql database/schema.sql backend/src/import/entities/import-match-candidate.entity.ts backend/src/import/import.module.ts
-git commit -m "feat(t-235): add import_match_candidate staging table + entity"
-```
+- [ ] **Step 4: Register** — `import.module.ts`: import + add `ImportMatchCandidate` to `TypeOrmModule.forFeature([...])`.
+- [ ] **Step 5: Apply** — `./scripts/rebuild.sh --migrate-only`.
+- [ ] **Step 6: Verify** — `psql -U postgres -d monize -c "\d import_match_candidate"` (columns, 4 indexes incl. the unique, check constraint).
+- [ ] **Step 7: Compile** — `npx tsc --noEmit`.
+- [ ] **Step 8: Commit** — `git commit -m "feat(t-235): add import_match_candidate staging table + entity"`.
 
 ---
 
 ### Task 4: FITID re-import dedup + stamp fitid on inserts
 
-> **Crit #1 fold:** the dedup check runs **after** the transfer checks, so it never short-circuits the transfer duplicate-counting logic (which must observe every same-signature row).
+> **Crit #1 fold:** dedup runs **after** the transfer checks.
 
-**Files:**
-- Modify: `backend/src/import/import-regular-processor.service.ts:19-83`
-- Test: `backend/src/import/import-regular-processor.service.spec.ts`
+**Files:** Modify `import-regular-processor.service.ts:19-83`; Test its spec.
 
-**Interfaces:**
-- Consumes: `Transaction.fitid` (Task 1), `QifTransaction.fitid` (Task 2).
-- Produces: private `isFitidDuplicate(ctx, qifTx): Promise<boolean>`; inserted transactions carry `fitid`.
+**Interfaces:** Produces private `isFitidDuplicate(ctx, qifTx)`; inserts carry `fitid`.
 
-- [ ] **Step 1: Write the failing tests** — add to `import-regular-processor.service.spec.ts` (reuse existing `makeContext`/`makeMockManager`/`makeMockQueryBuilder`):
+- [ ] **Step 1: Failing tests** — add to `import-regular-processor.service.spec.ts`:
 
 ```ts
 describe("FITID dedup", () => {
@@ -334,7 +271,7 @@ describe("FITID dedup", () => {
   });
 
   it("stamps the FITID onto a newly inserted transaction", async () => {
-    const ctx = makeContext(); // default: getCount -> 0, getMany -> []
+    const ctx = makeContext();
     await service.processTransaction(ctx, {
       date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
       number: "", fitid: "20260702000000011041",
@@ -349,8 +286,8 @@ describe("FITID dedup", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "FITID dedup"`. Expected: FAIL.
-- [ ] **Step 3: Add the dedup method** — near `isDuplicateTransfer` (line 112):
+- [ ] **Step 2: Fails** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "FITID dedup"`.
+- [ ] **Step 3: Method** — near `isDuplicateTransfer` (line 112):
 
 ```ts
   private async isFitidDuplicate(
@@ -368,7 +305,7 @@ describe("FITID dedup", () => {
   }
 ```
 
-- [ ] **Step 4: Call it AFTER the transfer checks + stamp fitid on insert** — in `processTransaction`, add immediately after the `matchPendingTransfer` block (after line 30), BEFORE `resolvePayee` (line 33):
+- [ ] **Step 4: Call after transfers + stamp on insert** — in `processTransaction`, after the `matchPendingTransfer` block (after line 30):
 
 ```ts
     // Re-import guard: skip a row already imported under the same bank FITID.
@@ -380,36 +317,19 @@ describe("FITID dedup", () => {
     }
 ```
 
-In the `ctx.queryRunner.manager.create(Transaction, { ... })` literal (line 66), add (after `referenceNumber: qifTx.number,`):
+In the `create(Transaction, { ... })` literal (line 66), after `referenceNumber: qifTx.number,`: `fitid: qifTx.fitid ?? null,`.
 
-```ts
-        fitid: qifTx.fitid ?? null,
-```
-
-- [ ] **Step 5: Run to verify pass** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "FITID dedup"`. Expected: PASS.
-- [ ] **Step 6: Full processor spec** — `npm test -- src/import/import-regular-processor.service.spec.ts`. Expected: all pass (confirms transfer-dedup tests still green).
-- [ ] **Step 7: Commit**
-
-```bash
-git add backend/src/import/import-regular-processor.service.ts backend/src/import/import-regular-processor.service.spec.ts
-git commit -m "feat(t-235): FITID re-import dedup (post-transfer) + stamp fitid on inserts"
-```
+- [ ] **Step 5: Passes** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "FITID dedup"`.
+- [ ] **Step 6: Full processor spec** — `npm test -- src/import/import-regular-processor.service.spec.ts` (transfer-dedup tests still green).
+- [ ] **Step 7: Commit** — `git commit -m "feat(t-235): FITID re-import dedup (post-transfer) + stamp fitid on inserts"`.
 
 ---
 
 ### Task 5: CLEARED-gated candidate detection, dedupe-guarded staging, buffered payload
 
-> Folds Crit #5 (CLEARED-only), High #6/#7/#8/#9, Med #10.
+> Folds Crit #5, High #6/#7/#8/#9, Med #10. Concurrency backstop = the partial UNIQUE index from Task 3 (R2-3).
 
-**Files:**
-- Create: `backend/src/import/import-match.util.ts` + `.spec.ts`
-- Modify: `backend/src/import/dto/import.dto.ts` (`ProposedMatchDto`, `ImportResultDto.proposedMatches?`)
-- Modify: `backend/src/import/import-context.ts` (`importBatchId?`, `stagedThisRow?`)
-- Modify: `backend/src/import/import.service.ts` (generate `importBatchId` at BOTH context sites; per-row `stagedThisRow` reset + flush after RELEASE SAVEPOINT)
-- Modify: `backend/src/import/import-regular-processor.service.ts` (+ spec)
-
-**Interfaces:**
-- Produces: `matchDateWindow(date, days?)`; `ProposedMatchDto`; `ImportResultDto.proposedMatches?`; `ImportContext.importBatchId?`/`stagedThisRow?`; private `findMatchCandidates`, `stageMatchCandidate`.
+**Files:** Create `import-match.util.ts` + `.spec.ts`; Modify `dto/import.dto.ts`, `import-context.ts`, `import.service.ts`, `import-regular-processor.service.ts` (+ spec).
 
 - [ ] **Step 1: Failing window test** — `backend/src/import/import-match.util.spec.ts`:
 
@@ -429,8 +349,8 @@ describe("matchDateWindow", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** — `npm test -- src/import/import-match.util.spec.ts`. Expected: FAIL (module not found).
-- [ ] **Step 3: Implement the pure helper** — `backend/src/import/import-match.util.ts`:
+- [ ] **Step 2: Fails** — `npm test -- src/import/import-match.util.spec.ts`.
+- [ ] **Step 3: Helper** — `backend/src/import/import-match.util.ts`:
 
 ```ts
 /** Inclusive ±`days` window around an ISO YYYY-MM-DD date, as ISO strings.
@@ -449,9 +369,9 @@ export function matchDateWindow(
 }
 ```
 
-- [ ] **Step 4: Run to verify pass** — `npm test -- src/import/import-match.util.spec.ts`. Expected: PASS.
+- [ ] **Step 4: Passes** — `npm test -- src/import/import-match.util.spec.ts`.
 
-- [ ] **Step 5: DTO** — in `dto/import.dto.ts`, before `ImportResultDto`:
+- [ ] **Step 5: DTOs** — in `dto/import.dto.ts`, before `ImportResultDto`:
 
 ```ts
 export class ProposedMatchDto {
@@ -492,7 +412,7 @@ Inside `ImportResultDto`:
   proposedMatches?: ProposedMatchDto[];
 ```
 
-- [ ] **Step 6: Context fields (optional, low blast-radius) + orchestrator wiring** — in `import-context.ts`, add to `ImportContext` (both **optional**, so the multi-account + investment-spec context literals still compile — Crit #6):
+- [ ] **Step 6: Context + orchestrator** — in `import-context.ts` add (both optional; add `import type { ProposedMatchDto } from "./dto/import.dto";`):
 
 ```ts
   /** Groups all staged match candidates produced by one import run. */
@@ -502,13 +422,7 @@ Inside `ImportResultDto`:
   stagedThisRow?: ProposedMatchDto[];
 ```
 
-Add `import type { ProposedMatchDto } from "./dto/import.dto";` to `import-context.ts`.
-
-In `import.service.ts`:
-- Add `import { randomUUID } from "crypto";` if absent.
-- In the **single-account** orchestrator `importParsedTransactions` (before building `ctx`, ~line 1207): `const importBatchId = randomUUID();` and include `importBatchId,` in the `ctx` literal (~1232-1247).
-- In the **multi-account** path that also builds an `ImportContext` (~line 378): generate and set `importBatchId` there too.
-- In the per-transaction loop (~1297-1330): immediately before the `processTransaction` call, `ctx.stagedThisRow = [];`. Immediately after the successful `RELEASE SAVEPOINT ${savepointName}`:
+In `import.service.ts`: `import { randomUUID } from "crypto";`; set `importBatchId = randomUUID()` into the **single-account** context (~1232) **and** the **multi-account** context (~378). In the per-row loop (~1297-1330): before `processTransaction`, `ctx.stagedThisRow = [];`. After the successful `RELEASE SAVEPOINT`:
 
 ```ts
         if (ctx.stagedThisRow && ctx.stagedThisRow.length > 0) {
@@ -519,9 +433,9 @@ In `import.service.ts`:
         }
 ```
 
-  Do **not** flush in the `ROLLBACK TO SAVEPOINT` catch branch (leave `proposedMatches` untouched — the staged row was rolled back).
+Do **not** flush in the `ROLLBACK TO SAVEPOINT` catch.
 
-- [ ] **Step 7: Failing staging test** — add to `import-regular-processor.service.spec.ts`. First extend the spec's `makeImportResult` to include `proposedMatches: []` and `makeContext` to include `importBatchId: "batch-1"` and `stagedThisRow: []`. Then:
+- [ ] **Step 7: Failing staging test** — add to the processor spec (extend `makeImportResult` with `proposedMatches: []`, `makeContext` with `importBatchId: "batch-1"`, `stagedThisRow: []`):
 
 ```ts
 describe("heuristic match staging", () => {
@@ -535,13 +449,11 @@ describe("heuristic match staging", () => {
   it("stages a candidate and does NOT insert a Transaction when an UNRECONCILED row matches", async () => {
     const existing = { id: "txn-existing", transactionDate: "2026-07-02", amount: -11.04, payeeName: "Google", description: null };
     const ctx = makeContext();
-    const dedupeQb = makeMockQueryBuilder();          // isFitidDuplicate getCount -> 0
-    const candQb = makeMockQueryBuilder(existing);    // findMatchCandidates getMany -> [existing]
-    const stageDedupeQb = makeMockQueryBuilder();     // pre-stage dedupe getCount -> 0
+    const dedupeQb = makeMockQueryBuilder();       // isFitidDuplicate getCount -> 0
+    const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing]
+    const stageDedupeQb = makeMockQueryBuilder();  // pre-stage dedupe getCount -> 0
     (ctx.queryRunner.manager.createQueryBuilder as jest.Mock)
-      .mockReturnValueOnce(dedupeQb)
-      .mockReturnValueOnce(candQb)
-      .mockReturnValueOnce(stageDedupeQb);
+      .mockReturnValueOnce(dedupeQb).mockReturnValueOnce(candQb).mockReturnValueOnce(stageDedupeQb);
     await service.processTransaction(ctx, clearedBankRow());
     expect(ctx.stagedThisRow).toHaveLength(1);
     expect(ctx.stagedThisRow![0].candidates[0].id).toBe("txn-existing");
@@ -559,27 +471,18 @@ describe("heuristic match staging", () => {
 });
 ```
 
-- [ ] **Step 8: Run to verify failure** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "heuristic match staging"`. Expected: FAIL.
+- [ ] **Step 8: Fails** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "heuristic match staging"`.
 
-- [ ] **Step 9: Implement detection + guarded staging** — in `import-regular-processor.service.ts` add imports:
-
-```ts
-import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
-import { matchDateWindow } from "./import-match.util";
-import { roundMoney } from "../common/round.util";
-```
-
-Add methods (near `matchPendingTransfer`):
+- [ ] **Step 9: Detection + guarded staging** — add imports (`ImportMatchCandidate`, `matchDateWindow`, `roundMoney`) and methods:
 
 ```ts
   private async findMatchCandidates(
     ctx: ImportContext,
     qifTx: any,
   ): Promise<Transaction[]> {
-    // Only stage when we have a batch id, and only for incoming rows that would
-    // become CLEARED (i.e. bank-posted). Never for VOID/RECONCILED/uncleared,
-    // transfers, or splits.
     if (!ctx.importBatchId) return [];
+    // Only incoming rows that would become CLEARED (bank-posted). Never
+    // VOID/RECONCILED/uncleared, transfers, or splits.
     if (!qifTx.cleared || qifTx.void || qifTx.reconciled) return [];
     if (qifTx.isTransfer || (qifTx.splits && qifTx.splits.length > 0)) return [];
     const amount = roundMoney(Number(qifTx.amount));
@@ -603,20 +506,18 @@ Add methods (near `matchPendingTransfer`):
     candidates: Transaction[],
   ): Promise<void> {
     const amount = roundMoney(Number(qifTx.amount));
-    // Dedupe guard: don't stage a second pending candidate for the same
-    // account/amount/date (two identical bank rows, or a re-import before
-    // resolution). Match by fitid when present, else by amount+date.
+    // Sequential dedupe fast-path: skip a second pending candidate for the same
+    // account/amount/date(/fitid). (Concurrent imports are backstopped by the
+    // partial UNIQUE index uq_import_match_candidate_pending_fitid — a losing
+    // insert 23505s and its per-row savepoint rolls back: money-safe.)
     const existingQb = ctx.queryRunner.manager
       .createQueryBuilder(ImportMatchCandidate, "c")
       .where("c.account_id = :accountId", { accountId: ctx.accountId })
       .andWhere("c.state = :state", { state: "pending" })
       .andWhere("c.bank_amount = :amount", { amount })
       .andWhere("c.bank_date = :date", { date: qifTx.date });
-    if (qifTx.fitid) {
-      existingQb.andWhere("c.fitid = :fitid", { fitid: qifTx.fitid });
-    }
-    const existing = await existingQb.getCount();
-    if (existing > 0) return;
+    if (qifTx.fitid) existingQb.andWhere("c.fitid = :fitid", { fitid: qifTx.fitid });
+    if ((await existingQb.getCount()) > 0) return;
 
     const candidate = ctx.queryRunner.manager.create(ImportMatchCandidate, {
       userId: ctx.userId,
@@ -649,11 +550,10 @@ Add methods (near `matchPendingTransfer`):
   }
 ```
 
-Wire into `processTransaction`, after the FITID dedup (Task 4) and before `resolvePayee`:
+Wire into `processTransaction`, after FITID dedup (Task 4) and before `resolvePayee`:
 
 ```ts
     // Match incoming CLEARED bank rows against hand-entered UNRECONCILED rows.
-    // On a hit, stage for review instead of inserting a duplicate.
     const matchCandidates = await this.findMatchCandidates(ctx, qifTx);
     if (matchCandidates.length > 0) {
       await this.stageMatchCandidate(ctx, qifTx, matchCandidates);
@@ -661,32 +561,33 @@ Wire into `processTransaction`, after the FITID dedup (Task 4) and before `resol
     }
 ```
 
-- [ ] **Step 10: Run to verify pass** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "heuristic match staging"`. Expected: PASS.
-- [ ] **Step 11: Full import specs + compile** — `npm test -- src/import && cd ~/Gentoo_Dev/monize/backend && npx tsc --noEmit`. Expected: all import specs pass; no type errors (confirm the multi-account context site + investment spec still compile with the optional fields).
-- [ ] **Step 12: Commit**
-
-```bash
-git add backend/src/import/import-match.util.ts backend/src/import/import-match.util.spec.ts backend/src/import/dto/import.dto.ts backend/src/import/import-context.ts backend/src/import/import.service.ts backend/src/import/import-regular-processor.service.ts backend/src/import/import-regular-processor.service.spec.ts
-git commit -m "feat(t-235): stage CLEARED matches for review (dedupe-guarded, rollback-safe)"
-```
+- [ ] **Step 10: Passes** — `npm test -- src/import/import-regular-processor.service.spec.ts -t "heuristic match staging"`.
+- [ ] **Step 11: Full import specs + compile** — `npm test -- src/import && npx tsc --noEmit`.
+- [ ] **Step 12: Commit** — `git commit -m "feat(t-235): stage CLEARED matches for review (dedupe-guarded, rollback-safe)"`.
 
 ---
 
-### Task 6: Resolve API — merge / keep-both / list (atomic + revalidated)
+### Task 6: Resolve API — merge / keep-both / list (vetted-path delegation, atomic claim)
 
-> Folds Crit #2/#3/#4, Med #11/#12.
+> Folds Crit #2/#3/#4 and R2-1..R2-6. **keepBoth** = one atomic `create` (status+fitid in the DTO). **merge** = `update` (status + adopt bank date → balance recalc) + balance-neutral marker copy.
 
-**Files:**
-- Create: `backend/src/import/import-match.service.ts` + `.spec.ts`
-- Create: `backend/src/import/import-match.controller.ts`
-- Modify: `backend/src/import/dto/import.dto.ts` (`MergeMatchDto`)
-- Modify: `backend/src/import/import.module.ts` (providers, controllers, `TransactionsService` availability)
+**Files:** Create `import-match.service.ts` + `.spec.ts`, `import-match.controller.ts`; Modify `dto/import.dto.ts` (`MergeMatchDto`), `dto/create-transaction.dto.ts` (`fitid?`), `import.module.ts`.
 
-**Interfaces:**
-- Consumes: `ImportMatchCandidate`, `Transaction`, `TransactionStatus`, `TransactionsService.create`.
-- Produces: `ImportMatchService.listPending(userId)`, `.merge(userId, candidateId, transactionId)`, `.keepBoth(userId, candidateId)`; routes `GET import/matches`, `POST import/matches/:id/merge`, `POST import/matches/:id/keep-both`.
+**Interfaces:** Consumes `ImportMatchCandidate`, `Transaction`, `TransactionStatus`, `TransactionsService.create`/`.update`, `AccountsService.findOne`. Produces `listPending`/`merge`/`keepBoth`; routes `GET import/matches`, `POST import/matches/:id/merge`, `POST import/matches/:id/keep-both`.
 
-- [ ] **Step 1: Add `MergeMatchDto`** — in `dto/import.dto.ts` (imports `IsUUID` from `class-validator`):
+- [ ] **Step 1: Add `fitid` to `CreateTransactionDto`** — in `backend/src/transactions/dto/create-transaction.dto.ts` (imports `IsOptional`, `IsString`, `MaxLength` from `class-validator`; `ApiPropertyOptional` from `@nestjs/swagger`):
+
+```ts
+  @ApiPropertyOptional({ description: "Bank FITID (import dedup); normally set only by import matching" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  fitid?: string;
+```
+
+`create()` spreads `...transactionData` into the entity, so this persists `fitid` at insert with no extra step. (`UpdateTransactionDto = PartialType(CreateTransactionDto)` inherits it, but `update()` enumerates fields, so `merge` copies `fitid` via the balance-neutral marker update, not through `update()`.)
+
+- [ ] **Step 2: Add `MergeMatchDto`** — in `dto/import.dto.ts` (`IsUUID` from `class-validator`):
 
 ```ts
 export class MergeMatchDto {
@@ -696,149 +597,161 @@ export class MergeMatchDto {
 }
 ```
 
-- [ ] **Step 2: Failing service tests** — `backend/src/import/import-match.service.spec.ts` (mirror the `TransactionReconciliationService` spec style):
+- [ ] **Step 3: Failing service tests** — `backend/src/import/import-match.service.spec.ts`:
 
 ```ts
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
-import { DataSource } from "typeorm";
 import { ConflictException } from "@nestjs/common";
 import { ImportMatchService } from "./import-match.service";
 import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 import { Transaction, TransactionStatus } from "../transactions/entities/transaction.entity";
 import { TransactionsService } from "../transactions/transactions.service";
+import { AccountsService } from "../accounts/accounts.service";
 
 describe("ImportMatchService", () => {
   let service: ImportMatchService;
   let candidateRepo: any;
+  let transactionsRepo: any;
   let txService: any;
-  let managerUpdate: jest.Mock;
-  let managerFindOne: jest.Mock;
-  let queryRunner: any;
+  let accountsService: any;
 
   beforeEach(async () => {
-    managerUpdate = jest.fn().mockResolvedValue({ affected: 1 });
-    managerFindOne = jest.fn();
-    queryRunner = {
-      connect: jest.fn(), startTransaction: jest.fn(),
-      commitTransaction: jest.fn(), rollbackTransaction: jest.fn(), release: jest.fn(),
-      manager: { update: managerUpdate, findOne: managerFindOne },
-    };
     candidateRepo = {
       find: jest.fn(),
       findOne: jest.fn(),
-      update: jest.fn().mockResolvedValue({ affected: 1 }), // conditional claim -> claimed
+      update: jest.fn().mockResolvedValue({ affected: 1 }), // conditional claim wins
     };
-    txService = { create: jest.fn().mockResolvedValue({ id: "new-txn" }) };
+    transactionsRepo = {
+      findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    txService = {
+      create: jest.fn().mockResolvedValue({ id: "new-txn", status: TransactionStatus.CLEARED }),
+      update: jest.fn().mockResolvedValue({ id: "txn-1", status: TransactionStatus.CLEARED }),
+    };
+    accountsService = { findOne: jest.fn().mockResolvedValue({ id: "acc-1", currencyCode: "USD" }) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ImportMatchService,
         { provide: getRepositoryToken(ImportMatchCandidate), useValue: candidateRepo },
-        { provide: DataSource, useValue: { createQueryRunner: () => queryRunner } },
+        { provide: getRepositoryToken(Transaction), useValue: transactionsRepo },
         { provide: TransactionsService, useValue: txService },
+        { provide: AccountsService, useValue: accountsService },
       ],
     }).compile();
     service = module.get(ImportMatchService);
   });
 
-  it("merge claims atomically, flips to CLEARED, copies fitid/reference, keeps payee", async () => {
-    candidateRepo.findOne.mockResolvedValue({
-      id: "cand-1", userId: "u1", accountId: "acc-1", state: "pending",
-      fitid: "F1", bankReference: "R1", bankMemo: "BANK MEMO",
-      candidateTransactionIds: ["txn-1"],
-    });
-    managerFindOne.mockResolvedValue({
-      id: "txn-1", userId: "u1", accountId: "acc-1", status: TransactionStatus.UNRECONCILED,
-      isSplit: false, isTransfer: false, description: null, payeeName: "Google",
-    });
+  const pendingCandidate = (over = {}) => ({
+    id: "cand-1", userId: "u1", accountId: "acc-1", state: "pending",
+    bankAmount: -11.04, bankDate: "2026-07-02", fitid: "F1",
+    bankName: "Google", bankMemo: "BANK MEMO", bankReference: "R1",
+    candidateTransactionIds: ["txn-1"], ...over,
+  });
+  const targetTxn = (over = {}) => ({
+    id: "txn-1", userId: "u1", accountId: "acc-1", status: TransactionStatus.UNRECONCILED,
+    isSplit: false, isTransfer: false, description: null, referenceNumber: null, ...over,
+  });
+
+  it("merge: claims, updates status+bankDate via TransactionsService.update, copies markers (keeps payee)", async () => {
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+    transactionsRepo.findOne.mockResolvedValue(targetTxn());
     await service.merge("u1", "cand-1", "txn-1");
-    // atomic claim first:
-    expect(candidateRepo.update).toHaveBeenCalledWith(
-      { id: "cand-1", userId: "u1", state: "pending" }, { state: "merged" });
-    // row update keeps payee, copies fitid/ref, backfills description:
-    expect(managerUpdate).toHaveBeenCalledWith(
-      Transaction, "txn-1",
-      expect.objectContaining({
-        status: TransactionStatus.CLEARED, fitid: "F1", referenceNumber: "R1", description: "BANK MEMO",
-      }));
-    expect(managerUpdate.mock.calls[0][2]).not.toHaveProperty("payeeName");
-  });
-
-  it("merge throws Conflict when the candidate is already resolved (claim affected=0)", async () => {
-    candidateRepo.findOne.mockResolvedValue({ id: "cand-1", userId: "u1", state: "pending", candidateTransactionIds: ["txn-1"] });
-    candidateRepo.update.mockResolvedValue({ affected: 0 }); // lost the race
-    await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toBeInstanceOf(ConflictException);
-  });
-
-  it("merge revalidates: throws if the target row is no longer UNRECONCILED", async () => {
-    candidateRepo.findOne.mockResolvedValue({ id: "cand-1", userId: "u1", accountId: "acc-1", state: "pending", candidateTransactionIds: ["txn-1"] });
-    managerFindOne.mockResolvedValue({ id: "txn-1", userId: "u1", accountId: "acc-1", status: TransactionStatus.VOID, isSplit: false, isTransfer: false });
-    await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toBeInstanceOf(ConflictException);
+    expect(candidateRepo.update).toHaveBeenCalledWith({ id: "cand-1", userId: "u1", state: "pending" }, { state: "merged" });
+    expect(txService.update).toHaveBeenCalledWith("u1", "txn-1",
+      expect.objectContaining({ status: TransactionStatus.CLEARED, transactionDate: "2026-07-02" }));
+    // marker copy is balance-neutral and never touches payee/category:
+    expect(transactionsRepo.update).toHaveBeenCalledWith("txn-1",
+      expect.objectContaining({ fitid: "F1", referenceNumber: "R1", description: "BANK MEMO" }));
+    expect(txService.update.mock.calls[0][2]).not.toHaveProperty("payeeName");
+    expect(transactionsRepo.update.mock.calls[0][1]).not.toHaveProperty("payeeName");
   });
 
   it("merge does NOT overwrite an existing description", async () => {
-    candidateRepo.findOne.mockResolvedValue({ id: "cand-1", userId: "u1", accountId: "acc-1", state: "pending", fitid: "F1", bankReference: null, bankMemo: "BANK MEMO", candidateTransactionIds: ["txn-1"] });
-    managerFindOne.mockResolvedValue({ id: "txn-1", userId: "u1", accountId: "acc-1", status: TransactionStatus.UNRECONCILED, isSplit: false, isTransfer: false, description: "my note", payeeName: "Google" });
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+    transactionsRepo.findOne.mockResolvedValue(targetTxn({ description: "my note" }));
     await service.merge("u1", "cand-1", "txn-1");
-    expect(managerUpdate.mock.calls[0][2].description).toBe("my note");
+    expect(transactionsRepo.update.mock.calls[0][1].description).toBe("my note");
+  });
+
+  it("merge throws Conflict when the claim is lost (affected=0)", async () => {
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+    transactionsRepo.findOne.mockResolvedValue(targetTxn());
+    candidateRepo.update.mockResolvedValueOnce({ affected: 0 });
+    await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toBeInstanceOf(ConflictException);
+    expect(txService.update).not.toHaveBeenCalled();
+  });
+
+  it("merge revalidates: throws if the target is no longer UNRECONCILED (before claiming)", async () => {
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+    transactionsRepo.findOne.mockResolvedValue(targetTxn({ status: TransactionStatus.VOID }));
+    await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toBeInstanceOf(ConflictException);
+    expect(candidateRepo.update).not.toHaveBeenCalled();
   });
 
   it("merge rejects a transactionId not in the candidate set", async () => {
-    candidateRepo.findOne.mockResolvedValue({ id: "cand-1", userId: "u1", state: "pending", candidateTransactionIds: ["txn-1"] });
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
     await expect(service.merge("u1", "cand-1", "txn-OTHER")).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it("keepBoth claims, creates via TransactionsService, then stamps fitid + CLEARED", async () => {
-    candidateRepo.findOne.mockResolvedValue({
-      id: "cand-1", userId: "u1", accountId: "acc-1", state: "pending",
-      bankAmount: -59.03, bankDate: "2026-07-02", fitid: "F2",
-      bankName: "DoorDash", bankMemo: "DD", bankReference: null, currencyCode: "USD",
-      candidateTransactionIds: ["txn-1"],
-    });
+  it("keepBoth: claims, fetches currency, creates CLEARED+fitid in ONE create call", async () => {
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate({ bankAmount: -59.03, fitid: "F2", bankName: "DoorDash" }));
     await service.keepBoth("u1", "cand-1");
-    expect(candidateRepo.update).toHaveBeenCalledWith(
-      { id: "cand-1", userId: "u1", state: "pending" }, { state: "kept" });
+    expect(accountsService.findOne).toHaveBeenCalledWith("u1", "acc-1");
+    expect(candidateRepo.update).toHaveBeenCalledWith({ id: "cand-1", userId: "u1", state: "pending" }, { state: "kept" });
     expect(txService.create).toHaveBeenCalledWith("u1", expect.objectContaining({
       accountId: "acc-1", amount: -59.03, transactionDate: "2026-07-02",
+      currencyCode: "USD", status: TransactionStatus.CLEARED, fitid: "F2",
     }));
-    expect(managerUpdate).toHaveBeenCalledWith(
-      Transaction, "new-txn",
-      expect.objectContaining({ status: TransactionStatus.CLEARED, fitid: "F2" }));
+    // no post-insert stamp:
+    expect(transactionsRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("keepBoth reverts the claim to pending if create throws", async () => {
+    candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+    txService.create.mockRejectedValueOnce(new Error("boom"));
+    await expect(service.keepBoth("u1", "cand-1")).rejects.toThrow("boom");
+    expect(candidateRepo.update).toHaveBeenLastCalledWith({ id: "cand-1" }, { state: "pending" });
   });
 
   it("listPending returns only this user's pending candidates", async () => {
     candidateRepo.find.mockResolvedValue([{ id: "c1" }]);
     const rows = await service.listPending("u1");
-    expect(candidateRepo.find).toHaveBeenCalledWith({
-      where: { userId: "u1", state: "pending" }, order: { createdAt: "DESC" } });
+    expect(candidateRepo.find).toHaveBeenCalledWith({ where: { userId: "u1", state: "pending" }, order: { createdAt: "DESC" } });
     expect(rows).toHaveLength(1);
   });
 });
 ```
 
-- [ ] **Step 3: Run to verify failure** — `npm test -- src/import/import-match.service.spec.ts`. Expected: FAIL (module not found).
+- [ ] **Step 4: Fails** — `npm test -- src/import/import-match.service.spec.ts`.
 
-- [ ] **Step 4: Implement the service** — `backend/src/import/import-match.service.ts`. **Atomic claim first, revalidate, then act. Keep-both reuses `TransactionsService.create` for correct balance + net-worth, then stamps fitid.** The claim uses a conditional repo `update` whose `affected` count guarantees exactly one winner; on any downstream failure the claim is reverted to `pending`.
+- [ ] **Step 5: Implement the service** — `backend/src/import/import-match.service.ts`:
 
 ```ts
 import {
-  Injectable, NotFoundException, BadRequestException,
-  ConflictException, Inject, forwardRef,
+  Injectable, NotFoundException, ConflictException, Inject, forwardRef, Logger,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { ImportMatchCandidate, ImportMatchState } from "./entities/import-match-candidate.entity";
 import { Transaction, TransactionStatus } from "../transactions/entities/transaction.entity";
 import { TransactionsService } from "../transactions/transactions.service";
+import { AccountsService } from "../accounts/accounts.service";
 
 @Injectable()
 export class ImportMatchService {
+  private readonly logger = new Logger(ImportMatchService.name);
+
   constructor(
     @InjectRepository(ImportMatchCandidate)
     private readonly candidateRepo: Repository<ImportMatchCandidate>,
-    private readonly dataSource: DataSource,
+    @InjectRepository(Transaction)
+    private readonly transactionsRepo: Repository<Transaction>,
     @Inject(forwardRef(() => TransactionsService))
     private readonly transactionsService: TransactionsService,
+    private readonly accountsService: AccountsService,
   ) {}
 
   async listPending(userId: string): Promise<ImportMatchCandidate[]> {
@@ -848,8 +761,13 @@ export class ImportMatchService {
     });
   }
 
-  /** Atomically transition a pending candidate to `next`. Returns true iff THIS
-   *  call won the race (affected === 1). */
+  private async loadOwned(userId: string, candidateId: string): Promise<ImportMatchCandidate> {
+    const c = await this.candidateRepo.findOne({ where: { id: candidateId } });
+    if (!c || c.userId !== userId) throw new NotFoundException("Match candidate not found");
+    return c;
+  }
+
+  /** Atomically transition a pending candidate. True iff THIS call won the race. */
   private async claim(userId: string, candidateId: string, next: ImportMatchState): Promise<boolean> {
     const res = await this.candidateRepo.update(
       { id: candidateId, userId, state: "pending" },
@@ -859,89 +777,81 @@ export class ImportMatchService {
   }
 
   async merge(userId: string, candidateId: string, transactionId: string): Promise<void> {
-    const candidate = await this.candidateRepo.findOne({ where: { id: candidateId } });
-    if (!candidate || candidate.userId !== userId) {
-      throw new NotFoundException("Match candidate not found");
-    }
+    const candidate = await this.loadOwned(userId, candidateId);
     if (!candidate.candidateTransactionIds.includes(transactionId)) {
       throw new ConflictException("transactionId is not a candidate for this match");
+    }
+    // Revalidate BEFORE claiming (cheap fail-fast, avoids a needless claim/revert).
+    const existing = await this.transactionsRepo.findOne({ where: { id: transactionId, userId } });
+    if (
+      !existing ||
+      existing.accountId !== candidate.accountId ||
+      existing.status !== TransactionStatus.UNRECONCILED ||
+      existing.isSplit ||
+      existing.isTransfer
+    ) {
+      throw new ConflictException("Transaction is no longer eligible to merge");
     }
     if (!(await this.claim(userId, candidateId, "merged"))) {
       throw new ConflictException("Match candidate already resolved");
     }
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
     try {
-      const existing = await queryRunner.manager.findOne(Transaction, {
-        where: { id: transactionId, userId },
-      });
-      // Revalidate: must still be a current, matchable row (Crit #3).
-      if (
-        !existing ||
-        existing.accountId !== candidate.accountId ||
-        existing.status !== TransactionStatus.UNRECONCILED ||
-        existing.isSplit ||
-        existing.isTransfer
-      ) {
-        throw new ConflictException("Transaction is no longer eligible to merge");
-      }
-      // UNRECONCILED -> CLEARED is balance-neutral (both count toward current balance).
-      await queryRunner.manager.update(Transaction, transactionId, {
+      // Balance-affecting change through the vetted path. Adopting the bank's
+      // posted date fixes the future-dated current-balance exclusion (R2-2);
+      // update() recalculates balance on the status/date change.
+      await this.transactionsService.update(userId, transactionId, {
         status: TransactionStatus.CLEARED,
+        transactionDate: candidate.bankDate,
+      });
+    } catch (err) {
+      await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert; nothing committed
+      throw err;
+    }
+    // Balance-neutral marker copy. If this fails, the row is already CLEARED and
+    // balance-correct; leave the candidate 'merged' (retrying would double-process).
+    try {
+      await this.transactionsRepo.update(transactionId, {
         fitid: candidate.fitid,
         referenceNumber: candidate.bankReference ?? existing.referenceNumber,
         description: existing.description || candidate.bankMemo,
       });
-      await queryRunner.commitTransaction();
     } catch (err) {
-      await queryRunner.rollbackTransaction();
-      await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert claim
-      throw err;
-    } finally {
-      await queryRunner.release();
+      this.logger.warn(`merge: marker copy failed for txn ${transactionId} (row CLEARED, balance correct): ${err}`);
     }
   }
 
   async keepBoth(userId: string, candidateId: string): Promise<Transaction> {
-    const candidate = await this.candidateRepo.findOne({ where: { id: candidateId } });
-    if (!candidate || candidate.userId !== userId) {
-      throw new NotFoundException("Match candidate not found");
-    }
+    const candidate = await this.loadOwned(userId, candidateId);
+    const account = await this.accountsService.findOne(userId, candidate.accountId);
     if (!(await this.claim(userId, candidateId, "kept"))) {
       throw new ConflictException("Match candidate already resolved");
     }
     try {
-      // Reuse the vetted create path so balance (4-dp) + net-worth recalc fire
-      // exactly like a normal transaction create (Crit #4). Created UNRECONCILED,
-      // then flipped to CLEARED (balance-neutral) with the bank FITID stamped.
-      const created = await this.transactionsService.create(userId, {
+      // Single atomic vetted call: create() spreads DTO fields into the entity,
+      // so status=CLEARED and fitid are set at insert; balance + net-worth recalc
+      // fire like a normal create. No post-insert stamp -> no double-count window.
+      return await this.transactionsService.create(userId, {
         accountId: candidate.accountId,
         transactionDate: candidate.bankDate,
         amount: Number(candidate.bankAmount),
-        currencyCode: candidate.currencyCode ?? undefined,
+        currencyCode: account.currencyCode,
         payeeName: candidate.bankName ?? undefined,
         description: candidate.bankMemo ?? undefined,
         referenceNumber: candidate.bankReference ?? undefined,
-      } as any);
-      await this.dataSource.getRepository(Transaction).update(created.id, {
         status: TransactionStatus.CLEARED,
-        fitid: candidate.fitid,
+        fitid: candidate.fitid ?? undefined,
       });
-      return { ...created, status: TransactionStatus.CLEARED, fitid: candidate.fitid };
     } catch (err) {
-      await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert claim
+      await this.candidateRepo.update({ id: candidateId }, { state: "pending" }); // revert; nothing created
       throw err;
     }
   }
 }
 ```
 
-> **Implementer notes:** (a) `TransactionsService.create(userId, dto)` — read its real `CreateTransactionDto` (`backend/src/transactions/dto/create-transaction.dto.ts`); `currencyCode` is required there, so resolve it from the account if the candidate has none (`candidate.currencyCode` is **not** a stored column — fetch the account's `currencyCode` before calling, e.g. via `transactionsService`/`accountsService`, and pass it). Remove the `as any` once fields line up. (b) If `ImportModule`↔`TransactionsModule` is circular, the `forwardRef` handles it; also ensure `TransactionsModule` exports `TransactionsService` and `ImportModule` imports it.
+- [ ] **Step 6: Passes** — `npm test -- src/import/import-match.service.spec.ts`.
 
-- [ ] **Step 5: Run to verify pass** — `npm test -- src/import/import-match.service.spec.ts`. Expected: PASS.
-
-- [ ] **Step 6: Controller (UUID-validated)** — `backend/src/import/import-match.controller.ts`:
+- [ ] **Step 7: Controller (UUID-validated)** — `backend/src/import/import-match.controller.ts`:
 
 ```ts
 import { Controller, Get, Post, Param, Body, Req, UseGuards, ParseUUIDPipe } from "@nestjs/common";
@@ -974,45 +884,41 @@ export class ImportMatchController {
 }
 ```
 
-- [ ] **Step 7: Register in the module** — in `import.module.ts`: import `ImportMatchService` + `ImportMatchController`; add `ImportMatchService` to `providers`, `ImportMatchController` to `controllers`; import `TransactionsModule` (with `forwardRef` if needed) so `TransactionsService` injects.
-- [ ] **Step 8: Full import specs + compile** — `npm test -- src/import && cd ~/Gentoo_Dev/monize/backend && npx tsc --noEmit`. Expected: all pass; no type errors.
-- [ ] **Step 9: Commit**
-
-```bash
-git add backend/src/import/import-match.service.ts backend/src/import/import-match.service.spec.ts backend/src/import/import-match.controller.ts backend/src/import/dto/import.dto.ts backend/src/import/import.module.ts
-git commit -m "feat(t-235): resolve API — atomic merge / keep-both / list for import matches"
-```
+- [ ] **Step 8: Register + wire deps** — in `import.module.ts`: import `ImportMatchService` + `ImportMatchController`; add to `providers` / `controllers`. Ensure `TransactionsService` and `AccountsService` inject — import `TransactionsModule` (with `forwardRef(() => TransactionsModule)` if circular) and `AccountsModule`, and confirm each **exports** its service. `Transaction` is already in `forFeature` (Task 3) so `@InjectRepository(Transaction)` resolves.
+- [ ] **Step 9: Full import specs + compile** — `npm test -- src/import && npx tsc --noEmit`. Expected: all pass; no type errors (verify no circular-DI boot failure — run the app once: `npm run build` succeeds).
+- [ ] **Step 10: Commit** — `git commit -m "feat(t-235): resolve API — vetted-path merge/keep-both with atomic claim"`.
 
 ---
 
 ### Task 7 (OPTIONAL, deferrable): one-time FITID backfill
 
-> Zach chose **Accept + backfill**; `/built-in-reports/duplicate-transactions` is the accepted fallback, so this is optional and may ship later. A bounded one-time re-stamp of FITIDs onto existing FITID-less rows from a re-imported OFX — NOT a change to the permanent import path. Design as its own small task when needed; do not build speculatively (YAGNI).
+> Accept + backfill decision; `/built-in-reports/duplicate-transactions` is the fallback. Bounded one-time re-stamp of FITIDs onto FITID-less rows from a re-imported OFX — NOT a permanent-path change. Design when needed; no speculative build (YAGNI).
 
-- [ ] Deferred. Track as a follow-up; no code in this plan.
+- [ ] Deferred. No code in this plan.
 
 ---
 
 ### Task 8: Live verification (mandatory before "done")
 
-> Unit tests mock `queryRunner` — they prove branch behavior, NOT real SQL filtering (amount-exact, ±7-day `BETWEEN`, UNRECONCILED/CLEARED/split/transfer filters) or real balance/net-worth effects. This exercises the real DB, per the Manor "live verification is mandatory" standard.
+> Unit tests mock repos/services — they prove branch behavior, NOT real SQL filtering or real balance/net-worth effects. This exercises the real DB.
 
-- [ ] **Step 1:** In the dev Monize instance, create a throwaway checking account. Add a manual transaction: `-11.04`, date `2026-07-01`, payee "Google", status UNRECONCILED. Note the account's `current_balance`.
-- [ ] **Step 2:** Import `~/Downloads/transactions.ofx` targeting the scratch account. Expected: response `proposedMatches` contains the `-11.04` row matched to your UNRECONCILED entry; `-11.04` NOT inserted; `-59.03` and `+1948.45` import as new CLEARED; balance reflects only the two new rows (not the staged one).
-- [ ] **Step 3:** Import the same file again. Expected: the two inserted FITID rows are `skipped`; the still-pending `-11.04` does NOT stage a second candidate (dedupe guard).
-- [ ] **Step 4:** `GET import/matches` → confirm one pending candidate. `POST import/matches/:id/merge` with the UNRECONCILED transactionId. Expected: your row now CLEARED, `fitid=20260702000000011041`, payee still "Google"; balance unchanged by the merge; a third import skips `-11.04` via FITID dedup.
-- [ ] **Step 5:** Fresh UNRECONCILED `-59.03` row + re-stage, then `POST import/matches/:id/keep-both`. Expected: a new CLEARED `-59.03` inserted (with fitid); balance decreases by 59.03; net-worth recalc triggered; candidate `kept`.
-- [ ] **Step 6:** Double-submit `keep-both` for one candidate (race check). Expected: exactly one insert; the second call returns 409 Conflict.
-- [ ] **Step 7:** Delete the scratch account (cleanup). Commit any fixups discovered.
+- [ ] **Step 1:** Dev instance: create a throwaway checking account; add a manual `-11.04`, date `2026-07-01`, payee "Google", UNRECONCILED. Record `current_balance`.
+- [ ] **Step 2:** Import `~/Downloads/transactions.ofx` → the scratch account. Expected: `proposedMatches` has the `-11.04` match; it is NOT inserted; `-59.03` and `+1948.45` import as CLEARED; balance reflects only the two new rows.
+- [ ] **Step 3:** Re-import the same file. Expected: the two inserted FITID rows `skipped`; the pending `-11.04` does NOT stage a second candidate.
+- [ ] **Step 4:** `GET import/matches` → one pending. `POST import/matches/:id/merge` with the UNRECONCILED id. Expected: row now CLEARED, `fitid` set, payee still "Google", `transactionDate` = `2026-07-02` (bank date); a third import skips `-11.04`.
+- [ ] **Step 5:** **Future-date check (R2-2):** new UNRECONCILED `-42.00` dated *7 days ahead*; import a matching bank OFX row dated today; merge. Expected: row becomes CLEARED **and** re-dated to today; `current_balance` now *includes* the `-42.00` (it was excluded while future-dated).
+- [ ] **Step 6:** Fresh UNRECONCILED `-59.03`, re-stage, `POST .../keep-both`. Expected: new CLEARED `-59.03` (with fitid); balance −59.03; net-worth recalc; candidate `kept`.
+- [ ] **Step 7:** Double-submit `keep-both` for one candidate. Expected: exactly one insert; the second call 409s.
+- [ ] **Step 8:** Delete the scratch account; commit any fixups.
 
 ---
 
 ## Self-Review
 
-**1. Spec coverage.** Data model → T1. Parser → T2. Staging store → T3. FITID dedup + insert stamping → T4. CLEARED-gated amount+date heuristic (±7d, UNRECONCILED-only, split/transfer-excluded, target-account, canonicalized) + buffered payload → T5. Atomic merge (keep payee, copy fitid/ref, backfill-if-empty, revalidated) + keep-both (vetted create path) + list → T6. Legacy backfill → T7 (deferred, per decision). Live gate → T8. **All spec sections covered.**
+**1. Spec coverage.** Data model → T1. Parser → T2. Staging store (+ race-guard unique index) → T3. FITID dedup + insert stamping → T4. CLEARED-gated heuristic (±7d, UNRECONCILED-only, split/transfer-excluded, target-account, canonicalized) + buffered payload → T5. Atomic merge (adopt bank date via `update`, keep payee, marker copy) + keep-both (single vetted `create` with status+fitid) + list → T6. Backfill → T7 (deferred). Live gate incl. future-date + race checks → T8. **All spec sections covered.**
 
-**2. Placeholder scan.** No TBD/TODO. T7 is a decision-backed deferral. Implementer notes in T6 point to real files to read (not placeholders). Every code step shows real code; every run step shows command + expected result.
+**2. Placeholder scan.** No TBD/TODO. T7 is a decision-backed deferral. Every code step has real code; every run step a command + expected result.
 
-**3. Type consistency.** `matchDateWindow` (T5) used only in T5. `ImportMatchCandidate` fields (T3) used identically in T5/T6. `ProposedMatchDto`/`proposedMatches` defined T5, consumed T8. `ImportContext.importBatchId?`/`stagedThisRow?` optional (T5), set by orchestrator, guarded in `findMatchCandidates`. `MergeMatchDto` defined T6, used by controller. Service methods `listPending`/`merge`/`keepBoth`/`claim` consistent across service, controller, and tests. Persistence via `manager.update(Transaction, id, {...})`; keep-both via `TransactionsService.create` then stamp. Tests use `calls[calls.length-1]` (ES2021-safe). **Consistent.**
+**3. Type consistency.** `matchDateWindow` (T5) used only in T5. `ImportMatchCandidate` fields (T3) identical in T5/T6. `ProposedMatchDto`/`proposedMatches` (T5) consumed T8. `ImportContext.importBatchId?`/`stagedThisRow?` optional, set by orchestrator, guarded. `CreateTransactionDto.fitid?` (T6 Step 1) consumed by keep-both's `create`. `MergeMatchDto` (T6) used by controller. Service methods `listPending`/`merge`/`keepBoth`/`claim`/`loadOwned` consistent across service, controller, tests. Persistence via `repo.update`/`manager.update`. Tests use `calls[calls.length-1]`. **Consistent.**
 
-**4. Codex findings.** All 12 (5 Crit / 4 High / 3 Med) folded — see the Codex Review table. Re-gate pending.
+**4. Codex findings.** Round 1 (12) all RESOLVED; Round 2 (6) all folded (see Codex Review). R2-5 is a documented, accepted residual (money-safe). Re-gate (round 3) pending.
