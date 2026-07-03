@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, In, IsNull } from "typeorm";
+import { randomUUID } from "crypto";
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { SecurityPriceService } from "../securities/security-price.service";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
@@ -390,6 +391,9 @@ export class ImportService {
           affectedAccountIds,
           importResult,
           transferDupCounts: new Map(),
+          // Import matching (T-235) is single-account only; multi-account QIF
+          // (Quicken bulk migration) does not stage matches. See
+          // importParsedTransactions for the matched path.
         };
 
         // Apply opening balance
@@ -1244,6 +1248,7 @@ export class ImportService {
       affectedAccountIds,
       importResult,
       transferDupCounts: new Map<string, number>(),
+      importBatchId: randomUUID(),
     };
 
     try {
@@ -1302,12 +1307,19 @@ export class ImportService {
           const savepointName = `tx_import_${txIndex}`;
           await queryRunner.query(`SAVEPOINT ${savepointName}`);
           try {
+            ctx.stagedThisRow = [];
             if (isInvestment) {
               await this.investmentProcessor.processTransaction(ctx, qifTx);
             } else {
               await this.regularProcessor.processTransaction(ctx, qifTx);
             }
             await queryRunner.query(`RELEASE SAVEPOINT ${savepointName}`);
+            if (ctx.stagedThisRow && ctx.stagedThisRow.length > 0) {
+              importResult.proposedMatches = [
+                ...(importResult.proposedMatches ?? []),
+                ...ctx.stagedThisRow,
+              ];
+            }
           } catch (error) {
             await queryRunner.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
             importResult.errors++;

@@ -1,5 +1,6 @@
 import { Account } from "../accounts/entities/account.entity";
 import { ImportResultDto } from "./dto/import.dto";
+import type { ProposedMatchDto } from "./dto/import.dto";
 
 export interface ImportContext {
   queryRunner: any;
@@ -19,6 +20,11 @@ export interface ImportContext {
   /** Tracks how many QIF entries with each transfer signature have been seen in the current block,
    *  used to distinguish genuinely different transfers that share date/amount/account. */
   transferDupCounts: Map<string, number>;
+  /** Groups all staged match candidates produced by one import run. */
+  importBatchId?: string;
+  /** Per-transaction staging buffer, flushed to importResult.proposedMatches
+   *  only after the row's savepoint is released (avoids rollback desync). */
+  stagedThisRow?: ProposedMatchDto[];
 }
 
 /**

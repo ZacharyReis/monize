@@ -27,6 +27,7 @@ import { ExchangeRateService } from "../currencies/exchange-rate.service";
 import { ImportEntityCreatorService } from "./import-entity-creator.service";
 import { ImportInvestmentProcessorService } from "./import-investment-processor.service";
 import { ImportRegularProcessorService } from "./import-regular-processor.service";
+import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 
 // Mock the qif-parser module so we can control its return values
 jest.mock("./qif-parser", () => ({
@@ -2654,6 +2655,94 @@ describe("ImportService", () => {
         expect(mockedParseQif).toHaveBeenCalledWith(dto.content, "DD/MM/YYYY");
       });
     });
+
+    describe("heuristic match staging -- proposedMatches flush integrity", () => {
+      // Drives the real per-row SAVEPOINT/RELEASE loop in
+      // importParsedTransactions with the actual (non-mocked)
+      // ImportRegularProcessorService, so this exercises the genuine
+      // orchestrator contract: ctx.stagedThisRow is only flushed into
+      // importResult.proposedMatches after a successful RELEASE SAVEPOINT.
+      const existingUnreconciled = {
+        id: "txn-unreconciled-1",
+        transactionDate: "2025-01-15",
+        amount: -50,
+        payeeName: "Grocery Store",
+        description: null,
+      };
+
+      beforeEach(() => {
+        // A CLEARED, fitid-less incoming row. fitid-less means
+        // isFitidDuplicate short-circuits without querying, and (per the
+        // Finding 1 fix) the pre-stage dedupe guard is skipped too -- so the
+        // ONLY createQueryBuilder call this row reaches is
+        // findMatchCandidates, which we make always return one UNRECONCILED
+        // candidate.
+        mockedParseQif.mockReturnValue({
+          accountType: "CHEQUING",
+          accountName: "",
+          transactions: [
+            makeQifTransaction({ cleared: true, reconciled: false }),
+          ],
+          categories: ["Food"],
+          transferAccounts: [],
+          securities: [],
+          detectedDateFormat: "MM/DD/YYYY",
+          sampleDates: ["01/15/2025"],
+          openingBalance: null,
+          openingBalanceDate: null,
+        });
+
+        mockQueryRunner.manager.createQueryBuilder.mockImplementation(() =>
+          createMockQueryBuilder({
+            getMany: jest.fn().mockResolvedValue([existingUnreconciled]),
+          }),
+        );
+      });
+
+      it("flushes a staged candidate into proposedMatches after RELEASE SAVEPOINT succeeds", async () => {
+        const result = await service.importQifFile(userId, makeBaseDto());
+
+        expect(result.proposedMatches).toHaveLength(1);
+        expect(result.proposedMatches![0].candidates[0].id).toBe(
+          "txn-unreconciled-1",
+        );
+        expect(result.imported).toBe(0);
+        expect(result.errors).toBe(0);
+      });
+
+      it("does NOT leak a staged candidate into proposedMatches when its per-row savepoint rolls back", async () => {
+        // Simulate the per-row savepoint failing to release (e.g. a deferred
+        // unique-constraint check firing at RELEASE) AFTER the row has
+        // already pushed onto ctx.stagedThisRow. The orchestrator must
+        // ROLLBACK TO SAVEPOINT and never reach the proposedMatches flush.
+        mockQueryRunner.query.mockImplementation((sql: string) => {
+          if (typeof sql === "string" && sql.startsWith("RELEASE SAVEPOINT")) {
+            return Promise.reject(
+              new Error("simulated deferred constraint violation at RELEASE"),
+            );
+          }
+          return Promise.resolve();
+        });
+
+        const result = await service.importQifFile(userId, makeBaseDto());
+
+        // Prove staging genuinely happened before the rollback (this isn't
+        // passing for some unrelated reason, e.g. the row never reaching
+        // stageMatchCandidate at all) -- an ImportMatchCandidate WAS created.
+        const candidateCreateCall = (
+          mockQueryRunner.manager.create as jest.Mock
+        ).mock.calls.find((call: unknown[]) => call[0] === ImportMatchCandidate);
+        expect(candidateCreateCall).toBeDefined();
+
+        // But because RELEASE SAVEPOINT failed, the row's savepoint rolled
+        // back -- the staged candidate must never reach proposedMatches.
+        expect(result.proposedMatches ?? []).toHaveLength(0);
+        expect(result.errors).toBe(1);
+        expect(result.errorMessages[0]).toContain(
+          "simulated deferred constraint violation at RELEASE",
+        );
+      });
+    });
   });
 
   describe("getExistingCategories", () => {
@@ -4016,6 +4105,111 @@ describe("ImportService", () => {
       expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
       expect(mockQueryRunner.release).toHaveBeenCalled();
       expect(result.accountsCreated).toBe(1);
+    });
+
+    describe("match staging disabled on multi-account path (T-235 fix)", () => {
+      // Regression coverage for the multi-account import matching bug: this
+      // path never sets ctx.importBatchId, so findMatchCandidates's
+      // `if (!ctx.importBatchId) return []` guard must disable staging
+      // entirely -- even when a matching UNRECONCILED candidate exists, a
+      // CLEARED incoming row must insert as a normal Transaction (not be
+      // withheld into an ImportMatchCandidate with no response signal).
+      const existingUnreconciled = {
+        id: "txn-unreconciled-1",
+        transactionDate: "2025-01-15",
+        amount: -50,
+        payeeName: "Grocery",
+        description: null,
+      };
+
+      beforeEach(() => {
+        mockedValidateQifContent.mockReturnValue({ valid: true });
+        mockedParseQifFull.mockReturnValue(
+          makeFullParseResult({
+            categoryDefs: [],
+            accountBlocks: [
+              {
+                accountName: "Checking",
+                accountType: "CHEQUING",
+                description: "",
+                creditLimit: null,
+                transactions: [
+                  {
+                    date: "2025-01-15",
+                    amount: -50,
+                    payee: "Grocery",
+                    memo: "",
+                    number: "",
+                    // CLEARED + fitid-less: exactly the shape findMatchCandidates
+                    // would stage if importBatchId were set on this path.
+                    cleared: true,
+                    reconciled: false,
+                    category: "",
+                    splits: [],
+                    tagNames: [],
+                    isTransfer: false,
+                    transferAccount: "",
+                    security: "",
+                    action: "",
+                    price: 0,
+                    quantity: 0,
+                    commission: 0,
+                  },
+                ],
+                categories: [],
+                transferAccounts: [],
+                securities: [],
+                openingBalance: null,
+                openingBalanceDate: null,
+              },
+            ],
+          }),
+        );
+
+        mockQueryRunner.manager.findOne.mockImplementation((entity) => {
+          if (entity === Account) {
+            return Promise.resolve({
+              id: "acct-checking-1",
+              userId,
+              name: "Checking",
+              accountType: AccountType.CHEQUING,
+              currencyCode: "CAD",
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        let saveIdx = 0;
+        mockQueryRunner.manager.save.mockImplementation((entity) => {
+          saveIdx++;
+          return Promise.resolve({ ...entity, id: `saved-${saveIdx}` });
+        });
+
+        // A trap: if the importBatchId guard were absent, this candidate
+        // would be returned and the row staged instead of inserted.
+        mockQueryRunner.manager.createQueryBuilder.mockImplementation(() =>
+          createMockQueryBuilder({
+            getMany: jest.fn().mockResolvedValue([existingUnreconciled]),
+          }),
+        );
+      });
+
+      it("does not stage an ImportMatchCandidate and inserts the bank Transaction normally", async () => {
+        const result = await service.importQifMultiAccountFile(userId, baseDto);
+
+        const candidateCreateCall = (
+          mockQueryRunner.manager.create as jest.Mock
+        ).mock.calls.find((call) => call[0] === ImportMatchCandidate);
+        expect(candidateCreateCall).toBeUndefined();
+        expect(result.proposedMatches ?? []).toHaveLength(0);
+
+        const txnCreateCall = (
+          mockQueryRunner.manager.create as jest.Mock
+        ).mock.calls.find((call) => call[0] === Transaction);
+        expect(txnCreateCall).toBeDefined();
+        expect(result.imported).toBe(1);
+        expect(result.errors).toBe(0);
+      });
     });
 
     it("uses description instead of name for categories starting with underscore", async () => {

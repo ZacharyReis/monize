@@ -309,6 +309,32 @@ export class ParsedQifResponseDto {
   openingBalanceDate: string | null;
 }
 
+export class ProposedMatchDto {
+  @ApiProperty()
+  candidateId: string;
+
+  @ApiProperty()
+  bankAmount: number;
+
+  @ApiProperty()
+  bankDate: string;
+
+  @ApiPropertyOptional()
+  bankName?: string;
+
+  @ApiProperty({
+    description: "Existing UNRECONCILED transactions this bank row may match",
+    type: [Object],
+  })
+  candidates: Array<{
+    id: string;
+    transactionDate: string;
+    amount: number;
+    payeeName: string | null;
+    description: string | null;
+  }>;
+}
+
 export class ImportResultDto {
   @ApiProperty()
   imported: number;
@@ -368,6 +394,13 @@ export class ImportResultDto {
       "Warnings about suspect transactions that may need manual review (e.g. potential Quicken merged transfers that could not be reliably auto-removed)",
   })
   warnings?: string[];
+
+  @ApiPropertyOptional({
+    type: [ProposedMatchDto],
+    description:
+      "Incoming CLEARED rows matched against existing UNRECONCILED transactions, staged for review instead of inserted",
+  })
+  proposedMatches?: ProposedMatchDto[];
 }
 
 // --- Multi-account QIF DTOs ---
@@ -870,6 +903,16 @@ export class UpdateColumnMappingDto {
 }
 
 // --- Response DTOs ---
+
+// --- Import match resolution DTOs ---
+
+export class MergeMatchDto {
+  @ApiProperty({
+    description: "The UNRECONCILED transaction to merge the bank row into",
+  })
+  @IsUUID()
+  transactionId: string;
+}
 
 export class CsvHeadersResponseDto {
   @ApiProperty({ type: [String] })

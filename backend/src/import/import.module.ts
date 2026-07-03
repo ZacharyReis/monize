@@ -14,9 +14,14 @@ import { Security } from "../securities/entities/security.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
 import { Holding } from "../securities/entities/holding.entity";
 import { ImportColumnMapping } from "./entities/import-column-mapping.entity";
+import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
+import { ImportMatchService } from "./import-match.service";
+import { ImportMatchController } from "./import-match.controller";
 import { NetWorthModule } from "../net-worth/net-worth.module";
 import { SecuritiesModule } from "../securities/securities.module";
 import { CurrenciesModule } from "../currencies/currencies.module";
+import { TransactionsModule } from "../transactions/transactions.module";
+import { AccountsModule } from "../accounts/accounts.module";
 
 @Module({
   imports: [
@@ -30,17 +35,21 @@ import { CurrenciesModule } from "../currencies/currencies.module";
       InvestmentTransaction,
       Holding,
       ImportColumnMapping,
+      ImportMatchCandidate,
     ]),
     forwardRef(() => NetWorthModule),
     forwardRef(() => SecuritiesModule),
     forwardRef(() => CurrenciesModule),
+    forwardRef(() => TransactionsModule),
+    forwardRef(() => AccountsModule),
   ],
-  controllers: [ImportController],
+  controllers: [ImportController, ImportMatchController],
   providers: [
     ImportService,
     ImportEntityCreatorService,
     ImportInvestmentProcessorService,
     ImportRegularProcessorService,
+    ImportMatchService,
   ],
   exports: [ImportService],
 })

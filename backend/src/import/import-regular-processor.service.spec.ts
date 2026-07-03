@@ -5,6 +5,7 @@ import { AccountType } from "../accounts/entities/account.entity";
 import { Payee } from "../payees/entities/payee.entity";
 import { SplitKind } from "../transactions/entities/split-kind.enum";
 import { ImportResultDto } from "./dto/import.dto";
+import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 
 describe("ImportRegularProcessorService", () => {
   let service: ImportRegularProcessorService;
@@ -21,6 +22,7 @@ describe("ImportRegularProcessorService", () => {
     accountsCreated: 0,
     payeesCreated: 0,
     securitiesCreated: 0,
+    proposedMatches: [],
   });
 
   const makeMockQueryBuilder = (result: any = null) => {
@@ -83,6 +85,8 @@ describe("ImportRegularProcessorService", () => {
       affectedAccountIds: new Set(),
       importResult: makeImportResult(),
       transferDupCounts: new Map(),
+      importBatchId: "batch-1",
+      stagedThisRow: [],
       ...overrides,
     };
   };
@@ -2154,6 +2158,180 @@ describe("ImportRegularProcessorService", () => {
       const saveCalls = ctx.queryRunner.manager.save.mock.calls;
       expect(saveCalls.length).toBeGreaterThanOrEqual(3); // transaction + 2 splits + linked tx
       expect(ctx.importResult.imported).toBe(1);
+    });
+  });
+
+  describe("FITID dedup", () => {
+    it("skips an incoming row whose FITID already exists in the account", async () => {
+      const ctx = makeContext();
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock).mockReturnValue(
+        makeMockQueryBuilder({}), // getCount -> 1
+      );
+      await service.processTransaction(ctx, {
+        date: "2026-07-02", amount: -11.04, payee: "Google", memo: "",
+        number: "", fitid: "20260702000000011041",
+        cleared: true, reconciled: false, isTransfer: false,
+        transferAccount: "", splits: [], tagNames: [],
+      });
+      expect(ctx.importResult.skipped).toBe(1);
+      expect(ctx.importResult.imported).toBe(0);
+      expect(ctx.queryRunner.manager.save).not.toHaveBeenCalled();
+    });
+
+    it("stamps the FITID onto a newly inserted transaction", async () => {
+      const ctx = makeContext();
+      await service.processTransaction(ctx, {
+        date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
+        number: "", fitid: "20260702000000011041",
+        cleared: true, reconciled: false, isTransfer: false,
+        transferAccount: "", splits: [], tagNames: [],
+      });
+      const calls = (ctx.queryRunner.manager.create as jest.Mock).mock.calls;
+      const created = calls[calls.length - 1];
+      expect(created[1]).toEqual(expect.objectContaining({ fitid: "20260702000000011041" }));
+      expect(ctx.importResult.imported).toBe(1);
+    });
+  });
+
+  describe("heuristic match staging", () => {
+    const clearedBankRow = (over = {}) => ({
+      date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
+      number: "", fitid: "20260702000000011041",
+      cleared: true, reconciled: false, void: false, isTransfer: false,
+      transferAccount: "", splits: [], tagNames: [], ...over,
+    });
+
+    it("stages a candidate and does NOT insert a Transaction when an UNRECONCILED row matches", async () => {
+      const existing = { id: "txn-existing", transactionDate: "2026-07-02", amount: -11.04, payeeName: "Google", description: null };
+      const ctx = makeContext();
+      const dedupeQb = makeMockQueryBuilder();       // isFitidDuplicate getCount -> 0
+      const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing]
+      const stageDedupeQb = makeMockQueryBuilder();  // pre-stage dedupe getCount -> 0
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock)
+        .mockReturnValueOnce(dedupeQb).mockReturnValueOnce(candQb).mockReturnValueOnce(stageDedupeQb);
+      await service.processTransaction(ctx, clearedBankRow());
+      expect(ctx.stagedThisRow).toHaveLength(1);
+      expect(ctx.stagedThisRow![0].candidates[0].id).toBe("txn-existing");
+      expect(ctx.importResult.imported).toBe(0);
+      const createdTypes = (ctx.queryRunner.manager.create as jest.Mock).mock.calls.map((c) => c[0]?.name);
+      expect(createdTypes).not.toContain("Transaction");
+      expect(createdTypes).toContain("ImportMatchCandidate");
+    });
+
+    it("does NOT stage a non-CLEARED (void) incoming row -- gate short-circuits before any candidate query", async () => {
+      const ctx = makeContext();
+      // Void row also carries no fitid here, so isFitidDuplicate short-circuits
+      // too (fitid falsy) -- meaning if the CLEARED gate in findMatchCandidates
+      // is intact, processTransaction never needs to touch the DB via
+      // createQueryBuilder at all for this row. Any call is proof the gate
+      // was bypassed (this test is tautological otherwise, since the default
+      // mock returns no candidates regardless of whether the gate ran).
+      const qbSpy = jest.fn(() => {
+        throw new Error(
+          "findMatchCandidates must not query the DB for a non-CLEARED (void) row",
+        );
+      });
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock).mockImplementation(qbSpy);
+
+      await service.processTransaction(
+        ctx,
+        clearedBankRow({ void: true, cleared: false, fitid: undefined }),
+      );
+
+      expect(qbSpy).not.toHaveBeenCalled();
+      expect(ctx.stagedThisRow).toHaveLength(0);
+      // The void row still imports normally as a real (non-matched) transaction.
+      expect(ctx.importResult.imported).toBe(1);
+    });
+
+    it("stages BOTH of two distinct fitid-less rows sharing account+amount+date (no silent drop)", async () => {
+      // Finding 1: the sequential dedupe guard in stageMatchCandidate must run
+      // ONLY when qifTx.fitid is present. For fitid-less rows (QIF/CSV),
+      // amount+date alone cannot distinguish two genuinely-distinct
+      // transactions -- running the guard there would silently drop the
+      // second one (no insert, no stage, no counter moved).
+      const existing = {
+        id: "txn-existing",
+        transactionDate: "2026-07-02",
+        amount: -11.04,
+        payeeName: "Google",
+        description: null,
+      };
+      const ctx = makeContext();
+      const fitidLessRow = (over = {}) => ({
+        date: "2026-07-02", amount: -11.04, payee: "Google", memo: "GOOGLE CLOUD",
+        number: "", fitid: undefined,
+        cleared: true, reconciled: false, void: false, isTransfer: false,
+        transferAccount: "", splits: [], tagNames: [], ...over,
+      });
+
+      let guardQueryCalls = 0;
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock).mockImplementation(
+        (entityClass: any) => {
+          if (entityClass === ImportMatchCandidate) {
+            // The pre-stage dedupe guard. Simulate it falsely reporting an
+            // "already pending" hit purely from shared account+amount+date --
+            // this proves the guard must be skipped entirely for fitid-less
+            // rows, not merely that it happens not to fire in this fixture.
+            guardQueryCalls++;
+            const qb = makeMockQueryBuilder();
+            qb.getCount.mockResolvedValue(1);
+            return qb;
+          }
+          // findMatchCandidates: always finds the one UNRECONCILED candidate.
+          return makeMockQueryBuilder(existing);
+        },
+      );
+
+      // Two genuinely-distinct real transactions (different payee detail),
+      // same account/amount/date, neither carrying a bank fitid.
+      await service.processTransaction(ctx, fitidLessRow({ payee: "Google Payroll Co" }));
+      await service.processTransaction(ctx, fitidLessRow({ payee: "Google Cloud Refund" }));
+
+      expect(guardQueryCalls).toBe(0);
+      expect(ctx.stagedThisRow).toHaveLength(2);
+      expect(ctx.importResult.imported).toBe(0);
+      expect(ctx.importResult.skipped).toBe(0);
+      expect(ctx.importResult.errors).toBe(0);
+    });
+
+    it("still dedupes a second fitid-bearing row with the same account/amount/date/fitid (unchanged behavior)", async () => {
+      // Finding (re-review): the guard under test lives in stageMatchCandidate
+      // (createQueryBuilder(ImportMatchCandidate,...).getCount()), which only
+      // runs AFTER isFitidDuplicate (createQueryBuilder(Transaction,...).getCount())
+      // and findMatchCandidates (createQueryBuilder(Transaction,...).getMany())
+      // have already both run. Dispatching the mock by entity class made
+      // isFitidDuplicate's getCount() resolve truthy too, so the row was
+      // skipped as a re-import BEFORE ever reaching the guard -- the
+      // assertions passed regardless of whether the guard itself worked.
+      // Control each createQueryBuilder call independently via sequential
+      // mockReturnValueOnce, in the exact order processTransaction issues them.
+      const existing = {
+        id: "txn-existing",
+        transactionDate: "2026-07-02",
+        amount: -11.04,
+        payeeName: "Google",
+        description: null,
+      };
+      const ctx = makeContext();
+
+      const dedupeQb = makeMockQueryBuilder(); // isFitidDuplicate getCount -> 0 (not a re-import)
+      const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing] (a match is found)
+      const stageDedupeQb = makeMockQueryBuilder(); // stageMatchCandidate guard getCount, forced below
+      stageDedupeQb.getCount.mockResolvedValue(1); // a pending candidate for this fitid already exists
+
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock)
+        .mockReturnValueOnce(dedupeQb)
+        .mockReturnValueOnce(candQb)
+        .mockReturnValueOnce(stageDedupeQb);
+
+      await service.processTransaction(ctx, clearedBankRow());
+
+      expect(ctx.stagedThisRow).toHaveLength(0);
+      const createdTypes = (ctx.queryRunner.manager.create as jest.Mock).mock.calls.map(
+        (c) => c[0]?.name,
+      );
+      expect(createdTypes).not.toContain("ImportMatchCandidate");
     });
   });
 });

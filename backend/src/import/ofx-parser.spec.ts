@@ -832,4 +832,18 @@ describe("OFX Parser", () => {
       expect(tx.commission).toBe(0);
     });
   });
+
+  describe("parseOfx FITID extraction", () => {
+    it("captures the FITID onto the parsed transaction", () => {
+      const OFX_FIXTURE = `<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>
+<BANKACCTFROM><ACCTTYPE>CHECKING</BANKACCTFROM>
+<BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260702040000.000<TRNAMT>-11.04<FITID>20260702000000011041<NAME>VISA DDA PUR AP 469216 GOOG<MEMO>GOOGLE CLOUD</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+      const result = parseOfx(OFX_FIXTURE);
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].fitid).toBe("20260702000000011041");
+      expect(result.transactions[0].amount).toBe(-11.04);
+    });
+  });
 });

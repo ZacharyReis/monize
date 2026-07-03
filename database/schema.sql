@@ -254,6 +254,7 @@ CREATE TABLE transactions (
     exchange_rate NUMERIC(20, 10) DEFAULT 1, -- rate at transaction time
     description TEXT,
     reference_number VARCHAR(100), -- check number, confirmation number, etc
+    fitid VARCHAR(64), -- bank-provided FITID for OFX import dedup
     is_cleared BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
     is_reconciled BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
     reconciled_date DATE,
@@ -279,6 +280,10 @@ CREATE INDEX idx_transactions_user_cleared ON transactions(user_id, is_cleared);
 -- Trigram indexes accelerate the register/report search (ILIKE '%term%')
 CREATE INDEX idx_transactions_payee_name_trgm ON transactions USING gin (payee_name gin_trgm_ops);
 CREATE INDEX idx_transactions_description_trgm ON transactions USING gin (description gin_trgm_ops);
+-- Partial-UNIQUE: a bank FITID can never physically land twice in the same
+-- account (money-safety backstop for the import-resolve path). NULL fitid rows
+-- (hand-entered / QIF / CSV) are exempt via the partial predicate.
+CREATE UNIQUE INDEX idx_transactions_user_account_fitid ON transactions (user_id, account_id, fitid) WHERE fitid IS NOT NULL;
 
 -- Transaction Splits (details for split transactions)
 CREATE TABLE transaction_splits (
@@ -1129,6 +1134,41 @@ CREATE TABLE import_column_mappings (
 CREATE INDEX idx_import_column_mappings_user ON import_column_mappings(user_id);
 
 CREATE TRIGGER update_import_column_mappings_updated_at BEFORE UPDATE ON import_column_mappings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Import Match Candidates (OFX/QIF/CSV import matching - t-235)
+-- Staging store for proposed matches between an incoming bank row and existing UNRECONCILED transaction(s).
+-- Survives dismissal of the post-import review dialog. The bank row is NOT inserted until resolved.
+CREATE TABLE IF NOT EXISTS import_match_candidate (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    import_batch_id UUID NOT NULL,
+    bank_amount NUMERIC(20, 4) NOT NULL,
+    bank_date DATE NOT NULL,
+    fitid VARCHAR(64),
+    bank_name VARCHAR(255),
+    bank_memo TEXT,
+    bank_reference VARCHAR(100),
+    candidate_transaction_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    state VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT import_match_candidate_state_check
+      CHECK (state IN ('pending', 'merged', 'kept'))
+);
+CREATE INDEX IF NOT EXISTS idx_import_match_candidate_batch
+    ON import_match_candidate (import_batch_id);
+CREATE INDEX IF NOT EXISTS idx_import_match_candidate_user_state
+    ON import_match_candidate (user_id, state);
+-- Sequential dedupe fast-path (Task 5): look up pending candidates by acct+amount+date.
+CREATE INDEX IF NOT EXISTS idx_import_match_candidate_dedupe
+    ON import_match_candidate (account_id, state, bank_amount, bank_date);
+-- Race guard (R2-3): at most one PENDING candidate per account+fitid. A second
+-- concurrent import staging the same OFX fitid loses the insert (23505); its
+-- per-row savepoint rolls back — money-safe (no double stage), tiny UX cost.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_match_candidate_pending_fitid
+    ON import_match_candidate (account_id, fitid)
+    WHERE state = 'pending' AND fitid IS NOT NULL;
 
 -- Trigger for tags updated_at
 CREATE TRIGGER update_tags_updated_at BEFORE UPDATE ON tags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -10,7 +10,10 @@ import { Payee } from "../payees/entities/payee.entity";
 import { PayeeAlias } from "../payees/entities/payee-alias.entity";
 import { TransactionTag } from "../tags/entities/transaction-tag.entity";
 import { TransactionSplitTag } from "../tags/entities/transaction-split-tag.entity";
+import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 import { ImportContext, updateAccountBalance } from "./import-context";
+import { matchDateWindow } from "./import-match.util";
+import { roundMoney } from "../common/round.util";
 
 @Injectable()
 export class ImportRegularProcessorService {
@@ -26,6 +29,21 @@ export class ImportRegularProcessorService {
     // Check for pending cross-currency transfers to update
     if (await this.matchPendingTransfer(ctx, qifTx)) {
       ctx.importResult.imported++;
+      return;
+    }
+
+    // Re-import guard: skip a row already imported under the same bank FITID.
+    // MUST run after the transfer checks so it never short-circuits transfer
+    // duplicate-counting (which must observe every same-signature row).
+    if (await this.isFitidDuplicate(ctx, qifTx)) {
+      ctx.importResult.skipped++;
+      return;
+    }
+
+    // Match incoming CLEARED bank rows against hand-entered UNRECONCILED rows.
+    const matchCandidates = await this.findMatchCandidates(ctx, qifTx);
+    if (matchCandidates.length > 0) {
+      await this.stageMatchCandidate(ctx, qifTx, matchCandidates);
       return;
     }
 
@@ -72,6 +90,7 @@ export class ImportRegularProcessorService {
       payeeId: resolvedPayee.payeeId,
       description: qifTx.memo,
       referenceNumber: qifTx.number,
+      fitid: qifTx.fitid ?? null,
       categoryId: effectiveCategoryId,
       status,
       currencyCode: ctx.account.currencyCode,
@@ -107,6 +126,106 @@ export class ImportRegularProcessorService {
     }
 
     ctx.importResult.imported++;
+  }
+
+  private async isFitidDuplicate(
+    ctx: ImportContext,
+    qifTx: any,
+  ): Promise<boolean> {
+    if (!qifTx.fitid) return false;
+    const existingCount = await ctx.queryRunner.manager
+      .createQueryBuilder(Transaction, "t")
+      .where("t.user_id = :userId", { userId: ctx.userId })
+      .andWhere("t.account_id = :accountId", { accountId: ctx.accountId })
+      .andWhere("t.fitid = :fitid", { fitid: qifTx.fitid })
+      .getCount();
+    return existingCount > 0;
+  }
+
+  private async findMatchCandidates(
+    ctx: ImportContext,
+    qifTx: any,
+  ): Promise<Transaction[]> {
+    if (!ctx.importBatchId) return [];
+    // Only incoming rows that would become CLEARED (bank-posted). Never
+    // VOID/RECONCILED/uncleared, transfers, or splits.
+    if (!qifTx.cleared || qifTx.void || qifTx.reconciled) return [];
+    if (qifTx.isTransfer || (qifTx.splits && qifTx.splits.length > 0)) return [];
+    const amount = roundMoney(Number(qifTx.amount));
+    const { lo, hi } = matchDateWindow(qifTx.date, 7);
+    return ctx.queryRunner.manager
+      .createQueryBuilder(Transaction, "t")
+      .where("t.user_id = :userId", { userId: ctx.userId })
+      .andWhere("t.account_id = :accountId", { accountId: ctx.accountId })
+      .andWhere("t.status = :status", { status: TransactionStatus.UNRECONCILED })
+      .andWhere("t.is_split = false")
+      .andWhere("t.is_transfer = false")
+      .andWhere("t.linked_transaction_id IS NULL")
+      .andWhere("t.amount = :amount", { amount })
+      .andWhere("t.transaction_date BETWEEN :lo AND :hi", { lo, hi })
+      .getMany();
+  }
+
+  private async stageMatchCandidate(
+    ctx: ImportContext,
+    qifTx: any,
+    candidates: Transaction[],
+  ): Promise<void> {
+    const amount = roundMoney(Number(qifTx.amount));
+    // Sequential dedupe fast-path: skip a second pending candidate for the same
+    // account/amount/date/fitid. (Concurrent imports are backstopped by the
+    // partial UNIQUE index uq_import_match_candidate_pending_fitid — a losing
+    // insert 23505s and its per-row savepoint rolls back: money-safe.)
+    //
+    // Only applied when the incoming row carries a bank fitid: that is the
+    // only reliable "same real transaction" signal. For fitid-less rows
+    // (QIF/CSV), amount+date cannot distinguish two genuinely-distinct
+    // transactions that happen to land on the same day for the same amount —
+    // running the guard there would silently drop the second one (no insert,
+    // no stage, no counter moved: untraceable data loss). A duplicate staged
+    // *candidate* is a harmless review-queue item the user can reject; a
+    // silent drop is not. So for fitid-less rows we skip the guard entirely
+    // and always proceed to stage.
+    if (qifTx.fitid) {
+      const existingCount = await ctx.queryRunner.manager
+        .createQueryBuilder(ImportMatchCandidate, "c")
+        .where("c.account_id = :accountId", { accountId: ctx.accountId })
+        .andWhere("c.state = :state", { state: "pending" })
+        .andWhere("c.bank_amount = :amount", { amount })
+        .andWhere("c.bank_date = :date", { date: qifTx.date })
+        .andWhere("c.fitid = :fitid", { fitid: qifTx.fitid })
+        .getCount();
+      if (existingCount > 0) return;
+    }
+
+    const candidate = ctx.queryRunner.manager.create(ImportMatchCandidate, {
+      userId: ctx.userId,
+      accountId: ctx.accountId,
+      importBatchId: ctx.importBatchId,
+      bankAmount: amount,
+      bankDate: qifTx.date,
+      fitid: qifTx.fitid ?? null,
+      bankName: qifTx.payee || null,
+      bankMemo: qifTx.memo || null,
+      bankReference: qifTx.number || null,
+      candidateTransactionIds: candidates.map((c) => c.id),
+      state: "pending",
+    });
+    const saved = await ctx.queryRunner.manager.save(candidate);
+    if (!ctx.stagedThisRow) ctx.stagedThisRow = [];
+    ctx.stagedThisRow.push({
+      candidateId: saved.id,
+      bankAmount: amount,
+      bankDate: qifTx.date,
+      bankName: qifTx.payee || undefined,
+      candidates: candidates.map((c) => ({
+        id: c.id,
+        transactionDate: c.transactionDate,
+        amount: Number(c.amount),
+        payeeName: c.payeeName,
+        description: c.description,
+      })),
+    });
   }
 
   private async isDuplicateTransfer(
