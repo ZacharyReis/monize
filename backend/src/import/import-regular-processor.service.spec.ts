@@ -2296,6 +2296,16 @@ describe("ImportRegularProcessorService", () => {
     });
 
     it("still dedupes a second fitid-bearing row with the same account/amount/date/fitid (unchanged behavior)", async () => {
+      // Finding (re-review): the guard under test lives in stageMatchCandidate
+      // (createQueryBuilder(ImportMatchCandidate,...).getCount()), which only
+      // runs AFTER isFitidDuplicate (createQueryBuilder(Transaction,...).getCount())
+      // and findMatchCandidates (createQueryBuilder(Transaction,...).getMany())
+      // have already both run. Dispatching the mock by entity class made
+      // isFitidDuplicate's getCount() resolve truthy too, so the row was
+      // skipped as a re-import BEFORE ever reaching the guard -- the
+      // assertions passed regardless of whether the guard itself worked.
+      // Control each createQueryBuilder call independently via sequential
+      // mockReturnValueOnce, in the exact order processTransaction issues them.
       const existing = {
         id: "txn-existing",
         transactionDate: "2026-07-02",
@@ -2305,17 +2315,15 @@ describe("ImportRegularProcessorService", () => {
       };
       const ctx = makeContext();
 
-      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock).mockImplementation(
-        (entityClass: any) => {
-          if (entityClass === ImportMatchCandidate) {
-            // A pending candidate for this exact fitid already exists.
-            const qb = makeMockQueryBuilder();
-            qb.getCount.mockResolvedValue(1);
-            return qb;
-          }
-          return makeMockQueryBuilder(existing);
-        },
-      );
+      const dedupeQb = makeMockQueryBuilder(); // isFitidDuplicate getCount -> 0 (not a re-import)
+      const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing] (a match is found)
+      const stageDedupeQb = makeMockQueryBuilder(); // stageMatchCandidate guard getCount, forced below
+      stageDedupeQb.getCount.mockResolvedValue(1); // a pending candidate for this fitid already exists
+
+      (ctx.queryRunner.manager.createQueryBuilder as jest.Mock)
+        .mockReturnValueOnce(dedupeQb)
+        .mockReturnValueOnce(candQb)
+        .mockReturnValueOnce(stageDedupeQb);
 
       await service.processTransaction(ctx, clearedBankRow());
 
