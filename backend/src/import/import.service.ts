@@ -391,7 +391,9 @@ export class ImportService {
           affectedAccountIds,
           importResult,
           transferDupCounts: new Map(),
-          importBatchId: randomUUID(),
+          // Import matching (T-235) is single-account only; multi-account QIF
+          // (Quicken bulk migration) does not stage matches. See
+          // importParsedTransactions for the matched path.
         };
 
         // Apply opening balance

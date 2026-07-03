@@ -4107,6 +4107,111 @@ describe("ImportService", () => {
       expect(result.accountsCreated).toBe(1);
     });
 
+    describe("match staging disabled on multi-account path (T-235 fix)", () => {
+      // Regression coverage for the multi-account import matching bug: this
+      // path never sets ctx.importBatchId, so findMatchCandidates's
+      // `if (!ctx.importBatchId) return []` guard must disable staging
+      // entirely -- even when a matching UNRECONCILED candidate exists, a
+      // CLEARED incoming row must insert as a normal Transaction (not be
+      // withheld into an ImportMatchCandidate with no response signal).
+      const existingUnreconciled = {
+        id: "txn-unreconciled-1",
+        transactionDate: "2025-01-15",
+        amount: -50,
+        payeeName: "Grocery",
+        description: null,
+      };
+
+      beforeEach(() => {
+        mockedValidateQifContent.mockReturnValue({ valid: true });
+        mockedParseQifFull.mockReturnValue(
+          makeFullParseResult({
+            categoryDefs: [],
+            accountBlocks: [
+              {
+                accountName: "Checking",
+                accountType: "CHEQUING",
+                description: "",
+                creditLimit: null,
+                transactions: [
+                  {
+                    date: "2025-01-15",
+                    amount: -50,
+                    payee: "Grocery",
+                    memo: "",
+                    number: "",
+                    // CLEARED + fitid-less: exactly the shape findMatchCandidates
+                    // would stage if importBatchId were set on this path.
+                    cleared: true,
+                    reconciled: false,
+                    category: "",
+                    splits: [],
+                    tagNames: [],
+                    isTransfer: false,
+                    transferAccount: "",
+                    security: "",
+                    action: "",
+                    price: 0,
+                    quantity: 0,
+                    commission: 0,
+                  },
+                ],
+                categories: [],
+                transferAccounts: [],
+                securities: [],
+                openingBalance: null,
+                openingBalanceDate: null,
+              },
+            ],
+          }),
+        );
+
+        mockQueryRunner.manager.findOne.mockImplementation((entity) => {
+          if (entity === Account) {
+            return Promise.resolve({
+              id: "acct-checking-1",
+              userId,
+              name: "Checking",
+              accountType: AccountType.CHEQUING,
+              currencyCode: "CAD",
+            });
+          }
+          return Promise.resolve(null);
+        });
+
+        let saveIdx = 0;
+        mockQueryRunner.manager.save.mockImplementation((entity) => {
+          saveIdx++;
+          return Promise.resolve({ ...entity, id: `saved-${saveIdx}` });
+        });
+
+        // A trap: if the importBatchId guard were absent, this candidate
+        // would be returned and the row staged instead of inserted.
+        mockQueryRunner.manager.createQueryBuilder.mockImplementation(() =>
+          createMockQueryBuilder({
+            getMany: jest.fn().mockResolvedValue([existingUnreconciled]),
+          }),
+        );
+      });
+
+      it("does not stage an ImportMatchCandidate and inserts the bank Transaction normally", async () => {
+        const result = await service.importQifMultiAccountFile(userId, baseDto);
+
+        const candidateCreateCall = (
+          mockQueryRunner.manager.create as jest.Mock
+        ).mock.calls.find((call) => call[0] === ImportMatchCandidate);
+        expect(candidateCreateCall).toBeUndefined();
+        expect(result.proposedMatches ?? []).toHaveLength(0);
+
+        const txnCreateCall = (
+          mockQueryRunner.manager.create as jest.Mock
+        ).mock.calls.find((call) => call[0] === Transaction);
+        expect(txnCreateCall).toBeDefined();
+        expect(result.imported).toBe(1);
+        expect(result.errors).toBe(0);
+      });
+    });
+
     it("uses description instead of name for categories starting with underscore", async () => {
       mockedValidateQifContent.mockReturnValue({ valid: true });
       mockedParseQifFull.mockReturnValue(
