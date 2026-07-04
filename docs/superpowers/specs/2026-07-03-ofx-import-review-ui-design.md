@@ -1,381 +1,292 @@
-# OFX/QIF/CSV Import — Match-Review UI (frontend)
+# OFX/QIF/CSV Import — Match-Review UI (frontend + serving backend)
 
 - **Date:** 2026-07-03
-- **Task:** T-555 (frontend) — parent T-235, follows the shipped backend spine
-- **Status:** Design **v2** — Wren spec-review folded (2026-07-03). Merge-safety = confirm dialog (Zach). → Wren re-gate → `writing-plans`
+- **Task:** T-555 — parent T-235, follows the shipped backend spine
+- **Status:** Design **v3** — two Wren rounds folded (Codex 019f2b1d). Merge-safety = confirm dialog; queue gains a **Dismiss** action (both Zach). → Zach spec sign-off → `writing-plans` (mechanism items are binding plan requirements; Wren re-enters on the plan)
 - **Author:** Alfred (zforge)
 - **Repo/branch:** `monize` @ `t-555-import-review-ui` (off deployed `manor/baseline-v1.11.3`)
-- **Related:**
-  - Backend design: `docs/superpowers/specs/2026-07-03-ofx-import-transaction-matching-design.md`
-  - Backend plan: `docs/superpowers/plans/2026-07-03-ofx-import-matching-backend.md`
-  - Backend hardening follow-ups: T-556 (non-blocking)
+- **Related:** backend design `…/2026-07-03-ofx-import-transaction-matching-design.md`; backend plan `…/plans/2026-07-03-ofx-import-matching-backend.md`; hardening T-556.
 
-## Changes in v2 (Wren spec-review, Codex session 019f2b1d)
+## Scope reality (read this first)
 
-A read-only, code-grounded Wren review returned **NO-GO** on v1 and caught seven issues,
-all verified by Alfred against source. v2 folds every one:
+This started as "the frontend half." Two adversarial Wren reviews grew it into a **full-stack
+slice** with its **first migration**. The backend now carries: a normalized+account-hydrated
+list endpoint, machine-readable conflict codes (incl. an exception-filter patch), a per-import
+bulk match count, and a new **Dismiss** action (migration `092`, new `dismissed` state). The
+frontend is the review UI itself. This is bigger than v1 implied — deliberately, because the
+review surface is money-adjacent and the gate earned every addition.
 
-1. **[Critical] Merge is not undoable by normal editing.** `fitid` is *deliberately* rejected
-   on the public create/update DTOs (proven by `backend/src/transactions/dto/fitid-not-whitelisted.spec.ts`),
-   so a wrong merge can only be recovered by deleting the row and re-importing. v1's "corrected
-   by normal editing" was false. **Fix:** a mandatory **confirm dialog on Merge** (Zach's call);
-   accurate recovery documented; a full unmerge path deferred to a follow-up.
-2. **[High] 409 is overloaded.** `merge()` throws `ConflictException` for *"not a candidate"*,
-   *"no longer eligible"*, **and** *"already resolved"*. **Fix:** backend attaches a
-   machine-readable `code`; the frontend treats **only** `already_resolved` as benign.
-3. **[High] Merge return contract.** `merge()` is `Promise<void>`, not `Promise<Transaction>`
-   (`keepBoth()` *does* return the row). **Fix:** frontend types merge as `void`.
-4. **[Med] Hydration hardening** — batched, user+account-scoped query; preserve candidate order;
-   cast decimals; define deleted-reference behavior; cap the list.
-5. **[Med] Account context** — the global Pending Reviews page needs the account name per match.
-6. **[Med] Bulk count** — a global pending count includes *stale* reviews; use a per-import
-   `matchesStaged` count instead.
-7. **[Low] Cache invalidation** doesn't re-render an already-open transactions page — emit a
-   change event / refresh on return.
+## Changes across revisions (Wren gate)
+
+**v2 (Wren round 1 — 7 findings):** [Crit] merge is unrecoverable → **confirm dialog on merge**
+(fitid is un-editable, `fitid-not-whitelisted.spec.ts`; recovery = delete + re-import).
+[High] 409 overloaded → machine-readable `code`. [High] merge returns `void` not `Transaction`.
+[Med] hydration hardening. [Med] account context. [Med] bulk miscount → `matchesStaged`.
+[Low] open-view refresh.
+
+**v3 (Wren round 2 — 5/7 resolved; 3 new):**
+1. [High] the `code` never reaches the FE — the **`GlobalExceptionFilter` strips custom fields**
+   (`http-exception.filter.ts:38,81`). → backend change 2 **also patches the filter** to preserve
+   safe fields (`code`).
+2. [High] **repeat-merge misclassified** — `merge()` validates the target *before* the state
+   claim (`import-match.service.ts:95` before `:108`), so a benign double-resolve returns
+   `target_ineligible`, not `already_resolved`. → **check `candidate.state` first**.
+3. [Med] **zero-live / unwanted-duplicate** matches had no non-inserting exit (Keep-both
+   *inserts*). → **new Dismiss action** (Zach).
+4. [Low] confirm-dialog **double-fire guard** (close-then-async, the delete pattern).
+5. [Partial] hydration query must scope by **`userId` AND `accountId`**, not `userId` alone.
+
+The three round-2 mechanism items (filter patch, merge check-order, confirm guard) are folded
+below as **binding requirements** and verified at the **plan gate** — not another paper spec
+round (mirrors T-235's R3 → binding-acceptance-criteria precedent).
 
 ## Problem
 
-The T-235 backend spine shipped and deployed 2026-07-03 (`manor/baseline-v1.11.3` @
-`434a6838`): imports now stage possible duplicates instead of blindly inserting them, and a
-resolve API is live. But there is **no user-facing way to act on those matches yet** — the
-buttons don't exist. A hand-entered `UNRECONCILED` row and its bank `CLEARED` twin still sit
-side by side until Zach reconciles by hand. This spec is the deferred frontend half plus the
-small backend surface needed to serve it cleanly: the review UI that lets him confirm a
-**Merge** or **Keep both** for each staged match, both right after an import and later from a
-persistent queue.
+T-235's backend spine (deployed `manor/baseline-v1.11.3` @ `434a6838`) stages possible
+import duplicates and exposes a resolve API — but there is **no UI to act on them**. A
+hand-entered `UNRECONCILED` row and its bank `CLEARED` twin sit as a duplicate until Zach
+reconciles by hand. This spec builds the review UI (post-import + persistent queue) and the
+backend surface needed to serve it. It is also the **first real end-to-end live gate** for
+the whole T-235 feature.
 
-This is also where the **real user-facing live gate** for the whole T-235 feature finally
-runs — the backend increment could only be verified by integration tests and deploy checks
-because nothing could drive the resolve flow end-to-end.
-
-## What exists to consume (backend, live on monize)
-
-Verified against `manor/baseline-v1.11.3`, 2026-07-03.
+## Backend contract (verified against `manor/baseline-v1.11.3`, 2026-07-03)
 
 ### Endpoints — `ImportMatchController` (`backend/src/import/import-match.controller.ts`)
 
-JWT-guarded, mounted at `@Controller("import/matches")` (so, with the axios `baseURL:
-'/api/v1'`, the frontend calls `/import/matches`):
+JWT-guarded, `@Controller("import/matches")` → frontend calls `/import/matches` (axios
+`baseURL:'/api/v1'`).
 
 | Method | Route | Body | Returns | Errors |
 |--------|-------|------|---------|--------|
-| `GET`  | `/import/matches` | — | **list items** (normalized — see § Backend) | — |
-| `POST` | `/import/matches/:id/merge` | `{ transactionId }` | **`void`** (no body) | 409 `{code}`, 404, 400 |
-| `POST` | `/import/matches/:id/keep-both` | — | inserted `Transaction` | 409 `{code}`, 404, 400 |
+| `GET`  | `/import/matches` | — | **`PendingMatch[]`** (normalized — change 1) | — |
+| `POST` | `/import/matches/:id/merge` | `{ transactionId }` | **`void`** | 409 `{code}` · 404 · 400 |
+| `POST` | `/import/matches/:id/keep-both` | — | `Transaction` | 409 `{code}` · 404 · 400 |
+| `POST` | `/import/matches/:id/dismiss` | — | **`void`** (change 4 — NEW) | 409 `{code}` · 404 · 400 |
 
-`:id` is the `ImportMatchCandidate.id` (uuid — bad uuid → **400** via `ParseUUIDPipe`).
-`transactionId` is the id of the chosen UNRECONCILED candidate row. A missing/foreign
-candidate → **404**. Both resolve calls use an **atomic state claim**
-(`import-match.service.ts:68`); a lost claim, an ineligible target, or a non-candidate
-`transactionId` all currently surface as **409** — v2 disambiguates them with a `code`
-(§ Backend, change 2).
+`:id` = `ImportMatchCandidate.id` (bad uuid → 400 via `ParseUUIDPipe`); missing/foreign
+candidate → 404. All resolve calls use an atomic state claim (`import-match.service.ts:68`).
 
-### The hydrated shape — `ProposedMatchDto`
+### Shapes
 
-`backend/src/import/dto/import.dto.ts` (~312–336), attached to `ImportResultDto.proposedMatches`
-(~398). Every standard **regular/cash** single-account import (`importParsedTransactions` —
-`import.service.ts` lines 119/889/973, OFX/QIF/CSV) emits this, hydrated at match time from
-the processor's `ctx.stagedThisRow` (`import.service.ts:1318`):
+Import responses already carry hydrated `proposedMatches: ProposedMatchDto[]`
+(`import.dto.ts` ~312–336, attached ~398), built at match time from `ctx.stagedThisRow`:
 
 ```ts
 ProposedMatchDto {
-  candidateId: string;            // = ImportMatchCandidate.id (the :id for resolve calls)
-  bankAmount: number;
-  bankDate: string;               // YYYY-MM-DD
-  bankName?: string;              // ugly bank NAME, e.g. "VISA DDA PUR AP 469216 GOOG"
-  candidates: Array<{             // the matching UNRECONCILED row(s), hydrated
-    id: string;
-    transactionDate: string;
-    amount: number;
-    payeeName: string | null;
-    description: string | null;
-  }>;
+  candidateId: string;   // = ImportMatchCandidate.id (the :id for resolve calls)
+  bankAmount: number; bankDate: string; bankName?: string;
+  candidates: Array<{ id; transactionDate; amount; payeeName: string|null; description: string|null }>;
 }
 ```
 
-### The persisted shape — `ImportMatchCandidate` entity
+The persisted `ImportMatchCandidate` entity keeps only bare `candidateTransactionIds`
+(`entity:39`) + `accountId` + bank snapshot; `state` today is `pending|merged|kept`
+(`091_import_match_candidate.sql:21`). `listPending` scopes by `userId`, orders `createdAt DESC`
+(`service:46`).
 
-`backend/src/import/entities/import-match-candidate.entity.ts`. What `GET /import/matches`
-returns **today** (raw, un-hydrated):
+### Staging coverage (already true)
 
-```
-id, userId, accountId, importBatchId,
-bankAmount, bankDate, fitid, bankName, bankMemo, bankReference,
-candidateTransactionIds: string[]   // jsonb — bare IDs, NOT hydrated
-state: "pending" | "merged" | "kept",
-createdAt, updatedAt
-```
+Every standard **regular/cash** single-account OFX/QIF/CSV import stages matches
+(`importBatchId` set at `import.service.ts:1251`; `findMatchCandidates` no-ops without it,
+`import-regular-processor.service.ts:149`). So **bulk imports' matches surface on the queue
+automatically.** Two paths don't stage (out of scope): multi-account QIF and
+**investment-account** imports (they branch to `ImportInvestmentProcessorService`).
 
-`listPending` already scopes by `userId` and orders `createdAt DESC`
-(`import-match.service.ts:46`). The gap is hydration + account context — resolved in § Backend.
+## Frontend stack
 
-### Staging coverage (already true, no work needed)
+Next.js 16 App Router + React 19 + TS; Tailwind 4, custom UI (`components/ui/` — `Modal.tsx`,
+`ConfirmDialog.tsx`); Zustand (`store/`); plain axios (`lib/api.ts` — CSRF via `X-CSRF-Token`
+cookie) + `lib/apiCache.ts` (`invalidateCache`, no React Query); next-intl (**i18n mandatory**);
+react-hot-toast; Heroicons. Vitest + RTL + MSW co-located (~90% enforced); Playwright e2e in
+`e2e/`. Import flow = a wizard state machine (`hooks/useImportWizard.ts`, `ImportStep` union in
+`app/import/import-utils.ts`, steps in `components/import/*`); single-file `handleImport`
+(~951–962) sets `importResult` → `'complete'`; bulk (~842–950) aggregates + drops
+`proposedMatches`. `ImportResult` (`lib/import.ts` ~240) lacks `proposedMatches` — add it.
 
-`findMatchCandidates` returns `[]` unless `ctx.importBatchId` is set
-(`import-regular-processor.service.ts:149`); it is set for every standard import
-(`import.service.ts:1251`). So matches for every **regular/cash** single-account
-OFX/QIF/CSV import are staged in the DB regardless of what the frontend does with the
-response — **bulk imports' matches surface on the Pending Reviews page automatically.**
-Two paths do **not** stage (both out of scope): multi-account QIF
-(`importQifMultiAccountFile`, deliberately disabled) and **investment-account** imports
-(they branch to `ImportInvestmentProcessorService`, which stages no matches).
-
-## Frontend stack (what we design against)
-
-Next.js 16 (App Router) + React 19 + TypeScript 5.9; Tailwind CSS 4 with **custom** UI
-components (`components/ui/` — incl. `Modal.tsx` + `ConfirmDialog.tsx`, no MUI/Chakra);
-**Zustand** stores (`store/`); **plain axios** (`lib/api.ts` — `apiClient`, `baseURL:
-'/api/v1'`, `withCredentials`, CSRF via `X-CSRF-Token` cookie) with a small custom cache
-(`lib/apiCache.ts` — `cachedRequest` / `invalidateCache`, **no React Query**); `next-intl`
-(**i18n mandatory**); `react-hot-toast`; Heroicons. Tests: **Vitest + RTL + jsdom + MSW**
-co-located `*.test.tsx` (**~90% coverage enforced**); **Playwright** e2e in `e2e/`.
-
-**Import flow:** a wizard state machine — `hooks/useImportWizard.ts`, step union `ImportStep`
-in `app/import/import-utils.ts`, step components in `components/import/*`. The **single-file**
-path (`handleImport`, ~951–962) sets `importResult` and jumps to `'complete'` →
-`CompleteStep.tsx`. The **bulk** path (~842–950) aggregates per file and **discards
-`proposedMatches`** (v2 preserves only a *count*, § Components).
-
-**Two gotchas to fix first:** (a) the frontend `ImportResult` interface (`lib/import.ts`
-~240–261) lacks `proposedMatches`; (b) the bulk path drops match data.
-
-## Design decisions (v2)
+## Design decisions (v3)
 
 | Decision | Choice |
 |----------|--------|
 | Primary review surface | **In-wizard step** (`'matchReview'`), single-file, before `'complete'` |
 | Persistent surface | **Dedicated page** `/import/matches` under Tools + **nav count badge** |
-| Inline scope | **Single-file only**; bulk imports route to the queue automatically |
-| List endpoint | **Normalize `listPending`** → hydrated items with **account context** (one FE shape) |
-| Merge interaction | **One click + a confirm dialog** (money-safety; not applied to keep-both) |
-| Keep-both interaction | One click, no confirm (additive; a wrong one is just a delete) |
+| Inline scope | **Single-file only**; bulk routes to the queue automatically |
+| List endpoint | **Normalized** hydrated items + account context (one FE shape) |
+| Merge | **One click + confirm dialog** (money-safety) |
+| Keep-both | One click, no confirm (additive; a wrong one is just a delete) |
+| **Dismiss** | One click, no confirm — resolves to `dismissed`, **inserts nothing**; re-import re-stages |
 | Conflict semantics | 409 carries a machine-readable **`code`**; FE treats **only** `already_resolved` as benign |
-| Multi-candidate | Show all; **radio-select one** to merge; others stay pending |
-| Route | `/import/matches` (mirrors the API) |
+| Multi-candidate | radio-select one to merge; others stay pending |
 
-## Backend changes (read-only + additive; no migration)
+## Backend changes (v3)
 
-Three edits, all riding the same Wren gate as the frontend.
+### 1. Normalize `listPending` → `PendingMatch[]` (hydrated + account context)
 
-### 1. Normalize `listPending` → hydrated list items (with account context)
+Return items = `ProposedMatchDto & { accountId, accountName }` instead of raw entities. Binding
+requirements:
+- **One batched query** scoped by **`userId` AND `accountId`**: `Transaction WHERE id IN
+  (…candidateTransactionIds…) AND userId=:userId AND accountId=:candidate.accountId` — no N+1,
+  no cross-user/cross-account leak.
+- **Preserve `candidateTransactionIds` order**; **cast decimals to number** (`bankAmount`,
+  `amount`).
+- **Deleted/ineligible-reference behavior:** drop refs whose row is gone or no longer
+  UNRECONCILED-eligible. A candidate with **zero live rows** is still listed (the bank row
+  needs a decision) with **Merge disabled** → the user resolves it via **Keep-both or Dismiss**.
+- **Cap** newest-first (personal scale; plan sets `LIMIT`, e.g. 200).
+- Factor a shared **`toProposedMatchDto(candidate, transactions)` mapper** used by import-time
+  and list-time so they can't drift; extend it (or wrap) to add `accountId/accountName` (join
+  `accounts`, user-scoped).
 
-Return an array of items shaped like `ProposedMatchDto` **plus** `accountId` + `accountName`,
-instead of raw `ImportMatchCandidate[]`. Hard requirements (Wren Med #4/#5):
+### 2. Machine-readable conflict codes (+ exception-filter passthrough)
 
-- **One batched query** for the referenced rows: `Transaction WHERE id IN
-  (…candidateTransactionIds…) AND userId = :userId` — never a per-candidate N+1, and
-  re-scoped by `userId` so hydration can't leak another user's row.
-- **Preserve `candidateTransactionIds` order** when building `candidates`.
-- **Cast decimals to number** (`bankAmount`, candidate `amount`) — TypeORM `decimal` returns
-  strings.
-- **Deleted-reference behavior:** drop any `candidateTransactionIds` whose row no longer
-  exists (or is no longer UNRECONCILED/eligible). If a candidate ends up with **zero** live
-  rows, it is **merge-ineligible** → the UI shows it **Keep-both-only** (Merge disabled). It
-  is never silently dropped (the bank row still needs a decision).
-- **Cap the list** newest-first (personal scale): return at most a documented `LIMIT`
-  (plan sets the value, e.g. 200) so the page/badge can't be unbounded. Pagination is a
-  plan-phase call if the cap proves tight.
-- Factor a shared **`toProposedMatchDto(candidate, transactions)` mapper** used by both the
-  import path and the list path so the two can't drift.
-- Add `accountId` + `accountName` per item (join `accounts`, user-scoped).
+Attach a `code` to each `ConflictException` on `merge`/`keepBoth`/`dismiss`:
 
-### 2. Machine-readable conflict codes on `merge` / `keepBoth`
+| Case | `code` |
+|------|--------|
+| lost the claim / candidate already non-pending | `already_resolved` |
+| `transactionId` not in this candidate (merge) | `not_a_candidate` |
+| target row no longer UNRECONCILED-eligible (merge) | `target_ineligible` |
 
-The `ConflictException`s currently differ only by message. Attach a `code` to each so the
-frontend can discriminate:
+**Binding (round-2 High #1):** the global `GlobalExceptionFilter`
+(`backend/src/common/filters/http-exception.filter.ts:38,81`, installed `app.module.ts:147`)
+currently emits only `{ statusCode, message, timestamp }` and **strips `code`**. Patch it to
+**preserve safe custom fields** (at least `code`) from `HttpException.getResponse()`, with
+tests. Without this the FE discrimination is dead on arrival.
 
-| Case | `code` | HTTP |
-|------|--------|------|
-| lost the atomic claim (already merged/kept) | `already_resolved` | 409 |
-| `transactionId` not in this candidate | `not_a_candidate` | 409 |
-| target row no longer UNRECONCILED/eligible | `target_ineligible` | 409 |
+**Binding (round-2 High #2):** in `merge`, check **`candidate.state !== "pending"` →
+`already_resolved` FIRST**, before target-eligibility validation, so a benign double-resolve
+isn't misreported as `target_ineligible`.
 
-(`loadOwned` 404 and the `ParseUUIDPipe` 400 are unchanged.) The frontend treats **only**
-`already_resolved` as benign.
+### 3. Per-import `matchesStaged` (bulk)
 
-### 3. Per-import `matchesStaged` count (bulk)
+Bulk aggregation sums each file's `proposedMatches.length` into `matchesStaged` before
+discarding the arrays, so the bulk Complete screen shows an accurate *this-import* count.
 
-The bulk aggregation path drops each file's `proposedMatches`; have it also **sum their
-lengths** into a `matchesStaged` field on the bulk result, so the bulk Complete screen shows
-an accurate *this-import* count (not a global pending total that includes stale reviews).
-Cheap — sum before discarding the arrays.
+### 4. Dismiss action (NEW — migration 092)
 
-## Architecture — frontend components
+- **Migration `092_import_match_candidate_dismissed.sql`:** extend the state CHECK to
+  `('pending','merged','kept','dismissed')` (drop+re-add constraint); update the canonical
+  `database/schema.sql` (`state IN` ~1156). No data backfill.
+- **`ImportMatchState`** entity type += `"dismissed"`.
+- **`ImportMatchService.dismiss(userId, candidateId): Promise<void>`** — `loadOwned` (404 if
+  foreign) → atomic `claim(userId, candidateId, "dismissed")`; a lost claim → `already_resolved`
+  409. **Inserts nothing, mutates no transaction.** (Re-importing the same OFX re-stages a new
+  pending candidate, since no FITID was written anywhere — so Dismiss is reversible-by-reimport.)
+- **`POST /import/matches/:id/dismiss`** controller route, JWT + `ParseUUIDPipe`.
+- `dismissed` never appears in `listPending` (pending-only) → drops off the queue + badge.
 
-Each unit has one job, a defined interface, and its own co-located tests.
+## Frontend components
 
-### 1. Types + API module
+### Types + API (`lib/import-matches.ts`, `types/import.ts`)
+`PendingMatch = ProposedMatchDto & { accountId; accountName }`. Add `proposedMatches?` +
+`matchesStaged?` to the import-result types. `importMatchesApi`:
+`list(): Promise<PendingMatch[]>`; `merge(id, txnId): Promise<void>` (**return ignored**);
+`keepBoth(id): Promise<Transaction>`; `dismiss(id): Promise<void>`. Every mutation
+`invalidateCache('transactions:')` + `invalidateCache('accounts:')`.
 
-- **Types** (`lib/import.ts` or `types/import.ts`): mirror `ProposedMatchDto` + nested
-  candidate; a `PendingMatch = ProposedMatchDto & { accountId; accountName }` for list items;
-  add `proposedMatches?: ProposedMatchDto[]` and `matchesStaged?: number` to the relevant
-  `ImportResult` / bulk-result interfaces.
-- **`importMatchesApi`** (`lib/import-matches.ts`, mirroring the `lib/*.ts` idiom):
-  - `list(): Promise<PendingMatch[]>` → `apiClient.get('/import/matches')`
-  - `merge(candidateId, transactionId): Promise<void>` →
-    `apiClient.post('/import/matches/${id}/merge', { transactionId })` — **return ignored**
-  - `keepBoth(candidateId): Promise<Transaction>` →
-    `apiClient.post('/import/matches/${id}/keep-both')`
-  - Each mutation calls `invalidateCache('transactions:')` **and** `invalidateCache('accounts:')`.
+### `MatchReviewCard` (`components/import/`) — the shared unit
+Presentational; bank row vs candidate row(s); actions **Merge / Keep both / Dismiss**.
+- **Merge is `ConfirmDialog`-guarded** (reuse `components/ui/ConfirmDialog.tsx`); **binding
+  (round-2 Low):** follow the delete pattern — **close the dialog first, then run the async
+  merge**, and disable the trigger while resolving so it can't double-fire. **Keep-both and
+  Dismiss are one-click** (no confirm).
+- **Multi-candidate:** radio per row; Merge disabled until one selected. **Zero live
+  candidates:** Merge disabled; only **Keep-both / Dismiss**.
+- Props incl. `resolving?`, `showAccount?` (renders `accountName`).
 
-### 2. `MatchReviewCard` (`components/import/MatchReviewCard.tsx`) — the shared unit
+### `MatchReviewList` (`components/import/`) — shared orchestrator
+Renders cards; per-card `idle|resolving|resolved`. **Conflict handling by `code`:**
+`already_resolved` → benign (mark resolved, toast, refresh); everything else → real error
+(toast + list refresh so a stale card self-corrects). Empty-state slot.
 
-Renders **one** match: bank row vs candidate UNRECONCILED row(s), with **Merge** / **Keep
-both**. Presentational — no fetching. Consumed by both surfaces so they look identical.
+### `MatchReviewStep` (wizard step)
+New `ImportStep 'matchReview'` (union + `app/import/page.tsx` switch), between import and
+`'complete'`. `useImportWizard` single-file: `result.proposedMatches?.length` →
+`setStep('matchReview')` else `'complete'`. Wraps `MatchReviewList` (`showAccount=false`);
+footer **Done** (all resolved) / **Skip remaining →** (both → `'complete'`; unresolved stay
+pending). Each resolve → `pendingReviewsStore.refresh()`.
 
-- **Props:** `match: PendingMatch`, `onMerge(candidateId, transactionId)`,
-  `onKeepBoth(candidateId)`, `resolving?: boolean`, `showAccount?: boolean`.
-- **Merge is guarded by a `ConfirmDialog`** (reuse `components/ui/ConfirmDialog.tsx`): clicking
-  Merge opens a confirm ("Clear your ‹payee amount› row and attach the bank record? Undoing
-  means deleting + re-importing.") — only on confirm does `onMerge` fire. **Keep-both is
-  direct** (no confirm).
-- **Multi-candidate** (`candidates.length > 1`): radio per row; **Merge disabled until one is
-  selected**; merges the selected row. **Zero live candidates** (hydration dropped them all):
-  Merge disabled entirely, only Keep-both offered.
-- `showAccount` renders the `accountName` label (on for the page, off in the single-account
-  wizard step).
+### Pending Reviews page (`app/import/matches/page.tsx`)
+`ProtectedRoute → PageLayout → PageHeader`; `useEffect` → `importMatchesApi.list()` →
+`MatchReviewList` (`showAccount=true`); friendly empty state; resolve refreshes list + store.
 
-### 3. `MatchReviewList` (`components/import/MatchReviewList.tsx`) — shared orchestrator
-
-Takes matches + async resolve handlers, renders `MatchReviewCard`s, owns per-card lifecycle:
-
-- Tracks per-card `idle | resolving | resolved`; greys/removes a card on success.
-- **Conflict handling by code** (not by HTTP status): inspect `err.response?.data?.code`.
-  `already_resolved` → benign (mark resolved, toast `matchReview.alreadyResolved`, refresh).
-  `not_a_candidate` / `target_ineligible` / 404 / anything else → real error (toast, refresh
-  the list so the stale card corrects itself, keep the surface actionable).
-- **Empty state** slot so the page says "all caught up" and the wizard step can auto-advance.
-
-### 4. `MatchReviewStep` (`components/import/MatchReviewStep.tsx`) — wizard step
-
-- New `ImportStep` `'matchReview'` (added to `import-utils.ts` union + `app/import/page.tsx`
-  switch), between import and `'complete'`.
-- `useImportWizard.ts` single-file `handleImport`: `result.proposedMatches?.length` →
-  `setStep('matchReview')`, else `'complete'`. Store `proposedMatches` for the step.
-- Wraps `MatchReviewList` (`showAccount=false`). Footer: **"Done"** when all resolved, else
-  **"Skip remaining →"**; both advance to `'complete'` (unresolved stay pending in the DB,
-  reappear on the page). On each resolve, `pendingReviewsStore.refresh()`.
-
-### 5. Pending Reviews page (`app/import/matches/page.tsx`)
-
-- Standard shell: `ProtectedRoute → PageLayout → PageHeader`.
-- `useEffect` → `importMatchesApi.list()` into `useState`. Renders `MatchReviewList`
-  (`showAccount=true`). Friendly empty state. On resolve, refresh the local list + the store.
-
-### 6. `pendingReviewsStore` (`store/pendingReviewsStore.ts`) — badge count
-
-Zustand `{ count; refresh() }`. `refresh()` = `importMatchesApi.list().length`. Called on
-`AppHeader` mount, after a single-file import completes, and after every resolve.
-
-### 7. Nav + i18n + bulk CompleteStep + open-view refresh
-
-- **Nav** (`AppHeader.tsx` `toolsLinks`, mirrored in `MobileNavDrawer.tsx`): add
-  `{ href: '/import/matches', labelKey: 'pendingReviews', badge: count || undefined }`.
-- **i18n**: new `import.json` (`matchReview.*`) + `navigation.json` (`pendingReviews`) keys.
-- **Bulk `CompleteStep.tsx`**: if `matchesStaged > 0`, show "M possible matches from this
-  import → Review" linking to `/import/matches` (uses the per-import count, not a global one).
-- **Open-view refresh (Wren Low #7):** after a resolve, besides cache invalidation, emit a
-  lightweight `transactions-changed` signal (custom window event or a small Zustand flag); the
-  transactions + accounts pages subscribe (or refresh on focus/route-return) so an already-open
-  register reflects the merge. Mechanism finalized in the plan.
+### `pendingReviewsStore` (`store/`) + nav + i18n + bulk + open-view refresh
+Zustand `{ count; refresh() }` (list length), refreshed on `AppHeader` mount, post-import, and
+per resolve → nav badge on `toolsLinks` (`AppHeader.tsx`, mirror `MobileNavDrawer.tsx`). New
+i18n keys (`import.json` `matchReview.*`, `navigation.json` `pendingReviews`). Bulk
+`CompleteStep`: `matchesStaged > 0` → "M matches from this import → Review" link.
+**Open-view refresh (round-1 Low):** after a resolve, emit a `transactions-changed` signal
+(window event or Zustand flag) so open transactions/accounts pages refresh; mechanism finalized
+in the plan.
 
 ## Data flow
 
 ```
-Single-file import
-  POST /import/{ofx,csv,qif} → ImportResultDto.proposedMatches[] (hydrated)
-    → useImportWizard: proposedMatches.length ? 'matchReview' : 'complete'
-    → MatchReviewStep → MatchReviewList → MatchReviewCard
-        Merge  → ConfirmDialog → POST /import/matches/:id/merge {transactionId}   (returns void)
-        Keep both →              POST /import/matches/:id/keep-both               (returns Transaction)
-        success → invalidateCache(transactions:, accounts:), emit transactions-changed,
-                  pendingReviewsStore.refresh()
-        409 → discriminate by code: already_resolved = benign; else = error + refresh
-    → "Done" / "Skip remaining" → 'complete'  (unresolved stay in the queue)
-
-Pending Reviews page
-  GET /import/matches → PendingMatch[] (hydrated + accountName) → MatchReviewList (showAccount)
-
-Nav badge  ← pendingReviewsStore.count (mount + after import + after each resolve)
-Bulk Complete  ← result.matchesStaged (per-import) → link to /import/matches
+Single-file import → proposedMatches[] → 'matchReview' (else 'complete')
+  → MatchReviewList → MatchReviewCard
+      Merge     → ConfirmDialog(close→async) → POST …/merge {transactionId}  (void)
+      Keep both →                              POST …/keep-both              (Transaction)
+      Dismiss   →                              POST …/dismiss                (void)
+      success → invalidateCache(txns,accounts) + emit transactions-changed + store.refresh()
+      409 → by code: already_resolved=benign; else=error+refresh
+  → Done / Skip remaining → 'complete'
+Pending Reviews page → GET /import/matches → PendingMatch[] → MatchReviewList(showAccount)
+Nav badge ← store.count ; Bulk Complete ← result.matchesStaged
 ```
 
 ## Error handling
-
-- **409 by `code`:** only `already_resolved` is benign; `not_a_candidate` /
-  `target_ineligible` are surfaced (with a list refresh so the stale card self-corrects).
-- **404 / network / 5xx:** toast, card stays actionable, refresh where useful.
-- **Merge confirm:** cancel = no-op; only confirm commits.
-- **Multi-candidate:** Merge disabled until a row is selected. **Zero live candidates:**
-  Keep-both only.
-- **No matches** in an import → skip `'matchReview'`. **Empty queue** → friendly empty state.
-- Axios interceptor already handles 401 refresh + CSRF — no new work.
+409 discriminated by `code` (only `already_resolved` benign); 404/network/5xx → toast +
+refresh; merge cancel = no-op, guarded against double-fire; multi-candidate gates Merge;
+zero-live → Keep-both/Dismiss only; no matches → skip step; empty queue → friendly state.
+Axios already handles 401/CSRF.
 
 ## Testing strategy
 
-**Backend (Vitest, `backend/`):** `listPending` normalization — hydrates
-`candidateTransactionIds` into ordered `candidates`, casts decimals, **scopes the transaction
-fetch by `userId`** (no cross-user leak), includes `accountName`, and handles the
-deleted-reference edge (drops dead ids; zero-live → still listed, merge-ineligible). Conflict
-`code`s — `merge`/`keepBoth` throw `ConflictException` carrying the right `code` for each of
-the three cases. Reuse the `import-match.service` test harness (it already asserts the atomic
-claim + 409 on double-resolve).
-
-**Frontend unit (Vitest + RTL + MSW, co-located, ~90%):**
-- `MatchReviewCard`: renders bank vs candidate; **Merge opens ConfirmDialog and only fires
-  onMerge on confirm**; Keep-both fires directly; multi-candidate radio gates Merge; zero-live
-  → Keep-both-only; `showAccount` renders the label; `resolving` disables buttons.
-- `MatchReviewList`: success removes a card; **`already_resolved` code → benign**;
-  `target_ineligible` → error + refresh; empty state.
-- `MatchReviewStep` + `useImportWizard`: matches → `'matchReview'`; none → `'complete'`;
-  Done/Skip → `'complete'`.
-- Pending Reviews page: fetch + render + account label; empty; resolve refreshes list + store.
-- `pendingReviewsStore` + `importMatchesApi` (mocked `apiClient`; merge ignores the response;
-  cache invalidation asserted).
-- Bulk `CompleteStep`: `matchesStaged` count drives the pointer.
-
-**E2E (Playwright, `e2e/tests/import.spec.ts`) — the real live gate:** seed an account + a
-hand-entered **UNRECONCILED** transaction (`e2e/helpers/factories.ts`), import an OFX whose
-bank row matches (amount + date within 7 days), assert the **Review matches** step appears,
-click **Merge → confirm**, assert: the row is **CLEARED**, carries the **FITID**, keeps the
-**user's payee/category**, and **no duplicate** exists. Second spec: **Keep both** inserts a
-new CLEARED row (no confirm). Third: resolve from the **Pending Reviews page** (with account
-label) and the **badge count drops**.
+**Backend (Vitest):** `listPending` hydration — ordered candidates, decimals cast, **scoped by
+userId AND accountId** (no cross leak), `accountName` present, deleted-ref dropped, zero-live
+still listed; conflict `code`s per case; **`merge` returns `already_resolved` before target
+validation** when candidate non-pending; **exception-filter preserves `code`**; `dismiss`
+transitions `pending→dismissed`, **inserts nothing**, drops from `listPending`,
+double-dismiss → `already_resolved`.
+**Frontend unit (RTL+MSW, ~90%):** `MatchReviewCard` — Merge opens ConfirmDialog and fires
+**once** (close-then-async, no double-fire); Keep-both/Dismiss one-click; multi-candidate radio
+gates Merge; zero-live → Keep-both/Dismiss only; `showAccount`. `MatchReviewList` —
+`already_resolved` benign vs `target_ineligible` error; empty. `MatchReviewStep` +
+`useImportWizard` branching. Page fetch/empty/refresh. `pendingReviewsStore` +
+`importMatchesApi` (merge ignores response; cache invalidation asserted; `dismiss`). Bulk
+`CompleteStep` `matchesStaged`.
+**E2E (Playwright, `e2e/tests/import.spec.ts`) — the live gate:** seed an UNRECONCILED row,
+import a matching OFX, assert the review step, **Merge → confirm** → row CLEARED + FITID + kept
+payee/category + **no duplicate**. Specs: **Keep both** inserts a new CLEARED row (no confirm);
+**Dismiss** removes the card, inserts nothing, badge drops; resolve from the **Pending Reviews
+page** (account label) drops the badge.
 
 ## Scope & non-goals
-
-- **In:** backend `listPending` normalize (+ account context, hardening), conflict `code`s,
-  bulk `matchesStaged`; frontend types + `importMatchesApi`; shared `MatchReviewCard`
-  (confirm-gated merge) + `MatchReviewList` (code-based conflict handling); single-file
-  `MatchReviewStep`; `/import/matches` page + nav badge + `pendingReviewsStore`; open-view
-  refresh signal; i18n; Vitest unit + Playwright e2e (the live gate).
-- **Out (deferred):** a true **unmerge / recovery path** (reverse a merge — detach fitid,
-  re-stage) — pairs with **T-556 #1** (action-history on import-apply); inline review for
-  **bulk**; **multi-account QIF** + **investment-account** matching (backend-unstaged);
-  legacy FITID backfill; Boswell fuzzy ranking (T-235 Phase 3).
+- **In:** backend list normalize (+account ctx, hardening, userId+accountId scope), conflict
+  `code`s + **exception-filter patch** + **merge terminal-state ordering**, bulk `matchesStaged`,
+  **Dismiss action (migration 092)**; frontend types + `importMatchesApi`; shared
+  `MatchReviewCard` (confirm-gated, double-fire-safe merge) + `MatchReviewList` (code-based) +
+  `MatchReviewStep`; `/import/matches` page + badge + store; open-view refresh; i18n; Vitest +
+  Playwright (live gate).
+- **Out (deferred):** a true **unmerge/recovery** path (reverse a merge — detach fitid,
+  re-stage) → pairs with **T-556 #1** action-history; inline review for **bulk**;
+  multi-account QIF + investment-account matching; legacy FITID backfill; Boswell (Phase 3).
 
 ## Known limitation / accepted risk
-
-**No true undo on a merge.** `fitid` is deliberately un-settable via the public
-create/update DTOs (enforced by `backend/src/transactions/dto/fitid-not-whitelisted.spec.ts`,
-an anti-spoof guard), so a wrong merge is recovered **only** by deleting the merged row and
-re-importing the OFX — clunky, and it loses the manual row's id/history. **Mitigation:** the
-mandatory **confirm dialog on Merge** (Keep-both is additive and needs none). A first-class
-**unmerge** path is the real fix and is deferred to a follow-up alongside T-556 #1
-(action-history), so import-apply becomes properly reversible.
+**No true undo on a merge.** `fitid` is deliberately un-settable via public create/update DTOs
+(`fitid-not-whitelisted.spec.ts`), so a wrong merge is recovered only by deleting the row +
+re-importing. **Mitigation:** the mandatory confirm dialog. A first-class **unmerge** is
+deferred with T-556 #1. (Keep-both and Dismiss are safe: delete the inserted row / re-import
+respectively.)
 
 ## Open questions / plan-phase verifications
-
-All UX/contract forks resolved above. To settle during `writing-plans`:
-
-1. `toProposedMatchDto` mapper factoring + the exact `LIMIT` for the list (and whether
-   pagination is needed at personal scale).
-2. Conflict-`code` transport: NestJS `ConflictException` response body shape the interceptor
-   passes through to `err.response.data.code` (confirm the axios interceptor doesn't strip it).
-3. `matchesStaged` plumbing through the bulk aggregation (`useImportWizard.ts` ~842–950).
-4. Open-view refresh mechanism (custom window event vs. Zustand flag vs. refetch-on-focus).
-5. `ImportStep` switch + progress-indicator label for the new step; clean SSR hydration of the
-   `AppHeader` badge subscription.
+1. `toProposedMatchDto` factoring, `accountName` join, and the list `LIMIT` value.
+2. Exception-filter patch: exact allow-list of preserved fields; confirm the axios interceptor
+   surfaces `err.response.data.code`.
+3. `matchesStaged` plumbing through `useImportWizard.ts` (~842–950).
+4. Open-view refresh mechanism (window event vs Zustand vs refetch-on-focus).
+5. Migration 092 SQL (drop+re-add CHECK) + `schema.sql` sync; apply via `scripts/rebuild.sh
+   --migrate-only`.
+6. `ImportStep` switch + progress-indicator label; clean SSR hydration of the badge.
 
 ---
--- Claude Code 2026-07-03 (v2)
+-- Claude Code 2026-07-03 (v3)
