@@ -8,7 +8,7 @@
 
 **Tech Stack:** Backend — NestJS + TypeORM + Postgres, Vitest/Jest integration + unit. Frontend — Next.js 16 App Router, React 19, TypeScript, Tailwind 4, Zustand, plain axios (`lib/api.ts`, no React Query), next-intl, react-hot-toast; Vitest + RTL + MSW (~90% coverage enforced); Playwright e2e.
 
-**Spec:** `docs/superpowers/specs/2026-07-03-ofx-import-review-ui-design.md` (v3).
+**Spec:** `docs/superpowers/specs/2026-07-03-ofx-import-review-ui-design.md` (v3). **Plan v2** — Wren plan-review folds applied (see "Plan-review folds" below; they amend the referenced tasks).
 
 ## Global Constraints
 
@@ -29,6 +29,94 @@
 - **Backend unit tests** (`import-match.service.spec.ts`): mocked repos; `candidateRepo.update` returns `{ affected: 1 }` (claim wins) or `.mockResolvedValueOnce({ affected: 0 })` (claim lost). `pendingCandidate(over)` / `targetTxn(over)` factories.
 - **Backend integration** (`backend/test/integration/import-match.integration.spec.ts`): `createIntegrationModule([ImportModule])`, `cleanTables(...)`, `createTestUserDirect`, `createTestAccount`, the local `stageCandidate(over)` + `balanceOf()` helpers.
 - **Commit** after each task's tests are green: `git commit -m "<type>(t-555): <task>"`, ending the body with `-- Claude Code 2026-07-03` and `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+
+---
+
+## Plan-review folds (v2 — Wren plan-review, Codex 019f2b1d)
+
+These amend the tasks below; apply each when you reach the referenced task.
+
+**[High] Task 3 — code the POST-claim conflict.** `merge()`'s existing try/catch reverts the
+claim and rethrows if `applyImportedMatch` fails. When that failure is a `ConflictException`
+(target became ineligible under the row lock — a race), rethrow it CODED. Replace the catch:
+```ts
+} catch (err) {
+  await this.candidateRepo.update({ id: candidateId }, { state: "pending" });
+  if (err instanceof ConflictException) {
+    throw this.conflict(
+      "target_ineligible",
+      (err.getResponse() as any)?.message ?? "Transaction is no longer eligible to merge",
+    );
+  }
+  throw err;
+}
+```
+Add a Task-3 unit test: `txService.applyImportedMatch.mockRejectedValue(new ConflictException("x"))`
+→ `service.merge(...)` rejects with `response.code === "target_ineligible"` AND
+`candidateRepo.update` was called to revert the candidate to `pending`.
+
+**[Med] Task 5 — mapper + merge eligibility must exclude LINKED rows.** The shipped matcher
+excludes `linked_transaction_id` rows (`import-regular-processor.service.ts:160`). Add
+`!t.linkedTransactionId` to `toProposedMatch`'s `.filter(...)` predicate AND to `merge()`'s
+pre-claim eligibility check (extend the `!existing || …` condition with
+`|| existing.linkedTransactionId`). Tests: a linked target is dropped from `candidates`
+(mapper) and rejected `target_ineligible` (merge).
+
+**[Med] Task 9 — refresh on a REAL conflict.** `MatchReviewList` takes an `onRefresh?()` prop.
+On a non-`already_resolved` failure: `toast.error(...)` **and** `onRefresh?.()`. The Pending
+Reviews page passes a re-fetch of `importMatchesApi.list()`; the wizard step passes `undefined`
+(its stale card simply falls to the queue). Test: a `target_ineligible` rejection calls
+`onRefresh` and does NOT mark the card resolved.
+
+**[Med] Task 8 — robust confirm test (avoid ambiguous selector).** Give the merge
+`ConfirmDialog` an explicit `confirmLabel={t('matchReview.merge')}`, and query the confirm
+button **within the dialog**:
+```ts
+import { render, screen, fireEvent, within } from "@/test/render";
+fireEvent.click(screen.getByRole("button", { name: /^merge$/i })); // trigger
+const dialog = screen.getByRole("dialog");
+fireEvent.click(within(dialog).getByRole("button", { name: /^merge$/i })); // confirm
+expect(h.onMerge).toHaveBeenCalledTimes(1);
+```
+
+**[Med] Task 12 — cross-tab refresh.** A plain `window` event only reaches the current window.
+On resolve, emit BOTH: `window.dispatchEvent(new CustomEvent('monize:transactions-changed'))`
+(same window) AND `new BroadcastChannel('monize').postMessage('transactions-changed')` (other
+tabs). The transactions/accounts pages add a `window` listener AND a `BroadcastChannel('monize')`
+`onmessage`; both call the existing refetch; clean up both on unmount.
+
+**[Med] Task 13 — full e2e assertions (v3 contract).** Beyond CLEARED + no-duplicate: assert the
+merged row **kept the user's payee** ("Google", not the bank "GOOGLE CLOUD"); seed the
+UNRECONCILED row with a category and assert it survives. Prove the FITID **behaviorally** (it is
+not on the public read DTO): after the merge, **re-import the same OFX** and assert it is
+**skipped** (dedup) — no new row appears.
+
+**[Low] Task 6 — cache keys.** Invalidate `'transactions:'` **and** `'accounts:'` on every match
+mutation (spec §179); keeping `'investments:'` too is harmless. Apply to
+`importMatchesApi.{merge,keepBoth,dismiss}`.
+
+**[Low] i18n — exact copy** (add to `frontend/src/i18n/messages/en/import.json`; ASCII only):
+```json
+"matchReview": {
+  "title": "Review matches",
+  "subtitle": "{imported} imported, {matches} possible {matches, plural, one {match} other {matches}}",
+  "account": "Account",
+  "yourRow": "Your transaction",
+  "bankRow": "Bank record",
+  "merge": "Merge",
+  "keepBoth": "Keep both",
+  "dismiss": "Dismiss",
+  "confirmMergeTitle": "Merge this transaction?",
+  "confirmMergeMessage": "This clears your transaction and attaches the bank record. Undoing it means deleting the row and re-importing.",
+  "skipRemaining": "Skip remaining",
+  "done": "Done",
+  "alreadyResolved": "That match was already resolved.",
+  "resolveError": "Could not resolve this match - it has been refreshed.",
+  "empty": "You're all caught up - no matches to review.",
+  "reviewPointer": "{count} possible {count, plural, one {match} other {matches}} from this import"
+}
+```
+And `frontend/src/i18n/messages/en/navigation.json`: `"pendingReviews": "Pending Reviews"`.
 
 ---
 
