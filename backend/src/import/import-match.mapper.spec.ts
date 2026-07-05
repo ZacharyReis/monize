@@ -112,6 +112,37 @@ describe("toProposedMatch", () => {
     expect(result.candidates).toEqual([]);
   });
 
+  // Fold: a staged candidate's target amount can drift after staging (user
+  // edits the transaction). Re-check amount at read time, same tolerance the
+  // merge path enforces at transactions.service.ts (0.00005), so the list
+  // never re-serves an unmergeable target in a stale loop.
+  it("drops a candidate whose amount no longer matches bankAmount (edited after staging)", () => {
+    const t1 = txn({ id: "t1", amount: -14.0 });
+    const result = toProposedMatch(
+      candidate({ candidateTransactionIds: ["t1"], bankAmount: -11.04 }),
+      [t1],
+    );
+    expect(result.candidates).toEqual([]);
+  });
+
+  it("keeps a candidate whose amount still matches bankAmount (don't over-filter)", () => {
+    const t1 = txn({ id: "t1", amount: -11.04 });
+    const result = toProposedMatch(
+      candidate({ candidateTransactionIds: ["t1"], bankAmount: -11.04 }),
+      [t1],
+    );
+    expect(result.candidates.map((c) => c.id)).toEqual(["t1"]);
+  });
+
+  it("keeps a candidate within the 0.00005 merge tolerance", () => {
+    const t1 = txn({ id: "t1", amount: -11.04001 });
+    const result = toProposedMatch(
+      candidate({ candidateTransactionIds: ["t1"], bankAmount: -11.04 }),
+      [t1],
+    );
+    expect(result.candidates.map((c) => c.id)).toEqual(["t1"]);
+  });
+
   it("maps bankName undefined when candidate.bankName is null", () => {
     const result = toProposedMatch(
       candidate({ bankName: null, candidateTransactionIds: [] }),
