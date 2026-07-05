@@ -204,6 +204,43 @@ describe("ImportMatchService", () => {
         NotFoundException,
       );
     });
+
+    it("merge on an already-resolved candidate returns already_resolved BEFORE target checks", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate({ state: "merged" }));
+      await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toMatchObject({
+        response: { code: "already_resolved" },
+      });
+      expect(transactionsRepo.findOne).not.toHaveBeenCalled(); // never reached target validation
+    });
+
+    it("merge with a transactionId not on the candidate returns not_a_candidate", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate({ candidateTransactionIds: ["other"] }));
+      await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toMatchObject({
+        response: { code: "not_a_candidate" },
+      });
+    });
+
+    it("merge against an ineligible target returns target_ineligible", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+      transactionsRepo.findOne.mockResolvedValue(targetTxn({ status: TransactionStatus.CLEARED }));
+      await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toMatchObject({
+        response: { code: "target_ineligible" },
+      });
+    });
+
+    it("recodes a post-claim ConflictException from applyImportedMatch (row-lock race) as target_ineligible and reverts the claim", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+      transactionsRepo.findOne.mockResolvedValue(targetTxn());
+      txService.applyImportedMatch.mockRejectedValueOnce(new ConflictException("x"));
+
+      await expect(service.merge("u1", "cand-1", "txn-1")).rejects.toMatchObject({
+        response: { code: "target_ineligible" },
+      });
+      expect(candidateRepo.update).toHaveBeenLastCalledWith(
+        { id: "cand-1" },
+        { state: "pending" },
+      );
+    });
   });
 
   describe("keepBoth", () => {
@@ -257,6 +294,13 @@ describe("ImportMatchService", () => {
         ConflictException,
       );
       expect(txService.createImportedRow).not.toHaveBeenCalled();
+    });
+
+    it("keepBoth double-resolve returns already_resolved", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate({ state: "kept" }));
+      await expect(service.keepBoth("u1", "cand-1")).rejects.toMatchObject({
+        response: { code: "already_resolved" },
+      });
     });
   });
 

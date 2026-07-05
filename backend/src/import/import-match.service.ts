@@ -61,6 +61,10 @@ export class ImportMatchService {
     return c;
   }
 
+  private conflict(code: string, message: string): ConflictException {
+    return new ConflictException({ message, code });
+  }
+
   /**
    * Atomically transition a pending candidate. Returns true iff THIS call won
    * the race (single-row conditional UPDATE, affected === 1).
@@ -83,8 +87,17 @@ export class ImportMatchService {
     transactionId: string,
   ): Promise<void> {
     const candidate = await this.loadOwned(userId, candidateId);
+    // Terminal-state check FIRST: a double-resolve must not leak target
+    // eligibility details past an already-decided candidate.
+    if (candidate.state !== "pending") {
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
+    }
     if (!candidate.candidateTransactionIds.includes(transactionId)) {
-      throw new ConflictException(
+      throw this.conflict(
+        "not_a_candidate",
         "transactionId is not a candidate for this match",
       );
     }
@@ -102,11 +115,17 @@ export class ImportMatchService {
       existing.isSplit ||
       existing.isTransfer
     ) {
-      throw new ConflictException("Transaction is no longer eligible to merge");
+      throw this.conflict(
+        "target_ineligible",
+        "Transaction is no longer eligible to merge",
+      );
     }
 
     if (!(await this.claim(userId, candidateId, "merged"))) {
-      throw new ConflictException("Match candidate already resolved");
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
     }
     try {
       // Criteria 1-3: fitid + status + date + reference + description written in
@@ -123,19 +142,38 @@ export class ImportMatchService {
       // Nothing was committed by applyImportedMatch (it rolls back its own txn),
       // so release the claim back to pending for a later retry.
       await this.candidateRepo.update({ id: candidateId }, { state: "pending" });
+      // A ConflictException here means the target became ineligible under the
+      // row lock (a race lost after we passed the fail-fast check above) —
+      // recode it so the frontend gets a machine-readable target_ineligible.
+      if (err instanceof ConflictException) {
+        throw this.conflict(
+          "target_ineligible",
+          (err.getResponse() as any)?.message ??
+            "Transaction is no longer eligible to merge",
+        );
+      }
       throw err;
     }
   }
 
   async keepBoth(userId: string, candidateId: string): Promise<Transaction> {
     const candidate = await this.loadOwned(userId, candidateId);
+    if (candidate.state !== "pending") {
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
+    }
     const account = await this.accountsService.findOne(
       userId,
       candidate.accountId,
     );
 
     if (!(await this.claim(userId, candidateId, "kept"))) {
-      throw new ConflictException("Match candidate already resolved");
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
     }
     try {
       // Criteria 1 & 3: creates the row AND its status=CLEARED + fitid in one
