@@ -283,5 +283,23 @@
   "navigation": {
     "back": "Back",
     "next": "Next"
+  },
+  "matchReview": {
+    "title": "Review matches",
+    "subtitle": "{imported} imported, {matches} possible {matches, plural, one {match} other {matches}}",
+    "account": "Account",
+    "yourRow": "Your transaction",
+    "bankRow": "Bank record",
+    "merge": "Merge",
+    "keepBoth": "Keep both",
+    "dismiss": "Dismiss",
+    "confirmMergeTitle": "Merge this transaction?",
+    "confirmMergeMessage": "This clears your transaction and attaches the bank record. Undoing it means deleting the row and re-importing.",
+    "skipRemaining": "Skip remaining",
+    "done": "Done",
+    "alreadyResolved": "That match was already resolved.",
+    "resolveError": "Could not resolve this match - it has been refreshed.",
+    "empty": "You're all caught up - no matches to review.",
+    "reviewPointer": "{count} possible {count, plural, one {match} other {matches}} from this import"
   }
 }
