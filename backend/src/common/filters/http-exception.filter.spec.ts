@@ -4,6 +4,8 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
+  ArgumentsHost,
 } from "@nestjs/common";
 import { QueryFailedError } from "typeorm";
 import { GlobalExceptionFilter } from "./http-exception.filter";
@@ -247,5 +249,40 @@ describe("GlobalExceptionFilter", () => {
       expect(serialized).not.toContain("constraint");
       expect(serialized).not.toContain("DETAIL");
     });
+  });
+});
+
+function mockHost(): {
+  host: ArgumentsHost;
+  json: jest.Mock;
+  status: jest.Mock;
+} {
+  const json = jest.fn();
+  const status = jest.fn(() => ({ json }));
+  const res = { status, headersSent: false } as any;
+  const host = { switchToHttp: () => ({ getResponse: () => res }) } as any;
+  return { host, json, status };
+}
+
+describe("GlobalExceptionFilter code passthrough", () => {
+  it("preserves a custom `code` field from an HttpException object response", () => {
+    const { host, json, status } = mockHost();
+    new GlobalExceptionFilter().catch(
+      new ConflictException({
+        message: "Match candidate already resolved",
+        code: "already_resolved",
+      }),
+      host,
+    );
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "already_resolved" }),
+    );
+  });
+
+  it("omits `code` when the exception carries none", () => {
+    const { host, json } = mockHost();
+    new GlobalExceptionFilter().catch(new ConflictException("plain"), host);
+    expect(json.mock.calls[0][0]).not.toHaveProperty("code");
   });
 });

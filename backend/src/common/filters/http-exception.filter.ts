@@ -25,6 +25,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     let status: number;
     let message: string | string[];
+    let code: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -45,6 +46,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ) {
           const resp = exceptionResponse as Record<string, unknown>;
           message = (resp.message as string | string[]) || exception.message;
+          if (typeof resp.code === "string") code = resp.code;
         } else {
           message = exception.message;
         }
@@ -81,6 +83,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message,
+      ...(code ? { code } : {}),
       ...(this.isProduction ? {} : { timestamp: new Date().toISOString() }),
     });
   }
