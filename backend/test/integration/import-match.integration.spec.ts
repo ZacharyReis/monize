@@ -528,7 +528,90 @@ describe("Import match resolve (integration)", () => {
 
       const pending = await matchService.listPending(userId);
       expect(pending).toHaveLength(1);
-      expect(pending[0].id).toBe(newer.id);
+      expect(pending[0].candidateId).toBe(newer.id);
+    });
+
+    it("hydrates a live UNRECONCILED target into candidates[0], with accountId/accountName populated", async () => {
+      const target = await txService.create(userId, {
+        accountId,
+        transactionDate: "2026-06-01",
+        amount: -50,
+        currencyCode: "USD",
+        payeeName: "Coffee Shop",
+      });
+      const cand = await stageCandidate({
+        candidateTransactionIds: [target.id],
+        bankAmount: -50,
+        bankDate: "2026-06-15",
+        fitid: "FIT-LIST",
+      });
+
+      const pending = await matchService.listPending(userId);
+      expect(pending).toHaveLength(1);
+      expect(pending[0].candidateId).toBe(cand.id);
+      expect(pending[0].accountId).toBe(accountId);
+      const account = await dataSource.manager.findOneOrFail(Account, {
+        where: { id: accountId },
+      });
+      expect(pending[0].accountName).toBe(account.name);
+      expect(pending[0].candidates).toHaveLength(1);
+      expect(pending[0].candidates[0].id).toBe(target.id);
+      expect(pending[0].candidates[0].amount).toBe(-50);
+      expect(typeof pending[0].candidates[0].amount).toBe("number");
+      expect(pending[0].candidates[0].transactionDate).toBe("2026-06-01");
+    });
+
+    it("zero-live: a target that has since become CLEARED (no longer UNRECONCILED) is dropped -> candidates: []", async () => {
+      const target = await txService.create(userId, {
+        accountId,
+        transactionDate: "2026-06-01",
+        amount: -50,
+        currencyCode: "USD",
+      });
+      const cand = await stageCandidate({
+        candidateTransactionIds: [target.id],
+        bankAmount: -50,
+      });
+      await dataSource.manager.update(Transaction, target.id, {
+        status: TransactionStatus.CLEARED,
+      });
+
+      const pending = await matchService.listPending(userId);
+      // The candidate itself still surfaces (still `pending`) -- only its
+      // live candidate list goes to zero.
+      expect(pending).toHaveLength(1);
+      expect(pending[0].candidateId).toBe(cand.id);
+      expect(pending[0].candidates).toEqual([]);
+    });
+
+    it("cross-user isolation: another user's pending candidate/txn never appears or gets hydrated", async () => {
+      const otherUser = await createTestUserDirect(dataSource);
+      const otherAccount = await createTestAccount(dataSource, otherUser.id, {
+        openingBalance: 0,
+        currentBalance: 0,
+      });
+      const otherTarget = await txService.create(otherUser.id, {
+        accountId: otherAccount.id,
+        transactionDate: "2026-06-01",
+        amount: -20,
+        currencyCode: "USD",
+      });
+      const otherCand = dataSource.manager.create(ImportMatchCandidate, {
+        userId: otherUser.id,
+        accountId: otherAccount.id,
+        importBatchId: randomUUID(),
+        bankAmount: -20,
+        bankDate: "2026-06-15",
+        fitid: "FIT-OTHER-USER",
+        candidateTransactionIds: [otherTarget.id],
+        state: "pending",
+      });
+      await dataSource.manager.save(otherCand);
+
+      const pending = await matchService.listPending(userId);
+      expect(
+        pending.find((p) => p.candidateId === otherCand.id),
+      ).toBeUndefined();
     });
   });
 });

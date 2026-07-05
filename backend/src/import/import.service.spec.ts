@@ -2662,12 +2662,21 @@ describe("ImportService", () => {
       // ImportRegularProcessorService, so this exercises the genuine
       // orchestrator contract: ctx.stagedThisRow is only flushed into
       // importResult.proposedMatches after a successful RELEASE SAVEPOINT.
+      // Real Transaction shape: findMatchCandidates' SQL query already
+      // guarantees these eligibility fields (UNRECONCILED, same account, not
+      // split/transfer/linked) for anything it returns; the shared mapper
+      // re-validates them, so the fixture must reflect that reality.
       const existingUnreconciled = {
         id: "txn-unreconciled-1",
+        accountId: "acct-1",
         transactionDate: "2025-01-15",
         amount: -50,
         payeeName: "Grocery Store",
         description: null,
+        status: TransactionStatus.UNRECONCILED,
+        isSplit: false,
+        isTransfer: false,
+        linkedTransactionId: null,
       };
 
       beforeEach(() => {

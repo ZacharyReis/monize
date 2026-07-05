@@ -14,6 +14,7 @@ import { ImportMatchCandidate } from "./entities/import-match-candidate.entity";
 import { ImportContext, updateAccountBalance } from "./import-context";
 import { matchDateWindow } from "./import-match.util";
 import { roundMoney } from "../common/round.util";
+import { toProposedMatch } from "./import-match.mapper";
 
 @Injectable()
 export class ImportRegularProcessorService {
@@ -213,19 +214,7 @@ export class ImportRegularProcessorService {
     });
     const saved = await ctx.queryRunner.manager.save(candidate);
     if (!ctx.stagedThisRow) ctx.stagedThisRow = [];
-    ctx.stagedThisRow.push({
-      candidateId: saved.id,
-      bankAmount: amount,
-      bankDate: qifTx.date,
-      bankName: qifTx.payee || undefined,
-      candidates: candidates.map((c) => ({
-        id: c.id,
-        transactionDate: c.transactionDate,
-        amount: Number(c.amount),
-        payeeName: c.payeeName,
-        description: c.description,
-      })),
-    });
+    ctx.stagedThisRow.push(toProposedMatch(saved, candidates));
   }
 
   private async isDuplicateTransfer(

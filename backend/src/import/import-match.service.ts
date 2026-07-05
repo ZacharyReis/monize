@@ -5,7 +5,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import {
   ImportMatchCandidate,
   ImportMatchState,
@@ -16,6 +16,8 @@ import {
 } from "../transactions/entities/transaction.entity";
 import { TransactionsService } from "../transactions/transactions.service";
 import { AccountsService } from "../accounts/accounts.service";
+import { toProposedMatch } from "./import-match.mapper";
+import { PendingMatchDto } from "./dto/import.dto";
 
 /**
  * Resolves staged import-match candidates (state `pending`) into a financial
@@ -43,11 +45,28 @@ export class ImportMatchService {
     private readonly accountsService: AccountsService,
   ) {}
 
-  async listPending(userId: string): Promise<ImportMatchCandidate[]> {
-    return this.candidateRepo.find({
+  async listPending(userId: string): Promise<PendingMatchDto[]> {
+    const candidates = await this.candidateRepo.find({
       where: { userId, state: "pending" },
       order: { createdAt: "DESC" },
+      take: 200,
     });
+    if (candidates.length === 0) return [];
+    const txnIds = [
+      ...new Set(candidates.flatMap((c) => c.candidateTransactionIds)),
+    ];
+    const txns = txnIds.length
+      ? await this.transactionsRepo.find({ where: { id: In(txnIds), userId } })
+      : [];
+    const accounts = await this.accountsService.findByIds(userId, [
+      ...new Set(candidates.map((c) => c.accountId)),
+    ]);
+    const accountName = new Map(accounts.map((a) => [a.id, a.name]));
+    return candidates.map((c) => ({
+      ...toProposedMatch(c, txns),
+      accountId: c.accountId,
+      accountName: accountName.get(c.accountId) ?? "",
+    }));
   }
 
   private async loadOwned(
@@ -113,7 +132,8 @@ export class ImportMatchService {
       existing.accountId !== candidate.accountId ||
       existing.status !== TransactionStatus.UNRECONCILED ||
       existing.isSplit ||
-      existing.isTransfer
+      existing.isTransfer ||
+      existing.linkedTransactionId
     ) {
       throw this.conflict(
         "target_ineligible",

@@ -335,6 +335,14 @@ export class ProposedMatchDto {
   }>;
 }
 
+export class PendingMatchDto extends ProposedMatchDto {
+  @ApiProperty()
+  accountId: string;
+
+  @ApiProperty()
+  accountName: string;
+}
+
 export class ImportResultDto {
   @ApiProperty()
   imported: number;

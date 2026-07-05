@@ -2202,7 +2202,14 @@ describe("ImportRegularProcessorService", () => {
     });
 
     it("stages a candidate and does NOT insert a Transaction when an UNRECONCILED row matches", async () => {
-      const existing = { id: "txn-existing", transactionDate: "2026-07-02", amount: -11.04, payeeName: "Google", description: null };
+      // Real Transaction shape: findMatchCandidates' SQL query already
+      // guarantees these eligibility fields for anything it returns; the
+      // shared mapper (toProposedMatch) re-validates them.
+      const existing = {
+        id: "txn-existing", accountId, transactionDate: "2026-07-02", amount: -11.04,
+        payeeName: "Google", description: null, status: TransactionStatus.UNRECONCILED,
+        isSplit: false, isTransfer: false, linkedTransactionId: null,
+      };
       const ctx = makeContext();
       const dedupeQb = makeMockQueryBuilder();       // isFitidDuplicate getCount -> 0
       const candQb = makeMockQueryBuilder(existing); // findMatchCandidates getMany -> [existing]
@@ -2252,10 +2259,15 @@ describe("ImportRegularProcessorService", () => {
       // second one (no insert, no stage, no counter moved).
       const existing = {
         id: "txn-existing",
+        accountId,
         transactionDate: "2026-07-02",
         amount: -11.04,
         payeeName: "Google",
         description: null,
+        status: TransactionStatus.UNRECONCILED,
+        isSplit: false,
+        isTransfer: false,
+        linkedTransactionId: null,
       };
       const ctx = makeContext();
       const fitidLessRow = (over = {}) => ({
@@ -2308,10 +2320,15 @@ describe("ImportRegularProcessorService", () => {
       // mockReturnValueOnce, in the exact order processTransaction issues them.
       const existing = {
         id: "txn-existing",
+        accountId,
         transactionDate: "2026-07-02",
         amount: -11.04,
         payeeName: "Google",
         description: null,
+        status: TransactionStatus.UNRECONCILED,
+        isSplit: false,
+        isTransfer: false,
+        linkedTransactionId: null,
       };
       const ctx = makeContext();
 
