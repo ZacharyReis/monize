@@ -952,7 +952,7 @@ export function useImportWizard() {
         const result = await importFn(importFiles[0], categoryMappings, accountMappings, securityMappings);
 
         setImportResult(result);
-        setStep('complete');
+        setStep(result.proposedMatches?.length ? 'matchReview' : 'complete');
 
         if (result.errors === 0) {
           toast.success(t('toasts.imported', { imported: result.imported }));

@@ -996,6 +996,56 @@ describe('useImportWizard - import handlers', () => {
     expect(result.current.importResult?.errors).toBe(2);
   });
 
+  it('routes a single-file import with proposedMatches to the matchReview step', async () => {
+    mockGetAllAccounts.mockResolvedValue([baseAccount()]);
+    mockParseQif.mockResolvedValue(baseParsedQif({ categories: [] }));
+    mockImportQif.mockResolvedValue(importResult({
+      imported: 5,
+      proposedMatches: [
+        {
+          candidateId: 'c1',
+          bankAmount: -11.04,
+          bankDate: '2026-07-02',
+          bankName: 'GOOGLE',
+          candidates: [
+            { id: 'c1-t1', transactionDate: '2026-07-01', amount: -11.04, payeeName: 'Google', description: null },
+          ],
+        },
+      ],
+    }));
+
+    const { result } = renderHook(() => useImportWizard(), { wrapper });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.handleFileSelect(fileEvent([makeFile('a.qif', 'x')]));
+    });
+    act(() => result.current.setSelectedAccountId('acc-1'));
+    await act(async () => {
+      await result.current.handleImport();
+    });
+    expect(result.current.step).toBe('matchReview');
+    expect(result.current.importResult?.proposedMatches).toHaveLength(1);
+  });
+
+  it('routes a single-file import without proposedMatches straight to complete', async () => {
+    mockGetAllAccounts.mockResolvedValue([baseAccount()]);
+    mockParseQif.mockResolvedValue(baseParsedQif({ categories: [] }));
+    mockImportQif.mockResolvedValue(importResult({ imported: 5, proposedMatches: [] }));
+
+    const { result } = renderHook(() => useImportWizard(), { wrapper });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.handleFileSelect(fileEvent([makeFile('a.qif', 'x')]));
+    });
+    act(() => result.current.setSelectedAccountId('acc-1'));
+    await act(async () => {
+      await result.current.handleImport();
+    });
+    expect(result.current.step).toBe('complete');
+  });
+
   it('imports CSV successfully', async () => {
     mockGetAllAccounts.mockResolvedValue([baseAccount()]);
     mockParseCsvHeaders.mockResolvedValue({ headers: ['D', 'A'], sampleRows: [], rowCount: 0 });

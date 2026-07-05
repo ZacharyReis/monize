@@ -13,6 +13,7 @@ import { MapAccountsStep } from '@/components/import/MapAccountsStep';
 import { ReviewStep } from '@/components/import/ReviewStep';
 import { CompleteStep } from '@/components/import/CompleteStep';
 import { MultiAccountReviewStep } from '@/components/import/MultiAccountReviewStep';
+import { MatchReviewStep } from '@/components/import/MatchReviewStep';
 import { useImportWizard } from '@/hooks/useImportWizard';
 import { formatCategoryPath } from './import-utils';
 
@@ -184,6 +185,14 @@ function ImportContent() {
           />
         ) : null;
 
+      case 'matchReview':
+        return (
+          <MatchReviewStep
+            matches={wizard.importResult?.proposedMatches ?? []}
+            onDone={() => wizard.setStep('complete')}
+          />
+        );
+
       case 'complete':
         return (
           <CompleteStep
@@ -212,7 +221,7 @@ function ImportContent() {
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">
             {(() => {
-              const stepOrder = ['upload', 'csvColumnMapping', 'selectAccount', 'mapCategories', 'mapSecurities', 'mapAccounts', 'review', 'multiAccountReview', 'complete'];
+              const stepOrder = ['upload', 'csvColumnMapping', 'selectAccount', 'mapCategories', 'mapSecurities', 'mapAccounts', 'review', 'multiAccountReview', 'matchReview', 'complete'];
               const currentIndex = stepOrder.indexOf(wizard.step);
 
               // Filter to only visible steps

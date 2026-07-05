@@ -2,7 +2,7 @@ import { ParsedQifResponse } from '@/lib/import';
 export { formatAccountType, isInvestmentBrokerageAccount } from '@/lib/account-utils';
 
 export type ImportFileType = 'qif' | 'ofx' | 'csv';
-export type ImportStep = 'upload' | 'csvColumnMapping' | 'selectAccount' | 'mapCategories' | 'mapSecurities' | 'mapAccounts' | 'review' | 'multiAccountReview' | 'complete';
+export type ImportStep = 'upload' | 'csvColumnMapping' | 'selectAccount' | 'mapCategories' | 'mapSecurities' | 'mapAccounts' | 'review' | 'multiAccountReview' | 'matchReview' | 'complete';
 export type MatchConfidence = 'exact' | 'partial' | 'type' | 'none';
 
 export interface ImportFileData {
