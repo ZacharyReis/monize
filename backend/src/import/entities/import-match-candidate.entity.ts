@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
 } from "typeorm";
 
-export type ImportMatchState = "pending" | "merged" | "kept";
+export type ImportMatchState = "pending" | "merged" | "kept" | "dismissed";
 
 @Entity("import_match_candidate")
 export class ImportMatchCandidate {

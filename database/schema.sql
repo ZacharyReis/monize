@@ -1154,7 +1154,7 @@ CREATE TABLE IF NOT EXISTS import_match_candidate (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT import_match_candidate_state_check
-      CHECK (state IN ('pending', 'merged', 'kept'))
+      CHECK (state IN ('pending', 'merged', 'kept', 'dismissed'))
 );
 CREATE INDEX IF NOT EXISTS idx_import_match_candidate_batch
     ON import_match_candidate (import_batch_id);
