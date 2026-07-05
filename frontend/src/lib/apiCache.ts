@@ -8,6 +8,14 @@ const cache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
 const DEFAULT_TTL = 30_000; // 30 seconds
 
+// Monotonic invalidation generation. An in-flight `dedupe` fetch that started
+// BEFORE an `invalidateCache` call must not repopulate the cache with
+// now-stale data once it resolves -- deleting the in-flight map entry alone is
+// insufficient because the already-attached `.then` handler still runs. Each
+// `dedupe` call snapshots the generation at start; it only writes to the
+// cache if no invalidation happened while its fetch was outstanding.
+let generation = 0;
+
 export function getCached<T>(key: string): T | undefined {
   const entry = cache.get(key);
   if (!entry) return undefined;
@@ -23,6 +31,7 @@ export function setCache<T>(key: string, data: T, ttl: number = DEFAULT_TTL): vo
 }
 
 export function invalidateCache(keyPrefix: string): void {
+  generation++;
   for (const key of cache.keys()) {
     if (key.startsWith(keyPrefix)) {
       cache.delete(key);
@@ -50,9 +59,12 @@ export function dedupe<T>(
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
 
+  const startGen = generation;
   const promise = fetcher()
     .then((data) => {
-      setCache(key, data, ttl);
+      if (generation === startGen) {
+        setCache(key, data, ttl);
+      }
       return data;
     })
     .finally(() => {

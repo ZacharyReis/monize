@@ -105,4 +105,28 @@ describe('apiCache – dedupe', () => {
     await new Promise(res => setTimeout(res, 5));
     expect(getCached('key6')).toBeUndefined();
   });
+
+  it('a normal (no-invalidation) dedupe still caches the resolved value', async () => {
+    const fetcher = () => Promise.resolve('fresh-data');
+    const result = await dedupe('gen:no-invalidate', fetcher);
+    expect(result).toBe('fresh-data');
+    expect(getCached('gen:no-invalidate')).toBe('fresh-data');
+  });
+
+  it('invalidateCache during an in-flight fetch prevents the stale result from repopulating the cache', async () => {
+    let resolveFetch!: (val: string) => void;
+    const fetcher = () => new Promise<string>((res) => { resolveFetch = res; });
+
+    // Start the fetch (nothing cached yet), then invalidate BEFORE it resolves
+    // -- simulates a mutation (merge/keep-both) landing mid-fetch.
+    const promise = dedupe('gen:key', fetcher);
+    invalidateCache('gen:');
+    resolveFetch('stale-data');
+
+    const result = await promise;
+    // The caller still gets the in-flight value...
+    expect(result).toBe('stale-data');
+    // ...but it must NOT have been written to the cache post-invalidation.
+    expect(getCached('gen:key')).toBeUndefined();
+  });
 });
