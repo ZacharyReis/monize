@@ -11,8 +11,12 @@ describe("pendingReviewsStore", () => {
     expect(usePendingReviewsStore.getState().count).toBe(3);
   });
   it("refresh leaves count unchanged on error", async () => {
+    // First set count to a known non-zero value
+    usePendingReviewsStore.setState({ count: 5 });
+    // Then make the API reject
     (importMatchesApi.list as any).mockRejectedValue(new Error("boom"));
     await usePendingReviewsStore.getState().refresh();
-    expect(usePendingReviewsStore.getState().count).toBe(0);
+    // Count should remain 5 (the last-known value), not reset to 0
+    expect(usePendingReviewsStore.getState().count).toBe(5);
   });
 });
