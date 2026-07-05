@@ -1,4 +1,5 @@
 import apiClient from './api';
+import { ProposedMatch } from '@/types/import';
 
 export type DateFormat = 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD' | 'YYYY-DD-MM';
 
@@ -258,6 +259,8 @@ export interface ImportResult {
     accountType: string;
     currencyCode?: string;
   }>;
+  proposedMatches?: ProposedMatch[];
+  matchesStaged?: number;
 }
 
 export interface ParsedQifMultiAccountResponse {

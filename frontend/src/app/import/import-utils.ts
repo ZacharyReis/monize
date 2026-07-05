@@ -42,6 +42,7 @@ export interface BulkImportResult {
     accountType: string;
     currencyCode?: string;
   }>;
+  matchesStaged?: number;
 }
 
 export function suggestAccountType(name: string): string {
