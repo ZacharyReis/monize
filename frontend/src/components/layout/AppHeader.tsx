@@ -6,6 +6,7 @@ import { useClickOutside } from '@/hooks/useClickOutside';
 import { useHideOnScroll } from '@/hooks/useHideOnScroll';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { usePendingReviewsStore } from '@/store/pendingReviewsStore';
 import { authApi } from '@/lib/auth';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
@@ -30,7 +31,7 @@ const navLinks = [
   { href: '/reports', labelKey: 'reports' },
 ];
 
-const toolsLinks: { href: string; labelKey: string; badge?: string }[] = [
+const toolsLinks: { href: string; labelKey: string }[] = [
   { href: '/categories', labelKey: 'categories' },
   { href: '/payees', labelKey: 'payees' },
   { href: '/institutions', labelKey: 'institutions' },
@@ -38,6 +39,7 @@ const toolsLinks: { href: string; labelKey: string; badge?: string }[] = [
   { href: '/securities', labelKey: 'securities' },
   { href: '/currencies', labelKey: 'currencies' },
   { href: '/import', labelKey: 'import' },
+  { href: '/import/matches', labelKey: 'pendingReviews' },
 ];
 
 const aiLinks: { href: string; labelKey: string }[] = [
@@ -55,6 +57,13 @@ export function AppHeader() {
   const delegateCapabilities = useAuthStore((s) => s.delegateCapabilities);
   const delegateSections = useAuthStore((s) => s.delegateSections);
   const isDelegateView = !!actingAsUserId;
+  // Live count of staged import-match candidates awaiting review, shown as a
+  // badge on the Pending Reviews tools link. Refreshed on mount here (and by
+  // MatchReviewList/MatchReviewStep/the Pending Reviews page itself whenever
+  // a match resolves) so the badge reflects reality without polling.
+  const pendingReviewsCount = usePendingReviewsStore((s) => s.count);
+  const toolsLinkBadge = (href: string): string | undefined =>
+    href === '/import/matches' && pendingReviewsCount > 0 ? String(pendingReviewsCount) : undefined;
   // A delegate sees a top-nav entry only if it is reachable: granted
   // sections (bills/investments/budgets/reports) plus Transactions when
   // they can read any non-investment account (delegateSections.transactions,
@@ -117,6 +126,13 @@ export function AppHeader() {
       searchInputRef.current?.focus();
     }
   }, [searchOpen]);
+
+  // Fetch the current pending-review count once on mount so the nav badge
+  // reflects reality immediately, rather than waiting for some other action
+  // to trigger a refresh.
+  useEffect(() => {
+    usePendingReviewsStore.getState().refresh();
+  }, []);
 
   const submitSearch = () => {
     const term = searchTerm.trim();
@@ -240,7 +256,7 @@ export function AppHeader() {
                 toolsLinks={visibleToolsLinks.map((l) => ({
                   href: l.href,
                   label: t(l.labelKey),
-                  badge: l.badge,
+                  badge: toolsLinkBadge(l.href),
                 }))}
                 showAdmin={!isDelegateView && user?.role === 'admin'}
               />
@@ -348,27 +364,30 @@ export function AppHeader() {
                 {toolsOpen && (
                   <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg dark:shadow-gray-700/50 border border-gray-200 dark:border-gray-700 z-50">
                     <div className="py-1">
-                      {visibleToolsLinks.map((link) => (
-                        <button
-                          key={link.href}
-                          onClick={() => {
-                            router.push(link.href);
-                            setToolsOpen(false);
-                          }}
-                          className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                            pathname === link.href
-                              ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {t(link.labelKey)}
-                          {link.badge && (
-                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                              {link.badge}
-                            </span>
-                          )}
-                        </button>
-                      ))}
+                      {visibleToolsLinks.map((link) => {
+                        const badge = toolsLinkBadge(link.href);
+                        return (
+                          <button
+                            key={link.href}
+                            onClick={() => {
+                              router.push(link.href);
+                              setToolsOpen(false);
+                            }}
+                            className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
+                              pathname === link.href
+                                ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {t(link.labelKey)}
+                            {badge && (
+                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                {badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

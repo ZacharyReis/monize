@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/render';
 import { AppHeader } from './AppHeader';
+import { usePendingReviewsStore } from '@/store/pendingReviewsStore';
+
+// Mock the import-matches API so the nav badge's store refresh (on mount)
+// resolves deterministically instead of hitting a real, unmocked endpoint.
+const mockList = vi.fn().mockResolvedValue([]);
+vi.mock('@/lib/import-matches', () => ({
+  importMatchesApi: { list: (...args: any[]) => mockList(...args) },
+}));
 
 // Mock next/image
 vi.mock('next/image', () => ({
@@ -71,6 +79,8 @@ vi.mock('@/components/budgets/BudgetAlertBadge', () => ({
 describe('AppHeader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockList.mockResolvedValue([]);
+    usePendingReviewsStore.setState({ count: 0 });
     mockPathname = '/dashboard';
     mockUser = {
       id: 'test-user-id',
@@ -176,6 +186,44 @@ describe('AppHeader', () => {
     fireEvent.click(categoriesLinks[0]);
 
     expect(mockPush).toHaveBeenCalledWith('/categories');
+  });
+
+  describe('pending reviews nav badge', () => {
+    it('refreshes the pending reviews count on mount', async () => {
+      render(<AppHeader />);
+      await waitFor(() => expect(mockList).toHaveBeenCalled());
+    });
+
+    it('shows the Pending Reviews link in the desktop Tools dropdown, with no badge when count is 0', () => {
+      render(<AppHeader />);
+      fireEvent.click(screen.getAllByText('Tools')[0]);
+
+      expect(screen.getAllByText('Pending Reviews').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('3')).not.toBeInTheDocument();
+    });
+
+    it('renders the live count as a badge on the desktop Pending Reviews link once the store has a nonzero count', () => {
+      usePendingReviewsStore.setState({ count: 3 });
+      render(<AppHeader />);
+
+      fireEvent.click(screen.getAllByText('Tools')[0]);
+      expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    it('navigates to /import/matches when the Pending Reviews link is clicked', () => {
+      render(<AppHeader />);
+      fireEvent.click(screen.getAllByText('Tools')[0]);
+      fireEvent.click(screen.getAllByText('Pending Reviews')[0]);
+      expect(mockPush).toHaveBeenCalledWith('/import/matches');
+    });
+
+    it('mirrors the live count as a badge on the mobile Pending Reviews link', () => {
+      usePendingReviewsStore.setState({ count: 5 });
+      render(<AppHeader />);
+      fireEvent.click(screen.getByLabelText('Toggle menu'));
+
+      expect(screen.getByText('5')).toBeInTheDocument();
+    });
   });
 
   it('navigates to dashboard when logo is clicked', () => {
