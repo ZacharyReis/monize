@@ -283,5 +283,21 @@
   "navigation": {
     "back": "[XX-Back-XX]",
     "next": "[XX-Next-XX]"
+  },
+  "matchReview": {
+    "account": "[XX-Account-XX]",
+    "yourRow": "[XX-Your transaction-XX]",
+    "bankRow": "[XX-Bank record-XX]",
+    "merge": "[XX-Merge-XX]",
+    "keepBoth": "[XX-Keep both-XX]",
+    "dismiss": "[XX-Dismiss-XX]",
+    "confirmMergeTitle": "[XX-Merge this transaction?-XX]",
+    "confirmMergeMessage": "[XX-This clears your transaction and attaches the bank record. Undoing it means deleting the row and re-importing.-XX]",
+    "skipRemaining": "[XX-Skip remaining-XX]",
+    "done": "[XX-Done-XX]",
+    "alreadyResolved": "[XX-That match was already resolved.-XX]",
+    "resolveError": "[XX-Could not resolve this match - it has been refreshed.-XX]",
+    "empty": "[XX-You're all caught up - no matches to review.-XX]",
+    "reviewPointer": "[XX-{count} possible {count, plural, one {match} other {matches}} from this import-XX]"
   }
 }

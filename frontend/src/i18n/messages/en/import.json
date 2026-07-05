@@ -285,8 +285,6 @@
     "next": "Next"
   },
   "matchReview": {
-    "title": "Review matches",
-    "subtitle": "{imported} imported, {matches} possible {matches, plural, one {match} other {matches}}",
     "account": "Account",
     "yourRow": "Your transaction",
     "bankRow": "Bank record",
