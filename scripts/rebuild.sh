@@ -50,6 +50,27 @@ check_migrations() {
     else
         log "Applied $pending migration(s)."
     fi
+
+    ensure_ownership
+}
+
+# --- Ensure the app role owns objects created by postgres-run migrations ---
+# Migrations apply as `postgres` (superuser), so any NEW table/sequence is born
+# postgres-owned and $DB_USER (the app role) is locked out of it -- a real
+# INSERT-time "permission denied" (hit live 2026-07-05: import_match_candidate
+# from migration 091 blocked the first OFX import that staged matches). Reassign
+# everything in public to $DB_USER after each migration run. Idempotent no-op
+# when ownership is already correct.
+ensure_ownership() {
+    log "Ensuring $DB_USER owns all public tables/sequences..."
+    psql -U postgres -d "$DB_NAME" -t -A -c \
+        "SELECT format('ALTER TABLE %I OWNER TO %I;', tablename, '$DB_USER') \
+         FROM pg_tables WHERE schemaname='public' AND tableowner <> '$DB_USER';" \
+        | psql -U postgres -d "$DB_NAME" -q -v ON_ERROR_STOP=1
+    psql -U postgres -d "$DB_NAME" -t -A -c \
+        "SELECT format('ALTER SEQUENCE %I OWNER TO %I;', sequencename, '$DB_USER') \
+         FROM pg_sequences WHERE schemaname='public' AND sequenceowner <> '$DB_USER';" \
+        | psql -U postgres -d "$DB_NAME" -q -v ON_ERROR_STOP=1
 }
 
 # --- Backend build ---
