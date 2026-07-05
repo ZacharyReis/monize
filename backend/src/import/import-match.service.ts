@@ -197,4 +197,20 @@ export class ImportMatchService {
       throw err;
     }
   }
+
+  async dismiss(userId: string, candidateId: string): Promise<void> {
+    const candidate = await this.loadOwned(userId, candidateId);
+    if (candidate.state !== "pending") {
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
+    }
+    if (!(await this.claim(userId, candidateId, "dismissed"))) {
+      throw this.conflict(
+        "already_resolved",
+        "Match candidate already resolved",
+      );
+    }
+  }
 }

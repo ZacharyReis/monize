@@ -497,6 +497,20 @@ describe("Import match resolve (integration)", () => {
     });
   });
 
+  describe("dismiss", () => {
+    it("marks the candidate dismissed, inserts no row, leaves balance unchanged", async () => {
+      const before = await balanceOf();
+      const cand = await stageCandidate({ bankAmount: -50, fitid: "FIT-DISMISS" });
+      await matchService.dismiss(userId, cand.id);
+      const c = await dataSource.manager.findOneOrFail(ImportMatchCandidate, { where: { id: cand.id } });
+      expect(c.state).toBe("dismissed");
+      expect(await matchService.listPending(userId)).toHaveLength(0); // drops off the queue
+      const rows = await dataSource.manager.find(Transaction, { where: { fitid: "FIT-DISMISS" } });
+      expect(rows).toHaveLength(0);            // nothing inserted
+      expect(await balanceOf()).toBe(before);  // balance untouched
+    });
+  });
+
   describe("listPending", () => {
     it("returns only pending candidates for the user, newest first", async () => {
       const older = await stageCandidate({ fitid: "OLD" });

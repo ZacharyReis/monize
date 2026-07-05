@@ -304,6 +304,22 @@ describe("ImportMatchService", () => {
     });
   });
 
+  describe("dismiss", () => {
+    it("claims the candidate as dismissed and inserts nothing", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate());
+      await service.dismiss("u1", "cand-1");
+      expect(candidateRepo.update).toHaveBeenCalledWith(
+        { id: "cand-1", userId: "u1", state: "pending" }, { state: "dismissed" },
+      );
+      expect(txService.createImportedRow).not.toHaveBeenCalled();
+      expect(txService.applyImportedMatch).not.toHaveBeenCalled();
+    });
+    it("double-dismiss returns already_resolved", async () => {
+      candidateRepo.findOne.mockResolvedValue(pendingCandidate({ state: "dismissed" }));
+      await expect(service.dismiss("u1", "cand-1")).rejects.toMatchObject({ response: { code: "already_resolved" } });
+    });
+  });
+
   describe("listPending", () => {
     it("returns only this user's pending candidates, newest first", async () => {
       candidateRepo.find.mockResolvedValue([{ id: "c1" }]);

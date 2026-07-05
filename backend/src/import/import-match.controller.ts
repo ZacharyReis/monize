@@ -38,4 +38,9 @@ export class ImportMatchController {
   keepBoth(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
     return this.matchService.keepBoth(req.user.id, id);
   }
+
+  @Post(":id/dismiss")
+  dismiss(@Req() req: any, @Param("id", ParseUUIDPipe) id: string) {
+    return this.matchService.dismiss(req.user.id, id);
+  }
 }
