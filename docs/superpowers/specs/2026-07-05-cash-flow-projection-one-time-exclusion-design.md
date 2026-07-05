@@ -112,26 +112,27 @@ months?) instead of amount-outlier-ness (a proxy). This fixes both the
 Uncategorized pool and sparse-real-category cases, because it groups by payee,
 not category.
 
-**Precompute once** in `filterHistoricalRows`, over all parsed rows:
+**Precompute once** in `filterHistoricalRows`, over all parsed rows, keyed by the
+stable `payee_id` (NOT the fuzzy name — Wren #6 / rev-2 #2):
 
 ```ts
-// payee (normalized) -> set of distinct YYYY-MM it appears in
+// payee_id -> set of distinct YYYY-MM it appears in
 const payeeMonths = new Map<string, Set<string>>();
 for (const row of rows) {
-  if (!row.payeeName) continue;              // null/empty payee: not eligible
-  const key = row.payeeName.trim().toLocaleLowerCase();
-  const months = payeeMonths.get(key) ?? new Set<string>();
+  if (!row.payeeId) continue;                // no linked payee: not B2-eligible
+  const months = payeeMonths.get(row.payeeId) ?? new Set<string>();
   months.add(row.date.slice(0, 7));
-  payeeMonths.set(key, months);
+  payeeMonths.set(row.payeeId, months);
 }
-const oneTimePayeeKeys = new Set(
-  [...payeeMonths].filter(([, months]) => months.size === 1).map(([k]) => k),
+const oneTimePayeeIds = new Set(
+  [...payeeMonths].filter(([, months]) => months.size === 1).map(([id]) => id),
 );
 ```
 
-`payeeName` here is the query's `COALESCE(p.name, t.payee_name, t.description)`
-(line ~125) — the same value used for outlier display — so payee grouping falls
-back to the description when no payee is set.
+Keying on `payee_id` (a linked payee record) rather than the display name means a
+row whose only identity is a `COALESCE(...)` description fallback is never
+B2-eligible, and two charges to the same payee always share a key regardless of
+description noise.
 
 **Gate** (evaluated only when flag is NULL, after `single_historical_occurrence`
 and before `amount_outlier`), fires `single_payee_occurrence` when **all** hold:
@@ -141,21 +142,27 @@ and before `amount_outlier`), fires `single_payee_occurrence` when **all** hold:
   the history** (`countActiveMonths(rows)`), NOT the requested `lookbackMonths`.
   This is the corrected guard (Wren finding #1): a 6-month lookback over only
   2 months of real data must NOT satisfy "enough history".
-- `row.hasPayee` — the row has a **stable payee identity** (a real
-  `payees.name` or `transactions.payee_name`), NOT a description-only fallback.
-  Volatile imported descriptions with changing ref/date tokens would otherwise
-  each look like a distinct one-month payee (Wren finding #6).
+- `row.payeeId` present — the row has a **linked `payee_id`** (stable payee
+  identity), NOT a description-only / unlinked row. Recurrence is grouped by
+  `payee_id`, never the fuzzy name, so volatile imported descriptions with
+  changing ref/date tokens cannot masquerade as one-month payees (Wren #6 +
+  rev-2 #2). Rows without a `payee_id` are simply not B2-eligible (the tri-state
+  flag still lets the user mark them).
 - `!row.isScheduledMatch` — the row does **not** match an active, non-`ONCE`
-  scheduled transaction (by payee + amount). The existing `NOT EXISTS` anti-join
-  only removes *split or uncategorized* scheduled matches
-  (`st.is_split = true OR st.category_id IS NULL`, line ~150), so an **unsplit
-  categorized** scheduled charge (e.g. a categorized annual insurance bill) stays
-  in `historicalRows` and WOULD be wrongly flagged one-time — then double-removed
-  (excluded from history *and* subtracted via `scheduledMap`), erasing real spend
-  (Wren finding #2). A dedicated `is_scheduled_match` signal, computed by a
-  correlated `EXISTS` **without** the split/category restriction, gates it out.
-- `oneTimePayeeKeys.has(normalize(row.payeeName))` — payee appears in exactly one
-  calendar month across the window (payee-month map built only over `hasPayee` rows).
+  scheduled transaction. The existing `NOT EXISTS` anti-join only removes *split
+  or uncategorized* scheduled matches (`st.is_split = true OR st.category_id IS
+  NULL`, line ~150), so an **unsplit categorized** scheduled charge (e.g. a
+  categorized annual insurance bill) stays in `historicalRows` and WOULD be
+  wrongly flagged one-time — then double-removed (excluded from history *and*
+  subtracted via `scheduledMap`), erasing real spend (Wren #2). A dedicated
+  `is_scheduled_match` signal — a correlated `EXISTS` that is the anti-join
+  predicate **minus** the split/category line and **plus** the same `payee_id`
+  match and account scope (`st2.account_id = $4`) the anti-join uses (Wren rev-2
+  #1/#2) — gates it out. Because both B2-eligibility and `is_scheduled_match`
+  key on `payee_id`, they align by construction (no null-payee identity drift).
+- `oneTimePayeeIds.has(row.payeeId)` — that `payee_id` appears in exactly one
+  calendar month across the window (payee-month map built only over rows with a
+  `payeeId`).
 - `row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT` ($100).
 
 The existing `amount_outlier` gate (one abnormally large charge in a
