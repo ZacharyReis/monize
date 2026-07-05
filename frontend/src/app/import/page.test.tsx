@@ -275,6 +275,17 @@ vi.mock('@/components/import/CompleteStep', () => ({
   ),
 }));
 
+vi.mock('@/components/import/MatchReviewStep', () => ({
+  MatchReviewStep: ({ matches, onDone }: any) => (
+    <div data-testid="match-review-step">
+      <span>Review matches ({matches.length})</span>
+      <button data-testid="match-review-done" onClick={onDone}>
+        Done
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('@/components/layout/PageLayout', () => ({
   PageLayout: ({ children }: { children: React.ReactNode }) => <div data-testid="page-layout">{children}</div>,
 }));
@@ -990,6 +1001,124 @@ describe('ImportPage', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('map-securities-step')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('matchReview progress dot visibility', () => {
+    it('does not render a progress dot for matchReview when the import produced no matches', async () => {
+      mockParseQif.mockResolvedValue({
+        ...mockParsedData,
+        categories: [],
+        transferAccounts: [],
+        securities: [],
+      });
+      mockImportQif.mockResolvedValue({
+        imported: 5,
+        skipped: 0,
+        errors: 0,
+        errorMessages: [],
+        categoriesCreated: 0,
+        accountsCreated: 0,
+        payeesCreated: 0,
+        securitiesCreated: 0,
+        proposedMatches: [],
+      });
+      mockGetAllAccounts.mockResolvedValue(mockAccounts);
+      mockGetAllCategories.mockResolvedValue([]);
+      mockGetSecurities.mockResolvedValue([]);
+      mockGetCurrencies.mockResolvedValue(mockCurrencies);
+
+      render(<ImportPage />);
+
+      await uploadFile('!Type:Bank\n^', 'chequing.qif');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('select-account-step')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('next-to-review'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('review-step')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('import-button'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('complete-step')).toBeInTheDocument();
+      });
+
+      // With no proposed matches, the wizard lands on 'complete' having never
+      // visited 'matchReview'. The progress indicator must NOT render a dot
+      // for it (previously it leaked through as a false "completed" checkmark).
+      // Visible dots here: upload, selectAccount, review, complete -- 4 total.
+      const progressDots = screen.getByTestId('page-layout').querySelectorAll('.rounded-full');
+      expect(progressDots.length).toBe(4);
+      expect(screen.queryByTestId('match-review-step')).not.toBeInTheDocument();
+    });
+
+    it('renders a progress dot for matchReview when the import produced matches', async () => {
+      mockParseQif.mockResolvedValue({
+        ...mockParsedData,
+        categories: [],
+        transferAccounts: [],
+        securities: [],
+      });
+      mockImportQif.mockResolvedValue({
+        imported: 5,
+        skipped: 0,
+        errors: 0,
+        errorMessages: [],
+        categoriesCreated: 0,
+        accountsCreated: 0,
+        payeesCreated: 0,
+        securitiesCreated: 0,
+        proposedMatches: [
+          {
+            candidateId: 'cand-1',
+            bankAmount: -42.5,
+            bankDate: '2025-01-15',
+            candidates: [
+              { id: 'txn-1', transactionDate: '2025-01-15', amount: -42.5, payeeName: 'Test Payee', description: null },
+            ],
+          },
+        ],
+      });
+      mockGetAllAccounts.mockResolvedValue(mockAccounts);
+      mockGetAllCategories.mockResolvedValue([]);
+      mockGetSecurities.mockResolvedValue([]);
+      mockGetCurrencies.mockResolvedValue(mockCurrencies);
+
+      render(<ImportPage />);
+
+      await uploadFile('!Type:Bank\n^', 'chequing.qif');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('select-account-step')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('next-to-review'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('review-step')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('import-button'));
+
+      // With proposed matches, the wizard routes to 'matchReview' instead of
+      // 'complete'. The progress indicator must include a dot for it.
+      // Visible dots here: upload, selectAccount, review, matchReview, complete -- 5 total.
+      await waitFor(() => {
+        expect(screen.getByTestId('match-review-step')).toBeInTheDocument();
+      });
+      const progressDots = screen.getByTestId('page-layout').querySelectorAll('.rounded-full');
+      expect(progressDots.length).toBe(5);
+
+      // Finishing the match review advances to 'complete' as normal.
+      fireEvent.click(screen.getByTestId('match-review-done'));
+      await waitFor(() => {
+        expect(screen.getByTestId('complete-step')).toBeInTheDocument();
       });
     });
   });

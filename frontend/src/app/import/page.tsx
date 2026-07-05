@@ -231,6 +231,7 @@ function ImportContent() {
                 if (s === 'mapSecurities' && wizard.securityMappings.length === 0) return false;
                 if (s === 'mapAccounts' && !wizard.shouldShowMapAccounts) return false;
                 if (s === 'multiAccountReview' && !wizard.multiAccountData) return false;
+                if (s === 'matchReview' && !wizard.importResult?.proposedMatches?.length) return false;
                 if (wizard.multiAccountData && ['selectAccount', 'mapCategories', 'mapAccounts', 'review'].includes(s)) return false;
                 if (wizard.multiAccountData && s === 'mapSecurities' && wizard.securityMappings.length === 0) return false;
                 return true;
