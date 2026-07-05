@@ -190,6 +190,13 @@ Add these tests at the end of the `describe` block:
     expect(sql).toContain("st2.account_id = $4");
   });
 
+  it("all-account historical SQL leaves is_scheduled_match unscoped (no orphan $4)", async () => {
+    transactionsRepo.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await service.getSpendingTrends(mockUserId, 3, "all");
+    const sql = transactionsRepo.query.mock.calls[0][0] as string;
+    expect(sql).not.toContain("st2.account_id = $4");
+  });
+
   it("outliers carry the parent transactionId", async () => {
     transactionsRepo.query
       .mockResolvedValueOnce([hist("cat-travel", 1200, "2026-03-10", "Hotel")])
@@ -967,7 +974,7 @@ import { projectionToSelect, selectToProjection } from '@/lib/projection-intent'
 
 - [ ] **Step 6: Backfill the `transactions` keys into every locale + regen pseudo (Wren #3)**
 
-The keys (`form.fields.projection`, `form.projectionOptions.{auto,oneTime,recurring}`) must exist in every translated locale or `messages.parity.test.ts` fails. Backfill English-fallback values into all locale dirs (including `en`), then regenerate the pseudo-locale. From `frontend/`:
+The keys (`form.fields.projection`, `form.projectionOptions.{auto,oneTime,recurring}`) must exist in every **full-translation** locale or `messages.parity.test.ts` fails. Backfill English-fallback values into `en` + full translations (the 3 regional variants are skipped — see the script's SKIP set), then regenerate the pseudo-locale. From `frontend/`:
 
 ```bash
 cat > /tmp/backfill-t550-tx.mjs <<'EOF'
@@ -1223,7 +1230,7 @@ import { OneTimeExclusionsList } from '@/components/bills/OneTimeExclusionsList'
 
 - [ ] **Step 7: Backfill the `bills` keys into every locale + regen pseudo (Wren #3)**
 
-Backfill English-fallback values into every locale's `bills.json`, then regenerate the pseudo-locale. From `frontend/`:
+Backfill English-fallback values into `en` + full translations' `bills.json` (variants skipped via the script's SKIP set), then regenerate the pseudo-locale. From `frontend/`:
 
 ```bash
 cat > /tmp/backfill-t550-bills.mjs <<'EOF'
@@ -1261,9 +1268,13 @@ Run: `cd ~/Gentoo_Dev/monize && ./scripts/rebuild.sh`
 Expected: migration `093` applied, backend + frontend rebuilt, services restarted. Confirm the column exists:
 `psql "$DATABASE_URL" -c "\d transactions" | grep exclude_from_projection`
 
-- [ ] **Step 2: Reproduce the original bug case**
+- [ ] **Step 2: Reproduce the original bug case + record payee_id coverage (Wren rev-3 nit)**
 
 Using Zach's real data (the debt-settlement payoffs), open the Cash Flow forecast. Confirm the inflated projected monthly fill is present (baseline).
+
+**Then check whether the real payoff rows carry a `payee_id`** — the B2 heuristic now only auto-suggests rows with a linked payee:
+`psql "$DATABASE_URL" -c "SELECT payee_id, payee_name, description, amount FROM transactions WHERE <the payoff rows> ;"`
+Record the result. If the payoff rows have **NULL `payee_id`** (unlinked import), B2 will NOT auto-flag them (`single_payee_occurrence` won't fire) and only the **manual tri-state / forecast-list** path will exclude them — which is still correct behavior, but the "smarter default" won't help this specific case until the rows are linked to a payee. Surface this to Zach explicitly; it may argue for either linking the payees or relaxing B2 to `payee_name` identity in a follow-up.
 
 - [ ] **Step 3: Verify the flag drops the projection**
 
@@ -1313,6 +1324,8 @@ Wren also **confirmed the arithmetic** in rev-1's tests (Rent/Debt, Market IQR h
 3. HIGH (rev-2 #3) — all-locale backfill breaks regional-variant parity (`en-US`/`en-CA`/`en-GB` must differ from `en`) → backfill script skips the 3 variants; writes `en` + full translations only (which need key parity, not differing values) (Tasks 6, 7, Global Constraints).
 4. MED (rev-2 #4) — integration test used non-existent HTTP helpers → rewritten against the real **service-level** harness (`service.create/update/findOne`) (Task 5).
 
-Wren re-confirmed observed-months gating, Rent/Debt = 1500, sparse-history inert, Market `amount_outlier`, false-override 1866.67, tri-state binding, schema.sql, optional typing, dedupe, and the `cd` typo. rev-3 re-gate pending.
+Wren re-confirmed observed-months gating, Rent/Debt = 1500, sparse-history inert, Market `amount_outlier`, false-override 1866.67, tri-state binding, schema.sql, optional typing, dedupe, and the `cd` typo.
+
+**rev-3 → GO** (re-gate, same Wren session, 2026-07-05). All 4 rev-2 folds verified correct: `$4` scoping is sound (no orphan `$4` in the `all` path); the payee_id pivot is internally consistent (B2-eligibility and `is_scheduled_match` aligned by construction, null-payee drift gone); the i18n skip set exactly matches the `base: "en"` variants (`en-US`/`en-CA`/`en-GB`) and full translations pass on key/ICU parity; the integration test matches the real service-level harness. No new blocking defect; parameter numbering stable; no dangling `has_payee` references; existing spec tests stay B2-inert (< 6 observed months). **Three optional nits, all folded:** (1) Task 8 now records real-payoff `payee_id` coverage (B2 auto-suggest only covers linked payees); (2) added an all-account SQL negative assertion (no orphan `$4`); (3) tidied "all locales" prose. Plan is GO for implementation.
 
 **Placeholder scan:** no TBD/TODO; every code step shows real code. Two "confirm the path" notes (frontend `formatCurrency` import; the `trendData` state type location) are pattern-confirmations the implementer resolves against the actual file, not missing logic.
