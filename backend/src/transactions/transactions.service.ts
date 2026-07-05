@@ -421,6 +421,7 @@ export class TransactionsService {
         locked.status !== TransactionStatus.UNRECONCILED ||
         locked.isSplit ||
         locked.isTransfer ||
+        locked.linkedTransactionId ||
         Math.abs(Number(locked.amount) - Number(opts.expectedAmount)) > 0.00005
       ) {
         throw new ConflictException(

@@ -275,6 +275,47 @@ describe("Import match resolve (integration)", () => {
       expect(row.fitid).toBeNull();
     });
 
+    it("MONEY-CRITICAL: applyImportedMatch's row-lock re-validation rejects a target with linkedTransactionId set (legacy isTransfer=false/isSplit=false case)", async () => {
+      // ImportMatchService.merge()'s pre-claim check already screens out a
+      // linked target, so this exercises TransactionsService.applyImportedMatch
+      // directly -- the AUTHORITATIVE post-claim, under-lock re-validation --
+      // to prove it independently enforces the same invariant (e.g. against a
+      // race that slips past the pre-claim check, or legacy/repair data with
+      // linked_transaction_id set but isTransfer/isSplit both false).
+      const other = await txService.create(userId, {
+        accountId,
+        transactionDate: "2026-01-10",
+        amount: -10,
+        currencyCode: "USD",
+      });
+      const target = await txService.create(userId, {
+        accountId,
+        transactionDate: "2026-01-15",
+        amount: -50,
+        currencyCode: "USD",
+      });
+      await dataSource.manager.update(Transaction, target.id, {
+        linkedTransactionId: other.id,
+      });
+
+      await expect(
+        txService.applyImportedMatch(userId, target.id, {
+          bankDate: "2026-06-15",
+          fitid: "FIT-LINKED",
+          referenceNumber: null,
+          bankMemo: null,
+          expectedAccountId: accountId,
+          expectedAmount: -50,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      const row = await dataSource.manager.findOneOrFail(Transaction, {
+        where: { id: target.id },
+      });
+      expect(row.status).toBe(TransactionStatus.UNRECONCILED);
+      expect(row.fitid).toBeNull();
+    });
+
     it("MONEY-CRITICAL: a post-commit read failure cannot revert the candidate or leave the merge half-applied", async () => {
       // applyImportedMatch used to hydrate its return with a post-commit findOne.
       // A throw there (after commit) reverted the candidate to pending; a retry
