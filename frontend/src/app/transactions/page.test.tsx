@@ -1,6 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@/test/render';
+import { render, screen, waitFor, fireEvent, act } from '@/test/render';
 import TransactionsPage from './page';
+
+// Override the global next/navigation mock (src/test/setup.ts) with a STABLE
+// router object. The global mock's `useRouter()` returns a brand-new object
+// (with brand-new `vi.fn()`s) on every call, which is fine for most tests but
+// does not match real Next.js (whose router reference is stable across
+// renders). That instability, combined with `filters.updateUrl`/`updateUrl`
+// depending on `[router]`, destabilizes the "Update URL and load
+// transactions" effect's dependency array on every render -- normally
+// harmless since nothing re-triggers `loadTransactions` outside of it, but it
+// becomes a genuine runaway re-render loop once something (like our new
+// cross-tab refresh listener below) calls the page's refetch imperatively.
+// This file never asserts on `router.push`/`replace` calls, so a stable mock
+// changes nothing observable for existing tests.
+const stableRouter = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  back: vi.fn(),
+  prefetch: vi.fn(),
+  refresh: vi.fn(),
+};
+vi.mock('next/navigation', () => ({
+  useRouter: () => stableRouter,
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 // Mock next/image
 vi.mock('next/image', () => ({
@@ -1996,6 +2021,69 @@ describe('TransactionsPage', () => {
       expect(rows[0][6]).toBe(-200);
       // Category should show all split categories
       expect(rows[0][3]).toBe('Groceries; Dining');
+    });
+  });
+
+  describe('cross-tab refresh on monize:transactions-changed', () => {
+    it('refetches transactions when the same-window monize:transactions-changed event fires', async () => {
+      render(<TransactionsPage />);
+      await waitFor(() => expect(screen.getByTestId('filter-panel')).toBeInTheDocument());
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalled());
+
+      mockGetAll.mockClear();
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent('monize:transactions-changed'));
+      });
+
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalled());
+    });
+
+    it('refetches transactions when a cross-tab BroadcastChannel "transactions-changed" message arrives', async () => {
+      render(<TransactionsPage />);
+      await waitFor(() => expect(screen.getByTestId('filter-panel')).toBeInTheDocument());
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalled());
+
+      mockGetAll.mockClear();
+      const channel = new BroadcastChannel('monize');
+      await act(async () => {
+        channel.postMessage('transactions-changed');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalled());
+      channel.close();
+    });
+
+    it('ignores unrelated BroadcastChannel messages', async () => {
+      render(<TransactionsPage />);
+      await waitFor(() => expect(screen.getByTestId('filter-panel')).toBeInTheDocument());
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalled());
+
+      mockGetAll.mockClear();
+      const channel = new BroadcastChannel('monize');
+      await act(async () => {
+        channel.postMessage('something-else');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      expect(mockGetAll).not.toHaveBeenCalled();
+      channel.close();
+    });
+
+    it('cleans up the window listener and closes the BroadcastChannel on unmount', async () => {
+      const removeSpy = vi.spyOn(window, 'removeEventListener');
+      const closeSpy = vi.spyOn(BroadcastChannel.prototype, 'close');
+
+      const { unmount } = render(<TransactionsPage />);
+      await waitFor(() => expect(screen.getByTestId('filter-panel')).toBeInTheDocument());
+
+      unmount();
+
+      expect(removeSpy).toHaveBeenCalledWith('monize:transactions-changed', expect.any(Function));
+      expect(closeSpy).toHaveBeenCalled();
+
+      removeSpy.mockRestore();
+      closeSpy.mockRestore();
     });
   });
 });

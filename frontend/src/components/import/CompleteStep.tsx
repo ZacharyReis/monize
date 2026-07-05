@@ -122,6 +122,21 @@ export function CompleteStep({
               </ul>
             </div>
 
+            {/* Pointer to the pending import-match review queue, when this
+                import staged any candidate matches for review. */}
+            {!!bulkImportResult.matchesStaged && bulkImportResult.matchesStaged > 0 && (
+              <button
+                type="button"
+                onClick={() => router.push('/import/matches')}
+                className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+              >
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  {t('matchReview.reviewPointer', { count: bulkImportResult.matchesStaged })}
+                </span>
+                <span aria-hidden="true"> {'→'}</span>
+              </button>
+            )}
+
             {/* Per-file results */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{t('complete.perFileResultsHeading')}</h3>

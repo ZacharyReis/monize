@@ -334,6 +334,27 @@ function TransactionsContent() {
     return () => window.removeEventListener('popstate', origHandler);
   }, []);
 
+  // Refresh when another view (e.g. the import match-review queue, in this
+  // window or another tab) resolves a match that changed the transaction set.
+  // BroadcastChannel is guarded -- it must never throw at mount/SSR time.
+  useEffect(() => {
+    const handleTransactionsChanged = () => loadAllData();
+    window.addEventListener('monize:transactions-changed', handleTransactionsChanged);
+
+    let channel: BroadcastChannel | undefined;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('monize');
+      channel.onmessage = (event) => {
+        if (event.data === 'transactions-changed') handleTransactionsChanged();
+      };
+    }
+
+    return () => {
+      window.removeEventListener('monize:transactions-changed', handleTransactionsChanged);
+      channel?.close();
+    };
+  }, [loadAllData]);
+
   const handleCreateNew = () => openCreate();
 
   const handleEdit = async (transaction: Transaction) => {

@@ -3,6 +3,11 @@ import { render, screen, fireEvent } from '@/test/render';
 import { CompleteStep } from './CompleteStep';
 import { Account } from '@/types/account';
 
+const mockPush = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 vi.mock('@/lib/accounts', () => ({
   accountsApi: {
     detectLoanPayments: vi.fn().mockResolvedValue(null),
@@ -277,6 +282,87 @@ describe('CompleteStep', () => {
       />
     );
     expect(container.firstElementChild?.className).toContain('max-w-4xl');
+  });
+
+  it('shows a match review pointer with the count when matchesStaged > 0', () => {
+    const bulkResult = {
+      totalImported: 10,
+      totalSkipped: 0,
+      totalErrors: 0,
+      categoriesCreated: 0,
+      accountsCreated: 0,
+      payeesCreated: 0,
+      securitiesCreated: 0,
+      fileResults: [],
+      matchesStaged: 4,
+    };
+    render(
+      <CompleteStep
+        {...defaultProps}
+        isBulkImport={true}
+        bulkImportResult={bulkResult}
+      />
+    );
+    expect(screen.getByText('4 possible matches from this import')).toBeInTheDocument();
+  });
+
+  it('navigates to /import/matches when the match review pointer is clicked', () => {
+    const bulkResult = {
+      totalImported: 10,
+      totalSkipped: 0,
+      totalErrors: 0,
+      categoriesCreated: 0,
+      accountsCreated: 0,
+      payeesCreated: 0,
+      securitiesCreated: 0,
+      fileResults: [],
+      matchesStaged: 1,
+    };
+    render(
+      <CompleteStep
+        {...defaultProps}
+        isBulkImport={true}
+        bulkImportResult={bulkResult}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /1 possible match from this import/i }));
+    expect(mockPush).toHaveBeenCalledWith('/import/matches');
+  });
+
+  it('does not show a match review pointer when matchesStaged is zero or absent', () => {
+    const bulkResult = {
+      totalImported: 10,
+      totalSkipped: 0,
+      totalErrors: 0,
+      categoriesCreated: 0,
+      accountsCreated: 0,
+      payeesCreated: 0,
+      securitiesCreated: 0,
+      fileResults: [],
+    };
+    render(
+      <CompleteStep
+        {...defaultProps}
+        isBulkImport={true}
+        bulkImportResult={bulkResult}
+      />
+    );
+    expect(screen.queryByText(/possible match/)).not.toBeInTheDocument();
+
+    const { unmount } = render(
+      <CompleteStep
+        {...defaultProps}
+        isBulkImport={true}
+        bulkImportResult={{ ...bulkResult, matchesStaged: 0 }}
+      />
+    );
+    expect(screen.queryByText(/possible match/)).not.toBeInTheDocument();
+    unmount();
+  });
+
+  it('does not show a match review pointer for single-file imports (no bulkImportResult)', () => {
+    render(<CompleteStep {...defaultProps} />);
+    expect(screen.queryByText(/possible match/)).not.toBeInTheDocument();
   });
 
   it('does not show single import result when bulkImportResult is present', () => {

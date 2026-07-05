@@ -71,6 +71,27 @@ function AccountsContent() {
 
   useOnUndoRedo(loadAccounts);
 
+  // Refresh when another view (e.g. the import match-review queue, in this
+  // window or another tab) resolves a match that changed account balances.
+  // BroadcastChannel is guarded -- it must never throw at mount/SSR time.
+  useEffect(() => {
+    const handleTransactionsChanged = () => loadAccounts();
+    window.addEventListener('monize:transactions-changed', handleTransactionsChanged);
+
+    let channel: BroadcastChannel | undefined;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('monize');
+      channel.onmessage = (event) => {
+        if (event.data === 'transactions-changed') handleTransactionsChanged();
+      };
+    }
+
+    return () => {
+      window.removeEventListener('monize:transactions-changed', handleTransactionsChanged);
+      channel?.close();
+    };
+  }, [loadAccounts]);
+
   // Build a map of brokerage account ID -> market value of holdings only.
   // Cash balance is tracked separately via the linked INVESTMENT_CASH account
   // to avoid double-counting in the net worth summary.

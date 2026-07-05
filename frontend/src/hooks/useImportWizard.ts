@@ -848,6 +848,7 @@ export function useImportWizard() {
         let accountsCreated = 0;
         let payeesCreated = 0;
         let securitiesCreated = 0;
+        let totalMatchesStaged = 0;
 
         let currentCatMappings = [...categoryMappings];
         let currentAccMappings = [...accountMappings];
@@ -871,6 +872,7 @@ export function useImportWizard() {
             totalImported += result.imported;
             totalSkipped += result.skipped;
             totalErrors += result.errors;
+            totalMatchesStaged += result.proposedMatches?.length ?? 0;
             if (fileResults.length === 1) {
               categoriesCreated = result.categoriesCreated;
               accountsCreated = result.accountsCreated;
@@ -940,6 +942,7 @@ export function useImportWizard() {
         setBulkImportResult({
           totalImported, totalSkipped, totalErrors, categoriesCreated, accountsCreated, payeesCreated, securitiesCreated, fileResults,
           loanAccountsNeedingSetup: allLoanAccountsNeedingSetup.length > 0 ? allLoanAccountsNeedingSetup : undefined,
+          matchesStaged: totalMatchesStaged,
         });
         setStep('complete');
 

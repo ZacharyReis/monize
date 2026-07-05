@@ -1208,6 +1208,62 @@ describe('useImportWizard - import handlers', () => {
     expect(result.current.bulkImportResult?.totalImported).toBe(2);
   });
 
+  it('bulk import aggregates matchesStaged across all files', async () => {
+    mockGetAllAccounts.mockResolvedValue([baseAccount()]);
+    mockParseQif.mockResolvedValue(baseParsedQif({ categories: [] }));
+    mockImportQif
+      .mockResolvedValueOnce(importResult({
+        imported: 1,
+        proposedMatches: [{ candidateId: 'c1' }, { candidateId: 'c2' }],
+      }))
+      .mockResolvedValueOnce(importResult({
+        imported: 1,
+        proposedMatches: [{ candidateId: 'c3' }, { candidateId: 'c4' }],
+      }));
+
+    const { result } = renderHook(() => useImportWizard(), { wrapper });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.handleFileSelect(fileEvent([
+        makeFile('a.qif', '1'),
+        makeFile('b.qif', '2'),
+      ]));
+    });
+    act(() => {
+      result.current.setFileAccountId(0, 'acc-1');
+      result.current.setFileAccountId(1, 'acc-1');
+    });
+    await act(async () => {
+      await result.current.handleImport();
+    });
+    expect(result.current.bulkImportResult?.matchesStaged).toBe(4);
+  });
+
+  it('bulk import treats missing proposedMatches as zero matchesStaged', async () => {
+    mockGetAllAccounts.mockResolvedValue([baseAccount()]);
+    mockParseQif.mockResolvedValue(baseParsedQif({ categories: [] }));
+    mockImportQif.mockResolvedValue(importResult({ imported: 1 }));
+
+    const { result } = renderHook(() => useImportWizard(), { wrapper });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.handleFileSelect(fileEvent([
+        makeFile('a.qif', '1'),
+        makeFile('b.qif', '2'),
+      ]));
+    });
+    act(() => {
+      result.current.setFileAccountId(0, 'acc-1');
+      result.current.setFileAccountId(1, 'acc-1');
+    });
+    await act(async () => {
+      await result.current.handleImport();
+    });
+    expect(result.current.bulkImportResult?.matchesStaged).toBe(0);
+  });
+
   it('bulk import aggregates loanAccountsNeedingSetup', async () => {
     mockGetAllAccounts.mockResolvedValue([baseAccount()]);
     mockParseQif.mockResolvedValue(baseParsedQif({ categories: [] }));

@@ -160,4 +160,44 @@ describe('MatchReviewList', () => {
     render(<MatchReviewList matches={[makeMatch('c1')]} showAccount />);
     expect(screen.getByText('TD Checking')).toBeInTheDocument();
   });
+
+  describe('open-view cross-tab refresh', () => {
+    it('dispatches a same-window monize:transactions-changed event and a cross-tab BroadcastChannel message on a successful merge', async () => {
+      (importMatchesApi.merge as any).mockResolvedValue(undefined);
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+      const postMessageSpy = vi.spyOn(BroadcastChannel.prototype, 'postMessage');
+      const match = makeMatch('c1');
+      render(<MatchReviewList matches={[match]} />);
+
+      await confirmMerge();
+
+      await waitFor(() => {
+        expect(dispatchSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'monize:transactions-changed' }),
+        );
+      });
+      expect(postMessageSpy).toHaveBeenCalledWith('transactions-changed');
+
+      dispatchSpy.mockRestore();
+      postMessageSpy.mockRestore();
+    });
+
+    it('does not dispatch a refresh event on a real conflict (target_ineligible)', async () => {
+      (importMatchesApi.merge as any).mockRejectedValue({
+        response: { data: { code: 'target_ineligible' } },
+      });
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+      const match = makeMatch('c1');
+      render(<MatchReviewList matches={[match]} />);
+
+      await confirmMerge();
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(dispatchSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'monize:transactions-changed' }),
+      );
+
+      dispatchSpy.mockRestore();
+    });
+  });
 });

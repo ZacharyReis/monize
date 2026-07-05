@@ -26,6 +26,20 @@ function isAlreadyResolved(err: unknown): boolean {
   );
 }
 
+/**
+ * Notify any other open views (this window's Transactions/Accounts pages, and
+ * other browser tabs) that a match resolution just changed the transaction
+ * set, so they can refetch. `BroadcastChannel` is guarded because it is not
+ * universally available (older browsers, some SSR/test environments) --
+ * construction must never throw at call time.
+ */
+function broadcastTransactionsChanged(): void {
+  window.dispatchEvent(new CustomEvent('monize:transactions-changed'));
+  if (typeof BroadcastChannel !== 'undefined') {
+    new BroadcastChannel('monize').postMessage('transactions-changed');
+  }
+}
+
 export function MatchReviewList({ matches, onResolved, onRefresh, showAccount = false }: MatchReviewListProps) {
   const t = useTranslations('import');
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
@@ -46,6 +60,7 @@ export function MatchReviewList({ matches, onResolved, onRefresh, showAccount = 
   const markResolved = (candidateId: string) => {
     setResolvedIds((prev) => new Set(prev).add(candidateId));
     onResolved?.(candidateId);
+    broadcastTransactionsChanged();
   };
 
   const resolve = async (candidateId: string, action: () => Promise<unknown>) => {

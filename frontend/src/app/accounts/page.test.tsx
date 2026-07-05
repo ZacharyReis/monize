@@ -733,4 +733,49 @@ describe('AccountsPage', () => {
       });
     });
   });
+
+  describe('cross-tab refresh on monize:transactions-changed', () => {
+    it('refetches accounts when the same-window monize:transactions-changed event fires', async () => {
+      render(<AccountsPage />);
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(1));
+
+      mockGetAll.mockClear();
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent('monize:transactions-changed'));
+      });
+
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(1));
+    });
+
+    it('refetches accounts when a cross-tab BroadcastChannel "transactions-changed" message arrives', async () => {
+      render(<AccountsPage />);
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(1));
+
+      mockGetAll.mockClear();
+      const channel = new BroadcastChannel('monize');
+      await act(async () => {
+        channel.postMessage('transactions-changed');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(1));
+      channel.close();
+    });
+
+    it('cleans up the window listener and closes the BroadcastChannel on unmount', async () => {
+      const removeSpy = vi.spyOn(window, 'removeEventListener');
+      const closeSpy = vi.spyOn(BroadcastChannel.prototype, 'close');
+
+      const { unmount } = render(<AccountsPage />);
+      await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(1));
+
+      unmount();
+
+      expect(removeSpy).toHaveBeenCalledWith('monize:transactions-changed', expect.any(Function));
+      expect(closeSpy).toHaveBeenCalled();
+
+      removeSpy.mockRestore();
+      closeSpy.mockRestore();
+    });
+  });
 });
