@@ -136,16 +136,27 @@ back to the description when no payee is set.
 **Gate** (evaluated only when flag is NULL, after `single_historical_occurrence`
 and before `amount_outlier`), fires `single_payee_occurrence` when **all** hold:
 
-- `monthsUsed >= PAYEE_RECURRENCE_MIN_MONTHS` (= **6**) — enough history to
-  judge non-recurrence; in shorter windows the gate is disabled.
-- `row.payeeName` is non-empty.
+- `observedMonths >= PAYEE_RECURRENCE_MIN_MONTHS` (= **6**), where
+  `observedMonths` is the count of **distinct calendar months actually present in
+  the history** (`countActiveMonths(rows)`), NOT the requested `lookbackMonths`.
+  This is the corrected guard (Wren finding #1): a 6-month lookback over only
+  2 months of real data must NOT satisfy "enough history".
+- `row.hasPayee` — the row has a **stable payee identity** (a real
+  `payees.name` or `transactions.payee_name`), NOT a description-only fallback.
+  Volatile imported descriptions with changing ref/date tokens would otherwise
+  each look like a distinct one-month payee (Wren finding #6).
+- `!row.isScheduledMatch` — the row does **not** match an active, non-`ONCE`
+  scheduled transaction (by payee + amount). The existing `NOT EXISTS` anti-join
+  only removes *split or uncategorized* scheduled matches
+  (`st.is_split = true OR st.category_id IS NULL`, line ~150), so an **unsplit
+  categorized** scheduled charge (e.g. a categorized annual insurance bill) stays
+  in `historicalRows` and WOULD be wrongly flagged one-time — then double-removed
+  (excluded from history *and* subtracted via `scheduledMap`), erasing real spend
+  (Wren finding #2). A dedicated `is_scheduled_match` signal, computed by a
+  correlated `EXISTS` **without** the split/category restriction, gates it out.
 - `oneTimePayeeKeys.has(normalize(row.payeeName))` — payee appears in exactly one
-  calendar month across the window.
+  calendar month across the window (payee-month map built only over `hasPayee` rows).
 - `row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT` ($100).
-
-Rows whose payee matches an **active scheduled transaction** are already removed
-from `historicalRows` by the existing `NOT EXISTS` anti-join (lines ~141–158), so
-scheduled annual/recurring charges are inherently protected from this gate.
 
 The existing `amount_outlier` gate (one abnormally large charge in a
 genuinely-recurring category) is **preserved unchanged** and runs after the
@@ -241,9 +252,12 @@ TransactionForm tri-state control ── Auto/One-time/Recurring ──→ PATCH
 - Tri-state precedence: `TRUE` → excluded as `marked_one_time`; `FALSE` →
   included even when it would otherwise be `amount_outlier`; `NULL` → heuristics
   run.
-- B2 payee gate: single-month payee ≥$100 → `single_payee_occurrence`; same
-  payee across 2 months → included; `monthsUsed < 6` → gate disabled; null-payee
-  row → falls through to existing gates only.
+- B2 payee gate: single-month payee ≥$100 with ≥6 **observed** months →
+  `single_payee_occurrence`; same payee across 2 months → included;
+  `observedMonths < 6` → gate disabled; null/description-only payee → falls
+  through to existing gates; an `isScheduledMatch` row seen once → NOT flagged
+  (scheduled protection); a genuinely-recurring category with one abnormal charge
+  → still `amount_outlier`.
 - Regression: `amount_outlier` still fires for a recurring category with one
   abnormally large charge; `single_historical_occurrence` unchanged.
 - `transactionId` present on every `excludedOutlier` and equals the **parent**

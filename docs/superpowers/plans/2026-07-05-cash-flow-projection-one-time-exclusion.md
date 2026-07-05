@@ -14,10 +14,13 @@
 - Signal is a **nullable tri-state**: `NULL` = defer to heuristic, `TRUE` = one-time (exclude), `FALSE` = force recurring (skip all heuristics).
 - Flag lives on the **parent** transaction (`transactions.exclude_from_projection`); the forecast override targets `t.id` (parent), never a split id.
 - Constants: `ONE_TIME_EXPENSE_MIN_AMOUNT = 100` (existing), new `PAYEE_RECURRENCE_MIN_MONTHS = 6`.
+- The B2 payee gate fires only when: **observed** distinct history months ≥ 6 (NOT requested `lookbackMonths` — Wren #1), the row has a **stable payee identity** (`hasPayee`, not a description-only fallback — Wren #6), the row is **not** a scheduled recurring match (`!isScheduledMatch` — Wren #2), amount ≥ $100, and the payee appears in exactly one calendar month.
 - Reason strings (plain strings, no enum): `marked_one_time` (flag TRUE), `single_payee_occurrence` (payee gate), plus existing `single_historical_occurrence`, `amount_outlier`.
 - Write path reuses `PATCH /transactions/:id` — **no new endpoint**. The service must only write the column when the DTO key is present (`"excludeFromProjection" in updateData`), so `NULL` is distinguishable from "field absent".
-- i18n: new English keys go in `en/transactions.json` (namespace `transactions`) and `en/bills.json` (namespace `bills`); run `npm run i18n:pseudo` after adding keys. **Locale parity across the other 20 locales is deferred to T-568** (matches the T-555 precedent) — `npm run i18n:check` / the parity test will flag the new keys until then; this is accepted.
+- Schema is defined in TWO places that must stay in sync: `database/migrations/NNN_*.sql` (incremental) AND `database/schema.sql` (fresh-install snapshot, per `database/CLAUDE.md`). Every column add touches both (Wren #5).
+- i18n: new English keys go in `en/transactions.json` (namespace `transactions`) and `en/bills.json` (namespace `bills`). **`messages.parity.test.ts` enforces full key parity across every translated locale** and runs under `npm run test:cov` + CI (`i18n:check`, `type-check`); an English-only add would fail CI (Wren #3). So the new keys are backfilled (English fallback values) into **all** locale dirs in this branch, then `npm run i18n:pseudo` regenerates `xx`. T-568 is thereby reduced to *translating* these placeholder values, not adding missing keys.
 - Deploy is bare-metal via `./scripts/rebuild.sh` (migrate + build + restart). Migration `093` is `ALTER TABLE ... ADD COLUMN`, so it does not create a new table and the T-555 table-ownership issue does not recur.
+- Frontend `Transaction.excludeFromProjection` is **optional** (`?: boolean | null`) so existing typed fixtures that construct `Transaction` without it still type-check (Wren #4).
 - This changes live money-forecast math: after implementation, the branch goes through **Wren adversarial review → plan-review gate → live verification** before deploy.
 
 **Branch:** `t-550-one-time-projection-exclusion` (already created; spec at `docs/superpowers/specs/2026-07-05-cash-flow-projection-one-time-exclusion-design.md`).
@@ -32,14 +35,16 @@
 ## File Structure
 
 **Backend:**
-- Create `database/migrations/093_transaction_exclude_from_projection.sql` — schema.
+- Create `database/migrations/093_transaction_exclude_from_projection.sql` — incremental schema.
+- Modify `database/schema.sql` — fresh-install schema mirror (Wren #5).
 - Modify `backend/src/transactions/entities/transaction.entity.ts` — entity column.
-- Modify `backend/src/built-in-reports/spending-trends.service.ts` — query SELECT, interfaces, parse, tri-state precedence, payee-recurrence gate.
+- Modify `backend/src/built-in-reports/spending-trends.service.ts` — query SELECT (`+ has_payee`, `+ is_scheduled_match`), interfaces, parse, tri-state precedence, payee-recurrence gate (observed-months + stable-payee + scheduled guards).
 - Modify `backend/src/built-in-reports/dto/spending-trends.dto.ts` — `transactionId` on `SpendingTrendOutlier`.
 - Modify `backend/src/built-in-reports/spending-trends.service.spec.ts` — helper + new tests.
 - Modify `backend/src/transactions/dto/create-transaction.dto.ts` — DTO field (inherited by Update via `PartialType`).
 - Modify `backend/src/transactions/transactions.service.ts` — whitelist block in `update()`.
 - Create `backend/src/transactions/dto/update-transaction.dto.spec.ts` — DTO validation test.
+- Modify `backend/test/integration/transactions.integration.spec.ts` — PATCH round-trip test (Wren #7).
 
 **Frontend:**
 - Create `frontend/src/lib/projection-intent.ts` — pure string↔`boolean|null` mapping.
@@ -50,7 +55,7 @@
 - Create `frontend/src/components/bills/OneTimeExclusionsList.tsx` — the confirm/override list.
 - Create `frontend/src/components/bills/OneTimeExclusionsList.test.tsx` — its test.
 - Modify `frontend/src/app/bills/page.tsx` — thread `excludedOutliers` + render the list.
-- Modify `frontend/src/i18n/messages/en/transactions.json` and `frontend/src/i18n/messages/en/bills.json` — keys.
+- Modify `frontend/src/i18n/messages/*/transactions.json` and `frontend/src/i18n/messages/*/bills.json` — new keys backfilled (English fallback) into **all** locales for parity (Wren #3); `xx` regenerated via `i18n:pseudo`.
 
 ---
 
@@ -58,6 +63,7 @@
 
 **Files:**
 - Create: `database/migrations/093_transaction_exclude_from_projection.sql`
+- Modify: `database/schema.sql` (the `CREATE TABLE transactions` block, ~line 244)
 - Modify: `backend/src/transactions/entities/transaction.entity.ts` (near the `is_transfer` column, ~line 171)
 
 **Interfaces:**
@@ -90,18 +96,27 @@ In `transaction.entity.ts`, immediately after the `isTransfer` column block (~li
   excludeFromProjection: boolean | null;
 ```
 
-- [ ] **Step 3: Apply the migration to the dev DB and build**
+- [ ] **Step 3: Mirror the column into the fresh-install schema (Wren #5)**
+
+In `database/schema.sql`, in the `CREATE TABLE transactions (...)` block (~line 244, alongside `fitid` / `is_transfer`), add:
+
+```sql
+    exclude_from_projection BOOLEAN, -- cash-flow projection recurrence intent (t-550): NULL=heuristic, TRUE=one-time, FALSE=recurring
+```
+
+- [ ] **Step 4: Apply the migration, verify schema parity, and build**
 
 Run: `cd backend && psql "$DATABASE_URL" -f ../database/migrations/093_transaction_exclude_from_projection.sql && npm run build`
 Expected: migration applies (`ALTER TABLE`), build succeeds with no TypeScript errors.
 
+If a schema-parity verifier exists, run it: `ls ../scripts/verify-schema.sh 2>/dev/null && ../scripts/verify-schema.sh` — expected: schema.sql matches the migrated DB.
 (If `DATABASE_URL` is not set in the shell, the deploy path `./scripts/rebuild.sh` applies migrations; for local test the column must exist in the dev DB.)
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add database/migrations/093_transaction_exclude_from_projection.sql backend/src/transactions/entities/transaction.entity.ts
-git commit -m "feat(t-550): add transactions.exclude_from_projection tri-state column"
+git add database/migrations/093_transaction_exclude_from_projection.sql database/schema.sql backend/src/transactions/entities/transaction.entity.ts
+git commit -m "feat(t-550): add transactions.exclude_from_projection tri-state column (migration + schema.sql + entity)"
 ```
 
 ---
@@ -115,7 +130,7 @@ git commit -m "feat(t-550): add transactions.exclude_from_projection tri-state c
 
 **Interfaces:**
 - Consumes: entity column from Task 1.
-- Produces: `HistoricalSpendRow` gains `exclude_from_projection: boolean | null` and `transaction_id: string`; `ParsedHistoricalSpend` gains `excludeFromProjection: boolean | null` and `transactionId: string`; `SpendingTrendOutlier` gains `transactionId: string`.
+- Produces: `HistoricalSpendRow` gains `exclude_from_projection: boolean | null`, `transaction_id: string`, `has_payee: boolean`, `is_scheduled_match: boolean`; `ParsedHistoricalSpend` gains `excludeFromProjection: boolean | null`, `transactionId: string`, `hasPayee: boolean`, `isScheduledMatch: boolean`; `SpendingTrendOutlier` gains `transactionId: string`.
 
 - [ ] **Step 1: Update the test helper and write failing tests**
 
@@ -128,6 +143,7 @@ In `spending-trends.service.spec.ts`, replace the `hist` helper (lines ~20-31) w
     date = "2026-03-20",
     payeeName: string | null = "Payee",
     excludeFromProjection: boolean | null = null,
+    opts: { hasPayee?: boolean; isScheduledMatch?: boolean } = {},
   ) => {
     const seq = rowSeq++;
     return {
@@ -138,6 +154,8 @@ In `spending-trends.service.spec.ts`, replace the `hist` helper (lines ~20-31) w
       amount: amount.toFixed(2),
       payee_name: payeeName,
       exclude_from_projection: excludeFromProjection,
+      has_payee: opts.hasPayee ?? payeeName !== null,
+      is_scheduled_match: opts.isScheduledMatch ?? false,
     };
   };
 ```
@@ -145,12 +163,14 @@ In `spending-trends.service.spec.ts`, replace the `hist` helper (lines ~20-31) w
 Add these tests at the end of the `describe` block:
 
 ```ts
-  it("historical SQL selects the flag and parent transaction id", async () => {
+  it("historical SQL selects the flag, parent id, and recurrence signals", async () => {
     transactionsRepo.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     await service.getSpendingTrends(mockUserId, 3, "all");
     const sql = transactionsRepo.query.mock.calls[0][0] as string;
     expect(sql).toContain("t.exclude_from_projection");
     expect(sql).toContain("as transaction_id");
+    expect(sql).toContain("as has_payee");
+    expect(sql).toContain("as is_scheduled_match");
   });
 
   it("outliers carry the parent transactionId", async () => {
@@ -172,13 +192,30 @@ Expected: FAIL — SQL lacks the new columns; `transactionId` is undefined on th
 
 - [ ] **Step 3: Implement — SELECT, interfaces, parse, DTO**
 
-In `spending-trends.service.ts`, in the historical query SELECT (lines ~120-125), add two selected columns after the `amount` line:
+In `spending-trends.service.ts`, in the historical query SELECT (lines ~120-125), add the selected columns after the `payee_name` line. `has_payee` distinguishes a real payee identity from the description fallback (Wren #6). `is_scheduled_match` is the same predicate as the existing `NOT EXISTS` anti-join **minus** the `(st.is_split = true OR st.category_id IS NULL)` line, so it catches unsplit categorized recurring schedules the anti-join leaves behind (Wren #2):
 
 ```ts
           ABS(COALESCE(ts.amount, t.amount)) as amount,
           COALESCE(p.name, t.payee_name, t.description) as payee_name,
           t.id::text as transaction_id,
-          t.exclude_from_projection as exclude_from_projection
+          t.exclude_from_projection as exclude_from_projection,
+          (COALESCE(p.name, t.payee_name) IS NOT NULL) as has_payee,
+          EXISTS (
+            SELECT 1 FROM scheduled_transactions st2
+            LEFT JOIN accounts sa2 ON sa2.id = st2.account_id
+            WHERE st2.payee_id = t.payee_id
+              AND ROUND(ABS(st2.amount)::numeric, 2) = ROUND(ABS(t.amount)::numeric, 2)
+              AND st2.currency_code = t.currency_code
+              AND st2.user_id = t.user_id
+              AND st2.is_active = true
+              AND st2.is_transfer = false
+              AND st2.frequency != 'ONCE'
+              AND st2.amount < 0
+              AND (st2.occurrences_remaining IS NULL OR st2.occurrences_remaining > 0)
+              AND (st2.end_date IS NULL OR st2.end_date >= CURRENT_DATE)
+              AND sa2.account_type != 'INVESTMENT'
+              AND sa2.is_closed = false
+          ) as is_scheduled_match
 ```
 
 Extend `HistoricalSpendRow` (lines ~18-24):
@@ -192,6 +229,8 @@ interface HistoricalSpendRow {
   payee_name: string | null;
   transaction_id: string;
   exclude_from_projection: boolean | null;
+  has_payee: boolean;
+  is_scheduled_match: boolean;
 }
 ```
 
@@ -206,6 +245,8 @@ interface ParsedHistoricalSpend {
   payeeName: string | null;
   transactionId: string;
   excludeFromProjection: boolean | null;
+  hasPayee: boolean;
+  isScheduledMatch: boolean;
 }
 ```
 
@@ -220,6 +261,8 @@ Update `parseHistoricalRows` (lines ~270-282) to map the new fields:
         payeeName: row.payee_name,
         transactionId: row.transaction_id,
         excludeFromProjection: row.exclude_from_projection ?? null,
+        hasPayee: !!row.has_payee,
+        isScheduledMatch: !!row.is_scheduled_match,
       }))
 ```
 
@@ -383,8 +426,10 @@ git commit -m "feat(t-550): honor exclude_from_projection tri-state before the h
 - Modify: `backend/src/built-in-reports/spending-trends.service.spec.ts`
 
 **Interfaces:**
-- Consumes: `ParsedHistoricalSpend.payeeName`, `monthsUsed`.
-- Produces: `single_payee_occurrence` reason; `filterHistoricalRows` gains a `monthsUsed` parameter; `getOutlierReason` gains `oneTimePayeeKeys: Set<string>` and `monthsUsed: number` parameters.
+- Consumes: `ParsedHistoricalSpend.{payeeName,hasPayee,isScheduledMatch}` from Task 2; the existing `countActiveMonths` helper.
+- Produces: `single_payee_occurrence` reason; `getOutlierReason` gains `oneTimePayeeKeys: Set<string>` and `observedMonths: number` parameters (NOT `monthsUsed`). `filterHistoricalRows` keeps its original 2-arg signature and computes `observedMonths` internally.
+
+**Gate (all must hold, flag NULL only):** `observedMonths >= 6` (distinct months in history, NOT requested lookback — Wren #1) · `row.hasPayee` (stable payee identity, not description — Wren #6) · `!row.isScheduledMatch` (Wren #2) · `amount >= 100` · payee in exactly one month. `oneTimePayeeKeys` is built over `hasPayee` rows only.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -392,10 +437,13 @@ Add to `spending-trends.service.spec.ts`:
 
 ```ts
   it("suggests a payee seen in only one month as one-time (single_payee_occurrence)", async () => {
-    // Uncategorized bucket: recurring Rent (3 months) + a one-time payoff (1 month).
+    // 6 OBSERVED months of Rent + a one-time payoff (1 month), all Uncategorized.
     // Proves the Uncategorized-pooling fix: the payoff is caught, Rent is kept.
     transactionsRepo.query
       .mockResolvedValueOnce([
+        hist(null, 1500, "2025-10-15", "Rent"),
+        hist(null, 1500, "2025-11-15", "Rent"),
+        hist(null, 1500, "2025-12-15", "Rent"),
         hist(null, 1500, "2026-01-15", "Rent"),
         hist(null, 1500, "2026-02-15", "Rent"),
         hist(null, 1500, "2026-03-15", "Rent"),
@@ -408,42 +456,102 @@ Add to `spending-trends.service.spec.ts`:
       (o) => o.payeeName === "DebtSettlementCo",
     );
     expect(payoff?.reason).toBe("single_payee_occurrence");
-    expect(result.trends[0].monthlyAverage).toBe(750); // (1500*3)/6, payoff excluded
+    expect(result.trends[0].monthlyAverage).toBe(1500); // (1500*6)/6, payoff excluded
   });
 
-  it("keeps a payee seen across multiple months (not one-time)", async () => {
+  it("keeps a 2-month payee even when the gate is active (observed >= 6)", async () => {
+    // Rent drives observedMonths=6; QuarterlyThing appears in 2 months -> kept.
     transactionsRepo.query
       .mockResolvedValueOnce([
-        hist(null, 900, "2026-01-15", "Insurance"),
-        hist(null, 900, "2026-02-15", "Insurance"),
+        hist(null, 1500, "2025-10-15", "Rent"),
+        hist(null, 1500, "2025-11-15", "Rent"),
+        hist(null, 1500, "2025-12-15", "Rent"),
+        hist(null, 1500, "2026-01-15", "Rent"),
+        hist(null, 1500, "2026-02-15", "Rent"),
+        hist(null, 1500, "2026-03-15", "Rent"),
+        hist(null, 800, "2025-11-20", "QuarterlyThing"),
+        hist(null, 800, "2026-02-20", "QuarterlyThing"),
       ])
       .mockResolvedValueOnce([]);
     categoriesRepo.find.mockResolvedValue([]);
     const result = await service.getSpendingTrends(mockUserId, 6, "all");
-    expect(result.excludedOutliers).toHaveLength(0);
+    expect(
+      result.excludedOutliers.find((o) => o.payeeName === "QuarterlyThing"),
+    ).toBeUndefined();
   });
 
-  it("disables the payee gate for short windows (< 6 months)", async () => {
+  it("does not apply the payee gate when OBSERVED history < 6 months", async () => {
+    // lookback=6 but only 2 observed months -> gate inert (Wren #1).
     transactionsRepo.query
       .mockResolvedValueOnce([
-        hist(null, 300, "2026-02-15", "A"),
-        hist(null, 300, "2026-03-10", "B"),
+        hist(null, 300, "2026-02-15", "Sub"),
+        hist(null, 300, "2026-03-10", "Sub"),
+        hist(null, 300, "2026-03-12", "OneOff"),
       ])
       .mockResolvedValueOnce([]);
     categoriesRepo.find.mockResolvedValue([]);
-    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
     expect(
       result.excludedOutliers.find((o) => o.reason === "single_payee_occurrence"),
     ).toBeUndefined();
   });
 
-  it("preserves amount_outlier for a recurring category with one abnormal charge", async () => {
+  it("does not treat an active scheduled recurring charge as one-time (Wren #2)", async () => {
+    // 6 observed months; AnnualMembership seen once but is a scheduled match,
+    // and is NOT an amount outlier (150 vs 100) -> only B2 could catch it.
     transactionsRepo.query
       .mockResolvedValueOnce([
-        hist("cat-grocery", 200, "2026-01-10", "Market"),
-        hist("cat-grocery", 210, "2026-02-10", "Market"),
-        hist("cat-grocery", 190, "2026-03-05", "Market"),
-        hist("cat-grocery", 205, "2026-03-12", "Market"),
+        hist("cat-x", 100, "2025-10-15", "Groceries"),
+        hist("cat-x", 100, "2025-11-15", "Groceries"),
+        hist("cat-x", 100, "2025-12-15", "Groceries"),
+        hist("cat-x", 100, "2026-01-15", "Groceries"),
+        hist("cat-x", 100, "2026-02-15", "Groceries"),
+        hist("cat-x", 150, "2026-03-15", "AnnualMembership", null, {
+          isScheduledMatch: true,
+        }),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.payeeName === "AnnualMembership"),
+    ).toBeUndefined();
+  });
+
+  it("does not apply the payee gate to description-only rows (Wren #6)", async () => {
+    // has_payee=false: volatile descriptions each look like a one-month payee.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-x", 100, "2025-10-15", "POS 1234 OCT", null, { hasPayee: false }),
+        hist("cat-x", 100, "2025-11-15", "POS 5678 NOV", null, { hasPayee: false }),
+        hist("cat-x", 100, "2025-12-15", "POS 9012 DEC", null, { hasPayee: false }),
+        hist("cat-x", 100, "2026-01-15", "POS 3456 JAN", null, { hasPayee: false }),
+        hist("cat-x", 100, "2026-02-15", "POS 7890 FEB", null, { hasPayee: false }),
+        hist("cat-x", 100, "2026-03-15", "POS 2345 MAR", null, { hasPayee: false }),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.reason === "single_payee_occurrence"),
+    ).toBeUndefined();
+    expect(result.trends[0].monthlyAverage).toBe(100); // 600/6, all included
+  });
+
+  it("preserves amount_outlier for a recurring category with one abnormal charge", async () => {
+    // Market spans 6 months (multi-month payee, gate would not fire on it);
+    // the 1500 charge must still be caught by amount_outlier.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-grocery", 200, "2025-10-10", "Market"),
+        hist("cat-grocery", 210, "2025-11-10", "Market"),
+        hist("cat-grocery", 190, "2025-12-05", "Market"),
+        hist("cat-grocery", 205, "2026-01-12", "Market"),
+        hist("cat-grocery", 200, "2026-02-12", "Market"),
         hist("cat-grocery", 1500, "2026-03-20", "Market"),
       ])
       .mockResolvedValueOnce([]);
@@ -481,29 +589,25 @@ Add the constant near the other consts (line ~52):
 const PAYEE_RECURRENCE_MIN_MONTHS = 6;
 ```
 
-Update the call site in `getSpendingTrends` (line ~201-202) to pass `monthsUsed`:
+Leave the `getSpendingTrends` call site at its original 2-arg form (`filterHistoricalRows` computes `observedMonths` itself):
 
 ```ts
     const { includedRowsByCategory, excludedOutliers } =
-      this.filterHistoricalRows(parsedHistoricalRows, categoryNames, monthsUsed);
+      this.filterHistoricalRows(parsedHistoricalRows, categoryNames);
 ```
 
-Change `filterHistoricalRows` signature and precompute one-time payees (lines ~284-291). Add the `monthsUsed` param and the precompute before the grouping loop:
+In `filterHistoricalRows` (lines ~284-291), before the grouping loop, compute observed months and the one-time payee set (over `hasPayee` rows only):
 
 ```ts
-  private filterHistoricalRows(
-    rows: ParsedHistoricalSpend[],
-    categoryNames: Map<string | null, string>,
-    monthsUsed: number,
-  ): {
-    includedRowsByCategory: Map<string | null, ParsedHistoricalSpend[]>;
-    excludedOutliers: SpendingTrendOutlier[];
-  } {
-    // Payee-recurrence signal (global, across all categories): a payee that
-    // appears in exactly one calendar month is a one-time candidate.
+    // Observed history depth: distinct calendar months actually present. Gate
+    // B2 on THIS, not the requested lookback (Wren #1).
+    const observedMonths = this.countActiveMonths(rows);
+
+    // Payee-recurrence signal (global): a stable-identity payee that appears in
+    // exactly one calendar month. Description-only rows are excluded (Wren #6).
     const payeeMonths = new Map<string, Set<string>>();
     for (const row of rows) {
-      if (!row.payeeName) continue;
+      if (!row.hasPayee || !row.payeeName) continue;
       const key = row.payeeName.trim().toLocaleLowerCase();
       const months = payeeMonths.get(key) ?? new Set<string>();
       months.add(row.date.slice(0, 7));
@@ -531,7 +635,7 @@ In the per-row loop (from Task 3), change the heuristic call to pass the new con
             row,
             categoryRows,
             oneTimePayeeKeys,
-            monthsUsed,
+            observedMonths,
           );
         }
 ```
@@ -543,16 +647,19 @@ Change `getOutlierReason` signature and insert the payee gate after the single-o
     row: ParsedHistoricalSpend,
     rows: ParsedHistoricalSpend[],
     oneTimePayeeKeys: Set<string>,
-    monthsUsed: number,
+    observedMonths: number,
   ): string | null {
     if (rows.length === 1 && row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT) {
       return "single_historical_occurrence";
     }
 
-    // Payee-recurrence gate (independent of bucket size): a payee seen in only
-    // one month across a sufficiently long window is a one-time candidate.
+    // Payee-recurrence gate: fires only with enough OBSERVED history (Wren #1),
+    // a stable payee identity (Wren #6), no active scheduled match (Wren #2),
+    // and the payee seen in exactly one month.
     if (
-      monthsUsed >= PAYEE_RECURRENCE_MIN_MONTHS &&
+      observedMonths >= PAYEE_RECURRENCE_MIN_MONTHS &&
+      row.hasPayee &&
+      !row.isScheduledMatch &&
       row.payeeName &&
       row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT &&
       oneTimePayeeKeys.has(row.payeeName.trim().toLocaleLowerCase())
@@ -568,13 +675,13 @@ Change `getOutlierReason` signature and insert the payee gate after the single-o
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && npx jest src/built-in-reports/spending-trends.service.spec.ts`
-Expected: PASS — all tests green (existing outlier/uncategorized tests use `monthsUsed = 3 < 6`, so the payee gate stays inert for them).
+Expected: PASS — all tests green (existing tests have < 6 observed months, so the payee gate stays inert for them).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add backend/src/built-in-reports/spending-trends.service.ts backend/src/built-in-reports/spending-trends.service.spec.ts
-git commit -m "feat(t-550): payee-recurrence default heuristic (single_payee_occurrence)"
+git commit -m "feat(t-550): payee-recurrence heuristic (observed-months + stable-payee + scheduled guards)"
 ```
 
 ---
@@ -585,10 +692,13 @@ git commit -m "feat(t-550): payee-recurrence default heuristic (single_payee_occ
 - Modify: `backend/src/transactions/dto/create-transaction.dto.ts`
 - Modify: `backend/src/transactions/transactions.service.ts` (in `update()`, ~line 2008)
 - Create: `backend/src/transactions/dto/update-transaction.dto.spec.ts`
+- Modify: `backend/test/integration/transactions.integration.spec.ts` (add a PATCH round-trip test — Wren #7)
 
 **Interfaces:**
 - Consumes: entity column from Task 1.
 - Produces: `CreateTransactionDto.excludeFromProjection?: boolean | null` (inherited by `UpdateTransactionDto` via `PartialType`); `update()` writes the column only when the key is present.
+
+**Note on `null` validation (Wren raised this):** `@IsOptional()` skips validation when the value is `null` OR `undefined`, so `@IsOptional() @IsBoolean()` accepts `null` (defer-to-heuristic) while still rejecting non-booleans. `false` is present (not null), so it is validated and preserved.
 
 - [ ] **Step 1: Write the failing DTO test**
 
@@ -652,16 +762,44 @@ In `transactions.service.ts`, in the `update()` method, immediately after the `s
           updateData.excludeFromProjection ?? null;
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **Step 5: Run the DTO test + build**
 
-Run: `cd backend && npx jest src/transactions/dto/update-transaction.dto.spec.ts && cd backend && npm run build`
+Run: `cd backend && npx jest src/transactions/dto/update-transaction.dto.spec.ts && npm run build`
 Expected: PASS; build succeeds. (`false ?? null` evaluates to `false`, so the force-recurring state is preserved; the `"in"` guard leaves the column untouched when the key is absent.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Add a PATCH round-trip integration test (Wren #7)**
+
+The DTO test proves validator metadata only. Add a persistence test to `backend/test/integration/transactions.integration.spec.ts`, mirroring that file's existing app/DB bootstrap and auth/setup helpers (reuse whatever `createTransaction` / `request(app.getHttpServer())` / seeded-user pattern the file already uses). The test must prove all three states persist and that an absent key leaves the column untouched:
+
+```ts
+  it("persists excludeFromProjection tri-state and preserves it when absent", async () => {
+    // `created` uses the file's existing helper to create a transaction for the
+    // seeded user; `patch` / `getById` mirror the file's existing request helpers.
+    const id = created.id;
+
+    await patch(id, { excludeFromProjection: true });
+    expect((await getById(id)).excludeFromProjection).toBe(true);
+
+    await patch(id, { excludeFromProjection: false });
+    expect((await getById(id)).excludeFromProjection).toBe(false);
+
+    // A subsequent update that omits the key must NOT reset the column.
+    await patch(id, { description: "unrelated edit" });
+    expect((await getById(id)).excludeFromProjection).toBe(false);
+
+    await patch(id, { excludeFromProjection: null });
+    expect((await getById(id)).excludeFromProjection).toBeNull();
+  });
+```
+
+Run: `cd backend && npx jest --config ./test/jest-e2e.json --testPathPatterns='test/integration/transactions.integration.spec.ts' --runInBand`
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add backend/src/transactions/dto/create-transaction.dto.ts backend/src/transactions/transactions.service.ts backend/src/transactions/dto/update-transaction.dto.spec.ts
-git commit -m "feat(t-550): accept excludeFromProjection on create/update transaction"
+git add backend/src/transactions/dto/create-transaction.dto.ts backend/src/transactions/transactions.service.ts backend/src/transactions/dto/update-transaction.dto.spec.ts backend/test/integration/transactions.integration.spec.ts
+git commit -m "feat(t-550): accept + persist excludeFromProjection tri-state on transactions"
 ```
 
 ---
@@ -736,13 +874,11 @@ Expected: PASS.
 
 - [ ] **Step 5: Wire the control into TransactionForm**
 
-In `frontend/src/types/transaction.ts`, add to the `Transaction` interface (after `isTransfer`, ~line 76) and to the create/update payload interfaces that carry editable fields (mirror where `status?` appears, ~lines 108/147/176):
+In `frontend/src/types/transaction.ts`, add the field as **optional** to the `Transaction` interface (after `isTransfer`, ~line 76) AND to the create/update payload interfaces (mirror where `status?` appears, ~lines 108/147/176). Optional is required so existing typed fixtures that construct `Transaction` without this field still type-check (Wren #4):
 
 ```ts
-  excludeFromProjection: boolean | null;
+  excludeFromProjection?: boolean | null;
 ```
-
-(For the optional payload interfaces use `excludeFromProjection?: boolean | null;`.)
 
 In `TransactionForm.tsx`:
 
@@ -786,26 +922,29 @@ import { projectionToSelect, selectToProjection } from '@/lib/projection-intent'
 
 (The `payload` object at ~line 820 already spreads `...data`, so `excludeFromProjection` flows to both create and update automatically. Transfers use a separate `transferData` and are excluded from projections by the query — leave them unchanged.)
 
-5. Add i18n keys to `frontend/src/i18n/messages/en/transactions.json` — under `form.fields` add `"projection": "Projection"`, and add a sibling block to `form.statusOptions`:
+5. i18n keys are added to **all** locales in Step 6 (the parity test requires it — Wren #3), not just `en`.
 
-```json
-    "projectionOptions": {
-      "auto": "Auto (detect)",
-      "oneTime": "One-time (don't project)",
-      "recurring": "Recurring (always project)"
-    }
+- [ ] **Step 6: Backfill the `transactions` keys into every locale + regen pseudo (Wren #3)**
+
+The keys (`form.fields.projection`, `form.projectionOptions.{auto,oneTime,recurring}`) must exist in every translated locale or `messages.parity.test.ts` fails. Backfill English-fallback values into all locale dirs (including `en`), then regenerate the pseudo-locale. From `frontend/`:
+
+```bash
+cat > /tmp/backfill-t550-tx.mjs <<'EOF'
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+const dir = 'src/i18n/messages';
+const patch = { form: { fields: { projection: 'Projection' }, projectionOptions: { auto: 'Auto (detect)', oneTime: "One-time (don't project)", recurring: 'Recurring (always project)' } } };
+const merge = (t, s) => { for (const k of Object.keys(s)) { t[k] = (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) ? merge(t[k] ?? {}, s[k]) : (t[k] ?? s[k]); } return t; };
+for (const loc of readdirSync(dir)) { if (loc === 'xx') continue; const p = `${dir}/${loc}/transactions.json`; let j; try { j = JSON.parse(readFileSync(p, 'utf8')); } catch { continue; } merge(j, patch); writeFileSync(p, JSON.stringify(j, null, 2) + '\n'); }
+EOF
+cd frontend && node /tmp/backfill-t550-tx.mjs && npm run i18n:pseudo && npm run i18n:check && npm run type-check && npm test -- projection-intent
 ```
-
-- [ ] **Step 6: Regenerate the pseudo-locale and build**
-
-Run: `cd frontend && npm run i18n:pseudo && npm run build`
-Expected: pseudo-locale regenerated; build succeeds. (`npm run i18n:check` / the parity test will flag the new `transactions` keys for the other 20 locales — expected, deferred to T-568.)
+Expected: every locale's `transactions.json` gains the keys; `i18n:check`, `type-check`, and the parity test pass. Inspect `git diff` — it must ONLY add keys; if the re-serialization reformats existing content, run the repo formatter (`npm run format` / prettier) on the changed files to avoid churn.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add frontend/src/lib/projection-intent.ts frontend/src/lib/projection-intent.test.ts frontend/src/types/transaction.ts frontend/src/components/transactions/TransactionForm.tsx frontend/src/i18n/messages/en/transactions.json frontend/src/i18n/messages/xx/transactions.json
-git commit -m "feat(t-550): tri-state projection control on TransactionForm"
+git add frontend/src/lib/projection-intent.ts frontend/src/lib/projection-intent.test.ts frontend/src/types/transaction.ts frontend/src/components/transactions/TransactionForm.tsx frontend/src/i18n/messages
+git commit -m "feat(t-550): tri-state projection control on TransactionForm (+ all-locale keys)"
 ```
 
 ---
@@ -931,6 +1070,12 @@ export function OneTimeExclusionsList({
 
   if (outliers.length === 0) return null;
 
+  // Flagging is parent-level; collapse split rows that share a parent id so
+  // React keys and test ids stay unique (Wren #8).
+  const rows = Array.from(
+    new Map(outliers.map((o) => [o.transactionId, o])).values(),
+  );
+
   const apply = async (transactionId: string, value: boolean) => {
     setPendingId(transactionId);
     try {
@@ -952,7 +1097,7 @@ export function OneTimeExclusionsList({
         {t('forecast.exclusions.subtitle')}
       </p>
       <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-        {outliers.map((o) => (
+        {rows.map((o) => (
           <li
             key={o.transactionId}
             className="flex items-center justify-between py-2 text-sm"
@@ -1028,27 +1173,29 @@ with the import:
 import { OneTimeExclusionsList } from '@/components/bills/OneTimeExclusionsList';
 ```
 
-4. Add i18n keys to `frontend/src/i18n/messages/en/bills.json` under `forecast`:
+4. i18n keys (`forecast.exclusions.{title,subtitle,confirm,rescue}`) are added to **all** locales in Step 7 (parity — Wren #3).
 
-```json
-    "exclusions": {
-      "title": "Treated as one-time",
-      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
-      "confirm": "One-time",
-      "rescue": "Recurring"
-    }
+- [ ] **Step 7: Backfill the `bills` keys into every locale + regen pseudo (Wren #3)**
+
+Backfill English-fallback values into every locale's `bills.json`, then regenerate the pseudo-locale. From `frontend/`:
+
+```bash
+cat > /tmp/backfill-t550-bills.mjs <<'EOF'
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+const dir = 'src/i18n/messages';
+const patch = { forecast: { exclusions: { title: 'Treated as one-time', subtitle: 'These charges are not projected forward. Rescue any that actually recur.', confirm: 'One-time', rescue: 'Recurring' } } };
+const merge = (t, s) => { for (const k of Object.keys(s)) { t[k] = (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) ? merge(t[k] ?? {}, s[k]) : (t[k] ?? s[k]); } return t; };
+for (const loc of readdirSync(dir)) { if (loc === 'xx') continue; const p = `${dir}/${loc}/bills.json`; let j; try { j = JSON.parse(readFileSync(p, 'utf8')); } catch { continue; } merge(j, patch); writeFileSync(p, JSON.stringify(j, null, 2) + '\n'); }
+EOF
+cd frontend && node /tmp/backfill-t550-bills.mjs && npm run i18n:pseudo && npm run i18n:check && npm run type-check && npm test -- OneTimeExclusionsList
 ```
-
-- [ ] **Step 7: Regenerate pseudo-locale and build**
-
-Run: `cd frontend && npm run i18n:pseudo && npm run build`
-Expected: pseudo regenerated; build succeeds. (Parity for the other 20 locales' `bills` keys deferred to T-568.)
+Expected: every locale's `bills.json` gains the keys; `i18n:check`, `type-check`, and the parity test pass. Inspect `git diff` for key-only additions (run the repo formatter if it reflows existing content).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add frontend/src/types/built-in-reports.ts frontend/src/components/bills/OneTimeExclusionsList.tsx frontend/src/components/bills/OneTimeExclusionsList.test.tsx frontend/src/app/bills/page.tsx frontend/src/i18n/messages/en/bills.json frontend/src/i18n/messages/xx/bills.json
-git commit -m "feat(t-550): surface + confirm/override one-time exclusions in the cash-flow forecast"
+git add frontend/src/types/built-in-reports.ts frontend/src/components/bills/OneTimeExclusionsList.tsx frontend/src/components/bills/OneTimeExclusionsList.test.tsx frontend/src/app/bills/page.tsx frontend/src/i18n/messages
+git commit -m "feat(t-550): surface + confirm/override one-time exclusions in the cash-flow forecast (+ all-locale keys)"
 ```
 
 ---
@@ -1093,6 +1240,22 @@ git commit -m "docs(t-550): live verification record"
 
 **Spec coverage:** migration+entity (Task 1) ✔; tri-state honored / retroactive (Tasks 2-3) ✔; B2 payee-recurrence + amount_outlier preserved (Task 4) ✔; write path / no new endpoint / null-vs-absent (Task 5) ✔; TransactionForm tri-state (Task 6) ✔; forecast (a) surface+confirm/override with transactionId (Task 7) ✔; testing + live gate (all tasks + Task 8) ✔; deferred forecast (b), import-time, bulk, locale-parity — out of scope, noted. No spec requirement left without a task.
 
-**Type consistency:** `excludeFromProjection: boolean | null` used identically across entity, DTO, `ParsedHistoricalSpend`, frontend `Transaction`, and helpers. `transactionId: string` consistent across `HistoricalSpendRow.transaction_id` → `ParsedHistoricalSpend.transactionId` → `SpendingTrendOutlier.transactionId`. `getOutlierReason(row, rows, oneTimePayeeKeys, monthsUsed)` and `filterHistoricalRows(rows, categoryNames, monthsUsed)` signatures match their call sites. `projectionToSelect`/`selectToProjection` names consistent between helper, test, and TransactionForm.
+**Type consistency:** `excludeFromProjection` typed `boolean | null` on the entity/backend DTO/`ParsedHistoricalSpend`, and `?: boolean | null` (optional) on the frontend `Transaction`/payload types (Wren #4). `transactionId: string` consistent across `HistoricalSpendRow.transaction_id` → `ParsedHistoricalSpend.transactionId` → `SpendingTrendOutlier.transactionId`. New signals `has_payee`/`is_scheduled_match` → `hasPayee`/`isScheduledMatch` threaded query→parse→gate. `getOutlierReason(row, rows, oneTimePayeeKeys, observedMonths)` and `filterHistoricalRows(rows, categoryNames)` (2-arg; computes `observedMonths` internally) match their call sites. `projectionToSelect`/`selectToProjection` names consistent between helper, test, and TransactionForm.
+
+## Wren Review
+
+**rev-1 → NO-GO** (Codex/Wren session `019f33b2-63a0-71b2-bc53-6425bbc3b519`, gpt-5.5/xhigh, 2026-07-05). Nine findings, all verified against the repo and **all folded into rev-2**:
+
+1. HIGH — B2 gated on requested `lookbackMonths`, not observed history → now gates on `observedMonths = countActiveMonths(rows) >= 6` (Task 4).
+2. HIGH — scheduled charges not actually protected (anti-join only covers split/uncategorized) → added `is_scheduled_match` EXISTS signal; gate skips scheduled matches (Tasks 2, 4).
+3. HIGH — i18n deferral would fail CI (`messages.parity.test.ts` + `i18n:check`) → keys backfilled to all locales with English fallback; T-568 reduced to translation (Tasks 6, 7, Global Constraints).
+4. HIGH — required `Transaction.excludeFromProjection` breaks typed fixtures → made optional `?:` (Task 6).
+5. MED — `database/schema.sql` not mirrored → added (Task 1).
+6. MED — description-only rows treated as stable payees → added `has_payee`; gate requires it; payee-month map built over `hasPayee` rows only (Tasks 2, 4).
+7. MED — no real PATCH round-trip test → added integration test (Task 5).
+8. LOW — split outliers collide in React keys → dedupe by `transactionId` in the list component (Task 7).
+9. LOW — Task 5 `cd backend` typo → fixed.
+
+Wren also **confirmed the arithmetic** in rev-1's tests (Rent/Debt, Market IQR high-fence = 225, false-override 1866.67). rev-2 re-gate pending.
 
 **Placeholder scan:** no TBD/TODO; every code step shows real code. Two "confirm the path" notes (frontend `formatCurrency` import; the `trendData` state type location) are pattern-confirmations the implementer resolves against the actual file, not missing logic.
