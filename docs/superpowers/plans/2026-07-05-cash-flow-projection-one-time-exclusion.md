@@ -1348,3 +1348,12 @@ Wren re-confirmed observed-months gating, Rent/Debt = 1500, sparse-history inert
 Result: the two one-time debt-collector payoffs that inflated the projected monthly fill are now excluded; all genuinely-recurring charges retained. Feature verified working on the live ledger. UI confirm/override (Step 4) is the user's eyeball on the /bills forecast "Treated as one-time" list.
 
 **Follow-ups (non-blocking, filed):** error toast in OneTimeExclusionsList.apply() (silent-failure UX gap, plan-mandated); confirm-path + dedupe tests; switch list to useNumberFormat() for locale number-format consistency.
+
+### Live Verification — CORRECTION (2026-07-06, same evening)
+
+The section above overstated the outcome ("the bug is fixed"). It was verified from a DB-level prediction over ALL 23 months of history, NOT the live forecast, which requests `lookbackMonths = preferences.forecastLookbackMonths ?? 3` (frontend/src/app/bills/page.tsx:180). The B2 gate requires `observedMonths >= PAYEE_RECURRENCE_MIN_MONTHS (6)` (Wren #1). A 3-month window yields only 4 observed months, so **B2 is inert in the default view** — `single_payee_occurrence` never fires, and the debt payoffs still project.
+
+Concrete case: Zach recategorized 9 one-time payoffs (Portfolio Recovery ×2, Resurgent ×2, CHECK #9001/#1, AmEx Collection, Discover, Zwicker) into a 'Debt: Settlement' category — all June 2026, total −$24,892.58. In the 3-month view that projected as −$8,297.52/mo Settlement (= 24892.58 / 3). Clustering also defeats the old gates (single_historical_occurrence needs a 1-row bucket; amount_outlier is masked) — exactly the original root cause.
+
+- **What works (deployed, solid):** the manual tri-state. Flagging the 9 payoffs `exclude_from_projection = TRUE` (marked_one_time, resolved before any heuristic, any window) dropped the −$8,297.52 line entirely: projected ending $11,208.66 → $35,550.20; min balance $10,618.05 → $26,880.85. FALSE override (mark Recurring) correctly re-projected AllState/PSEG (short-history false-positives from the OLD gates). The whole tri-state loop verified live on real data.
+- **Real follow-up (money-adjacent → full gauntlet):** DECOUPLE B2's recurrence-detection window (wide/fixed, ~12mo) from the projection-average lookback (user's 3mo). Recurrence intent is a property of long history; the projection average is a user preference. Verified: at lookback ≥ 6 (observed=7) all 9 payoffs span 1 month, linked payee, not scheduled-matched → B2 would auto-flag them. The gate is correct; it is starved by the 3-month default.
