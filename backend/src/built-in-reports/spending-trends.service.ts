@@ -58,6 +58,7 @@ const TREND_COVERAGE_SUPPRESSION_THRESHOLD = 0.9;
 const ONE_TIME_EXPENSE_MIN_AMOUNT = 100;
 const OUTLIER_MIN_DELTA = 100;
 const DEFAULT_FORECAST_DAYS = 365;
+const PAYEE_RECURRENCE_MIN_MONTHS = 6;
 
 @Injectable()
 export class SpendingTrendsService {
@@ -322,6 +323,27 @@ export class SpendingTrendsService {
     includedRowsByCategory: Map<string | null, ParsedHistoricalSpend[]>;
     excludedOutliers: SpendingTrendOutlier[];
   } {
+    // Observed history depth: distinct calendar months actually present. Gate
+    // B2 on THIS, not the requested lookback (Wren #1).
+    const observedMonths = this.countActiveMonths(rows);
+
+    // Payee-recurrence signal (global): a stable-identity payee (payee_id) that
+    // appears in exactly one calendar month. Rows without a linked payee id
+    // (description-only / unlinked) are excluded — no name/description keying
+    // (Wren #6, rev-2 #2).
+    const payeeMonths = new Map<string, Set<string>>();
+    for (const row of rows) {
+      if (!row.payeeId) continue;
+      const months = payeeMonths.get(row.payeeId) ?? new Set<string>();
+      months.add(row.date.slice(0, 7));
+      payeeMonths.set(row.payeeId, months);
+    }
+    const oneTimePayeeIds = new Set(
+      [...payeeMonths]
+        .filter(([, months]) => months.size === 1)
+        .map(([id]) => id),
+    );
+
     const grouped = new Map<string | null, ParsedHistoricalSpend[]>();
     for (const row of rows) {
       const existing = grouped.get(row.categoryId) || [];
@@ -344,7 +366,12 @@ export class SpendingTrendsService {
         } else if (row.excludeFromProjection === false) {
           reason = null; // force include: skip all heuristics
         } else {
-          reason = this.getOutlierReason(row, categoryRows);
+          reason = this.getOutlierReason(
+            row,
+            categoryRows,
+            oneTimePayeeIds,
+            observedMonths,
+          );
         }
         if (reason) {
           excludedOutliers.push({
@@ -373,9 +400,24 @@ export class SpendingTrendsService {
   private getOutlierReason(
     row: ParsedHistoricalSpend,
     rows: ParsedHistoricalSpend[],
+    oneTimePayeeIds: Set<string>,
+    observedMonths: number,
   ): string | null {
     if (rows.length === 1 && row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT) {
       return "single_historical_occurrence";
+    }
+
+    // Payee-recurrence gate: fires only with enough OBSERVED history (Wren #1),
+    // a stable payee identity / linked payee_id (Wren #6, rev-2 #2), no active
+    // scheduled match (Wren #2), and the payee seen in exactly one month.
+    if (
+      observedMonths >= PAYEE_RECURRENCE_MIN_MONTHS &&
+      row.payeeId &&
+      !row.isScheduledMatch &&
+      row.amount >= ONE_TIME_EXPENSE_MIN_AMOUNT &&
+      oneTimePayeeIds.has(row.payeeId)
+    ) {
+      return "single_payee_occurrence";
     }
 
     if (rows.length < 2) return null;

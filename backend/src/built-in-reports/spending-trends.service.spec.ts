@@ -500,4 +500,143 @@ describe("SpendingTrendsService", () => {
       "single_historical_occurrence",
     );
   });
+
+  it("suggests a payee seen in only one month as one-time (single_payee_occurrence)", async () => {
+    // 6 OBSERVED months of Rent + a one-time payoff (1 month), all Uncategorized.
+    // Proves the Uncategorized-pooling fix: the payoff is caught, Rent is kept.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist(null, 1500, "2025-10-15", "Rent"),
+        hist(null, 1500, "2025-11-15", "Rent"),
+        hist(null, 1500, "2025-12-15", "Rent"),
+        hist(null, 1500, "2026-01-15", "Rent"),
+        hist(null, 1500, "2026-02-15", "Rent"),
+        hist(null, 1500, "2026-03-15", "Rent"),
+        hist(null, 4200, "2026-03-20", "DebtSettlementCo"),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    const payoff = result.excludedOutliers.find(
+      (o) => o.payeeName === "DebtSettlementCo",
+    );
+    expect(payoff?.reason).toBe("single_payee_occurrence");
+    expect(result.trends[0].monthlyAverage).toBe(1500); // (1500*6)/6, payoff excluded
+  });
+
+  it("keeps a 2-month payee even when the gate is active (observed >= 6)", async () => {
+    // Rent drives observedMonths=6; QuarterlyThing appears in 2 months -> kept.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist(null, 1500, "2025-10-15", "Rent"),
+        hist(null, 1500, "2025-11-15", "Rent"),
+        hist(null, 1500, "2025-12-15", "Rent"),
+        hist(null, 1500, "2026-01-15", "Rent"),
+        hist(null, 1500, "2026-02-15", "Rent"),
+        hist(null, 1500, "2026-03-15", "Rent"),
+        hist(null, 800, "2025-11-20", "QuarterlyThing"),
+        hist(null, 800, "2026-02-20", "QuarterlyThing"),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.payeeName === "QuarterlyThing"),
+    ).toBeUndefined();
+  });
+
+  it("does not apply the payee gate when OBSERVED history < 6 months", async () => {
+    // lookback=6 but only 2 observed months -> gate inert (Wren #1).
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist(null, 300, "2026-02-15", "Sub"),
+        hist(null, 300, "2026-03-10", "Sub"),
+        hist(null, 300, "2026-03-12", "OneOff"),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.reason === "single_payee_occurrence"),
+    ).toBeUndefined();
+  });
+
+  it("does not treat an active scheduled recurring charge as one-time (Wren #2)", async () => {
+    // 6 observed months; AnnualMembership seen once but is a scheduled match,
+    // and is NOT an amount outlier (150 vs 100) -> only B2 could catch it.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-x", 100, "2025-10-15", "Groceries"),
+        hist("cat-x", 100, "2025-11-15", "Groceries"),
+        hist("cat-x", 100, "2025-12-15", "Groceries"),
+        hist("cat-x", 100, "2026-01-15", "Groceries"),
+        hist("cat-x", 100, "2026-02-15", "Groceries"),
+        hist("cat-x", 150, "2026-03-15", "AnnualMembership", null, {
+          isScheduledMatch: true,
+        }),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.payeeName === "AnnualMembership"),
+    ).toBeUndefined();
+  });
+
+  it("does not apply the payee gate to description-only rows (Wren #6)", async () => {
+    // payee_id=null: volatile descriptions each look like a one-month "payee".
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-x", 100, "2025-10-15", "POS 1234 OCT", null, { payeeId: null }),
+        hist("cat-x", 100, "2025-11-15", "POS 5678 NOV", null, { payeeId: null }),
+        hist("cat-x", 100, "2025-12-15", "POS 9012 DEC", null, { payeeId: null }),
+        hist("cat-x", 100, "2026-01-15", "POS 3456 JAN", null, { payeeId: null }),
+        hist("cat-x", 100, "2026-02-15", "POS 7890 FEB", null, { payeeId: null }),
+        hist("cat-x", 100, "2026-03-15", "POS 2345 MAR", null, { payeeId: null }),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.reason === "single_payee_occurrence"),
+    ).toBeUndefined();
+    expect(result.trends[0].monthlyAverage).toBe(100); // 600/6, all included
+  });
+
+  it("preserves amount_outlier for a recurring category with one abnormal charge", async () => {
+    // Market spans 6 months (multi-month payee, gate would not fire on it);
+    // the 1500 charge must still be caught by amount_outlier.
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-grocery", 200, "2025-10-10", "Market"),
+        hist("cat-grocery", 210, "2025-11-10", "Market"),
+        hist("cat-grocery", 190, "2025-12-05", "Market"),
+        hist("cat-grocery", 205, "2026-01-12", "Market"),
+        hist("cat-grocery", 200, "2026-02-12", "Market"),
+        hist("cat-grocery", 1500, "2026-03-20", "Market"),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-grocery", userId: mockUserId, name: "Grocery" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(
+      result.excludedOutliers.find((o) => o.reason === "amount_outlier")?.amount,
+    ).toBe(1500);
+  });
+
+  it("falls back to existing gates for rows with no payee", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([hist("cat-x", 1200, "2026-03-10", null)])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 6, "all");
+    expect(result.excludedOutliers[0].reason).toBe("single_historical_occurrence");
+  });
 });
