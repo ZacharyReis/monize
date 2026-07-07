@@ -2007,6 +2007,9 @@ export class TransactionsService {
           updateData.referenceNumber ?? null;
       if ("status" in updateData)
         transactionUpdateData.status = updateData.status;
+      if ("excludeFromProjection" in updateData)
+        transactionUpdateData.excludeFromProjection =
+          updateData.excludeFromProjection ?? null;
       if ("reconciledDate" in updateData)
         transactionUpdateData.reconciledDate = updateData.reconciledDate as any;
       if (createdAt !== undefined) {

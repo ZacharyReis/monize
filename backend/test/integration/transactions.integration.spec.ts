@@ -154,6 +154,37 @@ describe("TransactionsService (integration)", () => {
       });
       expect(account!.currentBalance).toBe(920);
     });
+
+    it("persists excludeFromProjection tri-state and preserves it when the key is absent", async () => {
+      const created = await service.create(userId, {
+        accountId,
+        transactionDate: "2026-03-15",
+        amount: -100,
+        currencyCode: "USD",
+        payeeName: "DebtSettlementCo",
+      });
+
+      await service.update(userId, created.id, { excludeFromProjection: true });
+      expect(
+        (await service.findOne(userId, created.id)).excludeFromProjection,
+      ).toBe(true);
+
+      await service.update(userId, created.id, { excludeFromProjection: false });
+      expect(
+        (await service.findOne(userId, created.id)).excludeFromProjection,
+      ).toBe(false);
+
+      // An unrelated update that omits the key must NOT reset the column.
+      await service.update(userId, created.id, { description: "unrelated edit" });
+      expect(
+        (await service.findOne(userId, created.id)).excludeFromProjection,
+      ).toBe(false);
+
+      await service.update(userId, created.id, { excludeFromProjection: null });
+      expect(
+        (await service.findOne(userId, created.id)).excludeFromProjection,
+      ).toBeNull();
+    });
   });
 
   describe("remove()", () => {

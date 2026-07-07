@@ -96,6 +96,16 @@ export class CreateTransactionDto {
   status?: TransactionStatus;
 
   @ApiPropertyOptional({
+    description:
+      "Cash-flow projection recurrence intent. null = defer to heuristic, " +
+      "true = one-time (never project), false = recurring (always project).",
+    nullable: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  excludeFromProjection?: boolean | null;
+
+  @ApiPropertyOptional({
     description: "Reconciliation date (YYYY-MM-DD format)",
   })
   @IsOptional()
