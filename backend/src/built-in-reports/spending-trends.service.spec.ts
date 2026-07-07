@@ -21,14 +21,32 @@ describe("SpendingTrendsService", () => {
     categoryId: string | null,
     amount: number,
     date = "2026-03-20",
-    payeeName = "Payee",
-  ) => ({
-    row_id: `row-${rowSeq++}`,
-    transaction_date: date,
-    category_id: categoryId,
-    amount: amount.toFixed(2),
-    payee_name: payeeName,
-  });
+    payeeName: string | null = "Payee",
+    excludeFromProjection: boolean | null = null,
+    opts: { payeeId?: string | null; isScheduledMatch?: boolean } = {},
+  ) => {
+    const seq = rowSeq++;
+    // Default payee_id is derived from the name so same-name rows share an id
+    // (they group together); pass `{ payeeId: null }` to model a description-only
+    // / unlinked row that B2 must ignore.
+    const payeeId =
+      "payeeId" in opts
+        ? opts.payeeId
+        : payeeName
+          ? `pid-${payeeName.trim().toLocaleLowerCase()}`
+          : null;
+    return {
+      row_id: `row-${seq}`,
+      transaction_id: `txn-${seq}`,
+      transaction_date: date,
+      category_id: categoryId,
+      amount: amount.toFixed(2),
+      payee_name: payeeName,
+      payee_id: payeeId,
+      exclude_from_projection: excludeFromProjection,
+      is_scheduled_match: opts.isScheduledMatch ?? false,
+    };
+  };
 
   const monthlyRows = (categoryId: string | null, monthlyAmount: number) => [
     hist(categoryId, monthlyAmount, "2026-01-20"),
@@ -394,5 +412,41 @@ describe("SpendingTrendsService", () => {
     expect(historicalSql).toContain("st.account_id = $4");
     expect(historicalSql).not.toContain("'acct-123'");
     expect(historicalParams).toContain("acct-123");
+  });
+
+  it("historical SQL selects the flag, parent id, and recurrence signals", async () => {
+    transactionsRepo.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await service.getSpendingTrends(mockUserId, 3, "all");
+    const sql = transactionsRepo.query.mock.calls[0][0] as string;
+    expect(sql).toContain("t.exclude_from_projection");
+    expect(sql).toContain("as transaction_id");
+    expect(sql).toContain("as payee_id");
+    expect(sql).toContain("as is_scheduled_match");
+  });
+
+  it("account-scoped historical SQL scopes is_scheduled_match to the account (Wren #1)", async () => {
+    transactionsRepo.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await service.getSpendingTrends(mockUserId, 3, "acct-123");
+    const sql = transactionsRepo.query.mock.calls[0][0] as string;
+    // the scheduled-match EXISTS must also bind the account param
+    expect(sql).toContain("st2.account_id = $4");
+  });
+
+  it("all-account historical SQL leaves is_scheduled_match unscoped (no orphan $4)", async () => {
+    transactionsRepo.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await service.getSpendingTrends(mockUserId, 3, "all");
+    const sql = transactionsRepo.query.mock.calls[0][0] as string;
+    expect(sql).not.toContain("st2.account_id = $4");
+  });
+
+  it("outliers carry the parent transactionId", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([hist("cat-travel", 1200, "2026-03-10", "Hotel")])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-travel", userId: mockUserId, name: "Travel" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    expect(result.excludedOutliers[0].transactionId).toMatch(/^txn-/);
   });
 });

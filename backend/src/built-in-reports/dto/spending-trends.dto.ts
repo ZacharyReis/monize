@@ -26,6 +26,7 @@ export class SpendingTrendOutlier {
   @ApiProperty() amount: number;
   @ApiProperty({ required: false }) payeeName?: string | null;
   @ApiProperty() reason: string;
+  @ApiProperty() transactionId: string;
 }
 
 export class SpendingTrendsResponse {

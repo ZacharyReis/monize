@@ -21,6 +21,10 @@ interface HistoricalSpendRow {
   category_id: string | null;
   amount: string;
   payee_name: string | null;
+  transaction_id: string;
+  exclude_from_projection: boolean | null;
+  payee_id: string | null;
+  is_scheduled_match: boolean;
 }
 
 interface ScheduledRow {
@@ -35,6 +39,10 @@ interface ParsedHistoricalSpend {
   categoryId: string | null;
   amount: number;
   payeeName: string | null;
+  transactionId: string;
+  excludeFromProjection: boolean | null;
+  payeeId: string | null;
+  isScheduledMatch: boolean;
 }
 
 interface CategoryProjectionStats {
@@ -100,6 +108,8 @@ export class SpendingTrendsService {
       accountId !== "all" ? "AND st.account_id = $2" : "";
     const antiJoinAccountCondition =
       accountId !== "all" ? "AND st.account_id = $4" : "";
+    const scheduledMatchAccountCondition =
+      accountId !== "all" ? "AND st2.account_id = $4" : "";
 
     // Base params for historical query: [userId, startDate, endDate, accountId?]
     const histParams: (string | number)[] = [userId, startDate, endDate];
@@ -122,7 +132,27 @@ export class SpendingTrendsService {
           t.transaction_date,
           COALESCE(ts.category_id, t.category_id) as category_id,
           ABS(COALESCE(ts.amount, t.amount)) as amount,
-          COALESCE(p.name, t.payee_name, t.description) as payee_name
+          COALESCE(p.name, t.payee_name, t.description) as payee_name,
+          t.id::text as transaction_id,
+          t.exclude_from_projection as exclude_from_projection,
+          t.payee_id::text as payee_id,
+          EXISTS (
+            SELECT 1 FROM scheduled_transactions st2
+            LEFT JOIN accounts sa2 ON sa2.id = st2.account_id
+            WHERE st2.payee_id = t.payee_id
+              AND ROUND(ABS(st2.amount)::numeric, 2) = ROUND(ABS(t.amount)::numeric, 2)
+              AND st2.currency_code = t.currency_code
+              AND st2.user_id = t.user_id
+              AND st2.is_active = true
+              AND st2.is_transfer = false
+              AND st2.frequency != 'ONCE'
+              AND st2.amount < 0
+              AND (st2.occurrences_remaining IS NULL OR st2.occurrences_remaining > 0)
+              AND (st2.end_date IS NULL OR st2.end_date >= CURRENT_DATE)
+              AND sa2.account_type != 'INVESTMENT'
+              AND sa2.is_closed = false
+              ${scheduledMatchAccountCondition}
+          ) as is_scheduled_match
         FROM transactions t
         LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
         LEFT JOIN accounts a ON a.id = t.account_id
@@ -277,6 +307,10 @@ export class SpendingTrendsService {
         categoryId: row.category_id,
         amount: Math.abs(parseFloat(row.amount)),
         payeeName: row.payee_name,
+        transactionId: row.transaction_id,
+        excludeFromProjection: row.exclude_from_projection ?? null,
+        payeeId: row.payee_id ?? null,
+        isScheduledMatch: !!row.is_scheduled_match,
       }))
       .filter((row) => Number.isFinite(row.amount) && row.amount > 0);
   }
@@ -313,6 +347,7 @@ export class SpendingTrendsService {
             amount: this.roundMoney(row.amount),
             payeeName: row.payeeName,
             reason,
+            transactionId: row.transactionId,
           });
         } else {
           included.push(row);
