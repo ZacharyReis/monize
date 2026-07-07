@@ -43,7 +43,13 @@
     "summaryEnding": "结束",
     "summaryLowest": "最低",
     "summaryMinBalance": "最低余额",
-    "allAccounts": "所有账户"
+    "allAccounts": "所有账户",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {

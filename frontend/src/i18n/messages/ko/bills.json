@@ -43,7 +43,13 @@
     "summaryEnding": "종료",
     "summaryLowest": "최저",
     "summaryMinBalance": "최소 잔액",
-    "allAccounts": "모든 계정"
+    "allAccounts": "모든 계정",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {

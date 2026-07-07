@@ -1,6 +1,7 @@
 import { ScheduledTransaction, FrequencyType } from '@/types/scheduled-transaction';
 import { Account } from '@/types/account';
 import { parseLocalDate } from '@/lib/utils';
+import type { SpendingTrendOutlier } from '@/types/built-in-reports';
 
 export interface FutureTransaction {
   id: string;
@@ -55,6 +56,11 @@ export interface TrendData {
     confidence?: 'low' | 'medium' | 'high';
   }>;
   totalDailyFill: number;
+  // Display-only fields for the one-time exclusions list (not consumed by
+  // buildForecast's balance math) -- optional so existing TrendData literals
+  // that only exercise trends/projectionEvents/totalDailyFill still type-check.
+  excludedOutliers?: SpendingTrendOutlier[];
+  currencyCode?: string;
 }
 
 // Get granularity in days for each period to limit data points

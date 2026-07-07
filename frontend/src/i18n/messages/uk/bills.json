@@ -43,7 +43,13 @@
     "summaryEnding": "Кінцевий",
     "summaryLowest": "Найнижчий",
     "summaryMinBalance": "Мін. баланс",
-    "allAccounts": "Усі рахунки"
+    "allAccounts": "Усі рахунки",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {

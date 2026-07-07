@@ -43,7 +43,13 @@
     "summaryEnding": "Akhir",
     "summaryLowest": "Terendah",
     "summaryMinBalance": "Saldo Min",
-    "allAccounts": "Semua Akun"
+    "allAccounts": "Semua Akun",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {

@@ -322,6 +322,7 @@ export interface SpendingTrendOutlier {
   amount: number;
   payeeName?: string | null;
   reason: string;
+  transactionId: string;
 }
 
 export interface SpendingTrendsResponse {

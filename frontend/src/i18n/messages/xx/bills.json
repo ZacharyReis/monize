@@ -43,7 +43,13 @@
     "summaryEnding": "[XX-Ending-XX]",
     "summaryLowest": "[XX-Lowest-XX]",
     "summaryMinBalance": "[XX-Min Balance-XX]",
-    "allAccounts": "[XX-All Accounts-XX]"
+    "allAccounts": "[XX-All Accounts-XX]",
+    "exclusions": {
+      "title": "[XX-Treated as one-time-XX]",
+      "subtitle": "[XX-These charges are not projected forward. Rescue any that actually recur.-XX]",
+      "confirm": "[XX-One-time-XX]",
+      "rescue": "[XX-Recurring-XX]"
+    }
   },
   "calendar": {
     "days": {

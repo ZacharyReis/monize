@@ -43,7 +43,13 @@
     "summaryEnding": "समाप्त",
     "summaryLowest": "न्यूनतम",
     "summaryMinBalance": "न्यूनतम शेष",
-    "allAccounts": "सभी खाते"
+    "allAccounts": "सभी खाते",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {

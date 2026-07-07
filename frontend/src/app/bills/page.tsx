@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { ScheduledTransactionForm } from '@/components/scheduled-transactions/ScheduledTransactionForm';
 import { CashFlowForecastChart } from '@/components/bills/CashFlowForecastChart';
+import { OneTimeExclusionsList } from '@/components/bills/OneTimeExclusionsList';
 import { ScheduledTransactionList } from '@/components/scheduled-transactions/ScheduledTransactionList';
 import { BillsFilterPanel } from '@/components/scheduled-transactions/BillsFilterPanel';
 import { OverrideEditorDialog } from '@/components/scheduled-transactions/OverrideEditorDialog';
@@ -193,6 +194,8 @@ function BillsContent() {
           confidence: event.confidence,
         })) ?? [],
         totalDailyFill: data.totalDailyFill,
+        excludedOutliers: data.excludedOutliers ?? [],
+        currencyCode: data.currencyCode,
       });
     } catch {
       setTrendData(undefined);
@@ -655,6 +658,14 @@ function BillsContent() {
             isLoading={isLoading}
           />
         </ErrorBoundary>
+
+        {trendData && (
+          <OneTimeExclusionsList
+            outliers={trendData.excludedOutliers ?? []}
+            currencyCode={trendData.currencyCode ?? 'USD'}
+            onChanged={loadTrends}
+          />
+        )}
 
         {/* Form Modal */}
         <Modal isOpen={showForm} onClose={handleFormClose} {...modalProps} maxWidth="6xl" className="p-6 !max-w-[69rem]">

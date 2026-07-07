@@ -43,7 +43,13 @@
     "summaryEnding": "Ende",
     "summaryLowest": "Niedrigster",
     "summaryMinBalance": "Mindestsaldo",
-    "allAccounts": "Alle Konten"
+    "allAccounts": "Alle Konten",
+    "exclusions": {
+      "title": "Treated as one-time",
+      "subtitle": "These charges are not projected forward. Rescue any that actually recur.",
+      "confirm": "One-time",
+      "rescue": "Recurring"
+    }
   },
   "calendar": {
     "days": {
