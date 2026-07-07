@@ -338,7 +338,14 @@ export class SpendingTrendsService {
     for (const [categoryId, categoryRows] of grouped) {
       const included: ParsedHistoricalSpend[] = [];
       for (const row of categoryRows) {
-        const reason = this.getOutlierReason(row, categoryRows);
+        let reason: string | null;
+        if (row.excludeFromProjection === true) {
+          reason = "marked_one_time";
+        } else if (row.excludeFromProjection === false) {
+          reason = null; // force include: skip all heuristics
+        } else {
+          reason = this.getOutlierReason(row, categoryRows);
+        }
         if (reason) {
           excludedOutliers.push({
             date: row.date,

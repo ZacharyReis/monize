@@ -449,4 +449,55 @@ describe("SpendingTrendsService", () => {
     const result = await service.getSpendingTrends(mockUserId, 3, "all");
     expect(result.excludedOutliers[0].transactionId).toMatch(/^txn-/);
   });
+
+  it("excludes a transaction flagged one-time (exclude_from_projection = true)", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-food", 1500, "2026-01-20", "Store", null),
+        hist("cat-food", 1500, "2026-02-20", "Store", null),
+        hist("cat-food", 5000, "2026-03-20", "Settlement", true),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-food", userId: mockUserId, name: "Food" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    const flagged = result.excludedOutliers.find(
+      (o) => o.reason === "marked_one_time",
+    );
+    expect(flagged?.amount).toBe(5000);
+    expect(result.trends[0].monthlyAverage).toBe(1000); // (1500+1500)/3
+  });
+
+  it("force-includes a recurring-flagged charge the heuristic would drop (false)", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-x", 200, "2026-01-20", "A", null),
+        hist("cat-x", 200, "2026-02-20", "A", null),
+        hist("cat-x", 200, "2026-03-05", "A", null),
+        hist("cat-x", 5000, "2026-03-20", "BigButRecurring", false),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-x", userId: mockUserId, name: "X" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    expect(result.excludedOutliers).toHaveLength(0);
+    expect(result.trends[0].monthlyAverage).toBeCloseTo((600 + 5000) / 3, 2);
+  });
+
+  it("defers to the heuristic when the flag is null", async () => {
+    transactionsRepo.query
+      .mockResolvedValueOnce([
+        hist("cat-travel", 1200, "2026-03-10", "Hotel", null),
+      ])
+      .mockResolvedValueOnce([]);
+    categoriesRepo.find.mockResolvedValue([
+      { id: "cat-travel", userId: mockUserId, name: "Travel" },
+    ]);
+    const result = await service.getSpendingTrends(mockUserId, 3, "all");
+    expect(result.excludedOutliers[0].reason).toBe(
+      "single_historical_occurrence",
+    );
+  });
 });
