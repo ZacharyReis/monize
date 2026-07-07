@@ -263,6 +263,7 @@ CREATE TABLE transactions (
     parent_transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE, -- for split children
     is_transfer BOOLEAN DEFAULT false, -- indicates this is part of an account-to-account transfer
     linked_transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL, -- links the paired transfer transaction
+    exclude_from_projection BOOLEAN, -- cash-flow projection recurrence intent (t-550): NULL=heuristic, TRUE=one-time, FALSE=recurring
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

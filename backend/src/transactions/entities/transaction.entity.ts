@@ -171,6 +171,13 @@ export class Transaction {
   @Column({ name: "is_transfer", default: false })
   isTransfer: boolean;
 
+  @Column({
+    name: "exclude_from_projection",
+    type: "boolean",
+    nullable: true,
+  })
+  excludeFromProjection: boolean | null;
+
   @Column({ type: "uuid", name: "linked_transaction_id", nullable: true })
   linkedTransactionId: string | null;
 
