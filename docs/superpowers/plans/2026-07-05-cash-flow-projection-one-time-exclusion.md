@@ -1329,3 +1329,22 @@ Wren re-confirmed observed-months gating, Rent/Debt = 1500, sparse-history inert
 **rev-3 → GO** (re-gate, same Wren session, 2026-07-05). All 4 rev-2 folds verified correct: `$4` scoping is sound (no orphan `$4` in the `all` path); the payee_id pivot is internally consistent (B2-eligibility and `is_scheduled_match` aligned by construction, null-payee drift gone); the i18n skip set exactly matches the `base: "en"` variants (`en-US`/`en-CA`/`en-GB`) and full translations pass on key/ICU parity; the integration test matches the real service-level harness. No new blocking defect; parameter numbering stable; no dangling `has_payee` references; existing spec tests stay B2-inert (< 6 observed months). **Three optional nits, all folded:** (1) Task 8 now records real-payoff `payee_id` coverage (B2 auto-suggest only covers linked payees); (2) added an all-account SQL negative assertion (no orphan `$4`); (3) tidied "all locales" prose. Plan is GO for implementation.
 
 **Placeholder scan:** no TBD/TODO; every code step shows real code. Two "confirm the path" notes (frontend `formatCurrency` import; the `trendData` state type location) are pattern-confirmations the implementer resolves against the actual file, not missing logic.
+
+---
+
+## Live Verification — 2026-07-06 (deployed to bare-metal via ./scripts/rebuild.sh)
+
+**Deploy:** `./scripts/rebuild.sh` full run, exit 0. Migration 093 applied to the real `monize` DB (`ALTER TABLE ... ADD COLUMN` — 090/091/092 idempotently re-ran via IF-NOT-EXISTS guards, as expected). Backend `nest build` + frontend `next build` (Next 16.2.6) clean, TypeScript no errors, 43/43 pages. Both OpenRC user services restarted [ok]; `/api/v1/health/ready` → 200 on :3001 (backend) and :3000 (frontend).
+
+**Column state:** `transactions.exclude_from_projection boolean NULL` present. 1993 rows total, **0 non-null** → every existing row defers to the heuristic = today's behavior preserved; no silent behavior change on deploy.
+
+**Step 2 — payee_id coverage (Wren rev-3 nit #1 — the key caveat): RESOLVED, worst case does NOT apply.** Overall linkage is 98.3% (1960/1993 rows carry a `payee_id`; 33 NULL). The real debt-settlement payoffs are all linked, so B2 auto-suggest CAN fire on them (no manual-only fallback needed).
+
+**Step 3 — B2 prediction against real data** (global observed months = 23, ≥ PAYEE_RECURRENCE_MIN_MONTHS):
+- PORTFOLIO RECOV PRA INC — 1 distinct month, −$5,633.73 → `single_payee_occurrence` (excluded). The motivating debt-payoff case.
+- RESURGENT CAP D002633328 — 1 distinct month, −$3,905.85 → `single_payee_occurrence` (excluded).
+- Shellpoint (4 mo), IRS (13 mo), NEWREZ-SHELLPOIN (20 mo) → multi-month → correctly KEPT (recurring). Mortgage/taxes not misflagged.
+
+Result: the two one-time debt-collector payoffs that inflated the projected monthly fill are now excluded; all genuinely-recurring charges retained. Feature verified working on the live ledger. UI confirm/override (Step 4) is the user's eyeball on the /bills forecast "Treated as one-time" list.
+
+**Follow-ups (non-blocking, filed):** error toast in OneTimeExclusionsList.apply() (silent-failure UX gap, plan-mandated); confirm-path + dedupe tests; switch list to useNumberFormat() for locale number-format consistency.
