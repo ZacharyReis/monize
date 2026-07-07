@@ -27,6 +27,7 @@ import { categoriesApi } from '@/lib/categories';
 import { accountsApi } from '@/lib/accounts';
 import { tagsApi } from '@/lib/tags';
 import { Transaction, TransactionStatus } from '@/types/transaction';
+import { projectionToSelect, selectToProjection } from '@/lib/projection-intent';
 import { Payee } from '@/types/payee';
 import { Category } from '@/types/category';
 import { Account } from '@/types/account';
@@ -56,6 +57,7 @@ const buildTransactionSchema = (t: (key: string) => string) => z.object({
   description: optionalString,
   referenceNumber: optionalString,
   status: z.nativeEnum(TransactionStatus).default(TransactionStatus.UNRECONCILED),
+  excludeFromProjection: z.boolean().nullable().default(null),
 });
 
 type TransactionFormData = z.infer<ReturnType<typeof buildTransactionSchema>>;
@@ -201,6 +203,7 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           description: initSource.description || '',
           referenceNumber: initSource.referenceNumber || '',
           status: duplicateFrom ? TransactionStatus.UNRECONCILED : (initSource.status || TransactionStatus.UNRECONCILED),
+          excludeFromProjection: initSource.excludeFromProjection ?? null,
         }
       : {
           accountId: defaultAccountId || '',
@@ -1104,6 +1107,22 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           { value: TransactionStatus.VOID, label: t('form.statusOptions.void') },
         ]}
         {...register('status')}
+      />
+
+      {/* Projection recurrence intent */}
+      <Select
+        label={t('form.fields.projection')}
+        options={[
+          { value: 'auto', label: t('form.projectionOptions.auto') },
+          { value: 'one_time', label: t('form.projectionOptions.oneTime') },
+          { value: 'recurring', label: t('form.projectionOptions.recurring') },
+        ]}
+        value={projectionToSelect(watch('excludeFromProjection'))}
+        onChange={(e) =>
+          setValue('excludeFromProjection', selectToProjection(e.target.value), {
+            shouldDirty: true,
+          })
+        }
       />
 
       {/* Actions */}

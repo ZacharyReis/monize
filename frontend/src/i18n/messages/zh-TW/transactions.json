@@ -268,7 +268,8 @@
       "transferAmountWithCurrency": "轉帳金額（{currency}）",
       "amountReceived": "收到金額（{currency}）",
       "payeeOptional": "收款人（選填）",
-      "categoryOptional": "類別（選填）"
+      "categoryOptional": "類別（選填）",
+      "projection": "Projection"
     },
     "placeholders": {
       "selectAccount": "選擇科目...",
@@ -322,7 +323,12 @@
     "ariaHistory": "顯示最近交易",
     "ariaHistoryForPayee": "顯示此收款人的最近交易",
     "historyTitle": "從最近的交易快速填寫",
-    "transferCategoryNote": "選填。此轉帳仍不計為收入或支出，但此類別可讓它顯示在每月類別明細中（例如每月投資繳款）。"
+    "transferCategoryNote": "選填。此轉帳仍不計為收入或支出，但此類別可讓它顯示在每月類別明細中（例如每月投資繳款）。",
+    "projectionOptions": {
+      "auto": "Auto (detect)",
+      "oneTime": "One-time (don't project)",
+      "recurring": "Recurring (always project)"
+    }
   },
   "splitEditor": {
     "header": "分割詳情",

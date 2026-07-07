@@ -74,6 +74,8 @@ export interface Transaction {
   isSplit: boolean;
   parentTransactionId: string | null;
   isTransfer: boolean;
+  /** Cash-flow projection recurrence intent. null = defer to heuristic, true = one-time (never project), false = recurring (always project). */
+  excludeFromProjection?: boolean | null;
   linkedTransactionId: string | null;
   linkedTransaction?: Transaction | null;
   /** ID of the linked investment transaction (if this is a cash transaction for an investment) */
@@ -106,6 +108,8 @@ export interface CreateTransactionData {
   description?: string | null;
   referenceNumber?: string | null;
   status?: TransactionStatus;
+  /** Cash-flow projection recurrence intent. null = defer to heuristic, true = one-time (never project), false = recurring (always project). */
+  excludeFromProjection?: boolean | null;
   reconciledDate?: string;
   isSplit?: boolean;
   parentTransactionId?: string;

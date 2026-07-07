@@ -268,7 +268,8 @@
       "transferAmountWithCurrency": "Transfer Tutarı ({currency})",
       "amountReceived": "Alınan Tutar ({currency})",
       "payeeOptional": "Alacaklı (İsteğe Bağlı)",
-      "categoryOptional": "Kategori (İsteğe bağlı)"
+      "categoryOptional": "Kategori (İsteğe bağlı)",
+      "projection": "Projection"
     },
     "placeholders": {
       "selectAccount": "Hesap seçin...",
@@ -322,7 +323,12 @@
     "ariaHistory": "Son işlemleri göster",
     "ariaHistoryForPayee": "Bu alacaklının son işlemlerini göster",
     "historyTitle": "Son işlemden hızlı doldur",
-    "transferCategoryNote": "İsteğe bağlı. Transfer yine de gelir veya gider olarak sayılmaz, ancak bu kategori onun aylık kategori dökümünde görünmesini sağlar (ör. aylık yatırım katkıları)."
+    "transferCategoryNote": "İsteğe bağlı. Transfer yine de gelir veya gider olarak sayılmaz, ancak bu kategori onun aylık kategori dökümünde görünmesini sağlar (ör. aylık yatırım katkıları).",
+    "projectionOptions": {
+      "auto": "Auto (detect)",
+      "oneTime": "One-time (don't project)",
+      "recurring": "Recurring (always project)"
+    }
   },
   "splitEditor": {
     "header": "Bölüm Ayrıntıları",

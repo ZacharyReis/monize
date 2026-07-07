@@ -268,7 +268,8 @@
       "transferAmountWithCurrency": "Сума переказу ({currency})",
       "amountReceived": "Отримана сума ({currency})",
       "payeeOptional": "Одержувач платежу (необов'язково)",
-      "categoryOptional": "Категорія (необов'язково)"
+      "categoryOptional": "Категорія (необов'язково)",
+      "projection": "Projection"
     },
     "placeholders": {
       "selectAccount": "Оберіть рахунок...",
@@ -322,7 +323,12 @@
     "ariaHistory": "Показати нещодавні транзакції",
     "ariaHistoryForPayee": "Показати нещодавні транзакції для цього одержувача",
     "historyTitle": "Швидке заповнення з нещодавньої транзакції",
-    "transferCategoryNote": "Необов'язково. Переказ і надалі не враховуватиметься як дохід чи витрата, але ця категорія дозволяє йому з'являтися в щомісячному розподілі за категоріями (наприклад, щомісячні інвестиційні внески)."
+    "transferCategoryNote": "Необов'язково. Переказ і надалі не враховуватиметься як дохід чи витрата, але ця категорія дозволяє йому з'являтися в щомісячному розподілі за категоріями (наприклад, щомісячні інвестиційні внески).",
+    "projectionOptions": {
+      "auto": "Auto (detect)",
+      "oneTime": "One-time (don't project)",
+      "recurring": "Recurring (always project)"
+    }
   },
   "splitEditor": {
     "header": "Деталі розподілу",

@@ -268,7 +268,8 @@
       "transferAmountWithCurrency": "Transfer Amount ({currency})",
       "amountReceived": "Amount Received ({currency})",
       "payeeOptional": "Payee (Optional)",
-      "categoryOptional": "Category (Optional)"
+      "categoryOptional": "Category (Optional)",
+      "projection": "Projection"
     },
     "placeholders": {
       "selectAccount": "Select account...",
@@ -289,6 +290,11 @@
       "cleared": "Cleared",
       "reconciled": "Reconciled",
       "void": "Void"
+    },
+    "projectionOptions": {
+      "auto": "Auto (detect)",
+      "oneTime": "One-time (don't project)",
+      "recurring": "Recurring (always project)"
     },
     "submitCreate": "Create {mode}",
     "submitUpdate": "Update {mode}",

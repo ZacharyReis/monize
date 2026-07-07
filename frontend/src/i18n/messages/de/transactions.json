@@ -268,7 +268,8 @@
       "transferAmountWithCurrency": "Überweisungsbetrag ({currency})",
       "amountReceived": "Erhaltener Betrag ({currency})",
       "payeeOptional": "Zahlungsempfänger (optional)",
-      "categoryOptional": "Kategorie (optional)"
+      "categoryOptional": "Kategorie (optional)",
+      "projection": "Projection"
     },
     "placeholders": {
       "selectAccount": "Konto auswählen...",
@@ -322,7 +323,12 @@
     "ariaHistory": "Letzte Buchungen anzeigen",
     "ariaHistoryForPayee": "Letzte Buchungen für diesen Zahlungsempfänger anzeigen",
     "historyTitle": "Aus einer aktuellen Buchung übernehmen",
-    "transferCategoryNote": "Optional. Der Transfer zählt weiterhin nicht als Einnahme oder Ausgabe, aber diese Kategorie lässt ihn in der monatlichen Kategorienübersicht erscheinen (z. B. monatliche Investitionsbeiträge)."
+    "transferCategoryNote": "Optional. Der Transfer zählt weiterhin nicht als Einnahme oder Ausgabe, aber diese Kategorie lässt ihn in der monatlichen Kategorienübersicht erscheinen (z. B. monatliche Investitionsbeiträge).",
+    "projectionOptions": {
+      "auto": "Auto (detect)",
+      "oneTime": "One-time (don't project)",
+      "recurring": "Recurring (always project)"
+    }
   },
   "splitEditor": {
     "header": "Details der Buchungsteile",
