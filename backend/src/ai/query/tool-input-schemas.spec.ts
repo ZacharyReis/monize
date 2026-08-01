@@ -1,3 +1,7 @@
+// tool-input-schemas re-exports the chat attachment cap from the decorated
+// AiQueryDto module, whose class-transformer decorators need reflect-metadata
+// at load time (Nest loads it for us everywhere else).
+import "reflect-metadata";
 import {
   validateToolInput,
   listTransactionsSchema,
@@ -11,6 +15,7 @@ import {
   calculateSchema,
   renderChartSchema,
   manageInvestmentTransactionsSchema,
+  manageTransactionsSchema,
   createTransactionsSchema,
 } from "./tool-input-schemas";
 
@@ -838,6 +843,76 @@ describe("tool-input-schemas", () => {
       if (!result.success) {
         expect(result.error).toContain("Invalid input");
       }
+    });
+  });
+
+  describe("manageTransactionsSchema (attachments)", () => {
+    const TXID = "11111111-1111-4111-8111-111111111111";
+    const createItem = {
+      accountName: "Checking",
+      amount: -10,
+      date: "2026-01-15",
+    };
+
+    it("accepts filename and 1-based index refs on create", () => {
+      const result = manageTransactionsSchema.safeParse({
+        operation: "create",
+        items: [{ ...createItem, attachments: ["receipt.png", 2] }],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("counts attachments as the required change on update", () => {
+      const withAttachments = manageTransactionsSchema.safeParse({
+        operation: "update",
+        items: [{ transactionId: TXID, attachments: ["receipt.png"] }],
+      });
+      expect(withAttachments.success).toBe(true);
+
+      const noChange = manageTransactionsSchema.safeParse({
+        operation: "update",
+        items: [{ transactionId: TXID }],
+      });
+      expect(noChange.success).toBe(false);
+    });
+
+    it("rejects attachments on delete", () => {
+      const result = manageTransactionsSchema.safeParse({
+        operation: "delete",
+        items: [{ transactionId: TXID, attachments: ["receipt.png"] }],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects attachments on a transfer row", () => {
+      const result = manageTransactionsSchema.safeParse({
+        operation: "create",
+        items: [
+          {
+            fromAccountName: "Checking",
+            toAccountName: "Savings",
+            amount: 100,
+            date: "2026-01-15",
+            attachments: ["receipt.png"],
+          },
+        ],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects an empty attachments array and more than 5 refs", () => {
+      expect(
+        manageTransactionsSchema.safeParse({
+          operation: "create",
+          items: [{ ...createItem, attachments: [] }],
+        }).success,
+      ).toBe(false);
+      expect(
+        manageTransactionsSchema.safeParse({
+          operation: "create",
+          items: [{ ...createItem, attachments: [1, 2, 3, 4, 5, 6] }],
+        }).success,
+      ).toBe(false);
     });
   });
 

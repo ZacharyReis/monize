@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "La semana comienza el",
     "showCreatedAtLabel": "Mostrar fecha de creación en formularios de transacciones",
     "showCreatedAtTooltip": "Muestra la fecha y hora en que se creó originalmente una transacción en los formularios. Esto es independiente de la fecha de la transacción y puede ayudarte a saber cuándo se agregó realmente la entrada a Monize.",
+    "showWhatsNewLabel": "Mostrar Novedades después de una actualización",
+    "showWhatsNewTooltip": "Muestra un resumen de las notas de la versión la primera vez que inicias sesión después de que Monize se actualice a una nueva versión. Siempre puedes volver a abrirlo haciendo clic en el número de versión que aparece en la parte inferior de esta página o en la pantalla de inicio de sesión.",
     "timeFormatLabel": "Formato de hora",
     "recentTransactionsLabel": "Transacciones recientes en completado rápido",
     "recentTransactionsHelp": "Número de entradas mostradas en el historial emergente junto al campo Beneficiario en los formularios de transacciones.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Error al guardar el tema de color"
     },
     "browserLocale": "Usar configuración regional del navegador (detección automática)",
-    "browserTimezonePrefix": "Usar zona horaria del navegador (detectada automáticamente como {tz})",
     "numberFormatOptions": {
       "browser": "Usar configuración regional del navegador (detectado automáticamente como {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Consulta guías y documentación."
+    },
+    "supportBackup": {
+      "label": "Crear copia para soporte",
+      "description": "Comparta una copia cifrada y desidentificada de sus datos para que un mantenedor pueda reproducir un error sin ver sus nombres o importes reales."
     }
+  },
+  "supportBackup": {
+    "title": "Crear copia para soporte",
+    "howItWorks": "Genera una copia desidentificada de su copia de seguridad: los nombres se enmascaran (se conservan los dos primeros y los dos últimos caracteres), se eliminan notas/descripciones/números de cuenta y cada importe se multiplica por un único factor oculto, mientras los valores públicos (tipos de cambio, precios, tipos de interés) quedan intactos. El archivo siempre se cifra con la contraseña de abajo y se restaura como una copia normal. Protege frente a la exposición casual, no frente a alguien que ya le conoce: las fechas, frecuencias y estructura se conservan para que los errores se reproduzcan.",
+    "sectionsLabel": "Qué incluir",
+    "sections": {
+      "investments": "Inversiones (valores, posiciones, precios)",
+      "scheduled": "Transacciones programadas",
+      "budgets": "Presupuestos",
+      "reports": "Informes y proyecciones",
+      "importMappings": "Asignaciones de columnas de importación",
+      "autoBackup": "Ajustes de copia automática"
+    },
+    "priceHistoryLabel": "Incluir historial de precios de valores",
+    "priceHistoryHint": "Desactivado por defecto: una serie completa de precios coincide con los datos públicos del mercado y puede identificar un símbolo enmascarado. Actívelo solo si el error afecta a precios o valoraciones.",
+    "accountsLabel": "Limitar a cuentas concretas",
+    "accountsHint": "Deje todo sin marcar para incluir todas las cuentas. Elegir un subconjunto arrastra también las cuentas y beneficiarios a los que hace referencia.",
+    "dateRangeLabel": "Rango de fechas (opcional)",
+    "dateRangeHint": "Limite el historial exportado a estas fechas. Los saldos iniciales se ajustan para que el archivo recortado siga cuadrando.",
+    "dateFromLabel": "Desde",
+    "dateToLabel": "Hasta",
+    "multiplierLabel": "Multiplicador de importes",
+    "multiplierHint": "Cada importe privado se multiplica por este número para ocultar los valores reales manteniendo la coherencia. Sirve cualquier número no entero mayor que 1; «Regenerar» elige uno nuevo.",
+    "multiplierWarning": "No comparta el multiplicador con nadie: es la clave que revierte los importes ocultos.",
+    "multiplierInvalid": "Introduzca un número no entero mayor que 1.",
+    "regenerate": "Regenerar",
+    "passwordLabel": "Contraseña de cifrado",
+    "preview": "Vista previa",
+    "previewLabel": "Vista previa",
+    "previewBefore": "Antes",
+    "previewAfter": "Después",
+    "previewEmpty": "No hay filas de ejemplo para esta selección.",
+    "previewFailed": "No se pudo generar la vista previa. Inténtelo de nuevo.",
+    "generate": "Generar",
+    "confirmPasswordTitle": "¿Ha guardado la contraseña?",
+    "confirmPasswordMessage": "El archivo solo puede abrirse con la contraseña de cifrado mostrada arriba. No se almacena en ningún sitio y no podrá recuperarse después: asegúrese de guardarla antes de generar.",
+    "confirmPasswordConfirm": "La guardé — generar",
+    "generatedToast": "Copia para soporte descargada.",
+    "generateFailed": "No se pudo generar la copia para soporte. Inténtelo de nuevo.",
+    "passwordHint": "El archivo siempre va cifrado. Comparta esta contraseña con el investigador por un canal separado, no junto al archivo.",
+    "passwordInvalid": "Introduzca al menos 8 caracteres."
   },
   "dangerZone": {
     "heading": "Zona de peligro",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Copia de seguridad automática",
-    "description": "Realiza copias de seguridad automáticas de tus datos en una carpeta según un horario. Dado que Monize se ejecuta en Docker, debes mapear una carpeta del host al contenedor como volumen (p. ej., -v /host/backups:/backups).",
+    "description": "Realiza copias de seguridad automáticas de tus datos en una carpeta según un horario. Dado que Monize se ejecuta en Docker, debes mapear una carpeta del host al contenedor como volumen (p. ej., -v /host/backups:/data/backups).",
     "loadingText": "Cargando...",
     "enableLabel": "Habilitar copias de seguridad automáticas",
     "backupFolderLabel": "Carpeta de copia de seguridad",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Examinar...",
     "validateButton": "Validar",
     "validatingButton": "Validando...",

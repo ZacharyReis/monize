@@ -41,7 +41,11 @@
     "importingTo": "Mengimpor ke:",
     "clickToSelect": "Klik untuk memilih file",
     "processing": "Memproses...",
-    "acceptedFormats": "QIF, OFX, QFX, atau CSV"
+    "acceptedFormats": "QIF, OFX, QFX, atau CSV",
+    "wikiNotice": {
+      "title": "Sebelum Anda mengimpor",
+      "body": "Baca bagian <money>Importing from Microsoft Money</money> atau <quicken>Importing from Quicken</quicken> di wiki sebelum mengimpor apa pun."
+    }
   },
   "selectAccount": {
     "headingSingle": "Pilih Akun Tujuan",

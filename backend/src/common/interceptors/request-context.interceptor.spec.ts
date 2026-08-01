@@ -11,7 +11,7 @@ describe("RequestContextInterceptor", () => {
   function makeContext(opts: {
     type?: "http" | "rpc";
     headers?: Record<string, string | string[] | undefined>;
-    user?: { id?: string };
+    user?: { id?: string; realUserId?: string };
   }) {
     const request = {
       headers: opts.headers ?? {},
@@ -59,7 +59,9 @@ describe("RequestContextInterceptor", () => {
       timezone: "America/Toronto",
     });
     const next = makeNext();
-    const ctx = makeContext({ user: { id: "user-1" } });
+    const ctx = makeContext({
+      user: { id: "11111111-1111-1111-1111-111111111111" },
+    });
 
     let captured: RequestContext | undefined;
     next.handle.mockImplementation(() => {
@@ -70,9 +72,43 @@ describe("RequestContextInterceptor", () => {
     const obs$ = (await interceptor.intercept(ctx, next as any)) as any;
     await firstValueFrom(obs$);
 
-    expect(captured).toEqual({ userId: "user-1", timezone: "America/Toronto" });
+    expect(captured).toEqual({
+      userId: "11111111-1111-1111-1111-111111111111",
+      realUserId: "11111111-1111-1111-1111-111111111111",
+      timezone: "America/Toronto",
+    });
     expect(preferencesRepository.findOne).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
+      where: { userId: "11111111-1111-1111-1111-111111111111" },
+    });
+  });
+
+  it("seeds realUserId from the delegate's own id while acting as an owner", async () => {
+    preferencesRepository.findOne.mockResolvedValue({
+      timezone: "America/Toronto",
+    });
+    const next = makeNext();
+    // Delegation: jwt.strategy has rewritten `id` to the owner and kept the
+    // delegate's own id in `realUserId`.
+    const ctx = makeContext({
+      user: {
+        id: "22222222-2222-2222-2222-222222222222",
+        realUserId: "33333333-3333-3333-3333-333333333333",
+      },
+    });
+
+    let captured: RequestContext | undefined;
+    next.handle.mockImplementation(() => {
+      captured = getRequestContext();
+      return of("ok");
+    });
+
+    const obs$ = (await interceptor.intercept(ctx, next as any)) as any;
+    await firstValueFrom(obs$);
+
+    expect(captured).toEqual({
+      userId: "22222222-2222-2222-2222-222222222222",
+      realUserId: "33333333-3333-3333-3333-333333333333",
+      timezone: "America/Toronto",
     });
   });
 
@@ -80,7 +116,7 @@ describe("RequestContextInterceptor", () => {
     preferencesRepository.findOne.mockResolvedValue({ timezone: "browser" });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "Europe/Berlin" },
     });
 
@@ -100,7 +136,7 @@ describe("RequestContextInterceptor", () => {
     preferencesRepository.findOne.mockResolvedValue({ timezone: "   " });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "Asia/Tokyo" },
     });
 
@@ -120,7 +156,7 @@ describe("RequestContextInterceptor", () => {
     preferencesRepository.findOne.mockResolvedValue(null);
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "   " },
     });
 
@@ -134,14 +170,14 @@ describe("RequestContextInterceptor", () => {
     await firstValueFrom(obs$);
 
     expect(captured?.timezone).toBeUndefined();
-    expect(captured?.userId).toBe("user-1");
+    expect(captured?.userId).toBe("11111111-1111-1111-1111-111111111111");
   });
 
   it("ignores non-string header values", async () => {
     preferencesRepository.findOne.mockResolvedValue(null);
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": ["dup", "values"] },
     });
 
@@ -179,7 +215,9 @@ describe("RequestContextInterceptor", () => {
 
   it("propagates errors from the downstream handler", async () => {
     preferencesRepository.findOne.mockResolvedValue(null);
-    const ctx = makeContext({ user: { id: "user-1" } });
+    const ctx = makeContext({
+      user: { id: "11111111-1111-1111-1111-111111111111" },
+    });
     const next = {
       handle: jest.fn(() => ({
         subscribe: ({ error }: { error: (e: unknown) => void }) => {
@@ -194,7 +232,9 @@ describe("RequestContextInterceptor", () => {
 
   it("forwards completion to subscribers when downstream completes without value", async () => {
     preferencesRepository.findOne.mockResolvedValue(null);
-    const ctx = makeContext({ user: { id: "user-1" } });
+    const ctx = makeContext({
+      user: { id: "11111111-1111-1111-1111-111111111111" },
+    });
     const next = {
       handle: jest.fn(() => ({
         subscribe: ({ complete }: { complete: () => void }) => {
@@ -224,7 +264,7 @@ describe("RequestContextInterceptor", () => {
     });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "America/Toronto" },
     });
 
@@ -232,7 +272,7 @@ describe("RequestContextInterceptor", () => {
     await firstValueFrom(obs$);
 
     expect(preferencesRepository.update).toHaveBeenCalledWith(
-      { userId: "user-1" },
+      { userId: "11111111-1111-1111-1111-111111111111" },
       { lastClientTimezone: "America/Toronto" },
     );
   });
@@ -244,7 +284,7 @@ describe("RequestContextInterceptor", () => {
     });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "America/Toronto" },
     });
 
@@ -261,7 +301,7 @@ describe("RequestContextInterceptor", () => {
     });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "Europe/Berlin" },
     });
 
@@ -278,7 +318,7 @@ describe("RequestContextInterceptor", () => {
     });
     const next = makeNext();
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "Not/A_Real_Zone" },
     });
 
@@ -298,7 +338,7 @@ describe("RequestContextInterceptor", () => {
     );
     const next = makeNext("body");
     const ctx = makeContext({
-      user: { id: "user-1" },
+      user: { id: "11111111-1111-1111-1111-111111111111" },
       headers: { "x-client-timezone": "Europe/Berlin" },
     });
 
@@ -312,7 +352,9 @@ describe("RequestContextInterceptor", () => {
       timezone: "America/Toronto",
     });
     const next = makeNext();
-    const ctx = makeContext({ user: { id: "user-1" } });
+    const ctx = makeContext({
+      user: { id: "11111111-1111-1111-1111-111111111111" },
+    });
 
     const obs$ = (await interceptor.intercept(ctx, next as any)) as any;
     await firstValueFrom(obs$);
@@ -325,20 +367,24 @@ describe("RequestContextInterceptor", () => {
     it("writes last_activity_at on the first authenticated request", async () => {
       preferencesRepository.findOne.mockResolvedValue(null);
       const next = makeNext();
-      const ctx = makeContext({ user: { id: "user-activity-1" } });
+      const ctx = makeContext({
+        user: { id: "44444444-4444-4444-4444-444444444441" },
+      });
 
       const obs$ = (await interceptor.intercept(ctx, next as any)) as any;
       await firstValueFrom(obs$);
 
       expect(usersRepository.update).toHaveBeenCalledTimes(1);
       const args = usersRepository.update.mock.calls[0];
-      expect(args[0]).toEqual({ id: "user-activity-1" });
+      expect(args[0]).toEqual({ id: "44444444-4444-4444-4444-444444444441" });
       expect(args[1].lastActivityAt).toBeInstanceOf(Date);
     });
 
     it("throttles repeat writes within the 5-minute window", async () => {
       preferencesRepository.findOne.mockResolvedValue(null);
-      const ctx = makeContext({ user: { id: "user-activity-2" } });
+      const ctx = makeContext({
+        user: { id: "44444444-4444-4444-4444-444444444442" },
+      });
 
       const obs1 = (await interceptor.intercept(ctx, makeNext() as any)) as any;
       await firstValueFrom(obs1);
@@ -362,7 +408,9 @@ describe("RequestContextInterceptor", () => {
     it("swallows DB failures and allows the next request to retry", async () => {
       preferencesRepository.findOne.mockResolvedValue(null);
       usersRepository.update.mockRejectedValueOnce(new Error("transient"));
-      const ctx = makeContext({ user: { id: "user-activity-3" } });
+      const ctx = makeContext({
+        user: { id: "44444444-4444-4444-4444-444444444443" },
+      });
 
       const obs1 = (await interceptor.intercept(ctx, makeNext() as any)) as any;
       await expect(firstValueFrom(obs1)).resolves.toBe("ok");
@@ -377,7 +425,9 @@ describe("RequestContextInterceptor", () => {
     it("swallows non-Error rejections from the activity write", async () => {
       preferencesRepository.findOne.mockResolvedValue(null);
       usersRepository.update.mockRejectedValueOnce("raw-string-error");
-      const ctx = makeContext({ user: { id: "user-activity-4" } });
+      const ctx = makeContext({
+        user: { id: "44444444-4444-4444-4444-444444444444" },
+      });
 
       const obs$ = (await interceptor.intercept(ctx, makeNext() as any)) as any;
       await expect(firstValueFrom(obs$)).resolves.toBe("ok");
@@ -393,12 +443,81 @@ describe("RequestContextInterceptor", () => {
     preferencesRepository.update.mockRejectedValueOnce("raw-string-error");
     const next = makeNext("body");
     const ctx = makeContext({
-      user: { id: "user-tz-1" },
+      user: { id: "55555555-5555-5555-5555-555555555555" },
       headers: { "x-client-timezone": "Europe/Berlin" },
     });
 
     const obs$ = (await interceptor.intercept(ctx, next as any)) as any;
     await expect(firstValueFrom(obs$)).resolves.toBe("body");
     await new Promise((r) => setImmediate(r));
+  });
+
+  // RLS (task C6): the interceptor's own writes (last_activity_at, cached
+  // client timezone) and its preference read run BEFORE it enters its
+  // requestContextStorage scope, so each is wrapped in withUserContext(userId).
+  // We assert the ambient context at the moment each DB call fires.
+  describe("RLS context wrapping (task C6)", () => {
+    const UID = "66666666-6666-6666-6666-666666666666";
+
+    it("reads the timezone preference under a user context", async () => {
+      let ctx: RequestContext | undefined;
+      preferencesRepository.findOne.mockImplementation(() => {
+        ctx = getRequestContext();
+        return Promise.resolve({ timezone: "America/Toronto" });
+      });
+      const ctxObj = makeContext({ user: { id: UID } });
+
+      const obs$ = (await interceptor.intercept(
+        ctxObj,
+        makeNext() as any,
+      )) as any;
+      await firstValueFrom(obs$);
+
+      expect(ctx).toEqual({ userId: UID });
+    });
+
+    it("writes last_activity_at under a user context", async () => {
+      preferencesRepository.findOne.mockResolvedValue(null);
+      let ctx: RequestContext | undefined;
+      usersRepository.update.mockImplementation(() => {
+        ctx = getRequestContext();
+        return Promise.resolve({ affected: 1 });
+      });
+      const ctxObj = makeContext({ user: { id: UID } });
+
+      const obs$ = (await interceptor.intercept(
+        ctxObj,
+        makeNext() as any,
+      )) as any;
+      await firstValueFrom(obs$);
+      await new Promise((r) => setImmediate(r));
+
+      expect(ctx).toEqual({ userId: UID });
+    });
+
+    it("caches the client timezone under a user context", async () => {
+      preferencesRepository.findOne.mockResolvedValue({
+        timezone: "browser",
+        lastClientTimezone: null,
+      });
+      let ctx: RequestContext | undefined;
+      preferencesRepository.update.mockImplementation(() => {
+        ctx = getRequestContext();
+        return Promise.resolve({ affected: 1 });
+      });
+      const ctxObj = makeContext({
+        user: { id: UID },
+        headers: { "x-client-timezone": "Europe/Berlin" },
+      });
+
+      const obs$ = (await interceptor.intercept(
+        ctxObj,
+        makeNext() as any,
+      )) as any;
+      await firstValueFrom(obs$);
+      await new Promise((r) => setImmediate(r));
+
+      expect(ctx).toEqual({ userId: UID });
+    });
   });
 });

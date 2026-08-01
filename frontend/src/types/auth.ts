@@ -104,6 +104,8 @@ export interface UserPreferences {
   budgetDigestEnabled: boolean;
   budgetDigestDay: 'MONDAY' | 'FRIDAY';
   favouriteReportIds: string[];
+  dashboardWidgets: string[]; // ordered visible widget ids; empty = default layout
+  dashboardWidgetConfig: Record<string, Record<string, unknown>>; // per-widget settings keyed by widget id
   showCreatedAt: boolean;
   timeFormat: '24h' | '12h';
   preferredExchanges: string[];
@@ -111,6 +113,7 @@ export interface UserPreferences {
   recentTransactionsLimit: number;
   forecastLookbackMonths: number;
   aiBubbleEnabled: boolean;
+  showWhatsNew: boolean;
   language: string;
   createdAt: string;
   updatedAt: string;
@@ -166,6 +169,8 @@ export interface UpdatePreferencesData {
   budgetDigestEnabled?: boolean;
   budgetDigestDay?: 'MONDAY' | 'FRIDAY';
   favouriteReportIds?: string[];
+  dashboardWidgets?: string[];
+  dashboardWidgetConfig?: Record<string, Record<string, unknown>>;
   showCreatedAt?: boolean;
   timeFormat?: '24h' | '12h';
   preferredExchanges?: string[];
@@ -173,6 +178,7 @@ export interface UpdatePreferencesData {
   recentTransactionsLimit?: number;
   forecastLookbackMonths?: number;
   aiBubbleEnabled?: boolean;
+  showWhatsNew?: boolean;
   language?: string;
 }
 

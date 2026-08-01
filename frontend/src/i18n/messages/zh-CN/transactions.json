@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "总支出",
+    "income": "收入",
+    "net": "净额",
+    "transactions": "交易",
+    "averageAmount": "平均金额",
+    "lastTransaction": "最近交易",
+    "defaultCategory": "默认分类",
+    "nextBill": "下一笔账单",
+    "viewBills": "在账单与存款中查看",
+    "topCategories": "主要分类",
+    "uncategorized": "未分类",
+    "aliases": "别名",
+    "recurring": "定期:{cadence} · {amount}",
+    "recurringTooltip": "根据所选期间(未设置日期筛选时为最近12个月)内的重复扣款检测得出。",
+    "cadence": {
+      "weekly": "每周",
+      "biweekly": "每两周",
+      "monthly": "每月",
+      "quarterly": "每季",
+      "yearly": "每年"
+    },
+    "inactive": "已停用",
+    "noTransactions": "此期间没有交易",
+    "editAria": "编辑收款人",
+    "collapseAria": "隐藏收款人信息",
+    "show": "显示收款人信息"
+  },
+  "categoryWidget": {
+    "totalSpent": "总支出",
+    "totalEarned": "总收入",
+    "income": "收入",
+    "expense": "支出",
+    "budgetThisMonth": "本月预算",
+    "budgetProgress": "{spent} / {budgeted}",
+    "transactions": "交易",
+    "averageAmount": "平均金额",
+    "monthlyAverage": "月平均",
+    "subcategories": "子分类",
+    "thisCategory": "此分类",
+    "topPayees": "主要收款人",
+    "noPayee": "无收款人",
+    "nextScheduled": "下一笔计划交易",
+    "noTransactions": "此期间没有交易",
+    "editAria": "编辑分类",
+    "collapseAria": "隐藏分类信息",
+    "show": "显示分类信息"
+  },
   "accountWidget": {
     "currentBalance": "当前余额",
     "nextPayment": "下次还款",
     "viewBills": "在账单与存款中查看",
+    "viewDetailsAria": "查看账户详情",
     "type": "类型",
     "accountNumber": "账户号码",
     "currency": "货币",
@@ -27,7 +76,8 @@
       "duplicateTitle": "复制交易",
       "newTitle": "新建交易",
       "scheduleTitle": "设为定期计划",
-      "editPayeeTitle": "编辑收款人"
+      "editPayeeTitle": "编辑收款人",
+      "editCategoryTitle": "编辑分类"
     },
     "loading": "正在加载交易...",
     "totalCount": "{count, plural, one {# 笔交易} other {# 笔交易}}",
@@ -54,9 +104,13 @@
       "refNumber": "参考编号",
       "tags": "标签",
       "amount": "金额",
+      "currency": "币种",
+      "paidAmount": "支付金额",
+      "feePaid": "已付手续费",
       "balance": "余额",
       "status": "状态",
-      "actions": "操作"
+      "actions": "操作",
+      "attachments": "附件"
     },
     "today": "今天",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "确定要删除此交易吗？此操作无法撤销。",
       "success": "交易已删除",
       "transferSuccess": "转账已删除",
-      "error": "删除交易失败"
+      "error": "删除交易失败",
+      "reconciledWarning": "此交易已对账，因此删除它会影响已完成的对账。"
     },
     "status": {
       "voidError": "请编辑交易以将状态从\"作废\"更改",
@@ -90,7 +145,6 @@
       "cleared": "已结算",
       "reconciled": "已对账",
       "void": "作废",
-      "unreconciledDense": "未",
       "clearedDense": "清",
       "reconciledDense": "账",
       "voidDense": "废",
@@ -118,7 +172,8 @@
       "editButton": "编辑",
       "deleteButton": "删除"
     },
-    "itemNamePlural": "笔交易"
+    "itemNamePlural": "笔交易",
+    "attachmentsCount": "{count, plural, other {# 个附件}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "金额从",
       "amountTo": "金额至",
       "status": "状态",
-      "search": "搜索"
+      "search": "搜索",
+      "tagKey": "标签键",
+      "tagKeyOp": "条件",
+      "tagKeyValue": "值",
+      "currency": "币种",
+      "hasAttachments": "附件"
     },
     "placeholders": {
       "accounts": "所有账户",
@@ -176,7 +236,8 @@
       "statuses": "所有状态",
       "amountMin": "最小",
       "amountMax": "最大",
-      "search": "搜索收款人、分类、金额、标签、描述、参考编号..."
+      "search": "搜索收款人、分类、金额、标签、描述、参考编号...",
+      "tagKeyValue": "例如 usa"
     },
     "chips": {
       "removeAccount": "移除 {name} 筛选",
@@ -189,7 +250,11 @@
       "dateFrom": "从 {date}",
       "dateUntil": "至 {date}",
       "amountFrom": "从 {amount}",
-      "amountUpTo": "最多 {amount}"
+      "amountUpTo": "最多 {amount}",
+      "removeCurrency": "移除 {name} 币种筛选",
+      "hasAttachments": "有附件",
+      "noAttachments": "无附件",
+      "removeAttachments": "移除附件筛选"
     },
     "bulkUpdate": "批量更新",
     "cancelBulk": "取消批量",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "选择时间段...",
+      "allDates": "所有日期",
       "today": "今天",
       "yesterday": "昨天",
       "thisWeek": "本周",
       "lastWeek": "上周",
+      "last30Days": "最近30天",
       "monthToDate": "本月至今",
       "lastMonth": "上个月",
+      "last365Days": "最近365天",
       "yearToDate": "今年至今",
       "lastYear": "去年",
       "custom": "自定义"
+    },
+    "tagKeyNone": "任意（无键筛选）",
+    "tagKeyOps": {
+      "hasValue": "有值",
+      "noValue": "无值",
+      "contains": "值包含",
+      "notContains": "值不包含"
+    },
+    "hasAttachmentsOptions": {
+      "any": "任意",
+      "yes": "是",
+      "no": "否"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "创建{mode}",
     "submitUpdate": "更新{mode}",
+    "reconciledConfirm": {
+      "title": "编辑已对账的交易？",
+      "message": "此交易已对账。更改它会影响已完成的对账。仍要保存更改吗？",
+      "confirm": "保存更改"
+    },
     "modeLabel": {
       "transfer": "转账",
       "transaction": "交易"
@@ -300,6 +385,7 @@
     "transferAmountNote": "转账金额必须为正数",
     "amountReceivedNote": "货币兑换后收到的金额",
     "splitTransaction": "拆分交易",
+    "splitDisabledDuringTour": "引导式导览期间不可用",
     "newTagTitle": "新建标签",
     "toasts": {
       "transferCreated": "转账已创建",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "重新激活收款人失败",
       "categoryCreated": "分类\"{name}\"已创建",
       "categoryCreateFailed": "创建分类失败",
-      "tagCreated": "标签\"{name}\"已创建"
+      "tagCreated": "标签\"{name}\"已创建",
+      "fxRateRequired": "在保存外币交易前，请输入汇率或换算后的金额。",
+      "attachmentsUploadFailed": "交易已保存，但 {count} 个附件上传失败"
     },
     "ariaHistory": "显示近期交易",
     "ariaHistoryForPayee": "显示此收款人的近期交易",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "输入币种",
+      "ariaLabel": "更改输入币种",
+      "title": "输入金额的币种",
+      "accountCurrency": "账户币种（{code}）",
+      "addCurrency": "添加币种...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "添加货币失败",
+      "reactivated": "已重新启用 {code}"
+    },
+    "fx": {
+      "noRateWarning": "未找到 {date} 从 {from} 到 {to} 的汇率。请手动输入换算后的金额。",
+      "usingLatestRateHint": "正在使用最新可用汇率（非 {date} 当天）。",
+      "displayToggle": {
+        "account": "账户",
+        "original": "原币种"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "包含 {percent}% 境外交易手续费（{fee}）。",
+      "totalInCurrency": "以 {currency} 计的总额"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "选择账户...",
     "memoPlaceholder": "可选备注",
     "mobileMemoPlaceholder": "备注",
-    "tagsPlaceholder": "标签..."
+    "tagsPlaceholder": "标签...",
+    "currencyToggle": {
+      "title": "切换拆分金额的显示和编辑货币",
+      "ariaAmountsIn": "以 {code} 显示和编辑拆分金额"
+    }
   },
   "recentPopover": {
     "recentForPayee": "{name} 的近期交易",
@@ -397,15 +510,33 @@
       "current": "当前",
       "ending": "结算",
       "lowest": "最低",
-      "minBalance": "最低余额"
+      "minBalance": "最低余额",
+      "projected": "预测",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "所选账户的余额均为零，因此没有可显示的余额图表。"
     },
     "monthlyTotals": {
       "title": "月度合计",
       "noData": "无交易数据",
       "monthlyAvg": "月均",
+      "quarterlyAvg": "季均",
+      "yearlyAvg": "年均",
       "total": "合计",
       "transactions": "交易",
-      "tooltip": "{count, plural, one {# 笔交易} other {# 笔交易}}"
+      "tooltip": "{count, plural, one {# 笔交易} other {# 笔交易}}",
+      "quarterLabel": "{year}年Q{quarter}",
+      "quarterTick": "{year}年Q{quarter}",
+      "granularityLabel": "分组方式",
+      "granularity": {
+        "auto": "自动",
+        "month": "月",
+        "quarter": "季度",
+        "year": "年"
+      },
+      "granularityAutoTitle": "自动（{granularity}）",
+      "granularityTitle": "{label}视图"
     },
     "accountBalances": {
       "title": "账户余额",
@@ -430,9 +561,16 @@
     "loadFailed": "加载交易失败",
     "loadPayeeFailed": "加载收款人详情失败",
     "payeeUpdateFailed": "更新收款人失败",
+    "categoryUpdated": "分类已成功更新",
+    "categoryUpdateFailed": "更新分类失败",
     "exportFailed": "导出交易失败"
   },
   "validation": {
     "dateRequired": "日期为必填项"
+  },
+  "tagKeyBreakdown": {
+    "title": "按 {key} 的支出",
+    "other": "其他",
+    "noData": "没有可按此键细分的已标记支出。"
   }
 }

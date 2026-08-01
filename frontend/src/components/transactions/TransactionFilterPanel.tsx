@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { MultiSelect, MultiSelectOption } from '@/components/ui/MultiSelect';
+import { exchangeRatesApi } from '@/lib/exchange-rates';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
 import { Select } from '@/components/ui/Select';
@@ -12,6 +14,8 @@ import { Payee } from '@/types/payee';
 import { Tag } from '@/types/tag';
 import { TransactionStatus } from '@/types/transaction';
 import { TimePeriod, TIME_PERIOD_OPTIONS, resolveTimePeriod } from '@/lib/time-periods';
+import { collectTagKeys } from '@/lib/tag-key-value';
+import { TagKeyOp } from '@/hooks/useTransactionFilters';
 
 
 interface TransactionFilterPanelProps {
@@ -28,6 +32,11 @@ interface TransactionFilterPanelProps {
   filterAmountTo: string;
   filterTagIds: string[];
   filterStatuses: TransactionStatus[];
+  filterOriginalCurrencyCodes: string[];
+  filterTagKey: string;
+  filterTagKeyOp: TagKeyOp;
+  filterTagKeyValue: string;
+  filterHasAttachments: '' | 'yes' | 'no';
   weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   handleArrayFilterChange: <T>(setter: (value: T) => void, value: T) => void;
   handleFilterChange: (setter: (value: string) => void, value: string) => void;
@@ -44,6 +53,11 @@ interface TransactionFilterPanelProps {
   setFilterAmountTo: (value: string) => void;
   setFilterTagIds: (value: string[]) => void;
   setFilterStatuses: (value: TransactionStatus[]) => void;
+  setFilterOriginalCurrencyCodes: (value: string[]) => void;
+  setFilterTagKey: (value: string) => void;
+  setFilterTagKeyOp: (value: TagKeyOp) => void;
+  setFilterTagKeyValue: (value: string) => void;
+  setFilterHasAttachments: (value: '' | 'yes' | 'no') => void;
   filtersExpanded: boolean;
   setFiltersExpanded: (value: boolean) => void;
   activeFilterCount: number;
@@ -76,6 +90,11 @@ export function TransactionFilterPanel({
   filterAmountTo,
   filterTagIds,
   filterStatuses,
+  filterOriginalCurrencyCodes,
+  filterTagKey,
+  filterTagKeyOp,
+  filterTagKeyValue,
+  filterHasAttachments,
   weekStartsOn,
   handleArrayFilterChange,
   handleFilterChange,
@@ -92,6 +111,11 @@ export function TransactionFilterPanel({
   setFilterAmountTo,
   setFilterTagIds,
   setFilterStatuses,
+  setFilterOriginalCurrencyCodes,
+  setFilterTagKey,
+  setFilterTagKeyOp,
+  setFilterTagKeyValue,
+  setFilterHasAttachments,
   filtersExpanded,
   setFiltersExpanded,
   activeFilterCount,
@@ -118,12 +142,50 @@ export function TransactionFilterPanel({
     [TransactionStatus.VOID]: t('filter.statusLabels.void'),
   };
 
+  // KEY:VALUE tag keys the user actually has (e.g. "country", "sector"). The
+  // whole key filter is only offered when at least one key:value tag exists.
+  const availableTagKeys = collectTagKeys(tagFilterOptions.map((o) => o.label));
+  const tagKeyOpOptions: { value: TagKeyOp; label: string }[] = [
+    { value: 'hasValue', label: t('filter.tagKeyOps.hasValue') },
+    { value: 'noValue', label: t('filter.tagKeyOps.noValue') },
+    { value: 'contains', label: t('filter.tagKeyOps.contains') },
+    { value: 'notContains', label: t('filter.tagKeyOps.notContains') },
+  ];
+  const tagKeyNeedsValue =
+    filterTagKeyOp === 'contains' || filterTagKeyOp === 'notContains';
+
   const STATUS_FILTER_OPTIONS: MultiSelectOption[] = [
     { value: TransactionStatus.UNRECONCILED, label: STATUS_LABELS[TransactionStatus.UNRECONCILED] },
     { value: TransactionStatus.CLEARED, label: STATUS_LABELS[TransactionStatus.CLEARED] },
     { value: TransactionStatus.RECONCILED, label: STATUS_LABELS[TransactionStatus.RECONCILED] },
     { value: TransactionStatus.VOID, label: STATUS_LABELS[TransactionStatus.VOID] },
   ];
+
+  // Currency filter options: the user's active currencies, merged with any codes
+  // already selected (so a filter restored from the URL still shows its chips).
+  const [activeCurrencyCodes, setActiveCurrencyCodes] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    exchangeRatesApi
+      .getCurrencies()
+      .then((rows) => {
+        if (!cancelled) {
+          setActiveCurrencyCodes(rows.filter((c) => c.isActive).map((c) => c.code));
+        }
+      })
+      .catch(() => {
+        /* leave options to the selected codes only */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const CURRENCY_FILTER_OPTIONS: MultiSelectOption[] = Array.from(
+    new Set([...activeCurrencyCodes, ...filterOriginalCurrencyCodes]),
+  )
+    .sort()
+    .map((code) => ({ value: code, label: code }));
+  const hasCurrencyFilter = CURRENCY_FILTER_OPTIONS.length > 0;
 
   return (
     <>
@@ -361,6 +423,41 @@ export function TransactionFilterPanel({
                   </button>
                 </span>
               ))}
+              {/* Currency chips - Cyan */}
+              {filterOriginalCurrencyCodes.map(code => (
+                <span
+                  key={`currency-${code}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 whitespace-nowrap"
+                >
+                  {code}
+                  <button
+                    onClick={() => handleArrayFilterChange(setFilterOriginalCurrencyCodes, filterOriginalCurrencyCodes.filter(c => c !== code))}
+                    className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-cyan-200 dark:hover:bg-cyan-800"
+                    aria-label={t('filter.chips.removeCurrency', { name: code })}
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+              {/* Attachments chip - Lime */}
+              {filterHasAttachments && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-lime-100 dark:bg-lime-900 text-lime-800 dark:text-lime-200 whitespace-nowrap">
+                  {filterHasAttachments === 'yes'
+                    ? t('filter.chips.hasAttachments')
+                    : t('filter.chips.noAttachments')}
+                  <button
+                    onClick={() => handleFilterChange(setFilterHasAttachments as (value: string) => void, '')}
+                    className="ml-0.5 -mr-1 p-0.5 rounded-full inline-flex items-center justify-center hover:bg-lime-200 dark:hover:bg-lime-800"
+                    aria-label={t('filter.chips.removeAttachments')}
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              )}
               {/* Search chip - Gray */}
               {filterSearch && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 whitespace-nowrap">
@@ -435,7 +532,7 @@ export function TransactionFilterPanel({
               </div>
 
               {/* First row: Main filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-2">
                 <MultiSelect
                   label={t('filter.fields.accounts')}
                   options={accountFilterOptions}
@@ -467,12 +564,73 @@ export function TransactionFilterPanel({
                   onChange={(values) => handleArrayFilterChange(setFilterTagIds, values)}
                   placeholder={t('filter.placeholders.tags')}
                 />
+
+                <MultiSelect
+                  label={t('filter.fields.status')}
+                  options={STATUS_FILTER_OPTIONS}
+                  value={filterStatuses}
+                  onChange={(values) => handleArrayFilterChange(setFilterStatuses, values as TransactionStatus[])}
+                  placeholder={t('filter.placeholders.statuses')}
+                  showSearch={false}
+                />
               </div>
 
-              {/* Second row: Time period, dates, amount range, reconciliation status, and search.
-                  Uses an explicit fr template so Reconciliation can be a fraction
-                  of the width of the other inputs. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_2fr_1fr_1fr_2fr_3fr] gap-4 mt-4">
+              {/* KEY:VALUE tag key filter. Only shown when the user has at least
+                  one key:value tag (e.g. country:usa). Choose a key, an operator,
+                  and (for contains/notContains) a term. */}
+              {availableTagKeys.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_3fr] gap-4 mt-4">
+                  <Select
+                    label={t('filter.fields.tagKey')}
+                    options={[
+                      { value: '', label: t('filter.tagKeyNone') },
+                      ...availableTagKeys.map((k) => ({ value: k, label: k })),
+                    ]}
+                    value={filterTagKey}
+                    onChange={(e) =>
+                      handleFilterChange(setFilterTagKey, e.target.value)
+                    }
+                  />
+                  <Select
+                    label={t('filter.fields.tagKeyOp')}
+                    options={tagKeyOpOptions}
+                    value={filterTagKeyOp}
+                    disabled={!filterTagKey}
+                    onChange={(e) =>
+                      handleFilterChange(
+                        setFilterTagKeyOp as (value: string) => void,
+                        e.target.value,
+                      )
+                    }
+                  />
+                  {tagKeyNeedsValue && (
+                    <Input
+                      label={t('filter.fields.tagKeyValue')}
+                      value={filterTagKeyValue}
+                      disabled={!filterTagKey}
+                      placeholder={t('filter.placeholders.tagKeyValue')}
+                      onChange={(e) =>
+                        handleFilterChange(setFilterTagKeyValue, e.target.value)
+                      }
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Second row: Time period, dates, amount range, currency,
+                  attachments, and search on one lg row. The fr weights are
+                  integers (so Tailwind reliably emits the arbitrary class):
+                  Time Period 34, each date 27 (another ~10% shaved off and
+                  given to Time Period), the narrow controls 20 (1fr), and
+                  Search 60 (3fr). The Currency column is dropped when it isn't
+                  shown. */}
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 ${
+                  hasCurrencyFilter
+                    ? 'lg:grid-cols-[34fr_27fr_27fr_20fr_20fr_20fr_20fr_60fr]'
+                    : 'lg:grid-cols-[34fr_27fr_27fr_20fr_20fr_20fr_60fr]'
+                }`}
+              >
                 <Select
                   label={t('filter.fields.timePeriod')}
                   options={TIME_PERIOD_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
@@ -540,13 +698,30 @@ export function TransactionFilterPanel({
                   placeholder={t('filter.placeholders.amountMax')}
                 />
 
-                <MultiSelect
-                  label={t('filter.fields.status')}
-                  options={STATUS_FILTER_OPTIONS}
-                  value={filterStatuses}
-                  onChange={(values) => handleArrayFilterChange(setFilterStatuses, values as TransactionStatus[])}
-                  placeholder={t('filter.placeholders.statuses')}
-                  showSearch={false}
+                {hasCurrencyFilter && (
+                  <MultiSelect
+                    label={t('filter.fields.currency')}
+                    options={CURRENCY_FILTER_OPTIONS}
+                    value={filterOriginalCurrencyCodes}
+                    onChange={(values) => handleArrayFilterChange(setFilterOriginalCurrencyCodes, values as string[])}
+                    placeholder={t('filter.fields.currency')}
+                  />
+                )}
+
+                <Select
+                  label={t('filter.fields.hasAttachments')}
+                  options={[
+                    { value: '', label: t('filter.hasAttachmentsOptions.any') },
+                    { value: 'yes', label: t('filter.hasAttachmentsOptions.yes') },
+                    { value: 'no', label: t('filter.hasAttachmentsOptions.no') },
+                  ]}
+                  value={filterHasAttachments}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      setFilterHasAttachments as (value: string) => void,
+                      e.target.value,
+                    )
+                  }
                 />
 
                 <Input

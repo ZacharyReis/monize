@@ -14,6 +14,8 @@ import { Payee } from '@/types/payee';
 import { getCurrencySymbol } from '@/lib/format';
 import { buildAccountDropdownOptions } from '@/lib/account-utils';
 import { RecentTransactionsPopover } from './RecentTransactionsPopover';
+import { TOUR_ANCHORS, tourAnchor } from '@/lib/tours/anchors';
+import { useDisableTransactionSplit } from '@/store/tourStore';
 
 interface NormalTransactionFieldsProps {
   register: UseFormRegister<any>;
@@ -40,6 +42,23 @@ interface NormalTransactionFieldsProps {
   onQuickFill?: (transaction: Transaction) => void;
   transaction?: Transaction;
   createdAtSlot?: ReactNode;
+  /** Foreign-currency entry: button placed left of the Amount input. */
+  currencyPickerSlot?: ReactNode;
+  /** Foreign-currency entry: the converted account-currency amount input, placed
+   *  beside the Amount input (equal width). When set, the Amount row switches to
+   *  a two-column layout and Reference Number moves to its own row. */
+  convertedAmountSlot?: ReactNode;
+  /** Foreign-currency entry: rate/fee captions rendered below the Amount row. */
+  fxCaptionSlot?: ReactNode;
+  /** Overrides the Amount input's value (the foreign total, when entering in a
+   *  foreign currency). Defaults to watchedAmount (the account-currency amount). */
+  amountValue?: number;
+  /** Overrides the currency whose symbol prefixes the Amount input. Defaults to
+   *  watchedCurrencyCode (the account currency). */
+  amountCurrencyCode?: string;
+  /** Overrides the Amount input's label (e.g. "Total in USD" when entering a
+   *  foreign currency). Defaults to the plain "Amount" label. */
+  amountLabel?: string;
 }
 
 export function NormalTransactionFields({
@@ -65,15 +84,27 @@ export function NormalTransactionFields({
   onQuickFill,
   transaction,
   createdAtSlot,
+  currencyPickerSlot,
+  convertedAmountSlot,
+  fxCaptionSlot,
+  amountValue,
+  amountCurrencyCode,
+  amountLabel,
 }: NormalTransactionFieldsProps) {
   const t = useTranslations('transactions');
   const historyButtonRef = useRef<HTMLButtonElement>(null);
   const [showRecentPopover, setShowRecentPopover] = useState(false);
+  // A tour can grey out Split so its walkthrough keeps to one path; false
+  // whenever no such tour is running.
+  const splitDisabled = useDisableTransactionSplit();
 
   return (
     <div className="space-y-4">
       {/* Row 1: Account, Date, and optionally Create Date */}
-      <div className={`grid grid-cols-1 gap-4 ${createdAtSlot ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+      <div
+        {...tourAnchor(TOUR_ANCHORS.transactionAccountDate)}
+        className={`grid grid-cols-1 gap-4 ${createdAtSlot ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}
+      >
         <Select
           label={t('form.fields.account')}
           error={errors.accountId?.message as string | undefined}
@@ -99,7 +130,10 @@ export function NormalTransactionFields({
       </div>
 
       {/* Row 2: Payee and Category */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div
+        {...tourAnchor(TOUR_ANCHORS.transactionFields)}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         <div className="flex items-stretch space-x-2">
           <div className="flex-1 min-w-0">
             <Combobox
@@ -116,6 +150,8 @@ export function NormalTransactionFields({
               onChange={handlePayeeChange}
               onCreateNew={handlePayeeCreate}
               allowCustomValue={true}
+              valueIsId
+              usePortal
               error={errors.payeeName?.message as string | undefined}
             />
           </div>
@@ -168,6 +204,10 @@ export function NormalTransactionFields({
         <div>
           <div className="flex items-stretch sm:space-x-2">
             <div className="flex-1">
+              {/* usePortal: the list renders at the document root (z-[100]), so
+                  it escapes the modal's scroll clipping and stays above a
+                  guided tour's dimming overlay and card instead of being
+                  dimmed or covered by them. */}
               <Combobox
                 label={t('form.fields.category')}
                 placeholder={t('form.placeholders.selectOrCreateCategory')}
@@ -177,14 +217,19 @@ export function NormalTransactionFields({
                 onChange={handleCategoryChange}
                 onCreateNew={handleCategoryCreate}
                 allowCustomValue={true}
+                valueIsId
+                usePortal
                 error={errors.categoryId?.message as string | undefined}
               />
             </div>
             {/* mt-6 + flex-stretch matches the Combobox input height (see Payee row). */}
             <button
+              {...tourAnchor(TOUR_ANCHORS.transactionSplit)}
               type="button"
               onClick={() => handleModeChange('split')}
-              className="hidden sm:flex items-center justify-center flex-shrink-0 mt-6 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap"
+              disabled={splitDisabled}
+              title={splitDisabled ? t('form.splitDisabledDuringTour') : undefined}
+              className="hidden sm:flex items-center justify-center flex-shrink-0 mt-6 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700"
             >
               {t('form.splitTransaction')}
             </button>
@@ -192,31 +237,86 @@ export function NormalTransactionFields({
           <button
             type="button"
             onClick={() => handleModeChange('split')}
-            className="sm:hidden mt-2 w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            disabled={splitDisabled}
+            title={splitDisabled ? t('form.splitDisabledDuringTour') : undefined}
+            className="sm:hidden mt-2 w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700"
           >
             {t('form.splitTransaction')}
           </button>
         </div>
       </div>
 
-      {/* Row 3: Amount and Reference Number */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <CurrencyInput
-          label={t('form.fields.amount')}
-          prefix={getCurrencySymbol(watchedCurrencyCode)}
-          value={watchedAmount}
-          onChange={handleAmountChange}
-          allowSignToggle
-          error={errors.amount?.message as string | undefined}
-        />
-        <Input
-          label={t('form.fields.referenceNumber')}
-          type="text"
-          placeholder={t('form.placeholders.referenceNumber')}
-          error={errors.referenceNumber?.message as string | undefined}
-          {...register('referenceNumber')}
-        />
-      </div>
+      {/* Row 3: Amount (+ converted amount when entering a foreign currency) and
+          Reference Number. In foreign mode the converted amount sits beside the
+          Amount at equal width, and Reference Number drops to its own row. */}
+      {(() => {
+        const amountInput = (
+          <CurrencyInput
+            label={amountLabel ?? t('form.fields.amount')}
+            prefix={getCurrencySymbol(amountCurrencyCode || watchedCurrencyCode)}
+            value={amountValue !== undefined ? amountValue : watchedAmount}
+            onChange={handleAmountChange}
+            allowSignToggle
+            error={errors.amount?.message as string | undefined}
+          />
+        );
+        const referenceInput = (
+          <Input
+            label={t('form.fields.referenceNumber')}
+            type="text"
+            placeholder={t('form.placeholders.referenceNumber')}
+            error={errors.referenceNumber?.message as string | undefined}
+            {...register('referenceNumber')}
+          />
+        );
+        // The entry-currency picker and the amount it applies to, as one
+        // tour-anchored group: a step explaining "set the currency and enter the
+        // amount as charged" has to highlight both, not just the picker. Built
+        // once and used by both layouts so the anchor stays attached in exactly
+        // one place. Normal mode only -- SplitTransactionFields renders the
+        // picker without an equivalent group, so a tour step on this anchor
+        // gracefully skips if the form is ever in split mode when it runs.
+        const amountGroup = (
+          <div
+            {...tourAnchor(TOUR_ANCHORS.transactionAmountCurrency)}
+            className="flex items-stretch space-x-2"
+          >
+            {currencyPickerSlot}
+            <div className="flex-1 min-w-0">{amountInput}</div>
+          </div>
+        );
+        return convertedAmountSlot ? (
+          // On mobile each currency field and Reference Number sits on its own
+          // line; on md+ the two currency fields share a row and Reference
+          // Number takes the third column. items-start keeps each column its
+          // natural height so the taller currency group does not stretch the
+          // Reference Number field.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            {/* Source + target currency fields, with the conversion note below
+                the pair (a sibling, not a grid row, so only its own small
+                margin separates it) spanning both on desktop (md:col-span-2).
+                Tour-anchored as one group so a guided tour can spotlight the
+                entered amount, the converted total, and the rate/fee captions
+                together -- it exists only while entering a foreign currency. */}
+            <div
+              {...tourAnchor(TOUR_ANCHORS.transactionFxConversion)}
+              className="md:col-span-2"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                {amountGroup}
+                {convertedAmountSlot}
+              </div>
+              {fxCaptionSlot}
+            </div>
+            {referenceInput}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {amountGroup}
+            {referenceInput}
+          </div>
+        );
+      })()}
     </div>
   );
 }

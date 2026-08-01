@@ -20,6 +20,9 @@ import { PayeeToolPrepService } from "../../payees/payee-tool-prep.service";
 import { SecurityToolPrepService } from "../../securities/security-tool-prep.service";
 import { TransactionTransferService } from "../../transactions/transaction-transfer.service";
 import { TransactionSplitService } from "../../transactions/transaction-split.service";
+import { AttachmentToolPrepService } from "../../attachments/attachment-tool-prep.service";
+import { RelayAttachmentStore } from "../relay/relay-attachment.store";
+import { AttachmentDto } from "./dto/ai-query.dto";
 
 describe("ToolExecutorService", () => {
   let service: ToolExecutorService;
@@ -38,6 +41,8 @@ describe("ToolExecutorService", () => {
   let transfer: Record<string, jest.Mock>;
   let splitService: Record<string, jest.Mock>;
   let builtInReports: Record<string, jest.Mock>;
+  let attachmentPrep: Record<string, jest.Mock>;
+  let attachmentStore: Record<string, jest.Mock>;
 
   const userId = "user-1";
 
@@ -572,9 +577,27 @@ describe("ToolExecutorService", () => {
       }),
     };
 
+    attachmentPrep = {
+      prepareAttachments: jest.fn().mockResolvedValue([
+        {
+          filename: "receipt.png",
+          contentType: "image/png",
+          byteSize: 10,
+          sha256: "sha-1",
+        },
+      ]),
+    };
+    attachmentStore = {
+      store: jest.fn().mockReturnValue([{ id: "fresh-1" }]),
+      get: jest.fn(),
+      releaseForPrompt: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ToolExecutorService,
+        { provide: AttachmentToolPrepService, useValue: attachmentPrep },
+        { provide: RelayAttachmentStore, useValue: attachmentStore },
         { provide: AccountsService, useValue: accounts },
         { provide: CategoriesService, useValue: categories },
         { provide: TransactionAnalyticsService, useValue: analytics },
@@ -1474,6 +1497,214 @@ describe("ToolExecutorService", () => {
       });
       expect(JSON.stringify(result.data)).not.toContain("signature-abc");
       expect((result.data as { status: string }).status).toBe("preview_shown");
+    });
+  });
+
+  describe("manage_transactions (attachments)", () => {
+    const TXID = "11111111-1111-4111-8111-111111111111";
+    const PNG_B64 = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
+    ]).toString("base64");
+
+    const chatAttachments: AttachmentDto[] = [
+      {
+        kind: "image",
+        mediaType: "image/png",
+        filename: "receipt.png",
+        data: PNG_B64,
+      },
+      {
+        kind: "text",
+        mediaType: "text/csv",
+        filename: "data.csv",
+        data: Buffer.from("a,b\n1,2").toString("base64"),
+      },
+    ];
+
+    function createItem(attachments: Array<string | number>) {
+      return {
+        operation: "create",
+        items: [
+          {
+            accountName: "Checking",
+            amount: -12.5,
+            date: "2026-01-15",
+            attachments,
+          },
+        ],
+      };
+    }
+
+    it("resolves a filename ref, parks the bytes, and carries refs on the signed card", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem(["Receipt.PNG"]),
+        { attachments: chatAttachments },
+      );
+
+      expect(attachmentPrep.prepareAttachments).toHaveBeenCalledWith(
+        userId,
+        [expect.objectContaining({ filename: "receipt.png" })],
+        undefined,
+      );
+      expect(attachmentStore.store).toHaveBeenCalledWith(userId, [
+        expect.objectContaining({ filename: "receipt.png" }),
+      ]);
+      expect(result.pendingAction?.type).toBe("create_transaction");
+      expect(result.pendingAction?.descriptor).toMatchObject({
+        attachments: [
+          {
+            attachmentRefId: "fresh-1",
+            filename: "receipt.png",
+            contentType: "image/png",
+            byteSize: 10,
+            sha256: "sha-1",
+          },
+        ],
+      });
+      expect(result.pendingAction?.preview.attachments).toEqual([
+        { filename: "receipt.png", contentType: "image/png", byteSize: 10 },
+      ]);
+      expect(result.summary).toContain("receipt.png");
+    });
+
+    it("resolves a 1-based index ref", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem([1]),
+        { attachments: chatAttachments },
+      );
+      expect(result.pendingAction?.preview.attachments).toHaveLength(1);
+    });
+
+    it("errors when no files are attached to the message", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem(["receipt.png"]),
+        { attachments: [] },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("No files are attached");
+    });
+
+    it("errors on an unknown filename, listing the available files", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem(["missing.jpg"]),
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("missing.jpg");
+      expect(result.summary).toContain("receipt.png");
+    });
+
+    it("errors on an out-of-range index", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem([5]),
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("out of range");
+    });
+
+    it("rejects a text/csv chat file", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem(["data.csv"]),
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("only images and PDFs");
+      expect(attachmentStore.store).not.toHaveBeenCalled();
+    });
+
+    it("rejects attachments on a multi-row batch", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        {
+          operation: "create",
+          items: [
+            {
+              accountName: "Checking",
+              amount: -1,
+              date: "2026-01-15",
+              attachments: ["receipt.png"],
+            },
+            { accountName: "Checking", amount: -2, date: "2026-01-15" },
+          ],
+        },
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("one at a time");
+    });
+
+    it("surfaces prep failures (e.g. attachment cap) as tool errors", async () => {
+      attachmentPrep.prepareAttachments.mockRejectedValueOnce(
+        new BadRequestException(
+          "This transaction already has the maximum of 10 attachments",
+        ),
+      );
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        createItem(["receipt.png"]),
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("maximum of 10");
+    });
+
+    it("attachments-only update passes the transaction id to the cap check and signs an update card", async () => {
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        {
+          operation: "update",
+          items: [{ transactionId: TXID, attachments: ["receipt.png"] }],
+        },
+        { attachments: chatAttachments },
+      );
+
+      expect(attachmentPrep.prepareAttachments).toHaveBeenCalledWith(
+        userId,
+        [expect.objectContaining({ filename: "receipt.png" })],
+        TXID,
+      );
+      expect(result.pendingAction?.type).toBe("update_transaction");
+      expect(result.pendingAction?.descriptor).toMatchObject({
+        attachments: [expect.objectContaining({ attachmentRefId: "fresh-1" })],
+      });
+    });
+
+    it("rejects attachments when the updated transaction is a transfer", async () => {
+      transactions.findOne.mockResolvedValueOnce({
+        id: TXID,
+        isTransfer: true,
+        linkedTransactionId: "tx-2",
+      });
+      const result = await service.execute(
+        userId,
+        "manage_transactions",
+        {
+          operation: "update",
+          items: [
+            { transactionId: TXID, amount: 100, attachments: ["receipt.png"] },
+          ],
+        },
+        { attachments: chatAttachments },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.summary).toContain("transfer");
+      expect(attachmentStore.store).not.toHaveBeenCalled();
     });
   });
 

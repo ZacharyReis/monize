@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI non configurata",
-    "message": "Nessun provider AI è configurato. Per usare le Analisi spese, {link} nelle impostazioni.",
-    "linkText": "configura un provider AI"
+    "message": "Nessun provider AI è configurato. Per usare le Analisi spese, {link} nelle impostazioni."
   },
   "insightTypes": {
     "anomaly": "Anomalia",

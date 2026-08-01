@@ -1,4 +1,5 @@
 import apiClient from './api';
+import { filenameFromContentDisposition } from './download';
 import { AutoBackupSettings, UpdateAutoBackupSettingsData } from '@/types/auth';
 
 // HTTP header values have their leading and trailing whitespace stripped in
@@ -19,6 +20,99 @@ function encodePasswordHeader(value: string): string {
 export interface RestoreResult {
   message: string;
   restored: Record<string, number>;
+}
+
+export type SupportBackupSection =
+  | 'investments'
+  | 'scheduled'
+  | 'budgets'
+  | 'reports'
+  | 'importMappings'
+  | 'autoBackup';
+
+export const SUPPORT_BACKUP_SECTIONS: SupportBackupSection[] = [
+  'investments',
+  'scheduled',
+  'budgets',
+  'reports',
+  'importMappings',
+  'autoBackup',
+];
+
+export interface SupportBackupInput {
+  multiplier: number;
+  sections?: SupportBackupSection[];
+  accountIds?: string[];
+  /** Inclusive yyyy-MM-dd bounds on exported history. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** Price history is excluded by default: a full series can identify a
+   *  masked ticker against public market data. */
+  includePriceHistory?: boolean;
+  /** Required: support backups always leave the machine encrypted. */
+  password: string;
+}
+
+export interface SupportBackupFile {
+  blob: Blob;
+  /** Server-chosen filename (Content-Disposition), or null when absent. */
+  filename: string | null;
+}
+
+export interface SupportBackupPreviewSample {
+  table: string;
+  before: Record<string, unknown>[];
+  after: Record<string, unknown>[];
+}
+
+export interface SupportBackupPreview {
+  samples: SupportBackupPreviewSample[];
+}
+
+/**
+ * A random multiplier in [1.1, 9.99] with 5 decimal places, never an integer,
+ * matching the backend contract: > 1 (so nothing rounds to zero) and
+ * non-integer (so it can't be trivially guessed from a round value). Drawn
+ * from the Web Crypto API -- the multiplier is the factor hiding the user's
+ * real amounts, so it must not come from a predictable PRNG.
+ */
+export function randomSupportMultiplier(): number {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const value = 1.1 + (buf[0] / 2 ** 32) * 8.89;
+  const rounded = Math.round(value * 1e5) / 1e5;
+  return Number.isInteger(rounded) ? rounded + 0.12345 : rounded;
+}
+
+/**
+ * A random 20-character password from an unambiguous alphabet (no 0/O, 1/l/I),
+ * generated with the Web Crypto API. Pre-fills the required encryption
+ * password so a support backup never ships with a weak ad-hoc one; the user
+ * can still edit or regenerate it.
+ */
+export function randomSupportPassword(): string {
+  const alphabet = '23456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  const bytes = new Uint8Array(20);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+}
+
+/**
+ * Axios delivers error bodies as Blobs when the request used
+ * `responseType: 'blob'`, which hides the backend's JSON `message` from
+ * getErrorMessage. Parse the Blob back into the response data so error
+ * toasts show the real reason (demo restriction, validation error).
+ */
+async function normalizeBlobError(error: unknown): Promise<never> {
+  const response = (error as { response?: { data?: unknown } })?.response;
+  if (response && response.data instanceof Blob) {
+    try {
+      response.data = JSON.parse(await response.data.text());
+    } catch {
+      // Not JSON -- leave the Blob; the caller falls back to its default text.
+    }
+  }
+  throw error;
 }
 
 export interface BackupEncryptionStatus {
@@ -71,6 +165,34 @@ export const backupApi = {
       timeout: 120000,
       headers,
     });
+    return response.data;
+  },
+
+  supportExport: async (input: SupportBackupInput): Promise<SupportBackupFile> => {
+    try {
+      const response = await apiClient.post('/backup/support-export', input, {
+        responseType: 'blob',
+        timeout: 120000,
+      });
+      return {
+        blob: response.data,
+        filename: filenameFromContentDisposition(
+          response.headers['content-disposition'] as string | undefined,
+        ),
+      };
+    } catch (error) {
+      return normalizeBlobError(error);
+    }
+  },
+
+  supportExportPreview: async (
+    input: SupportBackupInput,
+  ): Promise<SupportBackupPreview> => {
+    const response = await apiClient.post<SupportBackupPreview>(
+      '/backup/support-export/preview',
+      input,
+      { timeout: 120000 },
+    );
     return response.data;
   },
 

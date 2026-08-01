@@ -104,8 +104,12 @@
       "lookupTooShort": "조회하려면 통화 코드 또는 이름을 2자 이상 입력하세요",
       "found": "찾음: {details}",
       "notFound": "\"{query}\"에 해당하는 통화를 찾을 수 없습니다",
-      "lookupFailed": "조회에 실패했습니다 - 다시 시도해 주세요"
-    }
+      "lookupFailed": "조회에 실패했습니다 - 다시 시도해 주세요",
+      "reactivateFailed": "통화를 다시 활성화하지 못했습니다"
+    },
+    "inactiveNotice": "{code}은(는) 이미 목록에 있지만 비활성 상태입니다.",
+    "reactivateButton": "{code} 다시 활성화",
+    "reactivating": "다시 활성화하는 중..."
   },
   "validation": {
     "codeLength": "통화 코드는 정확히 3자여야 합니다",

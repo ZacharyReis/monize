@@ -203,7 +203,13 @@
     "addPriceSection": "添加价格",
     "editPriceSection": "编辑价格",
     "loading": "正在加载价格...",
+    "chartTitle": "价格历史",
+    "markers": {
+      "bought": "买入 {quantity} · {account}",
+      "sold": "卖出 {quantity} · {account}"
+    },
     "empty": "暂无价格历史",
+    "showingCount": "显示 {shown} 条，共 {total} 条价格",
     "columns": {
       "date": "日期",
       "close": "收盘价",
@@ -230,6 +236,7 @@
     "closeButton": "关闭",
     "deleteConfirm": {
       "title": "删除价格",
+      "message": "确定要删除 {date} 的价格记录吗？",
       "confirmLabel": "删除"
     }
   },

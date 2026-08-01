@@ -19,6 +19,8 @@ function makeTx(overrides: Partial<Transaction> = {}): Transaction {
     amount: -25.5,
     currencyCode: 'CAD',
     exchangeRate: 1,
+    originalAmount: null,
+    originalCurrencyCode: null,
     description: 'Latte',
     referenceNumber: null,
     status: TransactionStatus.UNRECONCILED,
@@ -451,6 +453,21 @@ describe('TransactionRow', () => {
 
   it('shows dash when account is null', () => {
     renderRow({}, { account: null as any });
+    expect(screen.getAllByText('-').length).toBeGreaterThan(0);
+  });
+
+  it('renders the attachment count when the transaction has attachments', () => {
+    renderRow({}, { attachmentCount: 3 });
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('renders a dash when there are no attachments', () => {
+    renderRow({}, { attachmentCount: 0 });
+    expect(screen.getAllByText('-').length).toBeGreaterThan(0);
+  });
+
+  it('renders a dash when attachmentCount is undefined', () => {
+    renderRow({}, { attachmentCount: undefined });
     expect(screen.getAllByText('-').length).toBeGreaterThan(0);
   });
 

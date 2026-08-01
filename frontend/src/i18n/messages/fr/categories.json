@@ -24,6 +24,16 @@
     "createButton": "Créer les miennes",
     "hint": "L'ensemble par défaut comprend des catégories courantes de revenus et de dépenses avec des sous-catégories"
   },
+  "importDialog": {
+    "title": "Importer les catégories par défaut",
+    "description": "Partez d'un ensemble prêt à l'emploi de catégories de revenus et de dépenses. Choisissez votre pays pour obtenir aussi ses catégories fiscales et de prestations, ainsi que la langue dans laquelle les noms seront créés.",
+    "countryLabel": "Pays",
+    "countryHelp": "Ajoute des catégories propres au pays, comme les taxes et prestations locales. Choisissez l'ensemble générique si votre pays n'est pas listé.",
+    "genericCountry": "Générique (aucune catégorie propre à un pays)",
+    "languageLabel": "Langue",
+    "languageHelp": "Les catégories sont créées avec des noms dans cette langue. Vous pouvez les renommer à tout moment.",
+    "submit": "Importer les catégories"
+  },
   "toasts": {
     "created": "Catégorie créée avec succès",
     "updated": "Catégorie mise à jour avec succès",

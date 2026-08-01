@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Versionshinweise für v{version} anzeigen"
   },
+  "whatsNew": {
+    "title": "Neuigkeiten",
+    "versionLabel": "Version {version}",
+    "expandAll": "Alle ausklappen",
+    "collapseAll": "Alle einklappen",
+    "viewFullNotes": "Vollständige Versionshinweise anzeigen",
+    "dontShowAgain": "Nicht mehr anzeigen",
+    "showNextLogin": "Bei der nächsten Anmeldung anzeigen",
+    "close": "Schließen",
+    "unavailable": "Für diese Version sind keine Versionshinweise verfügbar.",
+    "englishOnly": "Die Versionshinweise unten sind nur auf Englisch verfügbar. Monize selbst, einschließlich der geführten Touren, folgt Ihrer Spracheinstellung."
+  },
   "save": "Speichern",
   "cancel": "Abbrechen",
   "delete": "Löschen",
@@ -65,6 +77,9 @@
     "downloadAsPng": "{filename} als PNG herunterladen",
     "unableToCapture": "Diagrammbild konnte nicht erfasst werden",
     "failedToDownload": "Diagramm konnte nicht heruntergeladen werden"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "{filename} als CSV herunterladen"
   },
   "chartViewToggle": {
     "pieChart": "Kreisdiagramm",
@@ -158,10 +173,47 @@
     "length": "Der Code muss genau 6 Ziffern lang sein",
     "digits": "Der Code muss 6 Ziffern haben"
   },
-  "monthsShort": ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
-  "weekdaysShort": ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
-  "weekdaysMin": ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
-  "weekdaysNarrow": ["S", "M", "D", "M", "D", "F", "S"],
+  "monthsShort": [
+    "Jan",
+    "Feb",
+    "Mär",
+    "Apr",
+    "Mai",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Dez"
+  ],
+  "weekdaysShort": [
+    "So",
+    "Mo",
+    "Di",
+    "Mi",
+    "Do",
+    "Fr",
+    "Sa"
+  ],
+  "weekdaysMin": [
+    "So",
+    "Mo",
+    "Di",
+    "Mi",
+    "Do",
+    "Fr",
+    "Sa"
+  ],
+  "weekdaysNarrow": [
+    "S",
+    "M",
+    "D",
+    "M",
+    "D",
+    "F",
+    "S"
+  ],
   "dateFormat": {
     "browserAuto": "Browser-Gebietsschema verwenden (automatisch erkannt: {sample})",
     "custom": "Benutzerdefiniert..."

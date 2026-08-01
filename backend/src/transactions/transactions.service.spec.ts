@@ -8,6 +8,7 @@ import { TransactionSplit } from "./entities/transaction-split.entity";
 import { Category } from "../categories/entities/category.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
 import { Payee } from "../payees/entities/payee.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
 import { AccountsService } from "../accounts/accounts.service";
 import { PayeesService } from "../payees/payees.service";
 import { NetWorthService } from "../net-worth/net-worth.service";
@@ -37,6 +38,8 @@ describe("TransactionsService", () => {
   let splitsRepository: Record<string, jest.Mock>;
   let categoriesRepository: Record<string, jest.Mock>;
   let investmentTxRepository: Record<string, jest.Mock>;
+  let userPreferenceRepository: Record<string, jest.Mock>;
+  let attachmentsRepository: Record<string, jest.Mock>;
   let accountsService: Record<string, jest.Mock>;
   let payeesService: Record<string, jest.Mock>;
   let netWorthService: Record<string, jest.Mock>;
@@ -92,6 +95,22 @@ describe("TransactionsService", () => {
 
     investmentTxRepository = {
       find: jest.fn().mockResolvedValue([]),
+    };
+
+    userPreferenceRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+
+    // The attachment-count enrichment issues one grouped query builder; default
+    // it to no rows so every existing findAll test yields attachmentCount 0.
+    attachmentsRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
     };
 
     accountsService = {
@@ -174,6 +193,8 @@ describe("TransactionsService", () => {
 
     const mockDataSource = {
       createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+      // findAll reads attachment counts via dataSource.getRepository(...).
+      getRepository: jest.fn().mockReturnValue(attachmentsRepository),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -196,6 +217,10 @@ describe("TransactionsService", () => {
           useValue: investmentTxRepository,
         },
         {
+          provide: getRepositoryToken(UserPreference),
+          useValue: userPreferenceRepository,
+        },
+        {
           provide: getRepositoryToken(Payee),
           useValue: { findOne: jest.fn().mockResolvedValue(null) },
         },
@@ -206,6 +231,7 @@ describe("TransactionsService", () => {
           useValue: {
             findByIds: jest.fn().mockResolvedValue([]),
             setTransactionTags: jest.fn().mockResolvedValue(undefined),
+            setSplitTags: jest.fn().mockResolvedValue(undefined),
           },
         },
         { provide: NetWorthService, useValue: netWorthService },
@@ -839,6 +865,103 @@ describe("TransactionsService", () => {
     });
   });
 
+  describe("foreign-currency entry (create)", () => {
+    beforeEach(() => {
+      transactionsRepository.findOne.mockResolvedValue({
+        id: "tx-1",
+        userId: "user-1",
+        accountId: "account-1",
+        amount: -50,
+        status: TransactionStatus.UNRECONCILED,
+        splits: [],
+      });
+    });
+
+    it("persists original amount/currency and keeps the account-currency amount for the balance", async () => {
+      // Account is USD; user entered EUR 100 -> USD 145.23 at rate 1.4523.
+      await service.create("user-1", {
+        accountId: "account-1",
+        transactionDate: "2026-01-15",
+        amount: -145.23,
+        currencyCode: "USD",
+        originalAmount: -100,
+        originalCurrencyCode: "EUR",
+        exchangeRate: 1.4523,
+      } as any);
+
+      expect(transactionsRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalAmount: -100,
+          originalCurrencyCode: "EUR",
+        }),
+      );
+      // Balance moves by the account-currency amount, not the original amount.
+      expect(accountsService.updateBalance).toHaveBeenCalledWith(
+        "account-1",
+        -145.23,
+        expect.anything(),
+      );
+    });
+
+    it("strips the foreign fields when the entered currency equals the account currency", async () => {
+      await service.create("user-1", {
+        accountId: "account-1",
+        transactionDate: "2026-01-15",
+        amount: -50,
+        currencyCode: "USD",
+        originalAmount: -50,
+        originalCurrencyCode: "USD",
+        exchangeRate: 1,
+      } as any);
+
+      expect(transactionsRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalAmount: null,
+          originalCurrencyCode: null,
+        }),
+      );
+    });
+
+    it("rejects a foreign entry with only one of the two fields", async () => {
+      await expect(
+        service.create("user-1", {
+          accountId: "account-1",
+          transactionDate: "2026-01-15",
+          amount: -50,
+          currencyCode: "USD",
+          originalAmount: -100,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects a foreign entry without a positive exchange rate", async () => {
+      await expect(
+        service.create("user-1", {
+          accountId: "account-1",
+          transactionDate: "2026-01-15",
+          amount: -145.23,
+          currencyCode: "USD",
+          originalAmount: -100,
+          originalCurrencyCode: "EUR",
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects a foreign entry whose original amount sign differs from the amount", async () => {
+      await expect(
+        service.create("user-1", {
+          accountId: "account-1",
+          transactionDate: "2026-01-15",
+          amount: -145.23,
+          currencyCode: "USD",
+          originalAmount: 100,
+          originalCurrencyCode: "EUR",
+          exchangeRate: 1.4523,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe("update", () => {
     const mockTx = {
       id: "tx-1",
@@ -863,6 +986,59 @@ describe("TransactionsService", () => {
         Transaction,
         "tx-1",
         expect.objectContaining({ amount: -80 }),
+      );
+    });
+
+    it("sets foreign-currency fields on update", async () => {
+      transactionsRepository.findOne.mockResolvedValue({
+        ...mockTx,
+        currencyCode: "USD",
+        exchangeRate: 1,
+      });
+      mockQueryRunner.manager.findOne.mockResolvedValueOnce({
+        ...mockTx,
+        amount: -145.23,
+      });
+
+      await service.update("user-1", "tx-1", {
+        amount: -145.23,
+        originalAmount: -100,
+        originalCurrencyCode: "EUR",
+        exchangeRate: 1.4523,
+      } as any);
+
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Transaction,
+        "tx-1",
+        expect.objectContaining({
+          originalAmount: -100,
+          originalCurrencyCode: "EUR",
+        }),
+      );
+    });
+
+    it("clears foreign-currency fields when passed null", async () => {
+      transactionsRepository.findOne.mockResolvedValue({
+        ...mockTx,
+        currencyCode: "USD",
+        exchangeRate: 1.4523,
+        originalAmount: -100,
+        originalCurrencyCode: "EUR",
+      });
+      mockQueryRunner.manager.findOne.mockResolvedValueOnce({ ...mockTx });
+
+      await service.update("user-1", "tx-1", {
+        originalAmount: null,
+        originalCurrencyCode: null,
+      } as any);
+
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        Transaction,
+        "tx-1",
+        expect.objectContaining({
+          originalAmount: null,
+          originalCurrencyCode: null,
+        }),
       );
     });
 
@@ -1565,6 +1741,134 @@ describe("TransactionsService", () => {
       });
     });
 
+    it("filters by originalCurrencyCodes when provided", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      transactionsRepository.createQueryBuilder.mockReturnValue(mockQb);
+      investmentTxRepository.find.mockResolvedValue([]);
+
+      await service.findAll(
+        "user-1",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+        50,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "date",
+        "DESC",
+        undefined,
+        ["EUR", "GBP"],
+      );
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        "transaction.original_currency_code IN (:...originalCurrencyCodes)",
+        { originalCurrencyCodes: ["EUR", "GBP"] },
+      );
+    });
+
+    const findAllWith = (
+      overrides: Partial<{ hasAttachments: boolean }>,
+      mockQb: Record<string, jest.Mock>,
+    ) => {
+      transactionsRepository.createQueryBuilder.mockReturnValue(mockQb);
+      investmentTxRepository.find.mockResolvedValue([]);
+      return service.findAll(
+        "user-1",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+        50,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "date",
+        "DESC",
+        undefined,
+        undefined,
+        overrides.hasAttachments,
+      );
+    };
+
+    it("filters to transactions that have attachments (EXISTS)", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      await findAllWith({ hasAttachments: true }, mockQb);
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "EXISTS (SELECT 1 FROM transaction_attachments",
+        ),
+      );
+      expect(mockQb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining("NOT EXISTS"),
+      );
+    });
+
+    it("filters to transactions without attachments (NOT EXISTS)", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      await findAllWith({ hasAttachments: false }, mockQb);
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "NOT EXISTS (SELECT 1 FROM transaction_attachments",
+        ),
+      );
+    });
+
+    it("does not filter by attachments when unspecified", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      await findAllWith({}, mockQb);
+
+      expect(mockQb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining("transaction_attachments"),
+      );
+    });
+
+    it("annotates each transaction with its attachment count", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([
+        [
+          { id: "tx-1", isCleared: false, isReconciled: false, isVoid: false },
+          { id: "tx-2", isCleared: false, isReconciled: false, isVoid: false },
+        ],
+        2,
+      ]);
+      transactionsRepository.createQueryBuilder.mockReturnValue(mockQb);
+      investmentTxRepository.find.mockResolvedValue([]);
+      attachmentsRepository.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue([{ transactionId: "tx-1", count: "3" }]),
+      });
+
+      const result = await service.findAll("user-1");
+
+      expect(result.data[0].attachmentCount).toBe(3);
+      expect(result.data[1].attachmentCount).toBe(0);
+    });
+
     it("applies pagination with page and limit", async () => {
       const mockQb = createMockQueryBuilder();
       mockQb.getManyAndCount.mockResolvedValue([[], 0]);
@@ -1725,6 +2029,13 @@ describe("TransactionsService", () => {
       expect(mockQb.where).toHaveBeenCalledWith(
         expect.stringContaining("transaction.categoryId IS NULL"),
       );
+      // Split transactions with an uncategorised, non-transfer split line are
+      // also matched so the list agrees with the account-detail breakdown.
+      expect(mockQb.orWhere).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "transaction.isSplit = true AND transaction.isTransfer = false AND account.accountType != 'INVESTMENT' AND splits.categoryId IS NULL AND splits.transferAccountId IS NULL",
+        ),
+      );
     });
 
     it("handles 'transfer' special category filter", async () => {
@@ -1814,7 +2125,80 @@ describe("TransactionsService", () => {
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: "%groceries%" },
+        { search: "%groceries%", searchAmount: null, searchDate: null },
+      );
+    });
+
+    it("interprets an amount typed in the user's locale format", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      transactionsRepository.createQueryBuilder.mockReturnValue(mockQb);
+      investmentTxRepository.find.mockResolvedValue([]);
+      // de-DE: "." thousands, "," decimal -> "1.234,56" means 1234.56.
+      userPreferenceRepository.findOne.mockResolvedValue({
+        numberFormat: "de-DE",
+        dateFormat: "DD.MM.YYYY",
+      });
+
+      await service.findAll(
+        "user-1",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+        50,
+        false,
+        "1.234,56",
+      );
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        buildTransactionSearchClause({
+          transaction: "transaction",
+          splits: "splits",
+        }),
+        {
+          search: "%1.234,56%",
+          searchAmount: 1234.56,
+          searchDate: null,
+        },
+      );
+    });
+
+    it("interprets a date typed in the user's display format", async () => {
+      const mockQb = createMockQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValue([[], 0]);
+      transactionsRepository.createQueryBuilder.mockReturnValue(mockQb);
+      investmentTxRepository.find.mockResolvedValue([]);
+      userPreferenceRepository.findOne.mockResolvedValue({
+        numberFormat: "de-DE",
+        dateFormat: "DD.MM.YYYY",
+      });
+
+      await service.findAll(
+        "user-1",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1,
+        50,
+        false,
+        "02.07.2026",
+      );
+
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        buildTransactionSearchClause({
+          transaction: "transaction",
+          splits: "splits",
+        }),
+        {
+          search: "%02.07.2026%",
+          searchAmount: null,
+          searchDate: "2026-07-02",
+        },
       );
     });
 
@@ -2690,7 +3074,11 @@ describe("TransactionsService", () => {
             splits: "bfSplits",
             paramName: "bfSearch",
           }),
-          { bfSearch: "%grocery%" },
+          {
+            bfSearch: "%grocery%",
+            bfSearchAmount: null,
+            bfSearchDate: null,
+          },
         );
       });
 
@@ -3737,7 +4125,7 @@ describe("TransactionsService", () => {
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: "%test search%" },
+        { search: "%test search%", searchAmount: null, searchDate: null },
       );
     });
 
@@ -4733,6 +5121,120 @@ describe("TransactionsService", () => {
 
       expect(tagsService.setTransactionTags).not.toHaveBeenCalled();
     });
+
+    it("mirrors tags onto the owning split when editing a split-transfer leg", async () => {
+      const counterpartLeg = {
+        id: "leg-tx",
+        userId: "user-1",
+        accountId: "account-2",
+        amount: 200,
+        isTransfer: true,
+        linkedTransactionId: "parent-tx",
+        transactionDate: "2020-01-01",
+        exchangeRate: 1,
+        splits: [],
+      };
+      const parentTransaction = {
+        id: "parent-tx",
+        userId: "user-1",
+        accountId: "account-1",
+        amount: -200,
+        isSplit: true,
+        transactionDate: "2020-01-01",
+        splits: [],
+      };
+      const parentSplit = {
+        id: "split-1",
+        transactionId: "parent-tx",
+        transferAccountId: "account-2",
+        amount: -200,
+        linkedTransactionId: "leg-tx",
+      };
+
+      transactionsRepository.findOne.mockImplementation((opts: any) =>
+        Promise.resolve(
+          opts?.where?.id === "parent-tx" ? parentTransaction : counterpartLeg,
+        ),
+      );
+      // Routes updateTransfer to the split-leg path AND resolves the owning
+      // split in the wrapper's tag-mirroring step.
+      splitsRepository.findOne.mockResolvedValue(parentSplit);
+
+      await service.updateTransfer("user-1", "leg-tx", {
+        tagIds: ["tag-1"],
+      } as any);
+
+      // The leg keeps its own transaction tags...
+      expect(tagsService.setTransactionTags).toHaveBeenCalledWith(
+        "leg-tx",
+        ["tag-1"],
+        "user-1",
+      );
+      // ...and the same tags are mirrored onto the source split.
+      expect(tagsService.setSplitTags).toHaveBeenCalledWith(
+        "split-1",
+        ["tag-1"],
+        "user-1",
+      );
+      // The split parent's amount is never rewritten by a tag-only edit.
+      expect(transactionsRepository.update).not.toHaveBeenCalledWith(
+        "parent-tx",
+        expect.anything(),
+      );
+    });
+  });
+
+  describe("applySplitTags (split <-> transfer-leg tag mirroring)", () => {
+    it("mirrors a transfer split's tags onto its counterpart leg, but not plain splits", async () => {
+      const savedSplits = [
+        { id: "split-cat", linkedTransactionId: null },
+        { id: "split-xfer", linkedTransactionId: "leg-tx" },
+      ];
+      const splits = [
+        { amount: -50, categoryId: "cat-1", tagIds: ["tag-a"] },
+        { amount: -50, transferAccountId: "acc-2", tagIds: ["tag-b"] },
+      ];
+      const qr = {} as any;
+
+      await (service as any).applySplitTags(savedSplits, splits, "user-1", qr);
+
+      // Both splits get their split-level tags.
+      expect(tagsService.setSplitTags).toHaveBeenCalledWith(
+        "split-cat",
+        ["tag-a"],
+        "user-1",
+        qr,
+      );
+      expect(tagsService.setSplitTags).toHaveBeenCalledWith(
+        "split-xfer",
+        ["tag-b"],
+        "user-1",
+        qr,
+      );
+      // Only the transfer split mirrors its tags onto the counterpart leg.
+      expect(tagsService.setTransactionTags).toHaveBeenCalledTimes(1);
+      expect(tagsService.setTransactionTags).toHaveBeenCalledWith(
+        "leg-tx",
+        ["tag-b"],
+        "user-1",
+        qr,
+      );
+    });
+
+    it("skips splits with no tags", async () => {
+      const savedSplits = [{ id: "split-1", linkedTransactionId: "leg-tx" }];
+      const splits = [{ amount: -50, transferAccountId: "acc-2", tagIds: [] }];
+
+      await (service as any).applySplitTags(
+        savedSplits,
+        splits,
+        "user-1",
+        {} as any,
+      );
+
+      expect(tagsService.setSplitTags).not.toHaveBeenCalled();
+      expect(tagsService.setTransactionTags).not.toHaveBeenCalled();
+    });
   });
 
   describe("removeTransfer with parent split", () => {
@@ -5599,6 +6101,54 @@ describe("TransactionsService", () => {
   });
 
   describe("getLlmTransactionRows", () => {
+    it("emits foreign-currency metadata only for foreign-entered rows", async () => {
+      jest.spyOn(service, "findAll").mockResolvedValue({
+        data: [
+          {
+            id: "t-foreign",
+            transactionDate: "2025-01-15",
+            payeeName: "Cafe Paris",
+            category: { name: "Dining" },
+            amount: -145.23,
+            account: { name: "Checking" },
+            description: null,
+            status: "cleared",
+            isSplit: false,
+            originalAmount: -100,
+            originalCurrencyCode: "EUR",
+            exchangeRate: 1.4523,
+          },
+          {
+            id: "t-plain",
+            transactionDate: "2025-01-14",
+            payeeName: "Coffee",
+            category: { name: "Dining" },
+            amount: -5,
+            account: { name: "Checking" },
+            description: null,
+            status: "cleared",
+            isSplit: false,
+            originalAmount: null,
+            originalCurrencyCode: null,
+            exchangeRate: 1,
+          },
+        ],
+        pagination: { total: 2, hasMore: false },
+      } as any);
+
+      const result = await service.getLlmTransactionRows("user-1", {});
+
+      const foreign = result.transactions.find((r) => r.id === "t-foreign");
+      expect(foreign).toMatchObject({
+        originalAmount: -100,
+        originalCurrencyCode: "EUR",
+        exchangeRate: 1.4523,
+      });
+      const plain = result.transactions.find((r) => r.id === "t-plain");
+      expect(plain).not.toHaveProperty("originalCurrencyCode");
+      expect(plain).not.toHaveProperty("originalAmount");
+    });
+
     it("expands split transactions into per-split rows with their real category", async () => {
       jest.spyOn(service, "findAll").mockResolvedValue({
         data: [
@@ -5964,6 +6514,19 @@ describe("TransactionsService", () => {
       expect(transactionsRepository.save).not.toHaveBeenCalled();
     });
 
+    it("surfaces the reconciled status of the target transaction", async () => {
+      transactionsRepository.findOne.mockResolvedValueOnce({
+        ...baseTx,
+        isReconciled: true,
+      });
+
+      const preview = await service.previewUpdate("user-1", "tx-1", {
+        amount: -30,
+      });
+
+      expect(preview.isReconciled).toBe(true);
+    });
+
     it("resolves a changed payee name to an existing payee", async () => {
       transactionsRepository.findOne.mockResolvedValueOnce({ ...baseTx });
       payeesService.resolveByName.mockResolvedValueOnce({
@@ -6089,6 +6652,25 @@ describe("TransactionsService", () => {
         currencyCode: "USD",
       });
       expect(transactionsRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it("surfaces the reconciled status of the target transaction", async () => {
+      transactionsRepository.findOne.mockResolvedValueOnce({
+        id: "tx-1",
+        userId: "user-1",
+        amount: -12.5,
+        transactionDate: "2026-01-15",
+        payeeName: "Starbucks",
+        description: null,
+        currencyCode: "USD",
+        account: { name: "Checking" },
+        category: { name: "Coffee" },
+        isReconciled: true,
+      });
+
+      const preview = await service.previewDelete("user-1", "tx-1");
+
+      expect(preview.isReconciled).toBe(true);
     });
   });
 

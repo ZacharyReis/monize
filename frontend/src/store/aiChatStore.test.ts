@@ -10,6 +10,7 @@ const mockAbortController = { abort: vi.fn() };
 
 const mockConfirmAction = vi.fn();
 const mockGetRelayResponse = vi.fn();
+const mockNotifyAiAction = vi.fn();
 
 vi.mock('@/lib/ai', () => ({
   aiApi: {
@@ -20,6 +21,10 @@ vi.mock('@/lib/ai', () => ({
     confirmAction: (...args: unknown[]) => mockConfirmAction(...args),
     getRelayResponse: (...args: unknown[]) => mockGetRelayResponse(...args),
   },
+}));
+
+vi.mock('@/lib/aiActionSignal', () => ({
+  notifyAiAction: () => mockNotifyAiAction(),
 }));
 
 // The error / onError / onDone handlers attempt a relay pickup before
@@ -101,6 +106,50 @@ describe('aiChatStore', () => {
       const serialized = JSON.stringify(history);
       expect(serialized).not.toContain('SECRETB64');
       expect(serialized).not.toContain('r.png');
+    });
+
+    it('caps conversation history in relay mode to the most recent turns', async () => {
+      const { aiApi } = await import('@/lib/ai');
+      // A long prior conversation: relay must not ship all of it to the agent.
+      const seeded = Array.from({ length: 24 }, (_, i) => ({
+        id: `seed-${i}`,
+        role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: `seeded turn ${i}`,
+      }));
+      useAiChatStore.setState({ messages: seeded });
+
+      useAiChatStore.getState().submit('newest question', undefined, {
+        relay: true,
+      });
+
+      const history = vi.mocked(aiApi.queryStream).mock.calls[0][2] as Array<{
+        role: string;
+        content: string;
+      }>;
+      expect(history.length).toBeLessThanOrEqual(10);
+      const serialized = JSON.stringify(history);
+      expect(serialized).not.toContain('seeded turn 0');
+      expect(serialized).toContain('newest question');
+    });
+
+    it('keeps the full conversation history on the native (non-relay) path', async () => {
+      const { aiApi } = await import('@/lib/ai');
+      const seeded = Array.from({ length: 24 }, (_, i) => ({
+        id: `seed-${i}`,
+        role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: `seeded turn ${i}`,
+      }));
+      useAiChatStore.setState({ messages: seeded });
+
+      useAiChatStore.getState().submit('newest question');
+
+      const history = vi.mocked(aiApi.queryStream).mock.calls[0][2] as Array<{
+        role: string;
+        content: string;
+      }>;
+      // 24 seeded + the new user turn, untrimmed.
+      expect(history.length).toBe(25);
+      expect(JSON.stringify(history)).toContain('seeded turn 0');
     });
 
     it('ignores empty/whitespace queries', async () => {
@@ -242,6 +291,205 @@ describe('aiChatStore', () => {
         expect(message.content).toBe('Arrived late.');
         expect(message.error).toBeUndefined();
         expect(useAiChatStore.getState().isLoading).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('renders a confirmation card delivered via pickup after the stream gave up', async () => {
+      // #793: the agent composed a large write slowly, the turn idle-timed-out,
+      // and the card was buffered. The pickup must surface it (then the answer).
+      vi.useFakeTimers();
+      try {
+        const card = {
+          actionId: 'act-late',
+          type: 'create_transaction',
+          preview: {},
+          descriptor: { type: 'create_transaction' },
+          signature: 'sig',
+          expiresAt: Date.now() + 60000,
+        };
+        mockGetRelayResponse
+          .mockResolvedValueOnce({ text: null, pendingActions: [card] })
+          .mockResolvedValueOnce({
+            text: 'Card ready to review.',
+            pendingActions: [],
+          });
+        useAiChatStore.getState().submit('Bulk edit', undefined, { relay: true });
+
+        capturedCallbacks?.onEvent({ type: 'prompt_id', promptId: 'p-card' });
+        capturedCallbacks?.onEvent({ type: 'error', message: 'went quiet' });
+
+        // First pickup returns the buffered card (no answer yet): the card shows
+        // and the disconnect placeholder is cleared.
+        await vi.advanceTimersByTimeAsync(0);
+        let message = useAiChatStore.getState().messages[1];
+        expect(message.pendingActions).toHaveLength(1);
+        expect(message.pendingActions![0]).toMatchObject({
+          actionId: 'act-late',
+          status: 'pending',
+        });
+        expect(message.error).toBeUndefined();
+
+        // The answer arrives on a later poll; the card is preserved alongside it.
+        await vi.advanceTimersByTimeAsync(4000);
+        message = useAiChatStore.getState().messages[1];
+        expect(message.content).toBe('Card ready to review.');
+        expect(message.pendingActions).toHaveLength(1);
+        expect(useAiChatStore.getState().isLoading).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps a card delivered live before the disconnect, then recovers the answer', async () => {
+      // The agent posted confirmation cards (delivered live to the stream) while
+      // composing a large final answer; the turn then idle-timed-out before
+      // post_response. The live cards must survive the disconnect placeholder and
+      // the buffered answer is picked up after, with the cards preserved.
+      vi.useFakeTimers();
+      try {
+        const card = {
+          actionId: 'act-live',
+          type: 'create_investment_transaction' as const,
+          preview: {},
+          descriptor: { type: 'create_investment_transaction' as const },
+          signature: 'sig',
+          expiresAt: Date.now() + 60000,
+        };
+        mockGetRelayResponse
+          .mockResolvedValueOnce({ text: null, pendingActions: [] })
+          .mockResolvedValueOnce({ text: 'Done -- review the card.', pendingActions: [] });
+        useAiChatStore.getState().submit('Add it', undefined, { relay: true });
+
+        capturedCallbacks?.onEvent({ type: 'prompt_id', promptId: 'p-live' });
+        // Card arrives live (no text content yet), then the stream gives up.
+        capturedCallbacks?.onEvent({ type: 'pending_action', action: card });
+        let message = useAiChatStore.getState().messages[1];
+        expect(message.pendingActions).toHaveLength(1);
+
+        capturedCallbacks?.onEvent({ type: 'error', message: 'went quiet' });
+        // Placeholder shows, but the live card is not wiped.
+        message = useAiChatStore.getState().messages[1];
+        expect(message.error).toBe('went quiet');
+        expect(message.pendingActions).toHaveLength(1);
+        expect(message.pendingActions![0]).toMatchObject({ actionId: 'act-live' });
+
+        // The buffered answer arrives on a later poll; the card is preserved and
+        // the placeholder error is cleared.
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(4000);
+        message = useAiChatStore.getState().messages[1];
+        expect(message.content).toBe('Done -- review the card.');
+        expect(message.error).toBeUndefined();
+        expect(message.pendingActions).toHaveLength(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps polling past the base deadline while new cards keep arriving', async () => {
+      // A large import streams confirmation cards over several minutes (one card
+      // per ~25 rows). Each new card must push the pickup deadline forward, so an
+      // agent still actively delivering is not abandoned mid-import. Without the
+      // extension the loop would give up at the base deadline (~135 polls) and the
+      // final answer (arriving later) would be lost.
+      vi.useFakeTimers();
+      try {
+        let call = 0;
+        mockGetRelayResponse.mockImplementation(() => {
+          call += 1;
+          if (call <= 150) {
+            return Promise.resolve({
+              text: null,
+              pendingActions: [
+                {
+                  actionId: `act-${call}`,
+                  type: 'create_transaction' as const,
+                  preview: {},
+                  descriptor: { type: 'create_transaction' as const },
+                  signature: 's',
+                  expiresAt: Date.now() + 600000,
+                },
+              ],
+            });
+          }
+          return Promise.resolve({ text: 'All imported.', pendingActions: [] });
+        });
+        useAiChatStore.getState().submit('Import CSV', undefined, { relay: true });
+        capturedCallbacks?.onEvent({ type: 'prompt_id', promptId: 'p-big' });
+        capturedCallbacks?.onEvent({ type: 'error', message: 'went quiet' });
+
+        // Advance well past the base 9-min deadline (135 polls of 4s): each poll
+        // delivers a fresh card that extends the window, so the answer on poll 151
+        // is still reached.
+        for (let i = 0; i < 160; i++) {
+          await vi.advanceTimersByTimeAsync(4000);
+        }
+        const message = useAiChatStore.getState().messages[1];
+        expect(message.content).toBe('All imported.');
+        expect(message.pendingActions!.length).toBeGreaterThan(100);
+        expect(message.error).toBeUndefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps an already-confirmed card confirmed when a later batch arrives', async () => {
+      // The user approved a card; then the agent delivered a further batch. The
+      // new batch must not reset the approved card back to pending (re-approving
+      // an already-applied card errors). The closure only marks cards pending, so
+      // the store status must win on every re-render.
+      vi.useFakeTimers();
+      try {
+        const cardA = {
+          actionId: 'A',
+          type: 'create_transaction' as const,
+          preview: {},
+          descriptor: { type: 'create_transaction' as const },
+          signature: 's',
+          expiresAt: Date.now() + 600000,
+        };
+        const cardB = { ...cardA, actionId: 'B' };
+        mockGetRelayResponse
+          .mockResolvedValueOnce({ text: null, pendingActions: [cardA] })
+          .mockResolvedValueOnce({ text: null, pendingActions: [cardB] })
+          .mockResolvedValueOnce({ text: 'Imported.', pendingActions: [] });
+        useAiChatStore.getState().submit('Import', undefined, { relay: true });
+        capturedCallbacks?.onEvent({ type: 'prompt_id', promptId: 'p-batch' });
+        capturedCallbacks?.onEvent({ type: 'error', message: 'went quiet' });
+
+        // Poll 1: card A appears.
+        await vi.advanceTimersByTimeAsync(0);
+        let msg = useAiChatStore.getState().messages[1];
+        expect(msg.pendingActions).toHaveLength(1);
+
+        // The user approves card A (store-side status flip, as confirmAction does).
+        useAiChatStore.setState((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === msg.id
+              ? {
+                  ...m,
+                  pendingActions: m.pendingActions!.map((p) =>
+                    p.actionId === 'A' ? { ...p, status: 'confirmed' as const } : p,
+                  ),
+                }
+              : m,
+          ),
+        }));
+
+        // Poll 2: card B arrives -- card A must stay confirmed.
+        await vi.advanceTimersByTimeAsync(4000);
+        msg = useAiChatStore.getState().messages[1];
+        expect(msg.pendingActions).toHaveLength(2);
+        expect(msg.pendingActions!.find((p) => p.actionId === 'A')!.status).toBe('confirmed');
+        expect(msg.pendingActions!.find((p) => p.actionId === 'B')!.status).toBe('pending');
+
+        // Poll 3: the answer lands -- card A is still confirmed.
+        await vi.advanceTimersByTimeAsync(4000);
+        msg = useAiChatStore.getState().messages[1];
+        expect(msg.content).toBe('Imported.');
+        expect(msg.pendingActions!.find((p) => p.actionId === 'A')!.status).toBe('confirmed');
       } finally {
         vi.useRealTimers();
       }
@@ -768,6 +1016,25 @@ describe('aiChatStore', () => {
         status: 'confirmed',
         resultId: 'tx-1',
       });
+    });
+
+    it('confirmAction notifies list pages to refresh after a successful write', async () => {
+      mockConfirmAction.mockResolvedValueOnce({
+        type: 'create_transaction',
+        id: 'tx-1',
+      });
+      const assistant = streamWithPendingAction();
+      await useAiChatStore.getState().confirmAction(assistant.id, 'a1');
+      expect(mockNotifyAiAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirmAction does not notify list pages when the write fails', async () => {
+      mockConfirmAction.mockRejectedValueOnce({
+        response: { data: { message: 'Nope' } },
+      });
+      const assistant = streamWithPendingAction();
+      await useAiChatStore.getState().confirmAction(assistant.id, 'a1');
+      expect(mockNotifyAiAction).not.toHaveBeenCalled();
     });
 
     it('confirmAction carries bulk count and skipped onto the confirmed card', async () => {

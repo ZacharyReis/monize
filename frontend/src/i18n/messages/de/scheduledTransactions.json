@@ -98,12 +98,15 @@
       "both": "Eine Buchung an diesem Datum bringt <b>{fromAccount}</b> auf <b>{fromAmount}</b> ({fromCondition}) und <b>{toAccount}</b> auf <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Diese Buchung aufteilen",
+    "copyAmount": "Betrag kopieren",
     "referenceNumberLabel": "Referenznummer (optional)",
     "noPriceHistory": "Noch kein Kursverlauf für dieses Wertpapier. Bitte den Kurs manuell eingeben.",
     "postButton": "Buchung ausführen",
     "toasts": {
       "posted": "Buchung ausgeführt",
       "postFailed": "Buchung konnte nicht ausgeführt werden",
+      "amountCopied": "Betrag kopiert",
+      "copyFailed": "Betrag konnte nicht kopiert werden",
       "quantityRequired": "Menge muss größer als null sein",
       "priceRequired": "Kurs muss größer als null sein",
       "totalAmountRequired": "Gesamtbetrag ist erforderlich",

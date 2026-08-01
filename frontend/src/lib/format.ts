@@ -97,6 +97,20 @@ export function roundToCents(value: number): number {
 }
 
 /**
+ * Sum money values without IEEE 754 accumulation drift by accumulating in
+ * integer ten-thousandths (matching the backend `roundMoney` / decimal(20,4)
+ * precision) and dividing back once at the end. Mirrors the backend `sumMoney`
+ * helper so client-side totals reconcile to the same cents as the server.
+ */
+export function sumMoney(values: number[]): number {
+  const totalUnits = values.reduce(
+    (sum, value) => sum + Math.round(value * 10000),
+    0,
+  );
+  return totalUnits / 10000;
+}
+
+/**
  * Pick how many fraction digits to show so a tiny non-zero value doesn't
  * collapse to "0.00". When the value already shows a non-zero figure at the
  * currency's natural precision (baseDigits), baseDigits is returned unchanged.

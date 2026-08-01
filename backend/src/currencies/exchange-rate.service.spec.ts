@@ -804,8 +804,22 @@ describe("ExchangeRateService", () => {
       // Daily series straddling the target 2026-06-08 (a weekend in this set):
       // the closest day on or before is 2026-06-05.
       yahooFinanceService.fetchHistoricalWindow.mockResolvedValue([
-        { date: new Date("2026-06-05"), close: 4.25, open: null, high: null, low: null, volume: null },
-        { date: new Date("2026-06-09"), close: 4.3, open: null, high: null, low: null, volume: null },
+        {
+          date: new Date("2026-06-05"),
+          close: 4.25,
+          open: null,
+          high: null,
+          low: null,
+          volume: null,
+        },
+        {
+          date: new Date("2026-06-09"),
+          close: 4.3,
+          open: null,
+          high: null,
+          low: null,
+          volume: null,
+        },
       ]);
 
       const result = await service.getRateForDate("EUR", "PLN", "2026-06-08");
@@ -813,7 +827,9 @@ describe("ExchangeRateService", () => {
       expect(result).toBe(4.25);
       // A bounded window is fetched (not the full "max" history).
       expect(yahooFinanceService.fetchHistorical).not.toHaveBeenCalled();
-      expect(yahooFinanceService.fetchHistoricalWindow).toHaveBeenCalledTimes(1);
+      expect(yahooFinanceService.fetchHistoricalWindow).toHaveBeenCalledTimes(
+        1,
+      );
       const [sym, fromDate, toDate] =
         yahooFinanceService.fetchHistoricalWindow.mock.calls[0];
       expect(sym).toBe("EURPLN=X");

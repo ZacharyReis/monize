@@ -6,6 +6,7 @@ import { TransactionSplit } from "../transactions/entities/transaction-split.ent
 import { Payee } from "../payees/entities/payee.entity";
 import { ScheduledTransaction } from "../scheduled-transactions/entities/scheduled-transaction.entity";
 import { ScheduledTransactionSplit } from "../scheduled-transactions/entities/scheduled-transaction-split.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
 import { CategoriesService } from "./categories.service";
 import { CategoriesController } from "./categories.controller";
 import { ActionHistoryModule } from "../action-history/action-history.module";
@@ -19,6 +20,7 @@ import { ActionHistoryModule } from "../action-history/action-history.module";
       Payee,
       ScheduledTransaction,
       ScheduledTransactionSplit,
+      UserPreference,
     ]),
     ActionHistoryModule,
   ],

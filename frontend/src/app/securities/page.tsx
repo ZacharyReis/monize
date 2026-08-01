@@ -26,8 +26,10 @@ import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
 import { useFormModal } from '@/hooks/useFormModal';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useOnAiAction } from '@/hooks/useOnAiAction';
 import { PAGE_SIZE } from '@/lib/constants';
 import { useHighlightParam } from '@/hooks/useHighlightTarget';
+import { useSearchParams } from 'next/navigation';
 
 const logger = createLogger('Securities');
 
@@ -51,6 +53,13 @@ function SecuritiesContent() {
   });
   const { showForm, editingItem: editingSecurity, openCreate, openEdit, close, isEditing, modalProps, setFormDirty, unsavedChangesDialog, formSubmitRef } = useFormModal<Security>();
   const [priceSecurity, setPriceSecurity] = useState<Security | undefined>();
+  // Deep link: `?price=<securityId>` opens this page's price history for that
+  // security, so other screens (the dashboard's Top Movers) can send the user
+  // straight to it instead of growing their own copy of the view. Captured once
+  // on mount, then resolved against the loaded list by plain derivation -- no
+  // effect, so nothing re-opens after the user closes it.
+  const priceParamId = useSearchParams().get('price');
+  const [priceParamConsumed, setPriceParamConsumed] = useState(false);
   const [historySecurity, setHistorySecurity] = useState<Security | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
@@ -96,6 +105,8 @@ function SecuritiesContent() {
   }, [t]);
 
   useOnUndoRedo(loadData);
+  // Refresh after the AI assistant creates or edits a security from the chat.
+  useOnAiAction(loadData);
 
   // Apply status filter
   const statusFilteredSecurities = useMemo(() => {
@@ -265,6 +276,19 @@ function SecuritiesContent() {
     }
   }, [highlightId, sortedSecurities]);
 
+  // The deep-linked security, until the user closes the modal. Derived rather
+  // than pushed into state by an effect, so it needs no setState-in-effect and
+  // survives the list arriving after mount.
+  const deepLinkedPriceSecurity =
+    priceParamId && !priceParamConsumed
+      ? allSecurities.find((security) => security.id === priceParamId)
+      : undefined;
+  const shownPriceSecurity = priceSecurity ?? deepLinkedPriceSecurity;
+  const closePriceHistory = () => {
+    setPriceSecurity(undefined);
+    setPriceParamConsumed(true);
+  };
+
   const activeCount = allSecurities.filter((s) => s.isActive).length;
   const inactiveCount = allSecurities.filter((s) => !s.isActive).length;
 
@@ -339,11 +363,11 @@ function SecuritiesContent() {
         <UnsavedChangesDialog {...unsavedChangesDialog} />
 
         {/* Price History Modal */}
-        <Modal isOpen={!!priceSecurity} onClose={() => setPriceSecurity(undefined)} maxWidth="5xl" className="p-6" pushHistory>
-          {priceSecurity && (
+        <Modal isOpen={!!shownPriceSecurity} onClose={closePriceHistory} maxWidth="5xl" className="p-3 sm:p-6" pushHistory tightMobileInset>
+          {shownPriceSecurity && (
             <SecurityPriceHistory
-              security={priceSecurity}
-              onClose={() => setPriceSecurity(undefined)}
+              security={shownPriceSecurity}
+              onClose={closePriceHistory}
             />
           )}
         </Modal>

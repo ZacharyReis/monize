@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { aiApi } from '@/lib/ai';
 import { AiInsight, AiStatus, InsightType, InsightSeverity, INSIGHT_TYPE_LABELS, INSIGHT_SEVERITY_LABELS } from '@/types/ai';
 import { InsightCard } from './InsightCard';
+import { RelayStatusBar } from '@/components/ai/RelayStatusBar';
 import { createLogger } from '@/lib/logger';
 import Link from 'next/link';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -141,6 +142,12 @@ export function InsightsList() {
   const alertCount = insights.filter((i) => i.severity === 'alert' && !i.isDismissed).length;
   const warningCount = insights.filter((i) => i.severity === 'warning' && !i.isDismissed).length;
   const aiNotConfigured = aiStatus !== null && !aiStatus.configured;
+  // Insights are generated through the user's own agent via the reverse MCP
+  // relay, which only works while that agent is connected. Rather than a static
+  // heads-up, we surface the live tunnel status and the same connect help as the
+  // AI Assistant so the user can confirm their agent is listening before they
+  // trigger a generation.
+  const relayActive = aiStatus?.relayActive === true;
 
   if (isLoading) {
     return (
@@ -181,6 +188,11 @@ export function InsightsList() {
           </div>
         </div>
       )}
+
+      {/* Relay tunnel: live connection status plus the same connect help shown
+          on the AI Assistant, so the user can confirm their agent is listening
+          before generating. Renders nothing when the relay is not active. */}
+      {!aiNotConfigured && <RelayStatusBar enabled={relayActive} />}
 
       {/* Header with stats and actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

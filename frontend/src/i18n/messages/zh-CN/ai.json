@@ -8,7 +8,15 @@
     "title": "AI 助手",
     "expand": "展开为全屏",
     "collapse": "收起为面板",
-    "close": "关闭"
+    "close": "关闭",
+    "movePanel": "移动面板：拖动它、用方向键微调，或点击将它移到下一个角落",
+    "moveCornerTo": "移到{corner}",
+    "corner": {
+      "bottom-right": "右下角",
+      "bottom-left": "左下角",
+      "top-right": "右上角",
+      "top-left": "左上角"
+    }
   },
   "chat": {
     "conversationSaved": "对话已保存在您的浏览器中",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "AI 未配置",
-    "message": "未配置任何 AI 提供商。要使用 AI 助手，请在设置中{link}。",
-    "linkText": "配置 AI 提供商"
+    "message": "未配置任何 AI 提供商。要使用 AI 助手，请在设置中{link}。"
   },
   "suggestedQueries": {
     "heading": "询问您的财务状况",
@@ -70,6 +77,7 @@
     "newPayee": "(新收款人)",
     "category": "分类",
     "splits": "拆分",
+    "attachments": "附件",
     "newCategory": "新分类",
     "currentCategory": "当前分类",
     "description": "描述",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {未创建投资交易} other {已创建 # 笔投资交易}}",
     "rowsSkipped": "{count, plural, other {已跳过 # 行}}",
     "rowSkippedBadge": "已跳过",
+    "reconciledBadge": "已对账",
+    "reconciledWarning": "此交易已对账。更改它会影响已完成的对账。",
     "investmentActions": {
       "BUY": "买入",
       "SELL": "卖出",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "助手离线",
-      "listening": "助手正在侦听",
-      "busy": "助手工作中"
+      "offline": "MCP 代理离线",
+      "listening": "MCP 代理正在侦听",
+      "busy": "MCP 代理工作中",
+      "idle": "因闲置已断开连接 — 重新连接以继续"
     },
     "howToConnect": "如何连接",
     "hideHelp": "隐藏",

@@ -45,6 +45,16 @@ describe('investmentsApi', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/portfolio/top-movers');
   });
 
+  it('getIntradayBreakdown fetches /portfolio/intraday-breakdown', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { series: [], points: [], fallbackToDaily: false },
+    });
+    await investmentsApi.getIntradayBreakdown({ range: '1d', accountIds: 'a1' });
+    expect(apiClient.get).toHaveBeenCalledWith('/portfolio/intraday-breakdown', {
+      params: { range: '1d', accountIds: 'a1' },
+    });
+  });
+
   it('getFavouriteSecurities fetches /securities/favourites', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
     await investmentsApi.getFavouriteSecurities();

@@ -2,6 +2,13 @@ import apiClient from './api';
 import { Category, CreateCategoryData, UpdateCategoryData } from '@/types/category';
 import { dedupe, invalidateCache } from './apiCache';
 
+export interface ImportDefaultsOptions {
+  /** ISO 3166-1 alpha-2 code; omit for the country-neutral catalog. */
+  country?: string;
+  /** Locale to create the category names in; omit to use the saved language. */
+  language?: string;
+}
+
 export const categoriesApi = {
   // Create category
   create: async (data: CreateCategoryData): Promise<Category> => {
@@ -59,10 +66,23 @@ export const categoriesApi = {
     return response.data;
   },
 
-  // Import default categories for new users
-  importDefaults: async (): Promise<{ categoriesCreated: number }> => {
+  // Countries that have a default-category overlay (ISO 3166-1 alpha-2)
+  getDefaultCountries: async (): Promise<string[]> => {
+    const response = await apiClient.get<{ countries: string[] }>(
+      '/categories/default-countries',
+    );
+    return response.data.countries;
+  },
+
+  // Import default categories for new users. The country selects the
+  // country-specific additions layered over the generic catalog; the language
+  // selects the locale the category names are created in.
+  importDefaults: async (
+    options: ImportDefaultsOptions = {},
+  ): Promise<{ categoriesCreated: number }> => {
     const response = await apiClient.post<{ categoriesCreated: number }>(
       '/categories/import-defaults',
+      options,
     );
     invalidateCache('categories:');
     return response.data;

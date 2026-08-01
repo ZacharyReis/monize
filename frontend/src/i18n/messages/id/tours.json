@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Berikutnya",
+    "back": "Kembali",
+    "done": "Selesai",
+    "endTour": "Akhiri tur",
+    "tryIt": "Coba sendiri — tur akan berlanjut setelah Anda melakukannya",
+    "skipStep": "Lewati langkah ini",
+    "stepCounter": "{current} dari {total}",
+    "skippedTitle": "Tur selesai",
+    "skippedBody": "Beberapa langkah dilewati karena layar atau kontrolnya tidak tersedia. Anda dapat mengulang tur kapan saja dari Pengaturan.",
+    "move": "Pindahkan kartu ini — seret, atau geser dengan tombol panah"
+  },
+  "offer": {
+    "heading": "Ikuti tur singkat",
+    "subheading": "Panduan singkat tentang fitur terbaru di rilis ini. Jendela ini menyingkir selama tur berjalan dan kembali setelah tur selesai.",
+    "showMe": "Tunjukkan",
+    "viewed": "Sudah dilihat",
+    "introTitle": "Baru di sini? Ikuti tur pengenalan",
+    "introSubtitle": "Panduan singkat tentang dasar-dasarnya."
+  },
+  "areas": {
+    "intro": "Memulai",
+    "transactions": "Transaksi",
+    "accounts": "Akun",
+    "budgets": "Anggaran",
+    "reports": "Laporan",
+    "settings": "Pengaturan"
+  },
+  "gettingStarted": {
+    "takeTour": "Ikuti tur",
+    "retakeTour": "Ulangi tur"
+  },
+  "settings": {
+    "title": "Tur berpandu",
+    "description": "Pelajari fitur-fitur aplikasi langkah demi langkah.",
+    "showList": "Tampilkan tur ({count})",
+    "hideList": "Sembunyikan tur",
+    "start": "Mulai",
+    "restart": "Ulangi",
+    "statusNotViewed": "Belum dilihat",
+    "statusDismissed": "Keluar lebih awal",
+    "reset": "Atur ulang progres tur",
+    "resetSuccess": "Progres tur telah diatur ulang.",
+    "resetError": "Progres tur gagal diatur ulang. Silakan coba lagi."
+  },
+  "intro": {
+    "basics": {
+      "title": "Pengenalan Monize",
+      "steps": {
+        "welcome": {
+          "title": "Selamat datang di Monize",
+          "body": "Tur singkat ini menunjukkan bagian inti aplikasi. Anda bisa keluar kapan saja dengan menekan **Escape** atau **Akhiri tur**."
+        },
+        "dashboard": {
+          "title": "Dasbor Anda",
+          "body": "Ini adalah dasbor Anda. Gunakan tombol **Sesuaikan** di kanan atas untuk mengatur ulang atau menyembunyikan widget agar ringkasan yang penting bagi Anda berada tepat di bagian atas."
+        },
+        "tools": {
+          "title": "Menu Alat",
+          "body": "Menu **Alat** adalah tempat Anda mengelola elemen dasar keuangan Anda — penerima pembayaran, kategori, mata uang, tag, dan lainnya."
+        },
+        "accounts": {
+          "title": "Akun Anda",
+          "body": "Tambahkan akun bank, kartu kredit, pinjaman, dan investasi Anda di sini dengan tombol yang disorot. Setiap saldo dan transaksi terkait dengan sebuah akun."
+        },
+        "transactions": {
+          "title": "Transaksi",
+          "body": "Ini adalah daftar transaksi Anda — setiap pembayaran dan setoran untuk akun Anda tercatat di sini, siap untuk dicari dan disaring."
+        },
+        "createTransaction": {
+          "title": "Catat transaksi",
+          "body": "Tambahkan pemasukan atau pengeluaran dengan **Transaksi Baru**. Silakan buka formulirnya."
+        },
+        "fields": {
+          "title": "Penerima pembayaran dan kategori",
+          "body": "Untuk setiap transaksi, Anda memilih penerima pembayaran dan menetapkan kategori. Kategori inilah yang menjadi dasar anggaran dan laporan Anda; jumlahnya menyusul di langkah berikutnya."
+        },
+        "splits": {
+          "title": "Bagi transaksi",
+          "body": "Satu pembelian mencakup beberapa kategori? Gunakan **Transaksi Terbagi** untuk membagi satu transaksi ke beberapa kategori — misalnya belanja bahan makanan dan keperluan rumah tangga dari satu toko."
+        },
+        "currencyField": {
+          "title": "Jumlah dan mata uang",
+          "body": "Masukkan jumlah transaksinya di sini. Membayar dalam mata uang lain? Atur mata uang di samping jumlah dan masukkan sesuai yang dibebankan — Monize akan mengonversinya ke mata uang akun untuk Anda."
+        },
+        "closeForm": {
+          "title": "Tutup formulir untuk melanjutkan",
+          "body": "Tutup formulir transaksi dengan **Batal**, atau simpan dengan tombol satunya, dan tur akan berlanjut."
+        },
+        "bills": {
+          "title": "Tagihan & Setoran",
+          "body": "Jadwalkan tagihan dan setoran berulang agar pembayaran mendatang dapat diperkirakan dan tidak ada yang terlewat."
+        },
+        "investments": {
+          "title": "Investasi",
+          "body": "Pantau kepemilikan, harga, dan imbal hasil di seluruh akun investasi Anda."
+        },
+        "budgets": {
+          "title": "Rencanakan dengan anggaran",
+          "body": "Anggaran memungkinkan Anda menetapkan target bulanan per kategori dan memantau perkembangannya."
+        },
+        "reports": {
+          "title": "Pahami keuangan Anda",
+          "body": "Laporan mengubah transaksi Anda menjadi grafik — pengeluaran per kategori, kekayaan bersih dari waktu ke waktu, dan lainnya."
+        },
+        "finish": {
+          "title": "Semua sudah siap",
+          "body": "Itulah turnya. Anda dapat mengulanginya kapan saja dari bagian **Tur berpandu** di **Pengaturan**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transaksi mata uang asing",
+        "steps": {
+          "welcome": {
+            "title": "Lacak pengeluaran dalam mata uang lain",
+            "body": "Belanja di luar negeri? Tur ini menyiapkan biaya transaksi mata uang asing sebuah akun, mencatat pembelian dalam mata uang yang ditagihkan kepada Anda, dan menunjukkan di mana biaya itu muncul. Anda bisa keluar kapan saja dengan **Esc** atau **Akhiri tur**."
+          },
+          "openAccountEdit": {
+            "title": "Mulai dari akunnya",
+            "body": "Biaya transaksi mata uang asing melekat pada akun. Pilih akun yang Anda pakai membayar di luar negeri — kartu kredit, kartu debit, atau apa pun yang dipakai ponsel Anda — lalu pilih **Edit** pada tindakan barisnya, atau tekan lama barisnya di ponsel, untuk membuka pengaturannya."
+          },
+          "fxFeePercent": {
+            "title": "Tetapkan biaya konversi",
+            "body": "Masukkan biaya transaksi mata uang asing akun ini di sini dalam persen — misalnya 2,5. Monize menyertakannya ke dalam jumlah terkonversi setiap pembelian luar negeri, sehingga biayanya tercatat untuk Anda."
+          },
+          "closeAccountForm": {
+            "title": "Simpan dan tutup",
+            "body": "Gunakan tombol ini untuk menyelesaikan: **Perbarui Akun** menyimpan biayanya, **Batal** menutup tanpa menyimpan. Bagaimanapun, tur tetap berlanjut."
+          },
+          "newTransaction": {
+            "title": "Catat pembelian luar negeri",
+            "body": "Sekarang catat pembelian yang Anda lakukan dengan akun itu dalam mata uang lain. Buka **Transaksi Baru** dan pilih akun itu."
+          },
+          "chooseAccount": {
+            "title": "Periksa akun dan tanggal",
+            "body": "Biaya konversi melekat pada akun, jadi pastikan **Akun** adalah akun yang baru saja Anda atur — ubah di sini jika bukan. Atur juga **Tanggal** ke hari pembelian: kurs dicari untuk tanggal tersebut."
+          },
+          "enterDetails": {
+            "title": "Isi detailnya",
+            "body": "Isi penerima dan kategori seperti transaksi lainnya. Bagian mata uang asingnya menyusul."
+          },
+          "entryCurrency": {
+            "title": "Pilih mata uang yang Anda bayarkan",
+            "body": "Buka ini dan pilih mata uang yang ditagihkan kepada Anda. Hanya mata uang Anda sendiri yang ada di daftar? Pilih **Tambah mata uang...** di bagian bawah untuk menambahkannya — langsung terpilih untuk Anda."
+          },
+          "enterAmount": {
+            "title": "Masukkan jumlah yang ditagihkan",
+            "body": "Ketik totalnya persis seperti yang tertera di rekening koran Anda. Monize mencari **kurs** untuk tanggal transaksi, menampilkan total terkonversi di sebelahnya, dan menyertakan **biaya transaksi mata uang asing** yang Anda atur pada akun — keterangan di bawah menjabarkan keduanya. Bank membulatkan berbeda? Ubah kursnya atau total terkonversinya agar cocok hingga sen terakhir."
+          },
+          "closeTransactionForm": {
+            "title": "Tutup formulirnya",
+            "body": "Sama di sini: simpan transaksinya dengan tombol kirim, atau tutup dengan **Batal**, dan tur berlanjut."
+          },
+          "openAccountDetail": {
+            "title": "Kembali ke akunnya",
+            "body": "Buka halaman detail akun itu — pilih **Detail** pada tindakan barisnya — untuk melihat bagaimana aktivitas mata uang asing dirangkum."
+          },
+          "fxSection": {
+            "title": "Bagian mata uang asing Anda",
+            "body": "Akun dengan aktivitas mata uang asing mendapatkan bagian ini: biaya yang dibayar per mata uang, grafik dari waktu ke waktu, dan transaksi yang cocok, dapat diekspor ke CSV dan PNG. Bagian ini muncul begitu akun memiliki pembelian luar negeri.",
+            "fallbackBody": "Akun ini belum memiliki aktivitas mata uang asing, jadi bagian tersebut tidak ada di halamannya. Catat pembelian dalam mata uang lain pada akun ini dan bagian itu akan muncul: biaya per mata uang, grafik sepanjang waktu, serta ekspor CSV dan PNG."
+          },
+          "report": {
+            "title": "Laporan Biaya Transaksi Mata Uang Asing",
+            "body": "Laporan ini mengumpulkan pembelian luar negeri dari semua akun dan mata uang Anda di satu tempat, sehingga Anda bisa melihat berapa sebenarnya biaya kartu \"tanpa biaya luar negeri\" itu. Buka kapan saja dari **Laporan**.",
+            "fallbackBody": "Laporan **Biaya mata uang asing** mengumpulkan pembelian luar negeri dari semua akun dan mata uang Anda dalam satu tempat. Saat ini tidak terlihat — pencarian atau filter kategori bisa menyembunyikannya — tetapi Anda akan menemukannya di **Laporan**."
+          },
+          "finish": {
+            "title": "Itulah mata uang asing di Monize",
+            "body": "Atur biayanya sekali, masukkan pembelian sesuai yang ditagihkan, dan biayanya terlacak sendiri. Anda bisa mengulang tur ini kapan saja dari bagian **Tur berpandu** di **Pengaturan**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Ringkasan Yang Baru",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Sorotan rilis",
+            "body": "Sakelar ini mengatur apakah ringkasan Yang Baru muncul otomatis setelah pembaruan."
+          },
+          "appVersion": {
+            "title": "Baca ulang catatan rilis",
+            "body": "Klik label versi di bagian bawah **Pengaturan** kapan saja untuk membuka kembali catatan rilis."
+          },
+          "done": {
+            "title": "Selesai",
+            "body": "Anda dapat meninjau kembali sorotan ini kapan saja dari sini di Pengaturan."
+          }
+        }
+      }
+    }
+  }
+}

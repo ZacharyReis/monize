@@ -10,6 +10,7 @@ import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { accountsApi } from '@/lib/accounts';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { getOrdinal } from '@/lib/ordinal';
+import { useDragReorder, DropIndicatorLine } from '@/hooks/useDragReorder';
 
 interface FavouriteAccountsProps {
   accounts: Account[];
@@ -46,19 +47,18 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
     return formatted;
   };
 
-  const moveAccount = useCallback(
-    async (index: number, direction: -1 | 1) => {
-      const newIndex = index + direction;
+  const applyReorder = useCallback(
+    async (from: number, to: number) => {
       const current = effectiveLocalOrder ??
         [...accounts]
           .filter((a) => a.isFavourite && !a.isClosed)
           .sort((a, b) => a.favouriteSortOrder - b.favouriteSortOrder);
 
-      if (newIndex < 0 || newIndex >= current.length) return;
+      if (from === to || to < 0 || to >= current.length) return;
 
       const reordered = [...current];
-      const [moved] = reordered.splice(index, 1);
-      reordered.splice(newIndex, 0, moved);
+      const [moved] = reordered.splice(from, 1);
+      reordered.splice(to, 0, moved);
 
       setLocalOrder({ accounts, order: reordered });
 
@@ -71,9 +71,16 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
     [accounts, effectiveLocalOrder],
   );
 
+  const moveAccount = useCallback(
+    (index: number, direction: -1 | 1) => applyReorder(index, index + direction),
+    [applyReorder],
+  );
+
+  const { dragIndex, rowProps, dropIndicator } = useDragReorder(applyReorder);
+
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:min-h-[640px]">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:self-start">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           {t('favouriteAccounts.title')}
         </h3>
@@ -88,7 +95,7 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
 
   if (favouriteAccounts.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:min-h-[640px]">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:self-start">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           {t('favouriteAccounts.title')}
         </h3>
@@ -100,7 +107,7 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:min-h-[640px]">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 lg:self-start">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           {t('favouriteAccounts.title')}
@@ -119,9 +126,28 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
           </button>
         )}
       </div>
+      {reordering && (
+        <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400">
+          {t('favouriteAccounts.dragToReorder')}
+        </p>
+      )}
       <div className="space-y-2 sm:space-y-3">
         {favouriteAccounts.map((account, index) => (
-          <div key={account.id} className="flex items-center gap-1">
+          <div
+            key={account.id}
+            data-testid={`favourite-account-row-${account.id}`}
+            {...(reordering ? rowProps(index) : {})}
+            draggable={reordering}
+            className={`relative flex items-center gap-1 rounded-lg ${
+              reordering ? 'cursor-grab' : ''
+            } ${dragIndex === index ? 'opacity-50' : ''}`}
+          >
+            <DropIndicatorLine position={dropIndicator(index, favouriteAccounts.length)} />
+            {reordering && (
+              <span aria-hidden="true" className="select-none text-gray-400 flex-shrink-0">
+                ⠿
+              </span>
+            )}
             {reordering && (
               <div className="flex flex-col gap-0.5 flex-shrink-0">
                 <button
@@ -155,7 +181,7 @@ export function FavouriteAccounts({ accounts, brokerageMarketValues, isLoading, 
               className={`flex-1 flex items-center justify-between p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left ${
                 reordering
                   ? 'cursor-default'
-                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  : 'hover:border-blue-400 hover:bg-gray-50 dark:hover:border-blue-500 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">

@@ -31,7 +31,8 @@ vi.mock('@/hooks/useExchangeRates', () => ({
   }),
 }));
 
-vi.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/utils')>()),
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
   cn: (...inputs: any[]) => inputs.flat(Infinity).filter(Boolean).join(' '),
 }));
@@ -39,17 +40,24 @@ vi.mock('@/lib/utils', () => ({
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
   AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+  Line: () => null,
+  Legend: () => null,
   Area: () => null,
   XAxis: ({ tickFormatter }: any) => <div>{tickFormatter ? tickFormatter(1) : ''}</div>,
   YAxis: ({ tickFormatter }: any) => <div>{tickFormatter ? tickFormatter(100) : ''}</div>,
   CartesianGrid: () => null,
   Tooltip: ({ content, formatter }: any) => {
     if (typeof content === 'function') {
+      // Payload carries both the single-security shape (label/close/markers on
+      // `.payload`) and the comparison shape (`ts` plus per-series value/dataKey)
+      // so the one mock drives either chart's tooltip.
+      const ts = new Date('2024-01-01T00:00:00').getTime();
       return (
         <div data-testid="tooltip">
-          {content({ active: true, payload: [{ payload: { label: 'Jan', close: 100, buyMarker: 100, sellMarker: 100 } }] })}
+          {content({ active: true, payload: [{ payload: { ts, label: 'Jan', close: 100, buyMarker: 100, sellMarker: 100 }, value: 5, dataKey: 's-1', color: '#000' }] })}
           {content({ active: false, payload: [] })}
-          {content({ active: true, payload: [{ payload: { label: 'Feb', close: 50 } }] })}
+          {content({ active: true, payload: [{ payload: { ts, label: 'Feb', close: 50 }, value: -2, dataKey: 's-2', color: '#111' }] })}
         </div>
       );
     }
@@ -120,6 +128,28 @@ const mockHoldings = [
   },
 ];
 
+const SELECT_PLACEHOLDER = 'Select securities...';
+
+// The security selector is a searchable MultiSelect (trigger button + portal
+// dropdown of checkboxes), not a native <select>. These helpers open it and
+// toggle an option by its "SYMBOL - Name" label, closing afterwards so the
+// selected label in the trigger does not duplicate the dropdown option text.
+async function openSelector() {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: SELECT_PLACEHOLDER }));
+  });
+}
+
+async function selectSecurity(optionLabel: string) {
+  await openSelector();
+  await act(async () => {
+    fireEvent.click(screen.getByText(optionLabel));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: SELECT_PLACEHOLDER }));
+  });
+}
+
 describe('SecurityPerformanceReport', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -144,11 +174,13 @@ describe('SecurityPerformanceReport', () => {
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByText('Select a security...')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    // Active securities should be in the dropdown options
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
+    // Only active securities appear in the dropdown; the inactive one does not.
+    await openSelector();
+    expect(screen.getByText('AAPL - Apple Inc.')).toBeInTheDocument();
+    expect(screen.getByText('VTI - Vanguard Total Stock')).toBeInTheDocument();
+    expect(screen.queryByText('OLD - Old Stock')).not.toBeInTheDocument();
   });
 
   it('shows prompt to select security when none selected', async () => {
@@ -156,7 +188,7 @@ describe('SecurityPerformanceReport', () => {
     mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByText(/Select a security above/)).toBeInTheDocument();
+      expect(screen.getByText(/Select one or more securities above/)).toBeInTheDocument();
     });
   });
 
@@ -170,11 +202,11 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByText('Select a security...')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
     // Select a security
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Price Chart')).toBeInTheDocument();
@@ -191,10 +223,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Current Value')).toBeInTheDocument();
@@ -215,10 +247,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Price History - AAPL')).toBeInTheDocument();
@@ -249,10 +281,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Transactions')).toBeInTheDocument();
@@ -294,11 +326,9 @@ describe('SecurityPerformanceReport', () => {
     });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByText('Current Value')).toBeInTheDocument();
     });
@@ -322,11 +352,9 @@ describe('SecurityPerformanceReport', () => {
     });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByText('Transactions')).toBeInTheDocument();
     });
@@ -353,11 +381,9 @@ describe('SecurityPerformanceReport', () => {
     });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByText('Dividends')).toBeInTheDocument();
     });
@@ -385,11 +411,9 @@ describe('SecurityPerformanceReport', () => {
       });
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(mockGetTransactions).toHaveBeenCalledTimes(2);
     });
@@ -418,10 +442,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Dividends')).toBeInTheDocument();
@@ -441,10 +465,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('NASDAQ')).toBeInTheDocument();
@@ -463,10 +487,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-4' } });
+    await selectSecurity('BARE - Bare Security');
 
     await waitFor(() => {
       expect(screen.getByText('Bare Security')).toBeInTheDocument();
@@ -491,10 +515,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Total Return')).toBeInTheDocument();
@@ -517,10 +541,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Annualized Return')).toBeInTheDocument();
@@ -543,10 +567,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Annualized Return')).toBeInTheDocument();
@@ -571,10 +595,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText(/across \d+ accounts/)).toBeInTheDocument();
@@ -600,10 +624,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByTestId('area-chart')).toBeInTheDocument();
@@ -618,10 +642,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('No price history available.')).toBeInTheDocument();
@@ -636,10 +660,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Transactions')).toBeInTheDocument();
@@ -666,10 +690,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Dividends')).toBeInTheDocument();
@@ -699,10 +723,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByText('Transactions')).toBeInTheDocument();
@@ -743,11 +767,9 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-2' } });
-    });
+    await selectSecurity('VTI - Vanguard Total Stock');
     await waitFor(() => {
       expect(screen.getByTestId('export-pdf')).toBeInTheDocument();
     });
@@ -782,11 +804,9 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByText('Dividends')).toBeInTheDocument();
     });
@@ -808,12 +828,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
 
     // After error resolves, component renders chart view with empty prices
     await waitFor(() => {
@@ -838,10 +856,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     await waitFor(() => {
       expect(screen.getByTestId('area-chart')).toBeInTheDocument();
@@ -861,10 +879,10 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
+    await selectSecurity('AAPL - Apple Inc.');
 
     // Should show loading detail pulse before prices resolve
     expect(document.querySelector('.animate-pulse')).toBeTruthy();
@@ -891,11 +909,9 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByTestId('export-pdf')).toBeInTheDocument();
     });
@@ -924,11 +940,9 @@ describe('SecurityPerformanceReport', () => {
 
     render(<SecurityPerformanceReport />);
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
     });
-    await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 's-1' } });
-    });
+    await selectSecurity('AAPL - Apple Inc.');
     await waitFor(() => {
       expect(screen.getByText('Transactions')).toBeInTheDocument();
     });
@@ -969,11 +983,10 @@ describe('SecurityPerformanceReport', () => {
     });
     mockGetSecurityPrices.mockResolvedValue([]);
     const { container } = render(<SecurityPerformanceReport />);
-    await waitFor(() => expect(document.querySelector('select')).toBeTruthy());
-    const select = document.querySelector('select') as HTMLSelectElement;
-    await act(async () => {
-      fireEvent.change(select, { target: { value: 'sec-1' } });
-    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument(),
+    );
+    await selectSecurity('VFV - Vanguard S&P 500');
     // Switch to Transactions view and exercise sort headers.
     await waitFor(() => expect(screen.getByText('Transactions')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Transactions'));
@@ -1003,5 +1016,66 @@ describe('SecurityPerformanceReport', () => {
       if (!__ths[__i]) break;
       await act(async () => { fireEvent.click(__ths[__i]); });
     }
+  });
+
+  it('shows the comparison chart and hides per-security tabs when 2+ are selected', async () => {
+    mockGetSecurities.mockResolvedValue(mockSecurities);
+    mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
+    mockGetSecurityPrices.mockResolvedValue([
+      { id: 1, priceDate: '2024-01-01', closePrice: 100, createdAt: '' },
+      { id: 2, priceDate: '2024-02-01', closePrice: 110, createdAt: '' },
+    ]);
+    mockGetTransactions.mockResolvedValue({ data: [], pagination: { hasMore: false } });
+
+    render(<SecurityPerformanceReport />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
+    });
+
+    await selectSecurity('AAPL - Apple Inc.');
+    await selectSecurity('VTI - Vanguard Total Stock');
+
+    await waitFor(() => {
+      expect(screen.getByText('Performance Comparison')).toBeInTheDocument();
+    });
+    // Per-security view tabs are hidden in comparison mode, but the export
+    // control stays available for the comparison chart.
+    expect(screen.queryByText('Price Chart')).not.toBeInTheDocument();
+    expect(screen.getByTestId('export-pdf')).toBeInTheDocument();
+    expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+  });
+
+  it('exports the comparison chart pdf when 2+ securities are selected', async () => {
+    const { exportToPdf } = await import('@/lib/pdf-export');
+    (exportToPdf as any).mockClear();
+    mockGetSecurities.mockResolvedValue(mockSecurities);
+    mockGetPortfolioSummary.mockResolvedValue({ holdings: mockHoldings });
+    mockGetSecurityPrices.mockResolvedValue([
+      { id: 1, priceDate: '2024-01-01', closePrice: 100, createdAt: '' },
+      { id: 2, priceDate: '2024-02-01', closePrice: 110, createdAt: '' },
+    ]);
+    mockGetTransactions.mockResolvedValue({ data: [], pagination: { hasMore: false } });
+
+    render(<SecurityPerformanceReport />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: SELECT_PLACEHOLDER })).toBeInTheDocument();
+    });
+
+    await selectSecurity('AAPL - Apple Inc.');
+    await selectSecurity('VTI - Vanguard Total Stock');
+
+    await waitFor(() => {
+      expect(screen.getByText('Performance Comparison')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('export-pdf'));
+    });
+
+    expect(exportToPdf).toHaveBeenCalledTimes(1);
+    const call = (exportToPdf as any).mock.calls[0][0];
+    expect(call.title).toBe('Performance Comparison');
+    expect(call.subtitle).toBe('AAPL, VTI');
+    expect(call.filename).toBe('security-performance-comparison');
+    expect(call.chartLegend).toHaveLength(2);
   });
 });

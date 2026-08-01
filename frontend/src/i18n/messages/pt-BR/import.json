@@ -41,7 +41,11 @@
     "importingTo": "Importando para:",
     "clickToSelect": "Clique para selecionar arquivo(s)",
     "processing": "Processando...",
-    "acceptedFormats": "QIF, OFX, QFX ou CSV"
+    "acceptedFormats": "QIF, OFX, QFX ou CSV",
+    "wikiNotice": {
+      "title": "Antes de importar",
+      "body": "Leia a seção <money>Importing from Microsoft Money</money> ou <quicken>Importing from Quicken</quicken> da wiki antes de importar qualquer coisa."
+    }
   },
   "selectAccount": {
     "headingSingle": "Selecionar Conta de Destino",

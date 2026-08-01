@@ -1,0 +1,30 @@
+{
+  "title": "Yabancı Para Birimi İşlem Ücretleri",
+  "currencyFilter": { "label": "Para Birimleri", "placeholder": "Tüm para birimleri" },
+  "chart": {
+    "title": "Zaman İçinde Ücretler",
+    "noData": "Henüz yabancı para birimi işlemi yok",
+    "monthlyAvg": "Aylık Ort.",
+    "quarterlyAvg": "Üç Aylık Ort.",
+    "yearlyAvg": "Yıllık Ort.",
+    "total": "Toplam Ücret",
+    "transactions": "İşlemler",
+    "tooltip": "{count, plural, one {# işlem} other {# işlem}}",
+    "quarterLabel": "Ç{quarter} {year}",
+    "quarterTick": "Ç{quarter} {year}",
+    "granularityLabel": "Gruplama",
+    "granularity": { "auto": "Otomatik", "month": "Ay", "quarter": "Çeyrek", "year": "Yıl" },
+    "granularityAutoTitle": "Otomatik ({granularity})",
+    "granularityTitle": "{label} görünümü"
+  },
+  "list": {
+    "title": "Yabancı Para Birimi İşlemleri",
+    "editTitle": "İşlemi Düzenle",
+    "investmentLinked": "Bu işlem bir yatırıma bağlı. Yatırım düzenleyici açılıyor.",
+    "export": {
+      "success": "{count, plural, one {# işlem dışa aktarıldı} other {# işlem dışa aktarıldı}}",
+      "none": "Dışa aktarılacak işlem yok",
+      "failed": "İşlemler dışa aktarılamadı"
+    }
+  }
+}

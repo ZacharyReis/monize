@@ -53,6 +53,31 @@ describe("McpAccountsTools", () => {
             excludeFromNetWorth: false,
             institutionName: null,
             accountNumber: null,
+            paymentAmount: null,
+            paymentFrequency: null,
+            paymentStartDate: null,
+            amortizationMonths: null,
+            originalPrincipal: null,
+          },
+          {
+            id: "loan1",
+            name: "Car Loan",
+            type: "LOAN",
+            subType: null,
+            balance: -8000,
+            currentBalance: -8000,
+            creditLimit: null,
+            interestRate: 6,
+            currency: "USD",
+            isClosed: false,
+            excludeFromNetWorth: false,
+            institutionName: null,
+            accountNumber: null,
+            paymentAmount: 500,
+            paymentFrequency: "MONTHLY",
+            paymentStartDate: "2024-02-01",
+            amortizationMonths: 60,
+            originalPrincipal: 20000,
           },
         ],
         totalAssets: 1000,
@@ -83,6 +108,15 @@ describe("McpAccountsTools", () => {
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.netWorth).toBe(1000);
       expect(parsed.accounts[0].id).toBe("a1");
+      // Loan schedule fields flow through for debt accounts
+      const loan = parsed.accounts.find(
+        (a: { id: string }) => a.id === "loan1",
+      );
+      expect(loan.paymentAmount).toBe(500);
+      expect(loan.paymentFrequency).toBe("MONTHLY");
+      expect(loan.paymentStartDate).toBe("2024-02-01");
+      expect(loan.amortizationMonths).toBe(60);
+      expect(loan.originalPrincipal).toBe(20000);
     });
 
     it("delegates with undefined filters when none provided (service applies 'open' default)", async () => {

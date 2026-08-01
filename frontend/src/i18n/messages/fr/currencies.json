@@ -104,8 +104,12 @@
       "lookupTooShort": "Saisissez un code ou un nom de devise (au moins 2 caractères) pour effectuer une recherche",
       "found": "Trouvé : {details}",
       "notFound": "Aucune devise trouvée pour « {query} »",
-      "lookupFailed": "Échec de la recherche - veuillez réessayer"
-    }
+      "lookupFailed": "Échec de la recherche - veuillez réessayer",
+      "reactivateFailed": "Échec de la réactivation de la devise"
+    },
+    "inactiveNotice": "{code} figure déjà dans votre liste, mais est inactive.",
+    "reactivateButton": "Réactiver {code}",
+    "reactivating": "Réactivation..."
   },
   "validation": {
     "codeLength": "Le code de devise doit comporter exactement 3 caractères",

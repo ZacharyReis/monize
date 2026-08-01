@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "Yapay Zeka Yapılandırılmamış",
-    "message": "Yapay zeka sağlayıcısı yapılandırılmamış. Harcama İçgörüleri'ni kullanmak için lütfen ayarlarınızda {link}.",
-    "linkText": "bir yapay zeka sağlayıcısı yapılandırın"
+    "message": "Yapay zeka sağlayıcısı yapılandırılmamış. Harcama İçgörüleri'ni kullanmak için lütfen ayarlarınızda {link}."
   },
   "insightTypes": {
     "anomaly": "Anormallik",

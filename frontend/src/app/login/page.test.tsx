@@ -393,14 +393,11 @@ describe('LoginPage', () => {
     expect(authApi.initiateOidc).toHaveBeenCalled();
   });
 
-  it('renders the version number linked to its GitHub release notes', async () => {
+  it('renders the version number as a button that opens the What\'s New modal', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.11.0');
     render(<LoginPage />);
-    const link = await screen.findByRole('link', { name: 'v1.11.0' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://github.com/kenlasko/monize/releases/tag/v1.11.0',
-    );
+    const button = await screen.findByRole('button', { name: 'v1.11.0' });
+    expect(button).toHaveAttribute('title', 'View release notes for v1.11.0');
     vi.unstubAllEnvs();
   });
 

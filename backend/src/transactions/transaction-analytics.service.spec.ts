@@ -4,12 +4,14 @@ import { Brackets } from "typeorm";
 import { TransactionAnalyticsService } from "./transaction-analytics.service";
 import { Transaction } from "./entities/transaction.entity";
 import { Category } from "../categories/entities/category.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
 import { buildTransactionSearchClause } from "./transaction-search.util";
 
 describe("TransactionAnalyticsService", () => {
   let service: TransactionAnalyticsService;
   let transactionsRepository: Record<string, jest.Mock>;
   let categoriesRepository: Record<string, jest.Mock>;
+  let userPreferenceRepository: Record<string, jest.Mock>;
 
   const userId = "user-1";
 
@@ -38,10 +40,13 @@ describe("TransactionAnalyticsService", () => {
         return mockQueryBuilder;
       }),
       leftJoin: jest.fn().mockReturnValue(mockQueryBuilder),
+      innerJoin: jest.fn().mockReturnValue(mockQueryBuilder),
       groupBy: jest.fn().mockReturnValue(mockQueryBuilder),
       addGroupBy: jest.fn().mockReturnValue(mockQueryBuilder),
       having: jest.fn().mockReturnValue(mockQueryBuilder),
       orderBy: jest.fn().mockReturnValue(mockQueryBuilder),
+      addOrderBy: jest.fn().mockReturnValue(mockQueryBuilder),
+      limit: jest.fn().mockReturnValue(mockQueryBuilder),
       setParameter: jest.fn().mockReturnValue(mockQueryBuilder),
       setParameters: jest.fn().mockReturnValue(mockQueryBuilder),
       getRawMany: jest.fn().mockResolvedValue([]),
@@ -55,6 +60,10 @@ describe("TransactionAnalyticsService", () => {
       find: jest.fn().mockResolvedValue([]),
     };
 
+    userPreferenceRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TransactionAnalyticsService,
@@ -65,6 +74,10 @@ describe("TransactionAnalyticsService", () => {
         {
           provide: getRepositoryToken(Category),
           useValue: categoriesRepository,
+        },
+        {
+          provide: getRepositoryToken(UserPreference),
+          useValue: userPreferenceRepository,
         },
       ],
     }).compile();
@@ -85,8 +98,90 @@ describe("TransactionAnalyticsService", () => {
         totalExpenses: 0,
         netCashFlow: 0,
         transactionCount: 0,
+        firstTransactionDate: null,
+        lastTransactionDate: null,
         byCurrency: {},
       });
+    });
+
+    it("reduces first/last transaction dates across currency rows", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          currencyCode: "USD",
+          totalIncome: "100",
+          totalExpenses: "50",
+          transactionCount: "3",
+          firstDate: "2026-02-01",
+          lastDate: "2026-05-20",
+        },
+        {
+          currencyCode: "CAD",
+          totalIncome: "200",
+          totalExpenses: "80",
+          transactionCount: "4",
+          firstDate: "2026-01-15",
+          lastDate: "2026-04-30",
+        },
+      ]);
+
+      const result = await service.getSummary(userId);
+
+      expect(result.firstTransactionDate).toBe("2026-01-15");
+      expect(result.lastTransactionDate).toBe("2026-05-20");
+    });
+
+    it("filters by tagIds via transaction and split tag joins", async () => {
+      await service.getSummary(
+        userId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        ["tag-1"],
+      );
+
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "transaction.tags",
+        "filterTags",
+      );
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "splits.tags",
+        "filterSplitTags",
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        "filterTags.id IN (:...summaryTagIds)",
+        { summaryTagIds: ["tag-1"] },
+      );
+      expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
+        "filterSplitTags.id IN (:...summaryTagIds)",
+        { summaryTagIds: ["tag-1"] },
+      );
+    });
+
+    it("treats split lines without a category as uncategorised", async () => {
+      await service.getSummary(userId, undefined, undefined, undefined, [
+        "uncategorized",
+      ]);
+
+      // Non-split uncategorised transactions...
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "transaction.categoryId IS NULL AND transaction.isSplit = false",
+        ),
+      );
+      // ...plus split transactions whose split line has no category, matching
+      // the account-detail category breakdown.
+      expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "transaction.isSplit = true AND transaction.isTransfer = false AND summaryAccount.accountType != 'INVESTMENT' AND splits.categoryId IS NULL",
+        ),
+      );
     });
 
     it("aggregates single currency data correctly", async () => {
@@ -699,7 +794,7 @@ describe("TransactionAnalyticsService", () => {
             transaction: "transaction",
             splits: "splits",
           }),
-          { search: "%grocery%" },
+          { search: "%grocery%", searchAmount: null, searchDate: null },
         );
       });
 
@@ -719,7 +814,7 @@ describe("TransactionAnalyticsService", () => {
             transaction: "transaction",
             splits: "splits",
           }),
-          { search: "%coffee%" },
+          { search: "%coffee%", searchAmount: null, searchDate: null },
         );
       });
 
@@ -836,7 +931,7 @@ describe("TransactionAnalyticsService", () => {
         );
         expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
           expect.stringContaining("ILIKE"),
-          { search: "%rent%" },
+          { search: "%rent%", searchAmount: null, searchDate: null },
         );
       });
 
@@ -987,6 +1082,7 @@ describe("TransactionAnalyticsService", () => {
     it("aggregates inbound, outbound, net, and count per account", async () => {
       mockQueryBuilder.getRawMany.mockResolvedValue([
         {
+          accountId: "acc-chequing",
           accountName: "Chequing",
           currencyCode: "USD",
           inbound: "0",
@@ -994,6 +1090,7 @@ describe("TransactionAnalyticsService", () => {
           count: "3",
         },
         {
+          accountId: "acc-savings",
           accountName: "Savings",
           currencyCode: "USD",
           inbound: "1500",
@@ -1010,6 +1107,7 @@ describe("TransactionAnalyticsService", () => {
 
       expect(result.accounts).toHaveLength(2);
       expect(result.accounts[0]).toMatchObject({
+        accountId: "acc-chequing",
         accountName: "Chequing",
         currency: "USD",
         inbound: 0,
@@ -1020,6 +1118,30 @@ describe("TransactionAnalyticsService", () => {
       expect(result.totalInbound).toBe(1500);
       expect(result.totalOutbound).toBe(1500);
       expect(result.transferCount).toBe(6);
+    });
+
+    it("selects the account id for deep-links and maps a missing id to null", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          accountName: "Orphaned",
+          currencyCode: "USD",
+          inbound: "100",
+          outbound: "0",
+          count: "4",
+        },
+      ]);
+
+      const result = await service.getTransfersByAccount(
+        userId,
+        "2026-01-01",
+        "2026-01-31",
+      );
+
+      expect(mockQueryBuilder.addSelect).toHaveBeenCalledWith(
+        "transferAccount.id",
+        "accountId",
+      );
+      expect(result.accounts[0].accountId).toBeNull();
     });
 
     it("applies accountIds filter when provided", async () => {
@@ -1121,11 +1243,17 @@ describe("TransactionAnalyticsService", () => {
       );
     });
 
-    it("does not exclude transfers", async () => {
+    it("keeps whole transfers but excludes transfer split lines (matching getSummary)", async () => {
       await service.getMonthlyTotals(userId);
 
+      // Whole transfer transactions are still counted.
       expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
         "transaction.isTransfer = false",
+      );
+      // Transfer split lines are excluded so the chart totals/counts reconcile
+      // with the category/payee summary, which shares this query builder.
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "(splits.transferAccountId IS NULL OR splits.id IS NULL)",
       );
     });
 
@@ -1167,9 +1295,9 @@ describe("TransactionAnalyticsService", () => {
       ]);
 
       expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        "transaction.categoryId IN (:...monthlyCategoryIds)",
+        "transaction.categoryId IN (:...summaryCategoryIds)",
         {
-          monthlyCategoryIds: expect.arrayContaining(["cat-1", "cat-child"]),
+          summaryCategoryIds: expect.arrayContaining(["cat-1", "cat-child"]),
         },
       );
     });
@@ -1195,16 +1323,16 @@ describe("TransactionAnalyticsService", () => {
       );
     });
 
-    it("uses transaction.amount when no category filter is active", async () => {
+    it("always uses split-aware amounts via the shared summary query", async () => {
       await service.getMonthlyTotals(userId);
 
-      // Should NOT use COALESCE
-      const addSelectCalls = mockQueryBuilder.addSelect.mock.calls;
-      const coalesceUsed = addSelectCalls.some(
-        (call: unknown[]) =>
-          typeof call[0] === "string" && call[0].includes("COALESCE"),
+      // The shared query always expands splits, so the per-month total uses
+      // COALESCE(splits.amount, transaction.amount) even with no category
+      // filter -- keeping the chart total consistent with the summary.
+      expect(mockQueryBuilder.addSelect).toHaveBeenCalledWith(
+        expect.stringContaining("COALESCE(splits.amount, transaction.amount)"),
+        "total",
       );
-      expect(coalesceUsed).toBe(false);
     });
 
     it("applies payeeIds filter when provided", async () => {
@@ -1239,7 +1367,7 @@ describe("TransactionAnalyticsService", () => {
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: "%grocery%" },
+        { search: "%grocery%", searchAmount: null, searchDate: null },
       );
     });
 
@@ -1290,12 +1418,12 @@ describe("TransactionAnalyticsService", () => {
           expect.any(Brackets),
         );
         expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-          "filterTags.id IN (:...monthlyTagIds)",
-          { monthlyTagIds: ["tag-1", "tag-2"] },
+          "filterTags.id IN (:...summaryTagIds)",
+          { summaryTagIds: ["tag-1", "tag-2"] },
         );
         expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
-          "filterSplitTags.id IN (:...monthlyTagIds)",
-          { monthlyTagIds: ["tag-1", "tag-2"] },
+          "filterSplitTags.id IN (:...summaryTagIds)",
+          { summaryTagIds: ["tag-1", "tag-2"] },
         );
       });
 
@@ -1927,7 +2055,7 @@ describe("TransactionAnalyticsService", () => {
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: "%coffee%" },
+        { search: "%coffee%", searchAmount: null, searchDate: null },
       );
     });
 
@@ -2009,23 +2137,48 @@ describe("TransactionAnalyticsService", () => {
 
     it("groups by category and sorts by total descending", async () => {
       const rows = await runWithGroupBy("category", [
-        { label: "Food", total: "100", count: "5" },
-        { label: "Travel", total: "300", count: "2" },
+        { label: "Food", categoryId: "cat-food", total: "100", count: "5" },
+        { label: "Travel", categoryId: "cat-travel", total: "300", count: "2" },
       ]);
 
       expect(rows[0].category).toBe("Travel");
+      expect(rows[0].categoryId).toBe("cat-travel");
       expect(rows[1].category).toBe("Food");
+      expect(rows[1].categoryId).toBe("cat-food");
+    });
+
+    it("maps a missing category id (Uncategorized bucket) to null", async () => {
+      const rows = await runWithGroupBy("category", [
+        { label: "Uncategorized", categoryId: null, total: "50", count: "3" },
+      ]);
+
+      expect(rows[0].category).toBe("Uncategorized");
+      expect(rows[0].categoryId).toBeNull();
     });
 
     it("groups by payee and aggregates small payees into Other (aggregated)", async () => {
       const rows = await runWithGroupBy("payee", [
-        { label: "Costco", total: "500", count: "10" },
-        { label: "Tiny", total: "5", count: "1" },
+        { label: "Costco", payeeId: "payee-costco", total: "500", count: "10" },
+        { label: "Tiny", payeeId: "payee-tiny", total: "5", count: "1" },
       ]);
 
       const labels = rows.map((r) => r.payee);
       expect(labels).toContain("Costco");
       expect(labels).toContain("Other (aggregated)");
+      const costco = rows.find((r) => r.payee === "Costco");
+      expect(costco.payeeId).toBe("payee-costco");
+      // The synthetic bucket must never expose a folded payee's id.
+      const other = rows.find((r) => r.payee === "Other (aggregated)");
+      expect(other.payeeId).toBeNull();
+    });
+
+    it("maps free-text payee groups (no payee record) to a null payeeId", async () => {
+      const rows = await runWithGroupBy("payee", [
+        { label: "Cash lunch", payeeId: null, total: "90", count: "4" },
+      ]);
+
+      expect(rows[0].payee).toBe("Cash lunch");
+      expect(rows[0].payeeId).toBeNull();
     });
 
     it("groups by year and returns one row per year", async () => {
@@ -2218,7 +2371,9 @@ describe("TransactionAnalyticsService", () => {
       mockQueryBuilder.getRawMany.mockResolvedValue([
         {
           payeeName: "Netflix",
+          payeeId: "payee-1",
           categoryName: "Entertainment",
+          categoryId: "cat-1",
           amounts: [15.99, 15.99, 15.99, 17.99],
           dates: ["2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01"],
           txnCount: "4",
@@ -2229,10 +2384,30 @@ describe("TransactionAnalyticsService", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].payeeName).toBe("Netflix");
+      expect(result[0].payeeId).toBe("payee-1");
       expect(result[0].frequency).toBe("monthly");
       expect(result[0].currentAmount).toBe(17.99);
       expect(result[0].previousAmount).toBe(15.99);
       expect(result[0].categoryName).toBe("Entertainment");
+      expect(result[0].categoryId).toBe("cat-1");
+    });
+
+    it("returns null payeeId and categoryId for free-text charges", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          payeeName: "Corner Shop",
+          categoryName: null,
+          amounts: [12.5, 12.5, 12.5],
+          dates: ["2025-10-01", "2025-11-01", "2025-12-01"],
+          txnCount: "3",
+        },
+      ]);
+
+      const result = await service.getRecurringCharges(userId, start, end);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].payeeId).toBeNull();
+      expect(result[0].categoryId).toBeNull();
     });
 
     it("treats a single repeated amount as both current and previous", async () => {
@@ -2307,6 +2482,301 @@ describe("TransactionAnalyticsService", () => {
       expect(mockQueryBuilder.setParameters).toHaveBeenCalledWith({
         uncategorizedLabel: "Uncategorized",
       });
+    });
+
+    it("resolves names through the payee relation so id-linked payees are included", async () => {
+      await service.getRecurringCharges(userId, start, end);
+
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "t.payee",
+        "chargePayee",
+      );
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+        "COALESCE(chargePayee.name, t.payeeName)",
+        "payeeName",
+      );
+      // Rows linked by payeeId carry a NULL payeeName, so the filter must
+      // accept either identifier.
+      const andWhereClauses = (
+        mockQueryBuilder.andWhere.mock.calls as any[][]
+      ).map((c) => c[0] as string);
+      expect(andWhereClauses).toContain(
+        "(t.payeeId IS NOT NULL OR t.payeeName IS NOT NULL)",
+      );
+    });
+
+    it("filters by payeeIds only when provided", async () => {
+      await service.getRecurringCharges(userId, start, end);
+      expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+        "t.payeeId IN (:...payeeIds)",
+        expect.anything(),
+      );
+
+      await service.getRecurringCharges(userId, start, end, {
+        payeeIds: ["payee-1"],
+      });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "t.payeeId IN (:...payeeIds)",
+        { payeeIds: ["payee-1"] },
+      );
+    });
+  });
+
+  describe("getGroupedTotals", () => {
+    it("groups by category with split-aware id and name expressions", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        {
+          id: "cat-1",
+          name: "Groceries",
+          currencyCode: "CAD",
+          total: "-450.7512",
+          count: "12",
+        },
+        {
+          id: null,
+          name: null,
+          currencyCode: "CAD",
+          total: "-25.25",
+          count: "2",
+        },
+      ]);
+
+      const result = await service.getGroupedTotals(userId, {
+        groupBy: "category",
+      });
+
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "transaction.category",
+        "groupCat",
+      );
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "splits.category",
+        "groupSplitCat",
+      );
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+        "COALESCE(splits.categoryId, transaction.categoryId)",
+        "id",
+      );
+      // Transfers with no category are excluded from the Uncategorized bucket:
+      // keep rows with a resolved category, or that are not transfers.
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        "COALESCE(splits.categoryId, transaction.categoryId) IS NOT NULL",
+      );
+      expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
+        "transaction.isTransfer = false",
+      );
+      expect(result).toEqual([
+        {
+          id: "cat-1",
+          name: "Groceries",
+          currencyCode: "CAD",
+          total: -450.7512,
+          count: 12,
+        },
+        { id: null, name: null, currencyCode: "CAD", total: -25.25, count: 2 },
+      ]);
+    });
+
+    it("groups by payee falling back to the free-text payee name", async () => {
+      await service.getGroupedTotals(userId, {
+        groupBy: "payee",
+        payeeIds: undefined,
+        categoryIds: ["cat-9"],
+      });
+
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        "transaction.payee",
+        "groupPayee",
+      );
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith(
+        "transaction.payeeId",
+        "id",
+      );
+      expect(mockQueryBuilder.addSelect).toHaveBeenCalledWith(
+        "COALESCE(groupPayee.name, transaction.payeeName)",
+        "name",
+      );
+      // Category filter flows through the shared filtered query.
+      expect(categoriesRepository.find).toHaveBeenCalled();
+    });
+
+    it("orders by absolute total and clamps the limit", async () => {
+      await service.getGroupedTotals(userId, {
+        groupBy: "payee",
+        limit: 9999,
+      });
+
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        "SUM(ABS(COALESCE(splits.amount, transaction.amount)))",
+        "DESC",
+      );
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(500);
+
+      await service.getGroupedTotals(userId, { groupBy: "payee" });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(100);
+    });
+
+    it("returns an empty array when nothing matches", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getGroupedTotals(userId, {
+        groupBy: "category",
+        startDate: "2026-01-01",
+        endDate: "2026-06-30",
+      });
+
+      expect(result).toEqual([]);
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.transactionDate >= :startDate",
+        { startDate: "2026-01-01" },
+      );
+    });
+
+    it("also keeps unreconciled pre-start charges when the flag is set", async () => {
+      await service.getGroupedTotals(userId, {
+        groupBy: "payee",
+        startDate: "2026-06-10",
+        endDate: "2026-07-09",
+        includeUnreconciledBeforeStart: true,
+      });
+
+      // The plain start-date lower bound is replaced by an OR that also keeps
+      // pre-cycle charges that are not yet reconciled (or voided).
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        "transaction.transactionDate >= :startDate",
+        { startDate: "2026-06-10" },
+      );
+      expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
+        "(transaction.status IS NULL OR transaction.status NOT IN ('RECONCILED', 'VOID'))",
+      );
+      // endDate stays a hard upper bound.
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.transactionDate <= :endDate",
+        { endDate: "2026-07-09" },
+      );
+      // The unconditional start-date andWhere is not used in this mode.
+      expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+        "transaction.transactionDate >= :startDate",
+        { startDate: "2026-06-10" },
+      );
+    });
+  });
+
+  describe("getTransactionBreakdownByTagKey", () => {
+    it("maps per-currency rows keyed by the parsed tag value", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { value: "usa", currencyCode: "CAD", total: "200", count: "2" },
+        { value: "poland", currencyCode: "CAD", total: "100", count: "1" },
+      ]);
+
+      const result = await service.getTransactionBreakdownByTagKey(
+        "user-1",
+        "country",
+        { accountIds: ["a1"] },
+      );
+
+      expect(result).toEqual([
+        { id: "usa", name: "usa", currencyCode: "CAD", total: 200, count: 2 },
+        {
+          id: "poland",
+          name: "poland",
+          currencyCode: "CAD",
+          total: 100,
+          count: 1,
+        },
+      ]);
+      // Joins the transaction's tags and groups by value + currency.
+      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith(
+        "transaction.tags",
+        "brkTag",
+      );
+      expect(mockQueryBuilder.addGroupBy).toHaveBeenCalledWith(
+        "transaction.currencyCode",
+      );
+    });
+
+    it("binds the key (never interpolates it)", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.getTransactionBreakdownByTagKey("user-1", "Country", {});
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "LOWER(TRIM(SPLIT_PART(brkTag.name, ':', 1))) = LOWER(:brkKey)",
+        { brkKey: "Country" },
+      );
+    });
+  });
+
+  describe("getFxFeeSummary", () => {
+    it("returns empty array when the account has no foreign transactions", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getFxFeeSummary(userId, "acc-1");
+
+      expect(result).toEqual([]);
+    });
+
+    it("maps monthly rows per paid currency with numeric fee totals", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { month: "2026-01", currencyCode: "EUR", feeTotal: "12.5", count: "3" },
+        { month: "2026-01", currencyCode: "USD", feeTotal: "0", count: "2" },
+        { month: "2026-02", currencyCode: "EUR", feeTotal: "4.25", count: "1" },
+      ]);
+
+      const result = await service.getFxFeeSummary(userId, "acc-1");
+
+      expect(result).toEqual([
+        { month: "2026-01", currencyCode: "EUR", feeTotal: 12.5, count: 3 },
+        { month: "2026-01", currencyCode: "USD", feeTotal: 0, count: 2 },
+        { month: "2026-02", currencyCode: "EUR", feeTotal: 4.25, count: 1 },
+      ]);
+    });
+
+    it("scopes to the user and account and excludes void and child rows", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.getFxFeeSummary(userId, "acc-1");
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        "transaction.userId = :userId",
+        { userId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.accountId = :accountId",
+        { accountId: "acc-1" },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.originalCurrencyCode IS NOT NULL",
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.parentTransactionId IS NULL",
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "transaction.status != :voidStatus",
+        { voidStatus: "VOID" },
+      );
+      expect(mockQueryBuilder.addGroupBy).toHaveBeenCalledWith(
+        "transaction.originalCurrencyCode",
+      );
+    });
+
+    it("derives the fee from the folded-in amount for every foreign entry", async () => {
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      await service.getFxFeeSummary(userId, "acc-1");
+
+      const feeSelect = mockQueryBuilder.addSelect.mock.calls.find(
+        ([, alias]) => alias === "feeTotal",
+      );
+      expect(feeSelect).toBeDefined();
+      const expr = feeSelect[0] as string;
+      // The fee is folded into amount for both ordinary and split entries.
+      expect(expr).toContain(
+        "ROUND(transaction.originalAmount * transaction.exchangeRate, 2) - transaction.amount",
+      );
+      // No dependency on any fee-split join.
+      expect(expr).not.toContain("fxFeeSplit");
+      expect(mockQueryBuilder.leftJoin).not.toHaveBeenCalled();
     });
   });
 });

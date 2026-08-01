@@ -24,6 +24,16 @@
     "createButton": "Criar as suas próprias",
     "hint": "O conjunto padrão inclui categorias comuns de receita e despesa com subcategorias"
   },
+  "importDialog": {
+    "title": "Importar categorias padrão",
+    "description": "Comece com um conjunto pronto de categorias de receita e despesa. Escolha seu país para receber também as categorias de impostos e benefícios dele, e o idioma em que os nomes serão criados.",
+    "countryLabel": "País",
+    "countryHelp": "Adiciona categorias específicas do país, como impostos e benefícios locais. Escolha o conjunto genérico se o seu país não estiver na lista.",
+    "genericCountry": "Genérico (sem categorias específicas de país)",
+    "languageLabel": "Idioma",
+    "languageHelp": "As categorias são criadas com nomes neste idioma. Você pode renomeá-las quando quiser.",
+    "submit": "Importar categorias"
+  },
   "toasts": {
     "created": "Categoria criada com sucesso",
     "updated": "Categoria atualizada com sucesso",

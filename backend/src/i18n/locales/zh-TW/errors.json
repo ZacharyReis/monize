@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "此科目已設定定期還款。請改為編輯現有的定期交易。",
     "sourceNotFound": "找不到來源科目",
     "ambiguousBrokerage": "「{{ query }}」符合多個券商帳戶：{{ list }}。請使用準確的帳戶名稱。",
-    "unknownInvestmentAccount": "未知帳戶：{{ name }}。請使用使用者帳戶清單中的準確名稱。"
+    "unknownInvestmentAccount": "未知帳戶：{{ name }}。請使用使用者帳戶清單中的準確名稱。",
+    "notACreditCard": "對帳單週期僅適用於信用卡科目",
+    "noStatementSettlementDay": "此信用卡未設定對帳單結算日"
   },
   "actionHistory": {
     "nothingToUndo": "沒有可復原的操作",
@@ -73,6 +75,8 @@
     "noActiveProviders": "未設定任何已啟用的 AI 提供者。請在 AI 設定中設定提供者。",
     "allProvidersFailed": "所有 AI 提供者均失敗。請檢查您的提供者設定後再試。",
     "noToolUseProvider": "未設定支援工具使用的 AI 提供者。自然語言查詢需要 Anthropic、OpenAI 或 Ollama。請在 AI 設定中設定一個。",
+    "relayAgentOffline": "您的 MCP 中繼代理程式未連線。請連線您的代理程式後再試一次。",
+    "relayCompletionTimedOut": "您的 MCP 中繼代理程式未及時回答。請確認其已連線，然後再試一次。",
     "baseUrlInvalidBasic": "baseUrl 必須是有效的 HTTP 或 HTTPS URL",
     "baseUrlInvalidExternal": "baseUrl 必須是指向外部主機的有效 HTTP/HTTPS URL",
     "ollamaCloudApiKeyRequired": "ollama-cloud 提供者需要 apiKey",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "某個附件超過了最大檔案大小。",
     "attachmentCorrupt": "無法讀取某個附件，或它並非其聲稱的檔案類型。",
     "attachmentsTooLarge": "附件超過了總大小限制。",
+    "attachmentRefExpired": "附加的檔案已無法使用。請重新上傳後再次詢問。",
     "modelNoImageSupport": "所選的 AI 模型無法讀取圖片或 PDF。請移除附件並以文字提問，或在 AI 設定中切換至支援視覺的模型。"
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "密碼不正確"
   },
   "backup": {
-    "folderPathRequired": "啟用自動備份前必須設定資料夾路徑",
     "folderNotExist": "資料夾不存在：{{ safePath }}",
     "folderAccessError": "無法存取資料夾：{{ safePath }}",
     "pathNotDirectory": "路徑不是目錄：{{ safePath }}",
-    "notConfigured": "未設定自動備份。請先設定資料夾路徑。",
     "userNotFound": "找不到使用者 {{ userId }}",
     "encryptedPasswordDecryptFailed": "已啟用加密備份，但無法解密儲存的密碼。請在安全設定中重新啟用加密。",
     "pathTraversal": "偵測到路徑穿越：{{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "無效的 CSRF 令牌",
     "demoModeRestricted": "此操作在示範模式下不可用。",
     "serviceNotReady": "服務尚未就緒",
-    "oauthProviderNotInitialized": "OAuth 提供者未初始化"
+    "oauthProviderNotInitialized": "OAuth 提供者未初始化",
+    "invalidCurrencyCode": "無效的貨幣代碼：{{ code }}"
   },
   "currencies": {
     "alreadyInList": "貨幣「{{ code }}」已在您的清單中",
     "notFound": "找不到貨幣「{{ code }}」",
     "cannotModifySystem": "無法修改系統貨幣中繼資料",
     "cannotModifyOther": "無法修改其他使用者的貨幣",
-    "inUse": "貨幣「{{ code }}」正在您的科目、證券或其他記錄中使用。請改為停用它。"
+    "inUse": "貨幣「{{ code }}」正在您的科目、證券或其他記錄中使用。請改為停用它。",
+    "invalidRateDate": "date 必須為 YYYY-MM-DD 格式",
+    "alreadyInListInactive": "貨幣「{{ code }}」已在您的清單中，但目前處於未啟用狀態。請重新啟用後使用。"
   },
   "delegation": {
     "delegatedAccessInvalid": "委派存取已失效",
@@ -254,6 +260,7 @@
     "passwordBreached": "此密碼已出現在資料外洩事件中。請選擇其他密碼。"
   },
   "http": {
+    "forbidden": "存取遭拒",
     "tooManyRequests": "請求過於頻繁。請稍等幾分鐘後再試。",
     "duplicateRecord": "已有相同值的記錄存在",
     "referencedRecord": "參照的記錄不存在或無法移除",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate 必須為 YYYY-MM-DD 格式",
     "invalidEndDate": "endDate 必須為 YYYY-MM-DD 格式",
-    "invalidAccountIds": "accountIds 必須是以逗號分隔的 UUID"
+    "invalidAccountIds": "accountIds 必須是以逗號分隔的 UUID",
+    "invalidGranularity": "granularity 必須為 'daily' 或 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "未設定 SMTP。請設定 SMTP 環境變數。",
@@ -302,7 +310,9 @@
     "aliasNotFound": "找不到 ID 為 {{ id }} 的別名",
     "mergeSelf": "無法將收款人合併至自身",
     "autoMergeDuplicatePayee": "某個收款人出現在多個合併群組中",
-    "autoMergeSourceNotFound": "找不到一個或多個來源收款人"
+    "autoMergeSourceNotFound": "找不到一個或多個來源收款人",
+    "autoMergeGroupConflict": "無法合併「{{ name }}」：值「{{ value }}」已被使用",
+    "autoMergeGroupFailed": "無法合併「{{ name }}」"
   },
   "reports": {
     "notFound": "找不到 ID 為 {{ id }} 的報表",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "「{{ query }}」符合多個證券：{{ list }}。請指定交易所後重新執行。",
     "lookupNoCurrency": "無法確定「{{ symbol }}」的貨幣。請改為手動新增該證券。",
     "noUpdateFields": "請至少提供一個要變更的欄位。",
-    "allocationExceedsTotal": "配置百分比總和超過 100%。"
+    "allocationExceedsTotal": "配置百分比總和超過 100%。",
+    "invalidTagKey": "需要標籤鍵（1-100 個字元）"
   },
   "tags": {
     "notFound": "找不到 ID 為 {{ id }} 的標籤",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId 必須是有效的 UUID",
     "amountFromMustBeNumber": "amountFrom 必須是數字",
     "amountToMustBeNumber": "amountTo 必須是數字",
+    "invalidGroupBy": "groupBy 必須為 'category' 或 'payee'",
+    "limitMustBePositive": "limit 必須為正數",
+    "recurringPayeeRequired": "payeeIds 為必填",
+    "recurringDatesRequired": "startDate 和 endDate 為必填",
     "statementDateFormat": "statementDate 必須為 YYYY-MM-DD 格式",
     "statementBalanceMustBeNumber": "statementBalance 必須是數字",
     "categoryNotFound": "找不到類別",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "部分交易未找到或不屬於指定科目",
     "cannotReconcileVoidPlural": "無法對帳作廢的交易",
     "transferSameAccount": "來源和目的科目必須不同",
-    "transferSplitFromAccountFixed": "拆分轉帳行的來源帳戶無法變更",
     "transferAmountNegative": "轉帳金額不得為負數",
     "notATransfer": "交易不是轉帳",
+    "splitTransferLegAccountLocked": "此轉帳屬於分割交易的一部分。請改為在來源交易中編輯分割以變更其帳戶。",
     "notFoundById": "找不到 ID 為 {{ id }} 的交易",
     "bulkUpdateNoFields": "至少需要提供一個更新欄位",
     "payeeNotFound": "找不到收款人",
     "cannotEditTransfer": "無法在此處編輯轉帳。請在交易頁面中編輯該轉帳。",
     "cannotEditSplit": "無法在此處編輯拆分交易。請在交易頁面中編輯該拆分。",
-    "noUpdateFields": "請至少提供一個要變更的欄位。"
+    "noUpdateFields": "請至少提供一個要變更的欄位。",
+    "tagKeyTooLong": "tagKey 不得超過 100 個字元",
+    "invalidTagKeyOp": "無效的 tagKeyOp：{{ op }}",
+    "tagKeyValueRequired": "contains / notContains 需要 tagKeyValue",
+    "tagKeyRequired": "需要標籤鍵（1-100 個字元）",
+    "fxFieldsIncomplete": "originalAmount 和 originalCurrencyCode 必須同時提供",
+    "fxRateRequired": "外幣交易需要一個正的匯率",
+    "fxSignMismatch": "originalAmount 和 amount 的符號必須相同"
   },
   "users": {
     "userNotFound": "找不到使用者",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "無法刪除最後一個管理員帳戶。請先晉升其他使用者。",
     "oidcReauthRequiredForDataDelete": "需要 OIDC 重新驗證以確認資料刪除",
     "passwordRequiredForDataDelete": "需要密碼以確認資料刪除"
+  },
+  "loanScenarios": {
+    "notFound": "找不到 ID 為 {{ id }} 的貸款情境",
+    "nameConflict": "此帳戶已存在名為「{{ name }}」的情境",
+    "notLoanAccount": "貸款情境僅適用於貸款、抵押貸款和信用額度帳戶",
+    "budgetWindowInverted": "預算期間的開始日期必須不晚於其結束日期"
+  },
+  "loanRateChanges": {
+    "notFound": "找不到 ID 為 {{ id }} 的利率變更",
+    "notLoanAccount": "利率變更僅適用於貸款和抵押貸款科目",
+    "duplicateDate": "此科目已存在生效日期為 {{ date }} 的利率變更",
+    "paymentModeConflict": "請提供新的還款額或 recalculatePayment 其中之一，不能同時提供兩者",
+    "recalculateMortgageOnly": "還款額重新計算僅適用於抵押貸款科目",
+    "insufficientData": "具利息明細的還款不足，無法偵測利率變更",
+    "frequencyMismatch": "還款日期與科目的還款頻率不符；推算的利率可能較不準確"
+  },
+  "attachments": {
+    "notFound": "找不到附件",
+    "transactionNotFound": "找不到交易",
+    "empty": "上傳的檔案為空",
+    "fileTooLarge": "檔案超過最大大小 {{ max }} 位元組",
+    "unsupportedType": "不支援的檔案類型。允許的類型：{{ types }}",
+    "tooMany": "此交易已達到最多 {{ max }} 個附件的上限"
   }
 }

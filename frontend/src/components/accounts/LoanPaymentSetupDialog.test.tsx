@@ -73,8 +73,8 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     accountNumber: null, institution: null, institutionId: null, openingBalance: 0, currentBalance: 1000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
-    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
-    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null,
+    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null, overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
+    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null, linkedLoanAccountId: null,
     isCanadianMortgage: false, isVariableRate: false, termMonths: null, termEndDate: null,
     amortizationMonths: null, originalPrincipal: null,
     statementDueDay: null, statementSettlementDay: null,
@@ -342,7 +342,7 @@ describe('LoanPaymentSetupDialog', () => {
     mockDetectLoanPayments.mockResolvedValue(defaultDetected);
     await renderDialog();
 
-    const input = screen.getByPlaceholderText('e.g., 5.5') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('e.g. 5.5') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '4.5' } });
     expect(input.value).toBe('4.5');
 
@@ -539,7 +539,7 @@ describe('LoanPaymentSetupDialog', () => {
     mockSetupLoanPayments.mockResolvedValue({} as any);
     await renderDialog();
 
-    const rateInput = screen.getByPlaceholderText('e.g., 5.5') as HTMLInputElement;
+    const rateInput = screen.getByPlaceholderText('e.g. 5.5') as HTMLInputElement;
     await act(async () => fireEvent.change(rateInput, { target: { value: '6.25' } }));
 
     const submitButton = screen.getByRole('button', { name: /Set Up Payments/i });

@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "वाहन",
+      "sub": {
+        "accessories": "सहायक उपकरण",
+        "carPayment": "कार किस्त",
+        "cleaning": "सफाई",
+        "congestionCharge": "भीड़ शुल्क",
+        "fines": "जुर्माना",
+        "fuel": "ईंधन",
+        "maintenance": "रखरखाव",
+        "mot": "वाहन जाँच",
+        "parking": "पार्किंग",
+        "parts": "पुर्जे",
+        "registration": "पंजीकरण",
+        "roadTax": "रोड टैक्स",
+        "tolls": "टोल"
+      }
+    },
+    "bankFees": {
+      "name": "बैंक शुल्क",
+      "sub": {
+        "annualFee": "वार्षिक शुल्क",
+        "atm": "ATM",
+        "foreignTransaction": "विदेशी लेनदेन शुल्क",
+        "nsf": "अपर्याप्त राशि (NSF)",
+        "other": "अन्य",
+        "overdraft": "ओवरड्राफ्ट",
+        "serviceCharge": "सेवा शुल्क",
+        "unpaidItemFee": "भुगतान विफल शुल्क"
+      }
+    },
+    "bills": {
+      "name": "बिल",
+      "sub": {
+        "electricity": "बिजली",
+        "internet": "इंटरनेट",
+        "mobilePhone": "मोबाइल फ़ोन",
+        "naturalGas": "प्राकृतिक गैस",
+        "streamingServices": "स्ट्रीमिंग सेवाएँ",
+        "telephone": "टेलीफोन",
+        "television": "टेलीविज़न",
+        "tvLicence": "टीवी लाइसेंस",
+        "wasteCollection": "कचरा संग्रह",
+        "waterSewer": "पानी एवं सीवर"
+      }
+    },
+    "business": {
+      "name": "व्यवसाय",
+      "sub": {
+        "airfare": "हवाई किराया",
+        "carRental": "कार किराया",
+        "diningOut": "बाहर भोजन",
+        "fuel": "ईंधन",
+        "lodging": "आवास",
+        "mileage": "माइलेज",
+        "miscellaneous": "विविध",
+        "mobilePhone": "मोबाइल फ़ोन",
+        "officeSupplies": "कार्यालय सामग्री",
+        "parking": "पार्किंग",
+        "software": "सॉफ़्टवेयर",
+        "transit": "परिवहन"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "नकद निकासी",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "धर्मार्थ दान",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "शिशु देखभाल",
+      "sub": {
+        "activities": "गतिविधियाँ",
+        "allowance": "जेबखर्च",
+        "babysitting": "बच्चों की देखरेख",
+        "clothing": "कपड़े",
+        "daycare": "डे केयर",
+        "schoolSupplies": "स्कूल सामग्री",
+        "sports": "खेल",
+        "toysGames": "खिलौने एवं खेल"
+      }
+    },
+    "clothing": {
+      "name": "कपड़े",
+      "sub": {
+        "accessories": "सहायक उपकरण",
+        "clothes": "पोशाक",
+        "outerwear": "जैकेट व कोट",
+        "shoes": "जूते"
+      }
+    },
+    "education": {
+      "name": "शिक्षा",
+      "sub": {
+        "529PlanContribution": "529 प्लान अंशदान",
+        "books": "किताबें",
+        "fees": "शुल्क",
+        "supplies": "अध्ययन सामग्री",
+        "tuition": "ट्यूशन फीस"
+      }
+    },
+    "food": {
+      "name": "भोजन",
+      "sub": {
+        "alcohol": "शराब",
+        "cannabis": "कैनबिस",
+        "coffeeShops": "कॉफ़ी शॉप",
+        "diningOut": "बाहर भोजन",
+        "groceries": "किराना",
+        "takeout": "पैक कराया भोजन"
+      }
+    },
+    "furnishings": {
+      "name": "साज-सज्जा",
+      "sub": {
+        "accessories": "सहायक उपकरण",
+        "appliances": "उपकरण",
+        "bathroom": "बाथरूम",
+        "bedroom": "शयनकक्ष",
+        "decor": "सजावट",
+        "dishes": "बर्तन",
+        "kitchen": "रसोई",
+        "livingRoom": "बैठक कक्ष",
+        "office": "कार्यालय",
+        "outdoor": "बाहरी"
+      }
+    },
+    "gifts": {
+      "name": "उपहार",
+      "sub": {
+        "anniversary": "वर्षगांठ",
+        "birthday": "जन्मदिन",
+        "cards": "कार्ड",
+        "flowers": "फूल",
+        "holiday": "त्योहार",
+        "respContribution": "RESP अंशदान",
+        "wedding": "विवाह"
+      }
+    },
+    "governmentFees": {
+      "name": "सरकारी शुल्क",
+      "sub": {
+        "licencesPermits": "लाइसेंस व अनुमति",
+        "passport": "पासपोर्ट"
+      }
+    },
+    "healthcare": {
+      "name": "स्वास्थ्य सेवा",
+      "sub": {
+        "copay": "सह-भुगतान",
+        "counselling": "परामर्श",
+        "dental": "दंत चिकित्सा",
+        "eyecare": "नेत्र देखभाल",
+        "fitness": "फिटनेस",
+        "healthSavingsAccount": "स्वास्थ्य बचत खाता",
+        "hospital": "अस्पताल",
+        "medication": "दवाइयाँ",
+        "physician": "चिकित्सक",
+        "physiotherapy": "फिजियोथेरेपी",
+        "supplies": "सामग्री"
+      }
+    },
+    "housing": {
+      "name": "आवास",
+      "sub": {
+        "fees": "शुल्क",
+        "garden": "बगीचा",
+        "groundRent": "भूमि किराया",
+        "homeImprovement": "गृह सुधार",
+        "maintenance": "रखरखाव",
+        "mortgageInterest": "बंधक ब्याज",
+        "mortgagePrincipal": "बंधक मूलधन",
+        "rent": "किराया",
+        "serviceCharge": "रखरखाव शुल्क",
+        "supplies": "सामग्री",
+        "tools": "औज़ार"
+      }
+    },
+    "insurance": {
+      "name": "बीमा",
+      "sub": {
+        "automobile": "वाहन",
+        "disability": "विकलांगता",
+        "health": "स्वास्थ्य",
+        "home": "गृह",
+        "life": "जीवन",
+        "provincialHealthPremium": "प्रांतीय स्वास्थ्य प्रीमियम",
+        "renter": "किरायेदार",
+        "travel": "यात्रा"
+      }
+    },
+    "interestExpense": {
+      "name": "ब्याज व्यय",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "निवेश आय",
+      "sub": {
+        "capitalGains": "पूंजीगत लाभ",
+        "dividends": "लाभांश",
+        "interest": "ब्याज",
+        "respGrant": "RESP अनुदान"
+      }
+    },
+    "leisure": {
+      "name": "मनोरंजन",
+      "sub": {
+        "booksMagazines": "किताबें एवं पत्रिकाएँ",
+        "camping": "कैंपिंग",
+        "concerts": "कॉन्सर्ट",
+        "culturalEvents": "सांस्कृतिक कार्यक्रम",
+        "electronics": "इलेक्ट्रॉनिक्स",
+        "games": "गेम्स",
+        "hobbies": "शौक",
+        "movies": "फिल्में",
+        "music": "संगीत",
+        "sportingEvents": "खेल आयोजन",
+        "sportingGoods": "खेल सामग्री",
+        "sports": "खेल"
+      }
+    },
+    "loan": {
+      "name": "ऋण",
+      "sub": {
+        "loanInterest": "ऋण ब्याज",
+        "loanPrincipal": "ऋण मूलधन",
+        "studentLoanInterest": "शिक्षा ऋण ब्याज",
+        "studentLoanPrincipal": "शिक्षा ऋण मूलधन",
+        "studentLoanRepayment": "शिक्षा ऋण चुकौती"
+      }
+    },
+    "miscellaneous": {
+      "name": "विविध",
+      "sub": {
+        "other": "अन्य",
+        "postage": "डाक शुल्क"
+      }
+    },
+    "otherIncome": {
+      "name": "अन्य आय",
+      "sub": {
+        "businessReimbursement": "व्यावसायिक प्रतिपूर्ति",
+        "canadaChildBenefit": "बाल लाभ (कनाडा)",
+        "cashback": "कैशबैक",
+        "childBenefit": "बाल लाभ",
+        "creditCardReward": "क्रेडिट कार्ड इनाम",
+        "freelance": "फ्रीलांस",
+        "giftsReceived": "प्राप्त उपहार",
+        "gstHstCredit": "GST/HST क्रेडिट",
+        "rentalIncome": "किराया आय",
+        "stateTaxRefund": "राज्य कर वापसी",
+        "taxRefund": "कर वापसी"
+      }
+    },
+    "personalCare": {
+      "name": "व्यक्तिगत देखभाल",
+      "sub": {
+        "cosmetics": "प्रसाधन सामग्री",
+        "dryCleaning": "ड्राई क्लीनिंग",
+        "haircut": "बाल कटाई",
+        "laundry": "कपड़े धुलाई",
+        "spa": "स्पा",
+        "toiletries": "प्रसाधन सामग्री"
+      }
+    },
+    "petCare": {
+      "name": "पालतू पशु देखभाल",
+      "sub": {
+        "food": "भोजन",
+        "grooming": "पालतू ग्रूमिंग",
+        "supplies": "सामग्री",
+        "veterinarian": "पशु चिकित्सक"
+      }
+    },
+    "professionalServices": {
+      "name": "व्यावसायिक सेवाएँ",
+      "sub": {
+        "accounting": "लेखांकन",
+        "financialAdvice": "वित्तीय सलाह",
+        "legal": "कानूनी सेवाएँ"
+      }
+    },
+    "retirementIncome": {
+      "name": "सेवानिवृत्ति आय",
+      "sub": {
+        "401KWithdrawal": "401(k) निकासी",
+        "annuity": "वार्षिकी",
+        "cppQppBenefits": "CPP/QPP लाभ",
+        "iraWithdrawal": "IRA निकासी",
+        "oasBenefits": "OAS लाभ",
+        "pension": "पेंशन",
+        "retirementAccountWithdrawal": "सेवानिवृत्ति खाता निकासी",
+        "rrifWithdrawal": "RRIF निकासी",
+        "rrspWithdrawal": "RRSP निकासी",
+        "socialSecurityBenefits": "सोशल सिक्योरिटी लाभ",
+        "statePension": "राजकीय पेंशन",
+        "workplacePension": "नियोक्ता पेंशन"
+      }
+    },
+    "taxes": {
+      "name": "कर",
+      "sub": {
+        "councilTax": "नगर कर",
+        "cppQppContributions": "CPP/QPP अंशदान",
+        "eiPremiums": "EI प्रीमियम",
+        "federalIncomeTax": "संघीय आयकर",
+        "gstHst": "GST/HST",
+        "incomeTax": "आयकर",
+        "localIncomeTax": "स्थानीय आयकर",
+        "medicareTax": "मेडिकेयर कर",
+        "nationalInsurance": "राष्ट्रीय बीमा",
+        "other": "अन्य",
+        "propertyTax": "संपत्ति कर",
+        "provincialIncomeTax": "प्रांतीय आयकर",
+        "provincialSalesTax": "प्रांतीय बिक्री कर",
+        "salesTax": "बिक्री कर",
+        "socialSecurityTax": "सोशल सिक्योरिटी कर",
+        "stateIncomeTax": "राज्य आयकर",
+        "unionDues": "यूनियन शुल्क",
+        "vat": "वैट"
+      }
+    },
+    "technology": {
+      "name": "तकनीक",
+      "sub": {
+        "hardware": "हार्डवेयर",
+        "software": "सॉफ़्टवेयर",
+        "subscriptions": "सदस्यताएँ",
+        "webHosting": "वेब होस्टिंग"
+      }
+    },
+    "transportation": {
+      "name": "परिवहन",
+      "sub": {
+        "bicycle": "साइकिल",
+        "publicTransit": "सार्वजनिक परिवहन",
+        "rideshare": "राइड शेयर",
+        "taxi": "टैक्सी"
+      }
+    },
+    "vacation": {
+      "name": "छुट्टी",
+      "sub": {
+        "activities": "गतिविधियाँ",
+        "airfare": "हवाई किराया",
+        "carRental": "कार किराया",
+        "fuel": "ईंधन",
+        "lodging": "आवास",
+        "miscellaneous": "विविध",
+        "parking": "पार्किंग"
+      }
+    },
+    "wagesSalary": {
+      "name": "मजदूरी एवं वेतन",
+      "sub": {
+        "bonus": "बोनस",
+        "commission": "कमीशन",
+        "employerMatching": "नियोक्ता मिलान अंशदान",
+        "grossPay": "सकल वेतन",
+        "netPay": "शुद्ध वेतन",
+        "overtime": "ओवरटाइम",
+        "stockOptions": "स्टॉक विकल्प",
+        "tips": "टिप",
+        "vacationPay": "अवकाश वेतन"
+      }
+    }
+  }
+}

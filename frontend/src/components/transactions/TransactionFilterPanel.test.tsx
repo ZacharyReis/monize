@@ -12,8 +12,8 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     accountNumber: null, institution: null, institutionId: null, openingBalance: 0, currentBalance: 1000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
-    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
-    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null,
+    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null, overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
+    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null, linkedLoanAccountId: null,
     isCanadianMortgage: false, isVariableRate: false, termMonths: null, termEndDate: null,
     amortizationMonths: null, originalPrincipal: null,
     statementDueDay: null, statementSettlementDay: null,
@@ -103,6 +103,16 @@ describe('TransactionFilterPanel', () => {
     tagFilterOptions: [],
     filterStatuses: [] as never[],
     setFilterStatuses: vi.fn(),
+    filterOriginalCurrencyCodes: [] as string[],
+    setFilterOriginalCurrencyCodes: vi.fn(),
+    filterTagKey: '',
+    filterTagKeyOp: 'hasValue' as const,
+    filterTagKeyValue: '',
+    setFilterTagKey: vi.fn(),
+    setFilterTagKeyOp: vi.fn(),
+    setFilterTagKeyValue: vi.fn(),
+    filterHasAttachments: '' as '' | 'yes' | 'no',
+    setFilterHasAttachments: vi.fn(),
     onClearFilters: vi.fn(),
   };
 
@@ -152,6 +162,31 @@ describe('TransactionFilterPanel', () => {
     const clearButton = screen.getByText('Clear');
     fireEvent.click(clearButton);
     expect(defaultProps.onClearFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the tag key filter only when key:value tags exist', () => {
+    const { rerender } = render(
+      <TransactionFilterPanel
+        {...defaultProps}
+        filtersExpanded={true}
+        tagFilterOptions={[{ value: 't1', label: 'important' }]}
+      />,
+    );
+    // Plain tags -> no key filter offered.
+    expect(screen.queryByText('Tag key')).not.toBeInTheDocument();
+
+    rerender(
+      <TransactionFilterPanel
+        {...defaultProps}
+        filtersExpanded={true}
+        tagFilterOptions={[{ value: 't2', label: 'country:usa' }]}
+      />,
+    );
+    // A key:value tag -> the key filter appears, with the key as an option.
+    expect(screen.getByText('Tag key')).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'country' }),
+    ).toBeInTheDocument();
   });
 
   it('renders favourite account quick select buttons', () => {
@@ -1362,12 +1397,15 @@ describe('TransactionFilterPanel', () => {
       const options = select.querySelectorAll('option');
       const labels = Array.from(options).map(o => o.textContent);
       expect(labels).toContain('Select period...');
+      expect(labels).toContain('All Dates');
       expect(labels).toContain('Today');
       expect(labels).toContain('Yesterday');
       expect(labels).toContain('This Week');
       expect(labels).toContain('Last Week');
+      expect(labels).toContain('Last 30 Days');
       expect(labels).toContain('Month to Date');
       expect(labels).toContain('Last Month');
+      expect(labels).toContain('Last 365 Days');
       expect(labels).toContain('Year to Date');
       expect(labels).toContain('Last Year');
       expect(labels).toContain('Custom');
@@ -1388,6 +1426,31 @@ describe('TransactionFilterPanel', () => {
       expect(defaultProps.handleFilterChange).toHaveBeenCalledWith(
         defaultProps.setFilterEndDate,
         expect.any(String)
+      );
+    });
+
+    it('clears the start and end dates when All Dates is selected', () => {
+      render(
+        <TransactionFilterPanel
+          {...defaultProps}
+          filtersExpanded={true}
+          filterStartDate="2025-01-01"
+          filterEndDate="2025-06-30"
+        />
+      );
+
+      const select = screen.getByLabelText('Time Period');
+      fireEvent.change(select, { target: { value: 'all_dates' } });
+
+      expect(defaultProps.setFilterTimePeriod).toHaveBeenCalledWith('all_dates');
+      // All Dates resolves to empty bounds, removing the date filters.
+      expect(defaultProps.handleFilterChange).toHaveBeenCalledWith(
+        defaultProps.setFilterStartDate,
+        ''
+      );
+      expect(defaultProps.handleFilterChange).toHaveBeenCalledWith(
+        defaultProps.setFilterEndDate,
+        ''
       );
     });
 
@@ -1682,6 +1745,85 @@ describe('TransactionFilterPanel', () => {
       expect(defaultProps.handleArrayFilterChange).toHaveBeenCalledWith(
         defaultProps.setFilterStatuses,
         ['UNRECONCILED'],
+      );
+    });
+
+    it('shows a chip per selected currency when collapsed', () => {
+      render(
+        <TransactionFilterPanel
+          {...defaultProps}
+          filtersExpanded={false}
+          activeFilterCount={2}
+          filterOriginalCurrencyCodes={['EUR', 'GBP']}
+        />,
+      );
+
+      expect(screen.getByText('EUR')).toBeInTheDocument();
+      expect(screen.getByText('GBP')).toBeInTheDocument();
+      expect(screen.getByLabelText('Remove EUR currency filter')).toBeInTheDocument();
+      expect(screen.getByLabelText('Remove GBP currency filter')).toBeInTheDocument();
+    });
+
+    it('removes a currency from filterOriginalCurrencyCodes when its chip remove button is clicked', () => {
+      render(
+        <TransactionFilterPanel
+          {...defaultProps}
+          filtersExpanded={false}
+          activeFilterCount={2}
+          filterOriginalCurrencyCodes={['EUR', 'GBP']}
+        />,
+      );
+
+      fireEvent.click(screen.getByLabelText('Remove EUR currency filter'));
+
+      expect(defaultProps.handleArrayFilterChange).toHaveBeenCalledWith(
+        defaultProps.setFilterOriginalCurrencyCodes,
+        ['GBP'],
+      );
+    });
+  });
+
+  describe('attachments filter', () => {
+    it('renders the attachments select with All/Has/None options', () => {
+      render(<TransactionFilterPanel {...defaultProps} filtersExpanded={true} />);
+
+      const select = screen.getByLabelText('Attachments') as HTMLSelectElement;
+      expect(select).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Any' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Yes' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'No' })).toBeInTheDocument();
+    });
+
+    it('sets the attachments filter when a value is chosen', () => {
+      render(<TransactionFilterPanel {...defaultProps} filtersExpanded={true} />);
+
+      fireEvent.change(screen.getByLabelText('Attachments'), {
+        target: { value: 'yes' },
+      });
+
+      expect(defaultProps.handleFilterChange).toHaveBeenCalledWith(
+        defaultProps.setFilterHasAttachments,
+        'yes',
+      );
+    });
+
+    it('shows a chip and clears the filter from the chip when collapsed', () => {
+      render(
+        <TransactionFilterPanel
+          {...defaultProps}
+          filtersExpanded={false}
+          activeFilterCount={1}
+          filterHasAttachments={'no'}
+        />,
+      );
+
+      const removeBtn = screen.getByLabelText('Remove attachments filter');
+      // The chip (not the still-rendered collapsed <option>) shows the label.
+      expect(removeBtn.closest('span')).toHaveTextContent('No attachments');
+      fireEvent.click(removeBtn);
+      expect(defaultProps.handleFilterChange).toHaveBeenCalledWith(
+        defaultProps.setFilterHasAttachments,
+        '',
       );
     });
   });

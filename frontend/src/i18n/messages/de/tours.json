@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Weiter",
+    "back": "Zurück",
+    "done": "Fertig",
+    "endTour": "Tour beenden",
+    "tryIt": "Probieren Sie es aus — die Tour geht danach weiter",
+    "skipStep": "Diesen Schritt überspringen",
+    "stepCounter": "{current} von {total}",
+    "skippedTitle": "Tour beendet",
+    "skippedBody": "Einige Schritte wurden übersprungen, weil ihr Bildschirm oder Element nicht verfügbar war. Sie können die Tour jederzeit über die Einstellungen erneut starten.",
+    "move": "Diese Karte verschieben — ziehen Sie sie oder bewegen Sie sie mit den Pfeiltasten"
+  },
+  "offer": {
+    "heading": "Machen Sie eine kurze Tour",
+    "subheading": "Kurze Einführungen zu den Neuerungen dieser Version. Dieses Fenster tritt während einer Tour zur Seite und kommt zurück, wenn sie endet.",
+    "showMe": "Zeigen",
+    "viewed": "Angesehen",
+    "introTitle": "Neu hier? Starten Sie die Einführungstour",
+    "introSubtitle": "Ein kurzer Rundgang durch die Grundlagen."
+  },
+  "areas": {
+    "intro": "Erste Schritte",
+    "transactions": "Buchungen",
+    "accounts": "Konten",
+    "budgets": "Budgets",
+    "reports": "Berichte",
+    "settings": "Einstellungen"
+  },
+  "gettingStarted": {
+    "takeTour": "Tour starten",
+    "retakeTour": "Tour erneut starten"
+  },
+  "settings": {
+    "title": "Geführte Touren",
+    "description": "Gehen Sie die Funktionen der App Schritt für Schritt durch.",
+    "showList": "Touren anzeigen ({count})",
+    "hideList": "Touren ausblenden",
+    "start": "Starten",
+    "restart": "Wiederholen",
+    "statusNotViewed": "Nicht angesehen",
+    "statusDismissed": "Vorzeitig beendet",
+    "reset": "Tour-Fortschritt zurücksetzen",
+    "resetSuccess": "Tour-Fortschritt wurde zurückgesetzt.",
+    "resetError": "Der Tour-Fortschritt konnte nicht zurückgesetzt werden. Bitte versuchen Sie es erneut."
+  },
+  "intro": {
+    "basics": {
+      "title": "Einführung in Monize",
+      "steps": {
+        "welcome": {
+          "title": "Willkommen bei Monize",
+          "body": "Diese kurze Tour zeigt Ihnen die wichtigsten Bereiche der App. Sie können jederzeit über **Escape** oder **Tour beenden** aussteigen."
+        },
+        "dashboard": {
+          "title": "Ihr Dashboard",
+          "body": "Das ist Ihr Dashboard. Nutzen Sie die Schaltfläche **Anpassen** oben rechts, um Widgets neu anzuordnen oder auszublenden, damit die für Sie wichtigen Übersichten ganz oben stehen."
+        },
+        "tools": {
+          "title": "Das Menü Tools",
+          "body": "Im Menü **Tools** verwalten Sie die Bausteine Ihrer Finanzen — Zahlungsempfänger, Kategorien, Währungen, Tags und mehr."
+        },
+        "accounts": {
+          "title": "Ihre Konten",
+          "body": "Fügen Sie hier über die hervorgehobene Schaltfläche Ihre Bank-, Kreditkarten-, Kredit- und Anlagekonten hinzu. Jeder Saldo und jede Buchung gehört zu einem Konto."
+        },
+        "transactions": {
+          "title": "Buchungen",
+          "body": "Das ist Ihr Buchungsregister — jede Zahlung und Einzahlung Ihrer Konten befindet sich hier und kann durchsucht und gefiltert werden."
+        },
+        "createTransaction": {
+          "title": "Eine Buchung erfassen",
+          "body": "Fügen Sie Einnahmen oder Ausgaben über **Neue Buchung** hinzu. Öffnen Sie ruhig das Formular."
+        },
+        "fields": {
+          "title": "Zahlungsempfänger und Kategorie",
+          "body": "Bei jeder Buchung wählen Sie einen Zahlungsempfänger und weisen eine Kategorie zu. Kategorien sind die Grundlage für Ihre Budgets und Berichte; der Betrag kommt im nächsten Schritt."
+        },
+        "splits": {
+          "title": "Eine Buchung aufteilen",
+          "body": "Ein Einkauf, der mehrere Kategorien betrifft? Nutzen Sie **Buchung aufteilen**, um eine einzelne Buchung auf mehrere Kategorien aufzuteilen — zum Beispiel Lebensmittel und Haushaltswaren aus einem Einkauf."
+        },
+        "currencyField": {
+          "title": "Betrag und Währung",
+          "body": "Hier geben Sie den Betrag der Buchung ein. In einer anderen Währung bezahlt? Legen Sie neben dem Betrag die Währung fest und geben Sie ihn wie belastet ein — Monize rechnet ihn für Sie in die Kontowährung um."
+        },
+        "closeForm": {
+          "title": "Schließen Sie das Formular, um fortzufahren",
+          "body": "Schließen Sie das Buchungsformular mit **Abbrechen** oder speichern Sie die Buchung mit der anderen Schaltfläche, und die Tour geht weiter."
+        },
+        "bills": {
+          "title": "Rechnungen & Einzahlungen",
+          "body": "Planen Sie wiederkehrende Rechnungen und Einzahlungen, damit anstehende Zahlungen vorhergesagt werden und nichts übersehen wird."
+        },
+        "investments": {
+          "title": "Investitionen",
+          "body": "Behalten Sie Bestände, Kurse und Renditen Ihrer Anlagekonten im Blick."
+        },
+        "budgets": {
+          "title": "Mit Budgets planen",
+          "body": "Mit Budgets legen Sie monatliche Ziele je Kategorie fest und verfolgen, wie gut Sie diese einhalten."
+        },
+        "reports": {
+          "title": "Ihre Finanzen verstehen",
+          "body": "Berichte verwandeln Ihre Buchungen in Diagramme — Ausgaben nach Kategorie, Vermögensentwicklung über die Zeit und mehr."
+        },
+        "finish": {
+          "title": "Sie sind startklar",
+          "body": "Das war die Tour. Sie können sie jederzeit über den Bereich **Geführte Touren** in den **Einstellungen** erneut starten."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Fremdwährungsbuchungen",
+        "steps": {
+          "welcome": {
+            "title": "Ausgaben in anderen Währungen verfolgen",
+            "body": "Im Ausland eingekauft? Diese Tour richtet die Fremdwährungsgebühr eines Kontos ein, erfasst einen Einkauf in der belasteten Währung und zeigt, wo diese Kosten auftauchen. Sie können jederzeit mit **Esc** oder **Tour beenden** aussteigen."
+          },
+          "openAccountEdit": {
+            "title": "Beginnen Sie beim Konto",
+            "body": "Fremdwährungsgebühren gehören zum Konto. Wählen Sie das Konto, mit dem Sie im Ausland bezahlen — eine Kredit- oder Debitkarte oder das Konto hinter Ihren Handyzahlungen — und klicken Sie in seiner Zeile auf **Bearbeiten**; auf dem Handy tippen Sie lange auf die Zeile, um die Einstellungen zu öffnen."
+          },
+          "fxFeePercent": {
+            "title": "Umrechnungsgebühr festlegen",
+            "body": "Geben Sie hier die Fremdwährungsgebühr des Kontos als Prozentsatz ein — etwa 2,5. Monize rechnet sie in den umgerechneten Betrag jeder Fremdwährungsbuchung ein, sodass die Gebühr automatisch erfasst wird."
+          },
+          "closeAccountForm": {
+            "title": "Speichern und schließen",
+            "body": "Zum Abschluss diese Schaltflächen: **Konto aktualisieren** speichert die Gebühr, **Abbrechen** schließt ohne zu speichern. In beiden Fällen geht die Tour weiter."
+          },
+          "newTransaction": {
+            "title": "Einen Auslandseinkauf erfassen",
+            "body": "Erfassen Sie nun einen Einkauf, den Sie mit diesem Konto in einer anderen Währung getätigt haben. Öffnen Sie **Neue Buchung** und wählen Sie dieses Konto aus."
+          },
+          "chooseAccount": {
+            "title": "Konto und Datum prüfen",
+            "body": "Die Umrechnungsgebühr gehört zum Konto — achten Sie also darauf, dass unter **Konto** das Konto steht, für das Sie die Gebühr gerade festgelegt haben, und ändern Sie es hier gegebenenfalls. Setzen Sie auch das **Datum** auf den Tag des Einkaufs: Der Wechselkurs wird für dieses Datum abgerufen."
+          },
+          "enterDetails": {
+            "title": "Angaben eintragen",
+            "body": "Tragen Sie Zahlungsempfänger und Kategorie wie bei jeder anderen Buchung ein. Der Fremdwährungsteil kommt als Nächstes."
+          },
+          "entryCurrency": {
+            "title": "Wählen Sie die Währung, in der Sie bezahlt haben",
+            "body": "Öffnen Sie dies und wählen Sie die Währung, die Ihnen belastet wurde. Steht nur Ihre eigene Währung in der Liste? Wählen Sie unten **Währung hinzufügen...**, um eine anzulegen — sie wird sofort für Sie ausgewählt."
+          },
+          "enterAmount": {
+            "title": "Geben Sie den belasteten Betrag ein",
+            "body": "Tippen Sie den Gesamtbetrag genau so ein, wie er auf Ihrer Abrechnung steht. Monize ruft den **Wechselkurs** für das Datum der Buchung ab, zeigt daneben den umgerechneten Gesamtbetrag und rechnet die **Fremdwährungsgebühr** ein, die Sie für das Konto festgelegt haben — die Bildunterschrift darunter führt beides auf. Hat Ihre Bank anders gerundet? Passen Sie den Kurs oder den umgerechneten Betrag centgenau an."
+          },
+          "closeTransactionForm": {
+            "title": "Formular schließen",
+            "body": "Auch hier: Speichern Sie die Buchung über die Schaltfläche zum Speichern oder schließen Sie sie mit **Abbrechen** — und die Tour geht weiter."
+          },
+          "openAccountDetail": {
+            "title": "Zurück zum Konto",
+            "body": "Öffnen Sie die Detailseite dieses Kontos — wählen Sie **Details** in ihrer Zeile — um zu sehen, wie die Fremdwährungsaktivität zusammengefasst wird."
+          },
+          "fxSection": {
+            "title": "Ihr Fremdwährungsbereich",
+            "body": "Konten mit Fremdwährungsaktivität erhalten diesen Bereich: die gezahlten Gebühren je Währung, ein Diagramm über die Zeit und die zugehörigen Buchungen, exportierbar als CSV und PNG. Er erscheint, sobald das Konto einen Auslandseinkauf hat.",
+            "fallbackBody": "Dieses Konto hat noch keine Fremdwährungsaktivität, daher fehlt der Abschnitt auf seiner Seite. Erfassen Sie darauf einen Einkauf in einer anderen Währung, und der Abschnitt erscheint: Gebühren je Währung, ein Verlaufsdiagramm sowie CSV- und PNG-Export."
+          },
+          "report": {
+            "title": "Der Bericht \"Fremdwährungs-Transaktionsgebühren\"",
+            "body": "Dieser Bericht führt Auslandseinkäufe über alle Ihre Konten und Währungen an einer Stelle zusammen, sodass Sie sehen, was Karten \"ohne Auslandsgebühr\" wirklich kosten. Sie können ihn jederzeit über **Berichte** öffnen.",
+            "fallbackBody": "Der Bericht **Fremdwährungsgebühren** fasst Fremdwährungseinkäufe über alle Konten und Währungen hinweg zusammen. Gerade ist er nicht zu sehen — eine Suche oder ein Kategoriefilter kann ihn ausblenden — Sie finden ihn unter **Berichte**."
+          },
+          "finish": {
+            "title": "Das war Fremdwährung in Monize",
+            "body": "Einmal eine Gebühr festlegen, Einkäufe wie belastet erfassen — und die Gebühren führen sich von selbst. Sie können diese Tour jederzeit im Bereich **Geführte Touren** in den **Einstellungen** wiederholen."
+          }
+        }
+      },
+      "settings": {
+        "title": "Neuigkeiten-Übersicht",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Highlights dieser Version",
+            "body": "Dieser Schalter legt fest, ob die Neuigkeiten-Übersicht nach einem Update automatisch angezeigt wird."
+          },
+          "appVersion": {
+            "title": "Hinweise erneut lesen",
+            "body": "Klicken Sie jederzeit auf die Versionsangabe unten in den **Einstellungen**, um die Versionshinweise erneut zu öffnen."
+          },
+          "done": {
+            "title": "Das war's",
+            "body": "Sie können diese Highlights jederzeit hier in den Einstellungen erneut ansehen."
+          }
+        }
+      }
+    }
+  }
+}

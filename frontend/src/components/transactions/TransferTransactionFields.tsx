@@ -197,6 +197,7 @@ export function TransferTransactionFields({
             setTransferPayeeName(payeeName);
           }}
           allowCustomValue={true}
+          valueIsId
         />
         {/* A transfer never counts as income/expense, but a category lets it
             appear in the monthly category breakdown (e.g. investment contributions). */}
@@ -210,6 +211,7 @@ export function TransferTransactionFields({
             onChange={handleCategoryChange}
             onCreateNew={handleCategoryCreate}
             allowCustomValue={true}
+            valueIsId
             error={errors.categoryId?.message as string | undefined}
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

@@ -1,0 +1,19 @@
+{
+  "title": "Adjuntos",
+  "empty": "Aún no hay adjuntos",
+  "upload": "Añadir adjunto",
+  "download": "Descargar",
+  "delete": "Eliminar",
+  "remove": "Quitar",
+  "pendingHint": "Los archivos se subirán cuando guardes la transacción.",
+  "deleteConfirmTitle": "¿Eliminar adjunto?",
+  "deleteConfirmMessage": "\"{name}\" se eliminará de forma permanente.",
+  "uploaded": "Adjunto añadido",
+  "deleted": "Adjunto eliminado",
+  "loadFailed": "No se pudieron cargar los adjuntos",
+  "uploadFailed": "No se pudo subir el adjunto",
+  "deleteFailed": "No se pudo eliminar el adjunto",
+  "tooLarge": "El archivo es demasiado grande (máximo {max})",
+  "unsupported": "Tipo de archivo no admitido. Se permiten: imágenes o PDF",
+  "tooMany": "Máximo {max} adjuntos por transacción"
+}

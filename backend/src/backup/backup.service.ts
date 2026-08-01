@@ -11,7 +11,6 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { createGzip, gunzipSync, gzipSync } from "zlib";
 import { User } from "../users/entities/user.entity";
-import { OidcService } from "../auth/oidc/oidc.service";
 import { AiEncryptionService } from "../ai/ai-encryption.service";
 import {
   encryptBackup,
@@ -19,6 +18,8 @@ import {
   isEncryptedBackup,
   BackupDecryptionError,
 } from "./backup-crypto.util";
+import { collectRowIdRemap, deepRemapIds } from "./backup-id-remap.util";
+import { resolveCurrencyMetadata } from "../currencies/currency-metadata";
 import { tr } from "../i18n/translate";
 
 export interface RestoreBackupInput {
@@ -39,8 +40,79 @@ export class BackupPasswordRequiredError extends BadRequestException {
 
 const BACKUP_VERSION = 1;
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Tables that `insertRows` is permitted to write during a restore. This is the
+ * single source of truth for the restore allowlist -- the export side derives
+ * its coverage from `getTableQueries()`, and the two are kept in lockstep by the
+ * coverage guard test (backup-restore.integration.spec.ts).
+ *
+ * `currencies` is intentionally absent: it is restored separately via
+ * `ensureCurrenciesExist` (shared, code-keyed rows), not through `insertRows`.
+ */
+export const RESTORABLE_TABLES: ReadonlySet<string> = new Set([
+  "user_preferences",
+  "user_currency_preferences",
+  "categories",
+  "payees",
+  "payee_aliases",
+  "institutions",
+  "accounts",
+  "tags",
+  "transactions",
+  "transaction_splits",
+  "transaction_attachments",
+  "attachment_blobs",
+  "transaction_tags",
+  "transaction_split_tags",
+  "scheduled_transactions",
+  "scheduled_transaction_splits",
+  "scheduled_transaction_overrides",
+  "scheduled_transaction_split_tags",
+  "securities",
+  "security_prices",
+  "holdings",
+  "security_tags",
+  "investment_transactions",
+  "loan_rate_changes",
+  "loan_scenarios",
+  "budgets",
+  "budget_categories",
+  "budget_periods",
+  "budget_period_categories",
+  "budget_alerts",
+  "custom_reports",
+  "investment_reports",
+  "import_column_mappings",
+  "monthly_account_balances",
+  "auto_backup_settings",
+  "ai_provider_configs",
+  "monte_carlo_scenarios",
+  "monte_carlo_cash_flows",
+]);
+
+/**
+ * User-owned tables that are deliberately NOT part of a backup, each with the
+ * reason. The coverage guard test asserts every table in the database is either
+ * exported (see `getBackedUpTableNames`) or listed here, so adding a new entity
+ * forces an explicit decision instead of silently dropping data on restore.
+ */
+const INTENTIONALLY_EXCLUDED_TABLES: ReadonlySet<string> = new Set([
+  "users", // the account row itself; a restore targets an existing user
+  "action_history", // undo/redo log, wiped on restore (not undoable to prior state)
+  "ai_insights", // regenerable AI cache
+  "ai_usage_logs", // usage telemetry, not user content
+  "exchange_rates", // global shared reference data, not per-user
+  "account_delegates", // cross-user sharing relationship
+  "account_delegate_grants", // cross-user sharing relationship
+  "delegate_account_favourites", // cross-user sharing state
+  "emergency_access_contacts", // cross-user emergency-access config
+  "emergency_access_settings", // cross-user emergency-access config
+  "oauth_payloads", // transient OIDC state
+  "personal_access_tokens", // auth credentials -- never exported
+  "refresh_tokens", // auth session tokens -- never exported
+  "trusted_devices", // 2FA device registrations -- never exported
+  "schema_migrations", // migration bookkeeping (no entity; system table)
+]);
 
 interface BackupData {
   version: number;
@@ -56,6 +128,8 @@ interface BackupData {
   tags: Record<string, unknown>[];
   transactions: Record<string, unknown>[];
   transaction_splits: Record<string, unknown>[];
+  transaction_attachments: Record<string, unknown>[];
+  attachment_blobs: Record<string, unknown>[];
   transaction_tags: Record<string, unknown>[];
   transaction_split_tags: Record<string, unknown>[];
   scheduled_transactions: Record<string, unknown>[];
@@ -65,6 +139,9 @@ interface BackupData {
   security_prices: Record<string, unknown>[];
   holdings: Record<string, unknown>[];
   investment_transactions: Record<string, unknown>[];
+  loan_rate_changes: Record<string, unknown>[];
+  loan_scenarios: Record<string, unknown>[];
+  security_tags: Record<string, unknown>[];
   budgets: Record<string, unknown>[];
   budget_categories: Record<string, unknown>[];
   budget_periods: Record<string, unknown>[];
@@ -89,7 +166,6 @@ export class BackupService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
-    private readonly oidcService: OidcService,
     private readonly aiEncryption: AiEncryptionService,
   ) {}
 
@@ -181,6 +257,43 @@ export class BackupService {
     this.logger.log(`Backup export completed for user ${userId}`);
   }
 
+  /**
+   * The set of tables the export writes (and the restore repopulates). Exposed
+   * so the coverage guard test can assert every database table is either backed
+   * up or explicitly excluded (see INTENTIONALLY_EXCLUDED_TABLES).
+   */
+  getBackedUpTableNames(): string[] {
+    return this.getTableQueries().map((q) => q.key);
+  }
+
+  /** The tables deliberately omitted from backups, exposed for the guard test. */
+  getIntentionallyExcludedTableNames(): string[] {
+    return Array.from(INTENTIONALLY_EXCLUDED_TABLES);
+  }
+
+  /**
+   * Collects the full export as an in-memory map of table -> rows, using the
+   * same queries as the streamed/gzipped export. Consumed by the support
+   * (de-identified) backup, which must hold every table at once to reconcile
+   * scaled balances before serializing. Returns the same version/exportedAt
+   * envelope fields the file format uses.
+   */
+  async collectRawExport(userId: string): Promise<{
+    version: number;
+    exportedAt: string;
+    tables: Record<string, Record<string, unknown>[]>;
+  }> {
+    const tables: Record<string, Record<string, unknown>[]> = {};
+    for (const { key, sql } of this.getTableQueries()) {
+      tables[key] = await this.query(sql, [userId]);
+    }
+    return {
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      tables,
+    };
+  }
+
   private getTableQueries(): Array<{ key: string; sql: string }> {
     return [
       {
@@ -238,6 +351,22 @@ export class BackupService {
               WHERE t.user_id = $1`,
       },
       {
+        // Attachment metadata. Restored after transactions (FK) and before
+        // attachment_blobs (which references transaction_attachments).
+        key: "transaction_attachments",
+        sql: "SELECT * FROM transaction_attachments WHERE user_id = $1",
+      },
+      {
+        // The bytes for database-provider attachments. The BYTEA `data` column
+        // is base64-encoded so it survives JSON; insertRows decodes it back to
+        // bytea on restore (auto-detected via information_schema).
+        key: "attachment_blobs",
+        sql: `SELECT ab.attachment_id, encode(ab.data, 'base64') AS data
+              FROM attachment_blobs ab
+              JOIN transaction_attachments ta ON ab.attachment_id = ta.id
+              WHERE ta.user_id = $1`,
+      },
+      {
         key: "transaction_tags",
         sql: `SELECT tt.* FROM transaction_tags tt
               JOIN transactions t ON tt.transaction_id = t.id
@@ -289,6 +418,22 @@ export class BackupService {
       {
         key: "investment_transactions",
         sql: "SELECT * FROM investment_transactions WHERE user_id = $1",
+      },
+      {
+        // Join tags between securities and tags. Owned transitively via the
+        // securities/tags rows, so scope by the security's owner.
+        key: "security_tags",
+        sql: `SELECT st.* FROM security_tags st
+              JOIN securities s ON st.security_id = s.id
+              WHERE s.user_id = $1`,
+      },
+      {
+        key: "loan_rate_changes",
+        sql: "SELECT * FROM loan_rate_changes WHERE user_id = $1",
+      },
+      {
+        key: "loan_scenarios",
+        sql: "SELECT * FROM loan_scenarios WHERE user_id = $1",
       },
       { key: "budgets", sql: "SELECT * FROM budgets WHERE user_id = $1" },
       {
@@ -385,6 +530,15 @@ export class BackupService {
     const gzippedPayload = this.maybeDecrypt(input, user);
     const rawData = this.decompressAndParse(gzippedPayload);
     this.validateBackupFormat(rawData);
+
+    // A support (de-identified) backup restores like any other, but the data
+    // is synthetic -- masked names, amounts scaled by a hidden factor. Log it
+    // so scaled balances aren't mistaken for corruption later.
+    if ((rawData as { supportBackup?: unknown }).supportBackup === true) {
+      this.logger.log(
+        `Restoring a de-identified support backup for user ${userId} (names masked, amounts scaled)`,
+      );
+    }
 
     // Remap every primary key in the backup to a fresh UUID (and rewrite all
     // references to those keys, including ids embedded in JSONB columns) so the
@@ -506,6 +660,12 @@ export class BackupService {
         data.holdings,
         null,
       );
+      restored.securityTags = await this.insertRows(
+        queryRunner,
+        "security_tags",
+        data.security_tags,
+        null,
+      );
       restored.transactions = await this.insertRows(
         queryRunner,
         "transactions",
@@ -516,6 +676,21 @@ export class BackupService {
         queryRunner,
         "transaction_splits",
         data.transaction_splits,
+        null,
+      );
+      restored.transactionAttachments = await this.insertRows(
+        queryRunner,
+        "transaction_attachments",
+        data.transaction_attachments,
+        userId,
+      );
+      // attachment_blobs has no user_id; it is scoped transitively through its
+      // FK to transaction_attachments. The base64 `data` column is decoded to
+      // bytea by insertRows (auto-detected).
+      restored.attachmentBlobs = await this.insertRows(
+        queryRunner,
+        "attachment_blobs",
+        data.attachment_blobs,
         null,
       );
       restored.transactionTags = await this.insertRows(
@@ -534,6 +709,18 @@ export class BackupService {
         queryRunner,
         "investment_transactions",
         data.investment_transactions,
+        userId,
+      );
+      restored.loanRateChanges = await this.insertRows(
+        queryRunner,
+        "loan_rate_changes",
+        data.loan_rate_changes,
+        userId,
+      );
+      restored.loanScenarios = await this.insertRows(
+        queryRunner,
+        "loan_scenarios",
+        data.loan_scenarios,
         userId,
       );
       restored.budgets = await this.insertRows(
@@ -715,26 +902,18 @@ export class BackupService {
     input: RestoreBackupInput,
   ): Promise<void> {
     if (user.authProvider === "oidc") {
+      // Re-confirm via the authenticated session, mirroring account deletion
+      // (users.service.deleteAccount). The request already passed the JWT
+      // AuthGuard, so a live OIDC session IS the re-authentication. OIDC users
+      // have no local password and cannot mint a fresh signed ID token in the
+      // browser (the login id_token lives only in backend httpOnly cookies), so
+      // the client sends a "session confirmed" sentinel. Cryptographically
+      // verifying that sentinel as an ID token here made OIDC restore impossible.
       if (!input.oidcIdToken) {
         throw new UnauthorizedException(
           tr(
             "errors.backup.oidcReauthRequired",
             "OIDC re-authentication is required to confirm restore",
-          ),
-        );
-      }
-      if (
-        !user.oidcSubject ||
-        !this.oidcService.enabled ||
-        !this.oidcService.verifyIdTokenClaims(
-          input.oidcIdToken,
-          user.oidcSubject,
-        )
-      ) {
-        throw new UnauthorizedException(
-          tr(
-            "errors.backup.oidcTokenInvalid",
-            "Invalid OIDC token: the token must be a valid ID token from your SSO provider",
           ),
         );
       }
@@ -798,13 +977,7 @@ export class BackupService {
     const remap = new Map<string, string>();
     for (const [table, rows] of Object.entries(data)) {
       if (table === "currencies" || !Array.isArray(rows)) continue;
-      for (const row of rows) {
-        if (!row || typeof row !== "object") continue;
-        const id = (row as Record<string, unknown>).id;
-        if (typeof id === "string" && UUID_REGEX.test(id) && !remap.has(id)) {
-          remap.set(id, randomUUID());
-        }
-      }
+      collectRowIdRemap(rows, remap, randomUUID);
     }
     return remap;
   }
@@ -830,32 +1003,10 @@ export class BackupService {
     return result as unknown as BackupData;
   }
 
-  /**
-   * Recursively rewrites any string that matches a remapped id. Recurses into
-   * arrays and plain objects (e.g. JSONB columns) so ids nested inside JSON are
-   * remapped too. Because the remap only contains genuine backup primary keys
-   * (random UUIDs), non-id strings such as names or memos are left untouched.
-   */
+  /** See backup-id-remap.util.ts -- shared with the support (de-identified)
+   *  export so the two walkers cannot drift. */
   private deepRemapIds(value: unknown, remap: Map<string, string>): unknown {
-    if (typeof value === "string") {
-      return remap.get(value) ?? value;
-    }
-    if (Array.isArray(value)) {
-      return value.map((item) => this.deepRemapIds(item, remap));
-    }
-    if (
-      value !== null &&
-      typeof value === "object" &&
-      !(value instanceof Date)
-    ) {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, val]) => [
-          key,
-          this.deepRemapIds(val, remap),
-        ]),
-      );
-    }
-    return value;
+    return deepRemapIds(value, remap);
   }
 
   private async deleteAllUserData(
@@ -890,6 +1041,13 @@ export class BackupService {
     // Investment data
     await queryRunner.query(
       "DELETE FROM investment_transactions WHERE user_id = $1",
+      [userId],
+    );
+    // Security tags (join rows cascade from securities/tags, deleted here
+    // explicitly before securities so the delete order is self-documenting)
+    await queryRunner.query(
+      `DELETE FROM security_tags WHERE security_id IN
+       (SELECT id FROM securities WHERE user_id = $1)`,
       [userId],
     );
     await queryRunner.query(
@@ -963,6 +1121,19 @@ export class BackupService {
       [userId],
     );
 
+    // Transaction attachments (bytes first, then metadata). Both would cascade
+    // from the transactions delete below, but we clear them explicitly to match
+    // the rest of this FK-ordered teardown.
+    await queryRunner.query(
+      `DELETE FROM attachment_blobs WHERE attachment_id IN
+       (SELECT id FROM transaction_attachments WHERE user_id = $1)`,
+      [userId],
+    );
+    await queryRunner.query(
+      "DELETE FROM transaction_attachments WHERE user_id = $1",
+      [userId],
+    );
+
     // Transactions
     await queryRunner.query("DELETE FROM transactions WHERE user_id = $1", [
       userId,
@@ -1028,6 +1199,16 @@ export class BackupService {
       userId,
     ]);
     await queryRunner.query("DELETE FROM payees WHERE user_id = $1", [userId]);
+
+    // Loan rate-change history and saved overpayment scenarios (both cascade
+    // from accounts, deleted here explicitly before accounts)
+    await queryRunner.query(
+      "DELETE FROM loan_rate_changes WHERE user_id = $1",
+      [userId],
+    );
+    await queryRunner.query("DELETE FROM loan_scenarios WHERE user_id = $1", [
+      userId,
+    ]);
 
     // Clear account FK references to categories before deleting accounts
     await queryRunner.query(
@@ -1138,6 +1319,11 @@ export class BackupService {
         column: "parent_transaction_id",
       },
       {
+        table: "investment_transactions",
+        rows: data.investment_transactions,
+        column: "linked_transaction_id",
+      },
+      {
         table: "payees",
         rows: data.payees,
         column: "default_category_id",
@@ -1161,6 +1347,7 @@ export class BackupService {
       "accounts",
       "transactions",
       "scheduled_transactions",
+      "investment_transactions",
     ]);
 
     // Collect tables that will actually be updated AND have the trigger
@@ -1289,13 +1476,18 @@ export class BackupService {
     const existingSet = new Set(existing.map((r) => r.code));
     const missing = codeArray.filter((c) => !existingSet.has(c));
 
-    // Auto-create minimal entries for any still-missing currencies
+    // Auto-create entries for any still-missing currencies. System currencies
+    // (USD, EUR, ...) are not part of a user backup, so on a fresh instance the
+    // codes referenced by restored accounts/transactions land here. Resolve a
+    // proper name/symbol/decimal-places from the currency metadata rather than
+    // defaulting the symbol to the bare code.
     for (const code of missing) {
+      const meta = resolveCurrencyMetadata(code);
       await queryRunner.query(
         `INSERT INTO "currencies" ("code", "name", "symbol", "decimal_places", "is_active", "created_by_user_id")
-         VALUES ($1, $2, $3, 2, true, $4)
+         VALUES ($1, $2, $3, $4, true, $5)
          ON CONFLICT (code) DO NOTHING`,
-        [code, code, code, userId],
+        [code, meta.name, meta.symbol, meta.decimalPlaces, userId],
       );
       this.logger.log(
         `Auto-created missing currency ${code} during backup restore`,
@@ -1313,44 +1505,9 @@ export class BackupService {
       return 0;
     }
 
-    // Allowlist of tables that can be restored
-    const allowedTables = new Set([
-      "user_preferences",
-      "user_currency_preferences",
-      "categories",
-      "payees",
-      "payee_aliases",
-      "institutions",
-      "accounts",
-      "tags",
-      "transactions",
-      "transaction_splits",
-      "transaction_tags",
-      "transaction_split_tags",
-      "scheduled_transactions",
-      "scheduled_transaction_splits",
-      "scheduled_transaction_overrides",
-      "scheduled_transaction_split_tags",
-      "securities",
-      "security_prices",
-      "holdings",
-      "investment_transactions",
-      "budgets",
-      "budget_categories",
-      "budget_periods",
-      "budget_period_categories",
-      "budget_alerts",
-      "custom_reports",
-      "investment_reports",
-      "import_column_mappings",
-      "monthly_account_balances",
-      "auto_backup_settings",
-      "ai_provider_configs",
-      "monte_carlo_scenarios",
-      "monte_carlo_cash_flows",
-    ]);
-
-    if (!allowedTables.has(table)) {
+    // Allowlist of tables that can be restored (single source of truth defined
+    // at module scope and cross-checked by the coverage guard test).
+    if (!RESTORABLE_TABLES.has(table)) {
       throw new BadRequestException(
         tr(
           "errors.backup.tableNotAllowed",
@@ -1382,6 +1539,11 @@ export class BackupService {
       // forward reference to securities(id) is deferred to Phase 3.
       scheduled_transactions: ["investment_security_id"],
       scheduled_transaction_splits: ["investment_security_id"],
+      // Self-referential FK linking the two legs of a security transfer
+      // (TRANSFER_OUT <-> TRANSFER_IN). A row may reference another
+      // investment_transactions row that appears later in the insert batch, so
+      // defer it to Phase 3 once every row exists.
+      investment_transactions: ["linked_transaction_id"],
     };
     const columnsToDefer = deferredFkColumns[table] ?? [];
 

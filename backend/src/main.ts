@@ -3,7 +3,7 @@ import { Logger, RequestMethod, ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import helmet from "helmet";
 import * as express from "express";
-import * as cookieParser from "cookie-parser";
+import cookieParser from "cookie-parser";
 import * as pg from "pg";
 import { AppModule } from "./app.module";
 import { OAuthProviderService } from "./oauth/oauth-provider.service";
@@ -64,14 +64,18 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set("trust proxy", 1);
 
   // Backup restore accepts gzip-compressed binary (compressed on the client
-  // to avoid multi-minute uploads of 100mb+ JSON files). Encrypted backups
+  // to avoid multi-minute uploads of large JSON files). Encrypted backups
   // are uploaded as the Monize envelope under application/octet-stream, so
   // both content-types must be parsed into a raw Buffer here -- otherwise the
   // controller sees an unparsed body and rejects it.
+  //
+  // The limit is configurable (BACKUP_RESTORE_LIMIT) because backups now embed
+  // transaction attachment bytes and can grow well past the old 100mb ceiling.
+  const backupRestoreLimit = process.env.BACKUP_RESTORE_LIMIT || "500mb";
   app.use(
     "/api/v1/backup/restore",
     express.raw({
-      limit: "100mb",
+      limit: backupRestoreLimit,
       type: ["application/gzip", "application/octet-stream"],
     }),
   );

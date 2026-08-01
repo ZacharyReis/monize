@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import apiClient from './api';
 import { userSettingsApi } from './user-settings';
+import { getCached, setCache, clearAllCache } from './apiCache';
 
 vi.mock('./api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
 describe('userSettingsApi', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearAllCache();
+  });
 
   it('getProfile fetches /users/me', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { id: 'u-1', firstName: 'Test' } });
@@ -66,6 +70,30 @@ describe('userSettingsApi', () => {
       deleteExchangeRates: false,
     }, { timeout: 120000 });
     expect(result.deleted.transactions).toBe(50);
+  });
+
+  it('deleteData drops cached lists so the next page load refetches', async () => {
+    // Regression: deleting categories from Settings left the Categories page
+    // serving its 5-minute cached list until a hard refresh.
+    setCache('categories:all', [{ id: 'cat-1' }], 300_000);
+    setCache('accounts:all', [{ id: 'acc-1' }], 300_000);
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { deleted: { categories: 12 } } });
+
+    await userSettingsApi.deleteData({ password: 'mypass', deleteCategories: true });
+
+    expect(getCached('categories:all')).toBeUndefined();
+    expect(getCached('accounts:all')).toBeUndefined();
+  });
+
+  it('deleteData leaves the cache intact when the request fails', async () => {
+    setCache('categories:all', [{ id: 'cat-1' }], 300_000);
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('wrong password'));
+
+    await expect(
+      userSettingsApi.deleteData({ password: 'nope' }),
+    ).rejects.toThrow('wrong password');
+
+    expect(getCached('categories:all')).toEqual([{ id: 'cat-1' }]);
   });
 
   it('getSmtpStatus fetches /notifications/smtp-status', async () => {

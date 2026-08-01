@@ -104,8 +104,12 @@
       "lookupTooShort": "請輸入貨幣代碼或名稱（至少 2 個字元）以進行查詢",
       "found": "已找到：{details}",
       "notFound": "找不到「{query}」的貨幣",
-      "lookupFailed": "查詢失敗 - 請再試一次"
-    }
+      "lookupFailed": "查詢失敗 - 請再試一次",
+      "reactivateFailed": "重新啟用貨幣失敗"
+    },
+    "inactiveNotice": "{code} 已在您的清單中，但處於未啟用狀態。",
+    "reactivateButton": "重新啟用 {code}",
+    "reactivating": "正在重新啟用..."
   },
   "validation": {
     "codeLength": "貨幣代碼必須恰好為 3 個字元",

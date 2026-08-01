@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "此账户已配置计划还款。请编辑现有计划交易。",
     "sourceNotFound": "未找到来源账户",
     "ambiguousBrokerage": "\"{{ query }}\" 匹配多个经纪账户：{{ list }}。请使用准确的账户名称。",
-    "unknownInvestmentAccount": "未知账户：{{ name }}。请使用用户账户列表中的准确名称。"
+    "unknownInvestmentAccount": "未知账户：{{ name }}。请使用用户账户列表中的准确名称。",
+    "notACreditCard": "账单周期仅适用于信用卡账户",
+    "noStatementSettlementDay": "此信用卡未配置账单结算日"
   },
   "actionHistory": {
     "nothingToUndo": "没有可撤销的操作",
@@ -73,6 +75,8 @@
     "noActiveProviders": "未配置活跃的 AI 提供商。请在 AI 设置中配置提供商。",
     "allProvidersFailed": "所有 AI 提供商均失败。请检查您的提供商配置后重试。",
     "noToolUseProvider": "未配置支持工具使用的 AI 提供商。自然语言查询需要 Anthropic、OpenAI 或 Ollama。请在 AI 设置中配置。",
+    "relayAgentOffline": "您的 MCP 中继代理未连接。请连接您的代理后重试。",
+    "relayCompletionTimedOut": "您的 MCP 中继代理未及时回答。请确保其已连接，然后重试。",
     "baseUrlInvalidBasic": "baseUrl 必须是有效的 HTTP 或 HTTPS URL",
     "baseUrlInvalidExternal": "baseUrl 必须是指向外部主机的有效 HTTP/HTTPS URL",
     "ollamaCloudApiKeyRequired": "ollama-cloud 提供商需要 apiKey",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "某个附件超过了最大文件大小。",
     "attachmentCorrupt": "无法读取某个附件，或它并非其声称的文件类型。",
     "attachmentsTooLarge": "附件超过了总大小限制。",
+    "attachmentRefExpired": "附加的文件已不可用。请重新上传后再次询问。",
     "modelNoImageSupport": "所选的 AI 模型无法读取图片或 PDF。请移除附件并以文字提问，或在 AI 设置中切换到支持视觉的模型。"
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "密码不正确"
   },
   "backup": {
-    "folderPathRequired": "启用自动备份前必须设置文件夹路径",
     "folderNotExist": "文件夹不存在：{{ safePath }}",
     "folderAccessError": "无法访问文件夹：{{ safePath }}",
     "pathNotDirectory": "路径不是目录：{{ safePath }}",
-    "notConfigured": "未配置自动备份。请先设置文件夹路径。",
     "userNotFound": "未找到用户 {{ userId }}",
     "encryptedPasswordDecryptFailed": "已启用加密备份，但无法解密存储的密码。请在安全设置中重新启用加密。",
     "pathTraversal": "检测到路径遍历：{{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "CSRF 令牌无效",
     "demoModeRestricted": "此操作在演示模式下不可用。",
     "serviceNotReady": "服务未就绪",
-    "oauthProviderNotInitialized": "OAuth 提供商未初始化"
+    "oauthProviderNotInitialized": "OAuth 提供商未初始化",
+    "invalidCurrencyCode": "无效的货币代码：{{ code }}"
   },
   "currencies": {
     "alreadyInList": "货币\"{{ code }}\"已在您的列表中",
     "notFound": "未找到货币\"{{ code }}\"",
     "cannotModifySystem": "无法修改系统货币元数据",
     "cannotModifyOther": "无法修改其他用户的货币",
-    "inUse": "货币\"{{ code }}\"正在您的账户、证券或其他记录中使用。请改为停用它。"
+    "inUse": "货币\"{{ code }}\"正在您的账户、证券或其他记录中使用。请改为停用它。",
+    "invalidRateDate": "date 必须为 YYYY-MM-DD 格式",
+    "alreadyInListInactive": "货币\"{{ code }}\"已在您的列表中，但当前处于未启用状态。请重新启用后使用。"
   },
   "delegation": {
     "delegatedAccessInvalid": "委托访问权限已不再有效",
@@ -254,6 +260,7 @@
     "passwordBreached": "此密码已在数据泄露中被发现。请选择其他密码。"
   },
   "http": {
+    "forbidden": "访问被拒绝",
     "tooManyRequests": "请求过多。请等待几分钟后再试。",
     "duplicateRecord": "具有此值的记录已存在",
     "referencedRecord": "引用的记录不存在或无法移除",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate 必须为 YYYY-MM-DD 格式",
     "invalidEndDate": "endDate 必须为 YYYY-MM-DD 格式",
-    "invalidAccountIds": "accountIds 必须是逗号分隔的 UUID"
+    "invalidAccountIds": "accountIds 必须是逗号分隔的 UUID",
+    "invalidGranularity": "granularity 必须为 'daily' 或 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP 未配置。请设置 SMTP 环境变量。",
@@ -302,7 +310,9 @@
     "aliasNotFound": "未找到 ID 为 {{ id }} 的别名",
     "mergeSelf": "无法将收款人合并到自身",
     "autoMergeDuplicatePayee": "一个收款人出现在多个合并组中",
-    "autoMergeSourceNotFound": "一个或多个来源收款人未找到"
+    "autoMergeSourceNotFound": "一个或多个来源收款人未找到",
+    "autoMergeGroupConflict": "无法合并\"{{ name }}\"：值\"{{ value }}\"已被使用",
+    "autoMergeGroupFailed": "无法合并\"{{ name }}\""
   },
   "reports": {
     "notFound": "未找到 ID 为 {{ id }} 的报告",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\"匹配到多个证券：{{ list }}。请指定交易所后重新运行。",
     "lookupNoCurrency": "无法确定\"{{ symbol }}\"的货币。请改为手动添加该证券。",
     "noUpdateFields": "请至少提供一个要更改的字段。",
-    "allocationExceedsTotal": "配置百分比总和超过 100%。"
+    "allocationExceedsTotal": "配置百分比总和超过 100%。",
+    "invalidTagKey": "需要标签键（1-100 个字符）"
   },
   "tags": {
     "notFound": "未找到 ID 为 {{ id }} 的标签",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId 必须是有效的 UUID",
     "amountFromMustBeNumber": "amountFrom 必须是数字",
     "amountToMustBeNumber": "amountTo 必须是数字",
+    "invalidGroupBy": "groupBy 必须为 'category' 或 'payee'",
+    "limitMustBePositive": "limit 必须为正数",
+    "recurringPayeeRequired": "payeeIds 为必填项",
+    "recurringDatesRequired": "startDate 和 endDate 为必填项",
     "statementDateFormat": "statementDate 必须为 YYYY-MM-DD 格式",
     "statementBalanceMustBeNumber": "statementBalance 必须是数字",
     "categoryNotFound": "未找到分类",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "部分交易未找到或不属于指定账户",
     "cannotReconcileVoidPlural": "无法对账作废交易",
     "transferSameAccount": "来源账户和目标账户必须不同",
-    "transferSplitFromAccountFixed": "拆分转账行的来源账户无法更改",
     "transferAmountNegative": "转账金额不能为负数",
     "notATransfer": "交易不是转账",
+    "splitTransferLegAccountLocked": "此转账属于拆分交易的一部分。请改为在源交易中编辑拆分项以更改其账户。",
     "notFoundById": "未找到 ID 为 {{ id }} 的交易",
     "bulkUpdateNoFields": "至少需要提供一个更新字段",
     "payeeNotFound": "未找到收款人",
     "cannotEditTransfer": "无法在此处编辑转账。请在交易页面中编辑该转账。",
     "cannotEditSplit": "无法在此处编辑拆分交易。请在交易页面中编辑该拆分。",
-    "noUpdateFields": "请至少提供一个要更改的字段。"
+    "noUpdateFields": "请至少提供一个要更改的字段。",
+    "tagKeyTooLong": "tagKey 不得超过 100 个字符",
+    "invalidTagKeyOp": "无效的 tagKeyOp：{{ op }}",
+    "tagKeyValueRequired": "contains / notContains 需要 tagKeyValue",
+    "tagKeyRequired": "需要标签键（1-100 个字符）",
+    "fxFieldsIncomplete": "originalAmount 和 originalCurrencyCode 必须同时提供",
+    "fxRateRequired": "外币交易需要一个正的汇率",
+    "fxSignMismatch": "originalAmount 和 amount 的符号必须相同"
   },
   "users": {
     "userNotFound": "未找到用户",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "无法删除最后一个管理员账户。请先提升其他用户。",
     "oidcReauthRequiredForDataDelete": "需要 OIDC 重新验证以确认数据删除",
     "passwordRequiredForDataDelete": "确认数据删除需要密码"
+  },
+  "loanScenarios": {
+    "notFound": "未找到 ID 为 {{ id }} 的贷款方案",
+    "nameConflict": "此账户已存在名为\"{{ name }}\"的方案",
+    "notLoanAccount": "贷款方案仅适用于贷款、抵押贷款和信用额度账户",
+    "budgetWindowInverted": "预算期间的开始日期必须不晚于其结束日期"
+  },
+  "loanRateChanges": {
+    "notFound": "未找到 ID 为 {{ id }} 的利率变更",
+    "notLoanAccount": "利率变更仅适用于贷款和抵押贷款账户",
+    "duplicateDate": "此账户已存在生效日期为 {{ date }} 的利率变更",
+    "paymentModeConflict": "请提供新的还款额或 recalculatePayment 之一，不能同时提供两者",
+    "recalculateMortgageOnly": "还款额重新计算仅适用于抵押贷款账户",
+    "insufficientData": "带有利息明细的还款不足，无法检测利率变更",
+    "frequencyMismatch": "还款日期与账户的还款频率不匹配；推算的利率可能不太准确"
+  },
+  "attachments": {
+    "notFound": "未找到附件",
+    "transactionNotFound": "未找到交易",
+    "empty": "上传的文件为空",
+    "fileTooLarge": "文件超过最大大小 {{ max }} 字节",
+    "unsupportedType": "不支持的文件类型。允许的类型：{{ types }}",
+    "tooMany": "此交易已达到最多 {{ max }} 个附件的上限"
   }
 }

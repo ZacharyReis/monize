@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Harmonogram spłaty długu",
       "loan-amortization": "Harmonogram amortyzacji pożyczki",
       "credit-utilization": "Wykorzystanie kredytu",
+      "loan-overpayment-simulator": "Symulator nadpłat kredytu",
       "investment-performance": "Wyniki inwestycji",
       "dividend-income": "Zyski, dywidendy i odsetki",
       "sector-weightings": "Wagi sektorów",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Alokacja według typu papieru wartościowego",
       "geographic-allocation": "Alokacja geograficzna/giełdowa",
       "dividend-yield-growth": "Stopa dywidendy i wzrost",
-      "security-performance": "Wyniki pojedynczego papieru wartościowego",
+      "security-performance": "Wyniki papierów wartościowych",
       "currency-exposure": "Ekspozycja walutowa",
       "monte-carlo-simulation": "Symulacja Monte Carlo",
       "recurring-expenses": "Monitor wydatków cyklicznych",
       "spending-anomalies": "Anomalie wydatków",
       "weekend-weekday-spending": "Wydatki w weekend a w dni robocze",
       "monthly-comparison": "Porównanie miesięczne",
+      "foreign-currency-fees": "Opłaty za transakcje w obcej walucie",
       "uncategorized-transactions": "Transakcje bez kategorii",
       "duplicate-transactions": "Wyszukiwarka zduplikowanych transakcji",
       "upcoming-bills": "Kalendarz nadchodzących rachunków",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Wizualizuj postęp redukcji długu wraz z prognozami terminów spłaty.",
       "loan-amortization": "Szczegółowe harmonogramy spłat hipotek i pożyczek z podziałem na kapitał i odsetki.",
       "credit-utilization": "Zobacz, jaką część dostępnego kredytu wykorzystujesz na kartach kredytowych i liniach kredytowych.",
+      "loan-overpayment-simulator": "Wybierz kredyt i zasymuluj dodatkowe wpłaty, aby zobaczyć, o ile wcześniej zostałby spłacony i ile odsetek byś zaoszczędził.",
       "investment-performance": "Śledź zwroty portfela, zyski/straty i alokację aktywów w czasie.",
       "dividend-income": "Śledź zyski i straty kapitałowe (zrealizowane i niezrealizowane) wraz z przychodami z dywidend i odsetek.",
       "sector-weightings": "Analizuj ekspozycję sektorową portfela na podstawie poszczególnych akcji i funduszy ETF.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Zobacz alokację portfela według typu aktywów (akcje, ETF-y, fundusze inwestycyjne, obligacje) ze szczegółowym wglądem w pozycje.",
       "geographic-allocation": "Analizuj geograficzną ekspozycję portfela według giełdy i regionu dla lepszej dywersyfikacji.",
       "dividend-yield-growth": "Śledź stopę dywidendy, stopy dla poszczególnych papierów wartościowych, wzrost rok do roku i analizę częstotliwości wypłat.",
-      "security-performance": "Szczegółowa analiza wyników pojedynczego papieru wartościowego z historią cen, transakcjami i zwrotami.",
+      "security-performance": "Szczegółowa analiza historii cen, transakcji i zwrotów papieru wartościowego lub porównanie wyników kilku papierów na jednym wykresie.",
       "currency-exposure": "Zrozum ryzyko walutowe dzięki alokacji portfela według waluty i szczegółom kursów wymiany.",
       "monte-carlo-simulation": "Prognozuj przyszłe wyniki portfela na podstawie tysięcy losowych ścieżek zwrotu z biblioteką zapisanych scenariuszy.",
       "recurring-expenses": "Rozpoznawaj i monitoruj subskrypcje, członkostwa i opłaty cykliczne.",
       "spending-anomalies": "Wykrywaj nietypowo duże transakcje i skoki wydatków wymagające uwagi.",
       "weekend-weekday-spending": "Analizuj swoje wzorce wydatków w zależności od dnia tygodnia, aby zrozumieć nawyki.",
       "monthly-comparison": "Porównaj dowolny miesiąc z poprzednim pod względem przychodów, wydatków, wartości netto i inwestycji.",
+      "foreign-currency-fees": "Śledź opłaty za transakcje zagraniczne pobierane na kontach, które stosują opłatę za przewalutowanie.",
       "uncategorized-transactions": "Znajdź i skategoryzuj transakcje, którym brakuje kategorii.",
       "duplicate-transactions": "Rozpoznawaj potencjalne zduplikowane wpisy, które mogą wymagać przeglądu lub usunięcia.",
       "upcoming-bills": "Wizualny kalendarz zaplanowanych transakcji i nadchodzących terminów płatności rachunków.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Nie udało się załadować danych raportu. Spróbuj ponownie.",
     "retry": "Spróbuj ponownie"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Żadne konto nie ma skonfigurowanej opłaty za transakcje zagraniczne. Ustaw procent opłaty na koncie, aby śledzić tutaj jego opłaty za transakcje w obcej walucie."
   },
   "accountBalances": {
     "totalAssets": "Aktywa razem",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Koniec: ",
     "cashFlowEventPdfStarts": "Początek: ",
     "cashFlowEventPdfEnds": "Koniec: ",
-    "cashFlowDefaultName": "Przepływ pieniężny",
     "cashFlowPerYear": "/ rok",
     "tooltipRow90th": "90. percentyl",
     "tooltipRow75th": "75. percentyl",
@@ -1104,6 +1110,10 @@
     "noData": "Brak danych inwestycyjnych dla tego okresu.",
     "tooltipPortfolio": "Portfel:",
     "allAccounts": "Wszystkie konta",
+    "viewTotal": "Suma",
+    "viewSecurities": "Wg papierów",
+    "seriesCash": "Gotówka",
+    "seriesOther": "Pozostałe papiery",
     "colDate": "Data",
     "colPortfolioValue": "Wartość portfela",
     "breakdownTitle": "Bieżące rozbicie portfela",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% portfela"
   },
   "securityPerformance": {
-    "selectPrompt": "Wybierz papier wartościowy powyżej, aby zobaczyć szczegóły jego wyników.",
-    "selectSecurityPlaceholder": "Wybierz papier wartościowy...",
+    "selectPrompt": "Wybierz powyżej jeden lub więcej papierów wartościowych, aby zobaczyć ich wyniki. Wybierz co najmniej dwa, aby porównać je na jednym wykresie.",
+    "selectSecuritiesPlaceholder": "Wybierz papiery wartościowe...",
+    "comparisonTitle": "Porównanie wyników",
+    "comparisonSubtitle": "Skumulowany zwrot każdego wybranego papieru wartościowego, sprowadzony do 0% w dniu pierwszej dostępnej ceny, aby można je było porównać na jednej skali niezależnie od ceny i waluty.",
+    "comparisonNoData": "Dla wybranych papierów wartościowych nie ma dostępnej historii cen.",
+    "comparisonError": "Nie udało się wczytać historii cen. Spróbuj ponownie.",
     "viewPriceChart": "Wykres ceny",
     "viewTransactions": "Transakcje",
     "viewDividends": "Dywidendy",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Łączna liczba pozycji",
     "largestType": "Największy typ",
     "assetTypeAllocation": "Alokacja według typu aktywów",
-    "typeStocks": "Akcje",
-    "typeEtfs": "ETF-y",
-    "typeMutualFunds": "Fundusze inwestycyjne",
-    "typeBonds": "Obligacje",
-    "typeCash": "Gotówka",
     "holdingsCount": "{count, plural, one {# konto} few {# konta} many {# kont} other {# konta}}",
     "total": "Suma",
     "tooltipHoldings": "{count, plural, one {# pozycja} few {# pozycje} many {# pozycji} other {# pozycji}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Nazwa jest wymagana"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Wybierz konto kredytu",
+    "viewTransactions": "Zobacz transakcje",
+    "empty": "Nie znaleziono kont kredytów, hipotek ani linii kredytowych."
   }
 }

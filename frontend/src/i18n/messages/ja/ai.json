@@ -8,7 +8,15 @@
     "title": "AI アシスタント",
     "expand": "全画面に拡大",
     "collapse": "パネルに戻す",
-    "close": "閉じる"
+    "close": "閉じる",
+    "movePanel": "パネルを移動：ドラッグする、矢印キーで動かす、クリックで次の隅へ移す",
+    "moveCornerTo": "{corner}に移動",
+    "corner": {
+      "bottom-right": "右下",
+      "bottom-left": "左下",
+      "top-right": "右上",
+      "top-left": "左上"
+    }
   },
   "chat": {
     "conversationSaved": "会話はブラウザに保存されました",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "AI が設定されていません",
-    "message": "AI プロバイダーが設定されていません。AI アシスタントを使用するには、設定で {link} してください。",
-    "linkText": "AI プロバイダーを設定"
+    "message": "AI プロバイダーが設定されていません。AI アシスタントを使用するには、設定で {link} してください。"
   },
   "suggestedQueries": {
     "heading": "財務について質問してください",
@@ -70,6 +77,7 @@
     "newPayee": "(新しい支払先)",
     "category": "カテゴリ",
     "splits": "分割",
+    "attachments": "添付ファイル",
     "newCategory": "新しいカテゴリ",
     "currentCategory": "現在のカテゴリ",
     "description": "説明",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {投資取引は作成されませんでした} other {# 件の投資取引を作成しました}}",
     "rowsSkipped": "{count, plural, other {# 行をスキップしました}}",
     "rowSkippedBadge": "スキップ",
+    "reconciledBadge": "照合済み",
+    "reconciledWarning": "この取引は照合済みです。変更すると完了した照合に影響します。",
     "investmentActions": {
       "BUY": "買い",
       "SELL": "売り",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "アシスタントはオフライン",
-      "listening": "アシスタントは待機中",
-      "busy": "アシスタントは処理中"
+      "offline": "MCP エージェントはオフライン",
+      "listening": "MCP エージェントは待機中",
+      "busy": "MCP エージェントは処理中",
+      "idle": "非アクティブのため切断されました — 続けるには再接続してください"
     },
     "howToConnect": "接続方法",
     "hideHelp": "非表示",

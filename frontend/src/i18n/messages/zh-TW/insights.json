@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI 未設定",
-    "message": "尚未設定 AI 提供者。若要使用消費洞察，請在設定中 {link}。",
-    "linkText": "設定 AI 提供者"
+    "message": "尚未設定 AI 提供者。若要使用消費洞察，請在設定中 {link}。"
   },
   "insightTypes": {
     "anomaly": "異常",

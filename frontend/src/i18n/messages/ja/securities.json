@@ -203,7 +203,13 @@
     "addPriceSection": "株価を追加",
     "editPriceSection": "株価を編集",
     "loading": "株価を読み込み中...",
+    "chartTitle": "価格履歴",
+    "markers": {
+      "bought": "買付 {quantity}・{account}",
+      "sold": "売却 {quantity}・{account}"
+    },
     "empty": "株価履歴がありません",
+    "showingCount": "{total} 件中 {shown} 件の株価を表示",
     "columns": {
       "date": "日付",
       "close": "終値",
@@ -230,6 +236,7 @@
     "closeButton": "閉じる",
     "deleteConfirm": {
       "title": "株価を削除",
+      "message": "{date} の株価を削除しますか？",
       "confirmLabel": "削除"
     }
   },

@@ -104,8 +104,12 @@
       "lookupTooShort": "Podaj kod lub nazwę waluty (co najmniej 2 znaki), aby wyszukać",
       "found": "Znaleziono: {details}",
       "notFound": "Nie znaleziono waluty dla \"{query}\"",
-      "lookupFailed": "Wyszukiwanie nie powiodło się - spróbuj ponownie"
-    }
+      "lookupFailed": "Wyszukiwanie nie powiodło się - spróbuj ponownie",
+      "reactivateFailed": "Nie udało się ponownie aktywować waluty"
+    },
+    "inactiveNotice": "{code} jest już na Twojej liście, ale jest nieaktywna.",
+    "reactivateButton": "Aktywuj ponownie {code}",
+    "reactivating": "Ponowne aktywowanie..."
   },
   "validation": {
     "codeLength": "Kod waluty musi mieć dokładnie 3 znaki",

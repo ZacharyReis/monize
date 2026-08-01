@@ -4,6 +4,7 @@
     "subtitle": "Gérez vos bénéficiaires et leurs catégories par défaut",
     "deactivateUnused": "Désactiver les inutilisés",
     "autoAssignCategories": "Attribuer les catégories automatiquement",
+    "maintenance": "Maintenance",
     "autoMergePayees": "Fusionner automatiquement les bénéficiaires",
     "newPayee": "+ Nouveau bénéficiaire",
     "searchPlaceholder": "Rechercher des bénéficiaires...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Réactiver",
-      "reactivateShort": "Re",
       "merge": "Fusionner",
-      "mergeShort": "F",
       "edit": "Modifier",
-      "editShort": "M",
-      "delete": "Supprimer",
-      "deleteShort": "X"
+      "delete": "Supprimer"
     },
     "viewTransactionsTitle": "Voir les transactions avec ce bénéficiaire",
     "uncategorizedBadge": "{count, plural, one {# sans catégorie} other {# sans catégorie}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Veuillez sélectionner au moins un groupe à fusionner",
       "applied": "{groups, plural, one {# groupe fusionné} other {# groupes fusionnés}} ({payees} bénéficiaires combinés)",
       "backfilled": "{count, plural, one {# transaction catégorisée} other {# transactions catégorisées}}",
-      "aliasesSkipped": "{count, plural, one {# alias a été ignoré en raison d'un conflit} other {# alias ont été ignorés en raison de conflits}}",
+      "aliasesSkipped": "{count, plural, one {# alias a été ignoré en raison d'un conflit} other {# alias ont été ignorés en raison de conflits}}: {aliases}",
       "loadFailed": "Échec du chargement des groupes de fusion",
-      "applyFailed": "Échec de la fusion des bénéficiaires"
+      "applyFailed": "Échec de la fusion des bénéficiaires",
+      "someGroupsFailed": "{count, plural, one {# groupe n'a pas pu être fusionné} other {# groupes n'ont pas pu être fusionnés}} : {reason}"
     },
     "categoryMatchLabel": "Fusionner uniquement les bénéficiaires de la même catégorie",
     "categoryMatchHelp": "Sépare les bénéficiaires dont les catégories diffèrent, réduisant les faux positifs.",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@/test/render';
+import { render, screen, waitFor, fireEvent, act } from '@/test/render';
 import CallbackPage from './page';
 
 const mockRouterPush = vi.fn();
@@ -47,16 +47,34 @@ vi.mock('@/store/authStore', () => ({
   ),
 }));
 
+const mockStoreUpdatePreferences = vi.fn();
+
 vi.mock('@/store/preferencesStore', () => ({
   usePreferencesStore: (selector?: any) => {
     const state = {
       preferences: { twoFactorEnabled: false, theme: 'system' },
       isLoaded: true,
       _hasHydrated: true,
+      updatePreferences: mockStoreUpdatePreferences,
     };
     return selector ? selector(state) : state;
   },
 }));
+
+// Reached only via the first-run preferences step below.
+vi.mock('@/lib/exchange-rates', () => ({
+  exchangeRatesApi: {
+    getCurrencyCatalog: vi.fn().mockResolvedValue([
+      { code: 'USD', name: 'US Dollar', symbol: '$', decimalPlaces: 2 },
+    ]),
+  },
+}));
+
+vi.mock('@/lib/user-settings', () => ({
+  userSettingsApi: { updatePreferences: vi.fn().mockResolvedValue({}) },
+}));
+
+vi.mock('js-cookie', () => ({ default: { set: vi.fn() } }));
 
 const mockGetProfile = vi.fn();
 
@@ -74,9 +92,19 @@ vi.mock('@/lib/errors', () => ({
 }));
 
 describe('CallbackPage', () => {
+  // Tests that assert on redirects replace window.location wholesale; restore
+  // it between tests so later ones (next/image needs a real URL) are not
+  // affected by the stub.
+  const originalLocation = window.location;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
   });
 
   it('renders loading state', () => {
@@ -202,6 +230,65 @@ describe('CallbackPage', () => {
       expect(mockRouterPush).toHaveBeenCalledWith('/dashboard');
     });
     expect(sessionStorage.getItem('postLoginReturnTo')).toBeNull();
+  });
+
+  describe('first-run preferences step', () => {
+    const newUser = {
+      id: 'user-1', email: 'test@example.com', authProvider: 'oidc', hasPassword: false,
+      role: 'user', isActive: true, mustChangePassword: false,
+    };
+
+    async function renderWelcome(search = 'success=true&welcome=true') {
+      mockSearchParams = new URLSearchParams(search);
+      mockGetProfile.mockResolvedValue(newUser);
+      await act(async () => {
+        render(<CallbackPage />);
+      });
+      await waitFor(() =>
+        expect(screen.getByText('Set Your Preferences')).toBeInTheDocument(),
+      );
+    }
+
+    it('shows the step for an account this login provisioned', async () => {
+      await renderWelcome();
+      expect(screen.getByLabelText('Language')).toBeInTheDocument();
+      expect(screen.getByLabelText('Default currency')).toBeInTheDocument();
+      // The user stays here until they finish; no redirect yet.
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('is skipped for an existing account signing in again', async () => {
+      mockSearchParams = new URLSearchParams('success=true');
+      mockGetProfile.mockResolvedValue(newUser);
+      render(<CallbackPage />);
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/dashboard'));
+      expect(screen.queryByText('Set Your Preferences')).not.toBeInTheDocument();
+    });
+
+    it('continues to the dashboard once the step is done', async () => {
+      await renderWelcome();
+      await act(async () => {
+        fireEvent.click(screen.getByText('Skip for now'));
+      });
+      expect(mockRouterPush).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('follows a stashed returnTo once the step is done', async () => {
+      sessionStorage.setItem('postLoginReturnTo', '/some/path?foo=bar');
+      // Reaching the step at all proves the returnTo was held rather than
+      // followed on arrival, as it is without the step.
+      await renderWelcome();
+      const assignSpy = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { href: originalLocation.href, assign: assignSpy },
+        writable: true,
+        configurable: true,
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Skip for now'));
+      });
+      expect(assignSpy).toHaveBeenCalledWith('/some/path?foo=bar');
+    });
   });
 
   it('falls back to dashboard when sessionStorage throws', async () => {

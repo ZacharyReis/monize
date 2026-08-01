@@ -63,6 +63,14 @@ export interface Transaction {
   amount: number;
   currencyCode: string;
   exchangeRate: number;
+  /**
+   * Foreign-currency entry: the amount the user actually paid and the currency
+   * they paid in. Null for an ordinary transaction (amount/currencyCode are the
+   * account currency); exchangeRate is account-currency units per 1 unit of
+   * originalCurrencyCode.
+   */
+  originalAmount: number | null;
+  originalCurrencyCode: string | null;
   description: string | null;
   referenceNumber: string | null;
   status: TransactionStatus;
@@ -80,6 +88,8 @@ export interface Transaction {
   linkedTransaction?: Transaction | null;
   /** ID of the linked investment transaction (if this is a cash transaction for an investment) */
   linkedInvestmentTransactionId?: string | null;
+  /** Number of file attachments on this transaction (populated by the list endpoint). */
+  attachmentCount?: number;
   splits?: TransactionSplit[];
   tags?: Tag[];
   createdAt: string;
@@ -105,6 +115,9 @@ export interface CreateTransactionData {
   amount: number;
   currencyCode: string;
   exchangeRate?: number;
+  /** Foreign-currency entry (both provided together, or null to clear on update). */
+  originalAmount?: number | null;
+  originalCurrencyCode?: string | null;
   description?: string | null;
   referenceNumber?: string | null;
   status?: TransactionStatus;
@@ -133,12 +146,46 @@ export interface TransactionSummary {
   totalExpenses: number;
   netCashFlow: number;
   transactionCount: number;
+  firstTransactionDate?: string | null;
+  lastTransactionDate?: string | null;
   byCurrency?: Record<string, CurrencySummary>;
+}
+
+export interface GroupedTotal {
+  id: string | null;
+  name: string | null;
+  currencyCode: string;
+  total: number;
+  count: number;
+}
+
+export interface RecurringChargeInfo {
+  payeeName: string;
+  payeeId: string | null;
+  amounts: number[];
+  dates: string[];
+  frequency: string;
+  currentAmount: number;
+  previousAmount: number;
+  categoryName: string | null;
+  categoryId: string | null;
 }
 
 export interface MonthlyTotal {
   month: string;
   total: number;
+  count: number;
+}
+
+/**
+ * Monthly foreign-transaction fee totals for one account, per paid currency.
+ * feeTotal is positive, in the account currency; count is the number of
+ * foreign-entered transactions that month (fee split or not).
+ */
+export interface FxFeeMonthlyTotal {
+  month: string;
+  currencyCode: string;
+  feeTotal: number;
   count: number;
 }
 

@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Borç Kapatma Takvimi",
       "loan-amortization": "Kredi İtfa Planı",
       "credit-utilization": "Kredi Kullanımı",
+      "loan-overpayment-simulator": "Kredi Erken Ödeme Simülatörü",
       "investment-performance": "Yatırım Performansı",
       "dividend-income": "Kazançlar, Temettüler ve Faiz",
       "sector-weightings": "Sektör Ağırlıkları",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Menkul Kıymet Türü Dağılımı",
       "geographic-allocation": "Coğrafi/Borsa Dağılımı",
       "dividend-yield-growth": "Temettü Verimi ve Büyümesi",
-      "security-performance": "Bireysel Menkul Kıymet Performansı",
+      "security-performance": "Menkul kıymet performansı",
       "currency-exposure": "Para Birimi Riski",
       "monte-carlo-simulation": "Monte Carlo Simülasyonu",
       "recurring-expenses": "Tekrarlayan Gider Takibi",
       "spending-anomalies": "Harcama Anomalileri",
       "weekend-weekday-spending": "Hafta Sonu - Hafta İçi Harcama",
       "monthly-comparison": "Aylık Karşılaştırma",
+      "foreign-currency-fees": "Yabancı Para Birimi İşlem Ücretleri",
       "uncategorized-transactions": "Kategorisiz İşlemler",
       "duplicate-transactions": "Mükerrer İşlem Bulucu",
       "upcoming-bills": "Yaklaşan Faturalar Takvimi",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Kapatma tarihleri projeksiyonlarıyla borç azaltma ilerlemenizi görselleştirin.",
       "loan-amortization": "Anapara - faiz dökümüyle ipotek ve krediler için ayrıntılı ödeme planları.",
       "credit-utilization": "Kredi kartları ve kredi limitleri genelinde mevcut kredinizin ne kadarını kullandığınızı görün.",
+      "loan-overpayment-simulator": "Bir kredi seçin ve ek ödemeleri simüle ederek ne kadar erken kapanacağını ve ne kadar faiz tasarrufu sağlayacağınızı görün.",
       "investment-performance": "Zaman içinde portföy getirilerini, kazanç/kayıpları ve varlık dağılımını takip edin.",
       "dividend-income": "Temettü ve faiz gelirinin yanı sıra gerçekleşen ve gerçekleşmeyen sermaye kazançlarını ve kayıplarını takip edin.",
       "sector-weightings": "Bireysel hisseler ve ETF'lerden portföy sektör riskini analiz edin.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Varlık türüne göre portföy dağılımını görüntüleyin (hisseler, ETF'ler, yatırım fonları, tahviller) ve holdings'e ayrıntılı bakın.",
       "geographic-allocation": "Çeşitlendirme bilgileri için borsa ve bölgeye göre portföy coğrafi riskini analiz edin.",
       "dividend-yield-growth": "Temettü verimini, menkul kıymet bazında verimleri, yıldan yıla büyümeyi ve ödeme sıklığı analizini takip edin.",
-      "security-performance": "Fiyat geçmişi, işlemler ve getirilerle bireysel menkul kıymet performansına derinlemesine bakış.",
+      "security-performance": "Bir menkul kıymetin fiyat geçmişini, işlemlerini ve getirilerini ayrıntılı inceleyin ya da birden fazla menkul kıymetin performansını tek bir grafikte karşılaştırın.",
       "currency-exposure": "Portföyün para birimine göre dağılımı ve döviz kuru ayrıntılarıyla kur riskini anlayın.",
       "monte-carlo-simulation": "Binlerce rastgeleleştirilmiş getiri yolu ve kaydedilmiş senaryo kütüphanesiyle gelecekteki portföy sonuçlarını tahmin edin.",
       "recurring-expenses": "Abonelikleri, üyelikleri ve tekrarlayan ödemeleri tanımlayın ve izleyin.",
       "spending-anomalies": "Dikkat gerektiren olağandışı büyük işlemleri ve harcama artışlarını tespit edin.",
       "weekend-weekday-spending": "Alışkanlıkları anlamak için haftanın gününe göre harcama kalıplarınızı analiz edin.",
       "monthly-comparison": "Herhangi bir ayı önceki ayla gelir, gider, net değer ve yatırımlar açısından karşılaştırın.",
+      "foreign-currency-fees": "Dönüştürme ücreti uygulayan hesaplarda tahsil edilen yurt dışı işlem ücretlerini takip edin.",
       "uncategorized-transactions": "Kategori eksik işlemleri bulun ve kategorilendirin.",
       "duplicate-transactions": "İnceleme veya silme gerektirebilecek olası mükerrer kayıtları belirleyin.",
       "upcoming-bills": "Zamanlanmış işlemlerin ve yaklaşan fatura ödeme tarihlerinin görsel takvimi.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Rapor verileri yüklenemedi. Lütfen tekrar deneyin.",
     "retry": "Tekrar dene"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Hiçbir hesapta yapılandırılmış yurt dışı işlem ücreti yok. Yabancı para birimi ücretlerini burada takip etmek için bir hesaba ücret yüzdesi ayarlayın."
   },
   "accountBalances": {
     "totalAssets": "Toplam Varlıklar",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Bitiş: ",
     "cashFlowEventPdfStarts": "Başlar: ",
     "cashFlowEventPdfEnds": "Biter: ",
-    "cashFlowDefaultName": "Nakit akışı",
     "cashFlowPerYear": "/ yıl",
     "tooltipRow90th": "90. yüzdelik",
     "tooltipRow75th": "75. yüzdelik",
@@ -1104,6 +1110,10 @@
     "noData": "Bu dönem için yatırım verisi yok.",
     "tooltipPortfolio": "Portföy:",
     "allAccounts": "Tüm Hesaplar",
+    "viewTotal": "Toplam",
+    "viewSecurities": "Menkul bazında",
+    "seriesCash": "Nakit",
+    "seriesOther": "Diğer menkuller",
     "colDate": "Tarih",
     "colPortfolioValue": "Portföy Değeri",
     "breakdownTitle": "Mevcut Portföy Dökümü",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "Portföy %"
   },
   "securityPerformance": {
-    "selectPrompt": "Performans ayrıntılarını görüntülemek için yukarıdan menkul kıymet seçin.",
-    "selectSecurityPlaceholder": "Menkul kıymet seçin...",
+    "selectPrompt": "Performansını görüntülemek için yukarıdan bir veya daha fazla menkul kıymet seçin. Tek bir grafikte karşılaştırmak için iki veya daha fazlasını seçin.",
+    "selectSecuritiesPlaceholder": "Menkul kıymetler seçin...",
+    "comparisonTitle": "Performans karşılaştırması",
+    "comparisonSubtitle": "Seçilen her menkul kıymetin kümülatif getirisi, ilk mevcut fiyatında %0'a sabitlenir; böylece fiyat veya para biriminden bağımsız olarak tek bir ölçekte karşılaştırılır.",
+    "comparisonNoData": "Seçilen menkul kıymetler için fiyat geçmişi yok.",
+    "comparisonError": "Fiyat geçmişi yüklenemedi. Lütfen tekrar deneyin.",
     "viewPriceChart": "Fiyat Grafiği",
     "viewTransactions": "İşlemler",
     "viewDividends": "Temettüler",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Toplam Varlıklar",
     "largestType": "En Büyük Tür",
     "assetTypeAllocation": "Varlık Türü Dağılımı",
-    "typeStocks": "Hisseler",
-    "typeEtfs": "ETF'ler",
-    "typeMutualFunds": "Yatırım Fonları",
-    "typeBonds": "Tahviller",
-    "typeCash": "Nakit",
     "holdingsCount": "{count, plural, one {# hesap} other {# hesap}}",
     "total": "Toplam",
     "tooltipHoldings": "{count, plural, one {# varlık} other {# varlık}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Ad zorunludur"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Kredi Hesabı Seç",
+    "viewTransactions": "İşlemleri Görüntüle",
+    "empty": "Kredi, ipotek veya kredi limiti hesabı bulunamadı."
   }
 }

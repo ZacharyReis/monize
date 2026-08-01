@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "v{version} 릴리스 노트 보기"
   },
+  "whatsNew": {
+    "title": "새로운 기능",
+    "versionLabel": "버전 {version}",
+    "expandAll": "모두 펼치기",
+    "collapseAll": "모두 접기",
+    "viewFullNotes": "전체 릴리스 노트 보기",
+    "dontShowAgain": "다시 표시하지 않기",
+    "showNextLogin": "다음 로그인 시 표시",
+    "close": "닫기",
+    "unavailable": "이 버전의 릴리스 노트를 사용할 수 없습니다.",
+    "englishOnly": "아래 릴리스 노트는 영어로만 제공됩니다. 가이드 투어를 포함한 Monize 자체는 언어 설정을 따릅니다."
+  },
   "save": "저장",
   "cancel": "취소",
   "delete": "삭제",
@@ -65,6 +77,9 @@
     "downloadAsPng": "{filename}을(를) PNG로 다운로드",
     "unableToCapture": "차트 이미지를 캡처할 수 없습니다",
     "failedToDownload": "차트 다운로드에 실패했습니다"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "{filename}을(를) CSV로 다운로드"
   },
   "chartViewToggle": {
     "pieChart": "파이 차트",
@@ -158,10 +173,47 @@
     "length": "코드는 정확히 6자리여야 합니다",
     "digits": "코드는 6자리 숫자여야 합니다"
   },
-  "monthsShort": ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"],
-  "weekdaysShort": ["일", "월", "화", "수", "목", "금", "토"],
-  "weekdaysMin": ["일", "월", "화", "수", "목", "금", "토"],
-  "weekdaysNarrow": ["일", "월", "화", "수", "목", "금", "토"],
+  "monthsShort": [
+    "1월",
+    "2월",
+    "3월",
+    "4월",
+    "5월",
+    "6월",
+    "7월",
+    "8월",
+    "9월",
+    "10월",
+    "11월",
+    "12월"
+  ],
+  "weekdaysShort": [
+    "일",
+    "월",
+    "화",
+    "수",
+    "목",
+    "금",
+    "토"
+  ],
+  "weekdaysMin": [
+    "일",
+    "월",
+    "화",
+    "수",
+    "목",
+    "금",
+    "토"
+  ],
+  "weekdaysNarrow": [
+    "일",
+    "월",
+    "화",
+    "수",
+    "목",
+    "금",
+    "토"
+  ],
   "dateFormat": {
     "browserAuto": "브라우저 로케일 사용 (자동 감지: {sample})",
     "custom": "사용자 지정..."

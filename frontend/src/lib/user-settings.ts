@@ -1,4 +1,5 @@
 import apiClient from './api';
+import { clearAllCache } from './apiCache';
 import {
   User,
   UserPreferences,
@@ -70,6 +71,12 @@ export const userSettingsApi = {
     const response = await apiClient.post<DeleteDataResult>('/users/delete-data', options, {
       timeout: 120000,
     });
+    // The purge spans transactions, tags, budgets, reports and -- depending on
+    // the toggles -- accounts, categories, payees and currency preferences, so
+    // every cached list is potentially stale. Drop them all rather than guess
+    // which toggles were set: without this the next page navigation serves
+    // pre-delete data until the entry's TTL lapses (5 minutes for categories).
+    clearAllCache();
     return response.data;
   },
 };

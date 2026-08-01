@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI が設定されていません",
-    "message": "AI プロバイダーが設定されていません。支出インサイトを使用するには、設定で {link} してください。",
-    "linkText": "AI プロバイダーを設定"
+    "message": "AI プロバイダーが設定されていません。支出インサイトを使用するには、設定で {link} してください。"
   },
   "insightTypes": {
     "anomaly": "異常",

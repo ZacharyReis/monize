@@ -98,12 +98,15 @@
       "both": "이 날짜로 기재하면 <b>{fromAccount}</b>이(가) <b>{fromAmount}</b>({fromCondition})이 되고 <b>{toAccount}</b>이(가) <b>{toAmount}</b>({toCondition})이 됩니다."
     },
     "splitLabel": "이 거래 분할",
+    "copyAmount": "금액 복사",
     "referenceNumberLabel": "참조 번호 (선택사항)",
     "noPriceHistory": "이 유가증권에 대한 가격 이력이 아직 없습니다. 가격을 수동으로 입력하세요.",
     "postButton": "거래 게시",
     "toasts": {
       "posted": "거래가 게시되었습니다",
       "postFailed": "거래 게시에 실패했습니다",
+      "amountCopied": "금액이 복사되었습니다",
+      "copyFailed": "금액 복사에 실패했습니다",
       "quantityRequired": "수량은 0보다 커야 합니다",
       "priceRequired": "가격은 0보다 커야 합니다",
       "totalAmountRequired": "총 금액이 필요합니다",

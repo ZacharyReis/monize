@@ -92,6 +92,25 @@ backend:
     DATABASE_HOST: ""
     DATABASE_NAME: ""
 
+  # -- Row-Level Security (defense-in-depth). Off by default -- leave as-is for
+  # the standard single-role setup. See docs/future-plans/row-level-security.md
+  # and the runbook before changing RLS_MODE.
+  # RLS_MODE and DATABASE_APP_USER are rendered into the backend ConfigMap.
+  # NOTE: DATABASE_APP_PASSWORD is a secret -- supply it alongside
+  # DATABASE_PASSWORD via extraEnvFrom (secretRef) or extraEnv
+  # (valueFrom.secretKeyRef), never here.
+  # On CNPG the owner (DATABASE_USER) has no CREATEROLE, so the monize_app role
+  # cannot be created by the app at startup -- provision it with the CNPG
+  # DatabaseRole CRD (CloudNativePG 1.30+; see helm/README.md), or the older
+  # Cluster `spec.managed.roles` stanza on pre-1.30. Startup then only applies
+  # the role's grants.
+  rls:
+    # off | shadow | enforce
+    RLS_MODE: "off"
+    # Name of the unprivileged runtime role (must match the CNPG managed role /
+    # DATABASE_APP_PASSWORD secret). Defaults to monize_app when blank.
+    DATABASE_APP_USER: "monize_app"
+
   # -- Authentication settings
   auth:
     LOCAL_AUTH_ENABLED: "true"

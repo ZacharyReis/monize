@@ -13,6 +13,8 @@ import { Transaction, TransactionStatus } from "./entities/transaction.entity";
 import { TransactionSplit } from "./entities/transaction-split.entity";
 import { Category } from "../categories/entities/category.entity";
 import { InvestmentTransaction } from "../securities/entities/investment-transaction.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
+import { TransactionAttachment } from "../attachments/entities/transaction-attachment.entity";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
 import { CreateTransactionSplitDto } from "./dto/create-transaction-split.dto";
@@ -48,6 +50,11 @@ import {
   buildTransactionSearchClause,
   escapeLikePattern,
 } from "./transaction-search.util";
+import {
+  parseSearchTerm,
+  ParsedSearchTerm,
+} from "./transaction-search-parse.util";
+import { buildTagKeyFilterClause, TagKeyFilter } from "./tag-key-filter.util";
 import { tr } from "../i18n/translate";
 import { stripHtml } from "../common/sanitization.util";
 import {
@@ -58,6 +65,7 @@ import {
 
 export interface TransactionWithInvestmentLink extends Transaction {
   linkedInvestmentTransactionId?: string | null;
+  attachmentCount?: number;
 }
 
 export interface PaginatedTransactions extends PaginatedResult<TransactionWithInvestmentLink> {
@@ -75,6 +83,11 @@ export interface LlmTransactionRow {
   description: string | null;
   status: string;
   isSplit?: boolean;
+  // Foreign-currency entry metadata (read-only). Present only when the
+  // transaction was entered in a currency other than the account currency.
+  originalAmount?: number;
+  originalCurrencyCode?: string;
+  exchangeRate?: number;
 }
 
 export interface LlmTransactionSearch {
@@ -147,6 +160,11 @@ export interface UpdateTransactionPreview {
   categoryName: string | null;
   description: string | null;
   currencyCode: string;
+  /**
+   * True when the target transaction is reconciled. Editing it disturbs a
+   * completed reconciliation, so the confirmation surfaces flag this.
+   */
+  isReconciled: boolean;
 }
 
 /** Resolved preview of a proposed transaction deletion (display-only). */
@@ -159,6 +177,11 @@ export interface DeleteTransactionPreview {
   categoryName: string | null;
   description: string | null;
   currencyCode: string;
+  /**
+   * True when the target transaction is reconciled. Deleting it disturbs a
+   * completed reconciliation, so the confirmation surfaces flag this.
+   */
+  isReconciled: boolean;
 }
 
 export { TransferResult };
@@ -176,6 +199,8 @@ export class TransactionsService {
     private categoriesRepository: Repository<Category>,
     @InjectRepository(InvestmentTransaction)
     private investmentTransactionsRepository: Repository<InvestmentTransaction>,
+    @InjectRepository(UserPreference)
+    private userPreferenceRepository: Repository<UserPreference>,
     @Inject(forwardRef(() => AccountsService))
     private accountsService: AccountsService,
     private payeesService: PayeesService,
@@ -191,12 +216,106 @@ export class TransactionsService {
     private actionHistoryService: ActionHistoryService,
   ) {}
 
+  /**
+   * Interprets the search box term as an exact amount and/or date using the
+   * user's number/date-format preferences, so a value typed in the user's own
+   * locale format (e.g. "1 234,56" or "02.07.2026") also matches. Returns
+   * `{ amount: null, date: null }` for a blank/non-parseable term.
+   */
+  private async resolveSearchTerm(
+    userId: string,
+    term?: string,
+  ): Promise<ParsedSearchTerm> {
+    if (!term || !term.trim()) return { amount: null, date: null };
+    const prefs = await this.userPreferenceRepository.findOne({
+      where: { userId },
+    });
+    return parseSearchTerm(term, {
+      numberFormat: prefs?.numberFormat,
+      dateFormat: prefs?.dateFormat,
+    });
+  }
+
+  /**
+   * Validate and normalize the foreign-currency entry fields against the
+   * account currency. Returns the values to persist:
+   * - Both fields null when no foreign entry is present.
+   * - Both stripped to null when the entered currency equals the account
+   *   currency (tolerant: an ordinary transaction, not an error).
+   * - Otherwise both retained, after checking the pair is complete, the rate is
+   *   positive, and the original amount matches the sign of the (account
+   *   currency) amount.
+   * The account-currency `amount` and `currencyCode` are never modified here.
+   */
+  private normalizeFxEntry(
+    input: {
+      originalAmount?: number | null;
+      originalCurrencyCode?: string | null;
+      exchangeRate?: number | null;
+      amount: number;
+    },
+    accountCurrencyCode: string,
+  ): { originalAmount: number | null; originalCurrencyCode: string | null } {
+    const hasAmount =
+      input.originalAmount !== undefined && input.originalAmount !== null;
+    const hasCode =
+      typeof input.originalCurrencyCode === "string" &&
+      input.originalCurrencyCode.length > 0;
+
+    if (!hasAmount && !hasCode) {
+      return { originalAmount: null, originalCurrencyCode: null };
+    }
+
+    if (hasAmount !== hasCode) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.fxFieldsIncomplete",
+          "originalAmount and originalCurrencyCode must be provided together",
+        ),
+      );
+    }
+
+    const code = (input.originalCurrencyCode as string).toUpperCase();
+
+    // Entered in the account currency after all -- treat as an ordinary
+    // transaction and strip the foreign metadata.
+    if (code === accountCurrencyCode.toUpperCase()) {
+      return { originalAmount: null, originalCurrencyCode: null };
+    }
+
+    const rate = input.exchangeRate;
+    if (rate === undefined || rate === null || Number(rate) <= 0) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.fxRateRequired",
+          "A positive exchange rate is required for a foreign-currency transaction",
+        ),
+      );
+    }
+
+    const original = Number(input.originalAmount);
+    const amount = Number(input.amount);
+    if (original > 0 !== amount > 0 && original !== 0 && amount !== 0) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.fxSignMismatch",
+          "originalAmount and amount must have the same sign",
+        ),
+      );
+    }
+
+    return { originalAmount: original, originalCurrencyCode: code };
+  }
+
   async create(
     userId: string,
     createTransactionDto: CreateTransactionDto,
     options?: { createPayeeIfMissing?: boolean },
   ): Promise<Transaction> {
-    await this.accountsService.findOne(userId, createTransactionDto.accountId);
+    const account = await this.accountsService.findOne(
+      userId,
+      createTransactionDto.accountId,
+    );
 
     const { splits, tagIds, ...transactionData } = createTransactionDto;
     const hasSplits = splits && splits.length > 0;
@@ -204,6 +323,17 @@ export class TransactionsService {
     if (hasSplits) {
       this.splitService.validateSplits(splits, createTransactionDto.amount);
     }
+
+    // Normalize/validate foreign-currency entry against the account currency.
+    const fx = this.normalizeFxEntry(
+      {
+        originalAmount: transactionData.originalAmount,
+        originalCurrencyCode: transactionData.originalCurrencyCode,
+        exchangeRate: transactionData.exchangeRate,
+        amount: transactionData.amount,
+      },
+      account.currencyCode,
+    );
 
     // Validate ownership of a referenced payee, or -- when the caller opts in
     // (createPayeeIfMissing) and only a free-text name was given -- find or
@@ -264,6 +394,8 @@ export class TransactionsService {
         isSplit: hasSplits,
         userId,
         exchangeRate: transactionData.exchangeRate || 1,
+        originalAmount: fx.originalAmount,
+        originalCurrencyCode: fx.originalCurrencyCode,
       });
 
       const savedTransaction = await queryRunner.manager.save(transaction);
@@ -276,23 +408,14 @@ export class TransactionsService {
           userId,
           createTransactionDto.accountId,
           new Date(createTransactionDto.transactionDate),
-          transactionData.payeeName,
+          resolvedPayeeName,
           queryRunner,
+          resolvedPayeeId,
         );
 
-        // Set split-level tags
+        // Set split-level tags (and mirror them onto any transfer counterpart)
         if (savedSplits && splits) {
-          for (let i = 0; i < splits.length; i++) {
-            const splitTagIds = splits[i].tagIds;
-            if (splitTagIds && splitTagIds.length > 0 && savedSplits[i]) {
-              await this.tagsService.setSplitTags(
-                savedSplits[i].id,
-                splitTagIds,
-                userId,
-                queryRunner,
-              );
-            }
-          }
+          await this.applySplitTags(savedSplits, splits, userId, queryRunner);
         }
       }
 
@@ -819,6 +942,7 @@ export class TransactionsService {
       categoryName,
       description,
       currencyCode: existing.currencyCode,
+      isReconciled: existing.isReconciled,
     };
   }
 
@@ -841,6 +965,7 @@ export class TransactionsService {
       categoryName: existing.category?.name ?? null,
       description: existing.description ?? null,
       currencyCode: existing.currencyCode,
+      isReconciled: existing.isReconciled,
     };
   }
 
@@ -921,10 +1046,18 @@ export class TransactionsService {
     statuses?: TransactionStatus[],
     sortBy: "date" | "amount" | "payee" = "date",
     sortDirection: "ASC" | "DESC" = "DESC",
+    tagKeyFilter?: TagKeyFilter,
+    originalCurrencyCodes?: string[],
+    hasAttachments?: boolean,
   ): Promise<PaginatedTransactions> {
     const clamped = clampPagination(page, limit);
     const safeLimit = clamped.limit;
     let safePage = clamped.page;
+
+    // Interpret the search term once (amount/date in the user's locale format)
+    // and thread it through the query, the target-page count, and the running
+    // balance so all three match the same rows.
+    const parsedSearch = await this.resolveSearchTerm(userId, search);
 
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder("transaction")
@@ -1002,7 +1135,11 @@ export class TransactionsService {
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: searchPattern },
+        {
+          search: searchPattern,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
+        },
       );
     }
 
@@ -1030,10 +1167,38 @@ export class TransactionsService {
       );
     }
 
+    if (tagKeyFilter) {
+      const { clause, params } = buildTagKeyFilterClause(
+        "transaction",
+        tagKeyFilter,
+      );
+      queryBuilder.andWhere(clause, params);
+    }
+
     if (statuses && statuses.length > 0) {
       queryBuilder.andWhere("transaction.status IN (:...statuses)", {
         statuses,
       });
+    }
+
+    if (originalCurrencyCodes && originalCurrencyCodes.length > 0) {
+      queryBuilder.andWhere(
+        "transaction.original_currency_code IN (:...originalCurrencyCodes)",
+        { originalCurrencyCodes },
+      );
+    }
+
+    // Attachment presence filter. An EXISTS subquery against the separate
+    // transaction_attachments table keeps this out of the heavily-joined main
+    // query, so it never multiplies rows or corrupts pagination.
+    if (hasAttachments !== undefined) {
+      const existsSubquery =
+        "SELECT 1 FROM transaction_attachments ta WHERE ta.transaction_id = transaction.id";
+      queryBuilder.andWhere(
+        hasAttachments
+          ? `EXISTS (${existsSubquery})`
+          : `NOT EXISTS (${existsSubquery})`,
+      );
     }
 
     if (targetTransactionId) {
@@ -1048,6 +1213,7 @@ export class TransactionsService {
         search,
         includeInvestmentBrokerage,
         safePage,
+        parsedSearch,
       );
     }
 
@@ -1082,6 +1248,8 @@ export class TransactionsService {
           payeeIds,
           tagIds,
           search,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
           amountFrom,
           amountTo,
         },
@@ -1104,6 +1272,8 @@ export class TransactionsService {
           payeeIds,
           tagIds,
           search,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
           amountFrom,
           amountTo,
         },
@@ -1125,6 +1295,8 @@ export class TransactionsService {
           payeeIds,
           tagIds,
           search,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
           amountFrom,
           amountTo,
         },
@@ -1169,7 +1341,21 @@ export class TransactionsService {
             const method = hasCondition ? "orWhere" : "where";
             hasCondition = true;
             qb[method](
-              "transaction.categoryId IS NULL AND transaction.isSplit = false AND transaction.isTransfer = false AND account.accountType != 'INVESTMENT'",
+              new Brackets((unc) => {
+                unc
+                  .where(
+                    "transaction.categoryId IS NULL AND transaction.isSplit = false AND transaction.isTransfer = false AND account.accountType != 'INVESTMENT'",
+                  )
+                  // A split transaction is uncategorised when any of its
+                  // non-transfer split lines has no category. Match those too so
+                  // the list agrees with the account-detail category breakdown,
+                  // which buckets uncategorised split lines the same way. Only
+                  // the matching (null-category) splits hydrate, giving the
+                  // frontend a filtered partial total.
+                  .orWhere(
+                    "transaction.isSplit = true AND transaction.isTransfer = false AND account.accountType != 'INVESTMENT' AND splits.categoryId IS NULL AND splits.transferAccountId IS NULL",
+                  );
+              }),
             );
           }
           if (hasTransfer) {
@@ -1213,6 +1399,7 @@ export class TransactionsService {
     search?: string,
     includeInvestmentBrokerage?: boolean,
     fallbackPage: number = 1,
+    parsedSearch: ParsedSearchTerm = { amount: null, date: null },
   ): Promise<number> {
     try {
       const targetTx = await this.transactionsRepository.findOne({
@@ -1249,7 +1436,11 @@ export class TransactionsService {
         const searchPattern = `%${escapeLikePattern(search.trim())}%`;
         countQuery.andWhere(
           buildTransactionSearchClause({ transaction: "t", splits: "s" }),
-          { search: searchPattern },
+          {
+            search: searchPattern,
+            searchAmount: parsedSearch.amount,
+            searchDate: parsedSearch.date,
+          },
         );
       }
 
@@ -1287,6 +1478,8 @@ export class TransactionsService {
       payeeIds?: string[];
       tagIds?: string[];
       search?: string;
+      searchAmount?: number | null;
+      searchDate?: string | null;
       amountFrom?: number;
       amountTo?: number;
     },
@@ -1427,6 +1620,8 @@ export class TransactionsService {
       payeeIds?: string[];
       tagIds?: string[];
       search?: string;
+      searchAmount?: number | null;
+      searchDate?: string | null;
       amountFrom?: number;
       amountTo?: number;
     },
@@ -1675,6 +1870,8 @@ export class TransactionsService {
       payeeIds?: string[];
       tagIds?: string[];
       search?: string;
+      searchAmount?: number | null;
+      searchDate?: string | null;
       amountFrom?: number;
       amountTo?: number;
     },
@@ -1740,7 +1937,11 @@ export class TransactionsService {
           splits: "bfSplits",
           paramName: "bfSearch",
         }),
-        { bfSearch: searchPattern },
+        {
+          bfSearch: searchPattern,
+          bfSearchAmount: filters.searchAmount ?? null,
+          bfSearchDate: filters.searchDate ?? null,
+        },
       );
     }
 
@@ -1812,6 +2013,7 @@ export class TransactionsService {
   ): Promise<TransactionWithInvestmentLink[]> {
     const transactionIds = data.map((tx) => tx.id);
     const investmentLinkMap = new Map<string, string>();
+    const attachmentCountMap = new Map<string, number>();
 
     if (transactionIds.length > 0) {
       const linkedInvestmentTxs =
@@ -1825,6 +2027,24 @@ export class TransactionsService {
           investmentLinkMap.set(invTx.transactionId, invTx.id);
         }
       }
+
+      // One grouped count over the current page's ids (index-backed by
+      // idx on transaction_id); avoids an N+1 and keeps the blob-free
+      // attachments table off the main query. Read via the injected
+      // DataSource rather than a dedicated @InjectRepository so the RLS
+      // ratchet stays flat.
+      const attachmentCounts = await this.dataSource
+        .getRepository(TransactionAttachment)
+        .createQueryBuilder("ta")
+        .select("ta.transactionId", "transactionId")
+        .addSelect("COUNT(*)", "count")
+        .where("ta.transactionId IN (:...transactionIds)", { transactionIds })
+        .groupBy("ta.transactionId")
+        .getRawMany<{ transactionId: string; count: string }>();
+
+      for (const row of attachmentCounts) {
+        attachmentCountMap.set(row.transactionId, Number(row.count));
+      }
     }
 
     return data.map((tx) => ({
@@ -1833,6 +2053,7 @@ export class TransactionsService {
       isReconciled: tx.isReconciled,
       isVoid: tx.isVoid,
       linkedInvestmentTransactionId: investmentLinkMap.get(tx.id) || null,
+      attachmentCount: attachmentCountMap.get(tx.id) ?? 0,
     }));
   }
 
@@ -1950,21 +2171,12 @@ export class TransactionsService {
             new Date(txDate),
             updateData.payeeName ?? transaction.payeeName,
             queryRunner,
+            updateData.payeeId ?? transaction.payeeId,
           );
 
-          // Set split-level tags
+          // Set split-level tags (and mirror them onto any transfer counterpart)
           if (savedSplits) {
-            for (let i = 0; i < splits.length; i++) {
-              const splitTagIds = splits[i].tagIds;
-              if (splitTagIds && splitTagIds.length > 0 && savedSplits[i]) {
-                await this.tagsService.setSplitTags(
-                  savedSplits[i].id,
-                  splitTagIds,
-                  userId,
-                  queryRunner,
-                );
-              }
-            }
+            await this.applySplitTags(savedSplits, splits, userId, queryRunner);
           }
         } else if (Array.isArray(splits) && splits.length === 0) {
           await this.splitService.deleteSplitSideEffects(
@@ -2000,6 +2212,34 @@ export class TransactionsService {
         transactionUpdateData.currencyCode = updateData.currencyCode;
       if ("exchangeRate" in updateData)
         transactionUpdateData.exchangeRate = updateData.exchangeRate;
+      // Foreign-currency entry: only re-normalize when either field is touched.
+      // Validate against the effective (possibly changed) account currency,
+      // amount, and rate; a null on either field clears the foreign metadata.
+      if (
+        "originalAmount" in updateData ||
+        "originalCurrencyCode" in updateData
+      ) {
+        const effectiveAccountCurrency =
+          updateData.currencyCode ?? transaction.currencyCode;
+        const fx = this.normalizeFxEntry(
+          {
+            originalAmount:
+              "originalAmount" in updateData
+                ? updateData.originalAmount
+                : transaction.originalAmount,
+            originalCurrencyCode:
+              "originalCurrencyCode" in updateData
+                ? updateData.originalCurrencyCode
+                : transaction.originalCurrencyCode,
+            exchangeRate:
+              updateData.exchangeRate ?? Number(transaction.exchangeRate),
+            amount: updateData.amount ?? Number(transaction.amount),
+          },
+          effectiveAccountCurrency,
+        );
+        transactionUpdateData.originalAmount = fx.originalAmount;
+        transactionUpdateData.originalCurrencyCode = fx.originalCurrencyCode;
+      }
       if ("description" in updateData)
         transactionUpdateData.description = updateData.description ?? null;
       if ("referenceNumber" in updateData)
@@ -2389,6 +2629,7 @@ export class TransactionsService {
     search?: string,
     amountFrom?: number,
     amountTo?: number,
+    tagIds?: string[],
   ) {
     return this.analyticsService.getSummary(
       userId,
@@ -2400,6 +2641,66 @@ export class TransactionsService {
       search,
       amountFrom,
       amountTo,
+      undefined,
+      undefined,
+      tagIds,
+    );
+  }
+
+  async getGroupedTotals(
+    userId: string,
+    params: {
+      groupBy: "category" | "payee";
+      accountIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      categoryIds?: string[];
+      payeeIds?: string[];
+      tagIds?: string[];
+      search?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      limit?: number;
+      includeUnreconciledBeforeStart?: boolean;
+    },
+  ) {
+    return this.analyticsService.getGroupedTotals(userId, params);
+  }
+
+  async getTagKeyBreakdown(
+    userId: string,
+    key: string,
+    params: {
+      accountIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      categoryIds?: string[];
+      payeeIds?: string[];
+      tagIds?: string[];
+      search?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      limit?: number;
+    },
+  ) {
+    return this.analyticsService.getTransactionBreakdownByTagKey(
+      userId,
+      key,
+      params,
+    );
+  }
+
+  async getRecurringCharges(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    payeeIds: string[],
+  ) {
+    return this.analyticsService.getRecurringCharges(
+      userId,
+      startDate,
+      endDate,
+      { payeeIds },
     );
   }
 
@@ -2427,6 +2728,10 @@ export class TransactionsService {
       amountTo,
       tagIds,
     );
+  }
+
+  async getFxFeeSummary(userId: string, accountId: string) {
+    return this.analyticsService.getFxFeeSummary(userId, accountId);
   }
 
   async getSplits(userId: string, transactionId: string) {
@@ -2521,6 +2826,41 @@ export class TransactionsService {
     return this.remove(userId, transactionId);
   }
 
+  /**
+   * Persist split-level tags and mirror them onto each split's transfer
+   * counterpart. A transfer split's tags live on both the split row (shown on
+   * the source transaction) and the counterpart leg's transaction tags (shown
+   * on the target account), so the two stay in agreement in both directions.
+   */
+  private async applySplitTags(
+    savedSplits: TransactionSplit[],
+    splits: CreateTransactionSplitDto[],
+    userId: string,
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    for (let i = 0; i < splits.length; i++) {
+      const splitTagIds = splits[i].tagIds;
+      const saved = savedSplits[i];
+      if (!saved || !splitTagIds || splitTagIds.length === 0) continue;
+
+      await this.tagsService.setSplitTags(
+        saved.id,
+        splitTagIds,
+        userId,
+        queryRunner,
+      );
+
+      if (saved.linkedTransactionId) {
+        await this.tagsService.setTransactionTags(
+          saved.linkedTransactionId,
+          splitTagIds,
+          userId,
+          queryRunner,
+        );
+      }
+    }
+  }
+
   async updateTransfer(
     userId: string,
     transactionId: string,
@@ -2544,6 +2884,22 @@ export class TransactionsService {
         updateDto.tagIds,
         userId,
       );
+
+      // When the edited leg belongs to a split transfer, mirror the tags onto
+      // the owning split so the source transaction's split reflects them too
+      // (parallels the description<->memo and amount mirroring done in
+      // transferService.updateSplitTransferLeg).
+      const parentSplit =
+        await this.splitService.getTransferSplitByLinkedTransaction(
+          transactionId,
+        );
+      if (parentSplit) {
+        await this.tagsService.setSplitTags(
+          parentSplit.id,
+          updateDto.tagIds,
+          userId,
+        );
+      }
 
       return {
         fromTransaction: await this.findOne(userId, result.fromTransaction.id),
@@ -2708,6 +3064,15 @@ export class TransactionsService {
                 accountName: t.account?.name,
                 description: t.description,
                 status: t.status,
+                // Read-only foreign-currency metadata, emitted only for a
+                // foreign-entered transaction.
+                ...(t.originalCurrencyCode
+                  ? {
+                      originalAmount: Number(t.originalAmount),
+                      originalCurrencyCode: t.originalCurrencyCode,
+                      exchangeRate: Number(t.exchangeRate),
+                    }
+                  : {}),
               },
             ];
       return rows.filter((row) => {

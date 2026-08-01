@@ -1,0 +1,19 @@
+{
+  "title": "Anhänge",
+  "empty": "Noch keine Anhänge",
+  "upload": "Anhang hinzufügen",
+  "download": "Herunterladen",
+  "delete": "Löschen",
+  "remove": "Entfernen",
+  "pendingHint": "Die Dateien werden beim Speichern der Transaktion hochgeladen.",
+  "deleteConfirmTitle": "Anhang löschen?",
+  "deleteConfirmMessage": "\"{name}\" wird dauerhaft gelöscht.",
+  "uploaded": "Anhang hinzugefügt",
+  "deleted": "Anhang gelöscht",
+  "loadFailed": "Anhänge konnten nicht geladen werden",
+  "uploadFailed": "Anhang konnte nicht hochgeladen werden",
+  "deleteFailed": "Anhang konnte nicht gelöscht werden",
+  "tooLarge": "Datei ist zu groß (maximal {max})",
+  "unsupported": "Nicht unterstützter Dateityp. Erlaubt: Bilder oder PDF",
+  "tooMany": "Maximal {max} Anhänge pro Transaktion"
+}

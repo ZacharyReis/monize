@@ -117,6 +117,32 @@ describe("CurrenciesService", () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it("throws a CURRENCY_INACTIVE conflict when the currency is present but inactive", async () => {
+      mockCurrencyRepo.findOne!.mockResolvedValue(mockCurrency);
+      mockPrefRepo.findOne!.mockResolvedValue({
+        userId,
+        currencyCode: "CAD",
+        isActive: false,
+      });
+
+      expect.assertions(3);
+      try {
+        await service.create(userId, {
+          code: "CAD",
+          name: "Test",
+          symbol: "$",
+        });
+      } catch (err) {
+        expect(err).toBeInstanceOf(ConflictException);
+        const response = (err as ConflictException).getResponse() as Record<
+          string,
+          unknown
+        >;
+        expect(response.errorCode).toBe("CURRENCY_INACTIVE");
+        expect(response.currencyCode).toBe("CAD");
+      }
+    });
+
     it("adds preference row if currency exists but user doesn't have it", async () => {
       mockCurrencyRepo.findOne!.mockResolvedValue(mockCurrency);
       mockPrefRepo.findOne!.mockResolvedValue(null);
@@ -259,12 +285,98 @@ describe("CurrenciesService", () => {
       expect(result[1].isSystem).toBe(false);
     });
 
-    it("returns empty array when user has no visible currencies", async () => {
-      mockDataSource.query.mockResolvedValue([]);
+    it("returns empty array when user has no visible currencies and no default", async () => {
+      // Main query empty, and the preferences lookup yields no default currency.
+      mockDataSource.query
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ default_currency: null }]);
 
       const result = await service.findAll(userId);
 
       expect(result).toEqual([]);
+    });
+
+    it("lazily creates the default-preference currency (with a real symbol) when the list is empty", async () => {
+      mockCurrencyRepo.findOne!.mockResolvedValue(null); // missing during ensure
+      mockDataSource.query
+        .mockResolvedValueOnce([]) // main query: empty
+        .mockResolvedValueOnce([{ default_currency: "EUR" }]) // preference lookup
+        .mockResolvedValueOnce([]) // INSERT currencies
+        .mockResolvedValueOnce([
+          {
+            code: "EUR",
+            name: "Euro",
+            symbol: "€",
+            decimalPlaces: 2,
+            isActive: true,
+            isSystem: true,
+            createdAt: new Date(),
+          },
+        ]); // re-query
+
+      const result = await service.findAll(userId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].code).toBe("EUR");
+      // The INSERT (3rd query) sets the proper symbol, not the bare code.
+      const insertCall = mockDataSource.query.mock.calls[2];
+      expect(insertCall[0]).toContain("INSERT INTO currencies");
+      expect(insertCall[1]).toEqual(["EUR", "Euro", "€", 2]);
+    });
+  });
+
+  describe("getCatalog()", () => {
+    it("returns the known currency catalog with real symbols", () => {
+      const catalog = service.getCatalog();
+      const usd = catalog.find((c) => c.code === "USD");
+      expect(usd).toEqual({
+        code: "USD",
+        name: "US Dollar",
+        symbol: "$",
+        decimalPlaces: 2,
+      });
+      // Sorted by code.
+      expect(catalog[0].code.localeCompare(catalog[1].code)).toBeLessThan(0);
+    });
+  });
+
+  describe("onApplicationBootstrap()", () => {
+    it("ensures the default USD currency exists on startup", async () => {
+      mockCurrencyRepo.findOne!.mockResolvedValue(null);
+
+      await service.onApplicationBootstrap();
+
+      expect(mockDataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO currencies"),
+        ["USD", "US Dollar", "$", 2],
+      );
+    });
+
+    it("does not throw when the startup ensure fails", async () => {
+      mockCurrencyRepo.findOne!.mockRejectedValue(new Error("db down"));
+
+      await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
+    });
+  });
+
+  describe("ensureSystemCurrency()", () => {
+    it("creates a missing currency as a system currency with a proper symbol", async () => {
+      mockCurrencyRepo.findOne!.mockResolvedValue(null);
+
+      await service.ensureSystemCurrency("eur");
+
+      expect(mockDataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO currencies"),
+        ["EUR", "Euro", "€", 2],
+      );
+    });
+
+    it("is a no-op when the currency already exists", async () => {
+      mockCurrencyRepo.findOne!.mockResolvedValue(mockCurrency);
+
+      await service.ensureSystemCurrency("CAD");
+
+      expect(mockDataSource.query).not.toHaveBeenCalled();
     });
   });
 

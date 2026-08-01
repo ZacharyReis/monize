@@ -1,17 +1,48 @@
 'use client';
 
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Link from 'next/link';
 import { AssistantTable } from './AssistantTable';
+import {
+  AI_ENTITY_LINK_EVENT,
+  isMonizeHref,
+  resolveEntityHref,
+} from '@/lib/ai-entity-links';
 
 interface AssistantMarkdownProps {
   content: string;
+}
+
+/**
+ * react-markdown's default transform strips unknown schemes, so the
+ * assistant's `monize://` entity URIs would never reach the `a` renderer
+ * without being allowed through here. Everything else keeps the default
+ * sanitization (http/https/mailto/relative pass, javascript: etc. blocked).
+ */
+function urlTransform(url: string): string {
+  return isMonizeHref(url) ? url : defaultUrlTransform(url);
+}
+
+/**
+ * Normalise Unicode bullet glyphs at the start of a line to a Markdown `-`.
+ * LLMs often format lists with literal bullets (•, ·, ‣, ▪, ◦) instead of
+ * Markdown markers; CommonMark does not treat those as list items, so the whole
+ * block collapses into one paragraph with the line breaks rendered as spaces
+ * (the reported "all on one line" bug). Rewriting the leading glyph to `-` lets
+ * react-markdown build a real list. Only a glyph followed by whitespace at the
+ * line start (after optional indent) is touched, so prose is unaffected; dashes
+ * are deliberately excluded as they are more often legitimate line-start text.
+ */
+function normalizeBulletGlyphs(content: string): string {
+  return content.replace(/^([ \t]*)[•·‣▪◦]\s+/gm, '$1- ');
 }
 
 export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
+      urlTransform={urlTransform}
       components={{
         p: ({ children }) => (
           <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
@@ -69,16 +100,39 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
             {children}
           </blockquote>
         ),
-        a: ({ children, href }) => (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 underline hover:no-underline"
-          >
-            {children}
-          </a>
-        ),
+        a: ({ children, href }) => {
+          // Entity deep-links: navigate in-app (same tab) so the filter or
+          // highlight applies on the Transactions page. A monize: href that
+          // fails the strict parse renders as plain text rather than a dead
+          // link -- the model may have hallucinated or mangled the id.
+          const entityHref = resolveEntityHref(href);
+          if (entityHref) {
+            return (
+              <Link
+                href={entityHref}
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent(AI_ENTITY_LINK_EVENT))
+                }
+                className="text-blue-600 dark:text-blue-400 underline hover:no-underline"
+              >
+                {children}
+              </Link>
+            );
+          }
+          if (isMonizeHref(href)) {
+            return <>{children}</>;
+          }
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 underline hover:no-underline"
+            >
+              {children}
+            </a>
+          );
+        },
         table: ({ children }) => <AssistantTable>{children}</AssistantTable>,
         th: ({ children }) => (
           <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 font-semibold bg-gray-200/60 dark:bg-gray-800/60 text-left">
@@ -95,7 +149,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         ),
       }}
     >
-      {content}
+      {normalizeBulletGlyphs(content)}
     </ReactMarkdown>
   );
 }

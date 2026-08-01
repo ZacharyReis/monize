@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Gesamtausgaben",
+    "income": "Einnahmen",
+    "net": "Netto",
+    "transactions": "Buchungen",
+    "averageAmount": "Durchschnittsbetrag",
+    "lastTransaction": "Letzte Buchung",
+    "defaultCategory": "Standardkategorie",
+    "nextBill": "Nächste Rechnung",
+    "viewBills": "In Rechnungen & Einzahlungen anzeigen",
+    "topCategories": "Top-Kategorien",
+    "uncategorized": "Nicht kategorisiert",
+    "aliases": "Aliasse",
+    "recurring": "Wiederkehrend: {cadence} · {amount}",
+    "recurringTooltip": "Erkannt anhand wiederholter Abbuchungen im ausgewählten Zeitraum (oder in den letzten 12 Monaten, wenn kein Datumsfilter gesetzt ist).",
+    "cadence": {
+      "weekly": "Wöchentlich",
+      "biweekly": "Alle 2 Wochen",
+      "monthly": "Monatlich",
+      "quarterly": "Vierteljährlich",
+      "yearly": "Jährlich"
+    },
+    "inactive": "Inaktiv",
+    "noTransactions": "Keine Buchungen in diesem Zeitraum",
+    "editAria": "Zahlungsempfänger bearbeiten",
+    "collapseAria": "Zahlungsempfänger-Informationen ausblenden",
+    "show": "Zahlungsempfänger-Informationen anzeigen"
+  },
+  "categoryWidget": {
+    "totalSpent": "Gesamtausgaben",
+    "totalEarned": "Gesamteinnahmen",
+    "income": "Einnahmen",
+    "expense": "Ausgaben",
+    "budgetThisMonth": "Budget diesen Monat",
+    "budgetProgress": "{spent} von {budgeted}",
+    "transactions": "Buchungen",
+    "averageAmount": "Durchschnittsbetrag",
+    "monthlyAverage": "Monatsdurchschnitt",
+    "subcategories": "Unterkategorien",
+    "thisCategory": "Diese Kategorie",
+    "topPayees": "Top-Zahlungsempfänger",
+    "noPayee": "Kein Zahlungsempfänger",
+    "nextScheduled": "Nächste geplante Buchung",
+    "noTransactions": "Keine Buchungen in diesem Zeitraum",
+    "editAria": "Kategorie bearbeiten",
+    "collapseAria": "Kategorie-Informationen ausblenden",
+    "show": "Kategorie-Informationen anzeigen"
+  },
   "accountWidget": {
     "currentBalance": "Aktueller Saldo",
     "nextPayment": "Nächste Zahlung",
     "viewBills": "In Rechnungen & Einzahlungen anzeigen",
+    "viewDetailsAria": "Kontodetails anzeigen",
     "type": "Typ",
     "accountNumber": "Kontonummer",
     "currency": "Währung",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Buchung duplizieren",
       "newTitle": "Neue Buchung",
       "scheduleTitle": "Als wiederkehrend planen",
-      "editPayeeTitle": "Zahlungsempfänger bearbeiten"
+      "editPayeeTitle": "Zahlungsempfänger bearbeiten",
+      "editCategoryTitle": "Kategorie bearbeiten"
     },
     "loading": "Buchungen werden geladen...",
     "totalCount": "{count, plural, one {# Buchung} other {# Buchungen}}",
@@ -54,9 +104,13 @@
       "refNumber": "Ref.-Nr.",
       "tags": "Tags",
       "amount": "Betrag",
+      "currency": "Währung",
+      "paidAmount": "Gezahlter Betrag",
+      "feePaid": "Gezahlte Gebühr",
       "balance": "Saldo",
       "status": "Status",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "attachments": "Anhänge"
     },
     "today": "Heute",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Möchten Sie diese Buchung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
       "success": "Buchung gelöscht",
       "transferSuccess": "Überweisung gelöscht",
-      "error": "Buchung konnte nicht gelöscht werden"
+      "error": "Buchung konnte nicht gelöscht werden",
+      "reconciledWarning": "Diese Transaktion ist abgeglichen, daher wirkt sich das Löschen auf einen abgeschlossenen Abgleich aus."
     },
     "status": {
       "voidError": "Bearbeiten Sie die Buchung, um den Status von „Ungültig” zu ändern",
@@ -90,7 +145,6 @@
       "cleared": "Bestätigt",
       "reconciled": "Abgeglichen",
       "void": "Ungültig",
-      "unreconciledDense": "U",
       "clearedDense": "B",
       "reconciledDense": "A",
       "voidDense": "X",
@@ -118,7 +172,8 @@
       "editButton": "Bearbeiten",
       "deleteButton": "Löschen"
     },
-    "itemNamePlural": "Buchungen"
+    "itemNamePlural": "Buchungen",
+    "attachmentsCount": "{count, plural, one {# Anhang} other {# Anhänge}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Betrag von",
       "amountTo": "Betrag bis",
       "status": "Status",
-      "search": "Suche"
+      "search": "Suche",
+      "tagKey": "Tag-Schlüssel",
+      "tagKeyOp": "Bedingung",
+      "tagKeyValue": "Wert",
+      "currency": "Währung",
+      "hasAttachments": "Anhänge"
     },
     "placeholders": {
       "accounts": "Alle Konten",
@@ -176,7 +236,8 @@
       "statuses": "Alle Status",
       "amountMin": "Min.",
       "amountMax": "Max.",
-      "search": "Zahlungsempfänger, Kategorie, Betrag, Tag, Beschreibung, Referenz-Nr. suchen..."
+      "search": "Zahlungsempfänger, Kategorie, Betrag, Tag, Beschreibung, Referenz-Nr. suchen...",
+      "tagKeyValue": "z. B. usa"
     },
     "chips": {
       "removeAccount": "Filter {name} entfernen",
@@ -189,7 +250,11 @@
       "dateFrom": "Ab {date}",
       "dateUntil": "Bis {date}",
       "amountFrom": "Ab {amount}",
-      "amountUpTo": "Bis zu {amount}"
+      "amountUpTo": "Bis zu {amount}",
+      "removeCurrency": "Währungsfilter {name} entfernen",
+      "hasAttachments": "Mit Anhängen",
+      "noAttachments": "Ohne Anhänge",
+      "removeAttachments": "Anhangsfilter entfernen"
     },
     "bulkUpdate": "Massenaktualisierung",
     "cancelBulk": "Massenauswahl abbrechen",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Zeitraum auswählen...",
+      "allDates": "Alle Daten",
       "today": "Heute",
       "yesterday": "Gestern",
       "thisWeek": "Diese Woche",
       "lastWeek": "Letzte Woche",
+      "last30Days": "Letzte 30 Tage",
       "monthToDate": "Monat bis heute",
       "lastMonth": "Letzter Monat",
+      "last365Days": "Letzte 365 Tage",
       "yearToDate": "Jahr bis heute",
       "lastYear": "Letztes Jahr",
       "custom": "Benutzerdefiniert"
+    },
+    "tagKeyNone": "Beliebig (kein Schlüsselfilter)",
+    "tagKeyOps": {
+      "hasValue": "Hat einen Wert",
+      "noValue": "Hat keinen Wert",
+      "contains": "Wert enthält",
+      "notContains": "Wert enthält nicht"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Beliebig",
+      "yes": "Ja",
+      "no": "Nein"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "{mode} erstellen",
     "submitUpdate": "{mode} aktualisieren",
+    "reconciledConfirm": {
+      "title": "Abgeglichene Transaktion bearbeiten?",
+      "message": "Diese Transaktion ist abgeglichen. Eine Änderung wirkt sich auf einen abgeschlossenen Abgleich aus. Möchten Sie Ihre Änderungen trotzdem speichern?",
+      "confirm": "Änderungen speichern"
+    },
     "modeLabel": {
       "transfer": "Überweisung",
       "transaction": "Buchung"
@@ -300,6 +385,7 @@
     "transferAmountNote": "Betrag muss bei Überweisungen positiv sein",
     "amountReceivedNote": "Erhaltener Betrag nach Währungsumrechnung",
     "splitTransaction": "Buchung aufteilen",
+    "splitDisabledDuringTour": "Während der geführten Tour nicht verfügbar",
     "newTagTitle": "Neuer Tag",
     "toasts": {
       "transferCreated": "Überweisung erstellt",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Zahlungsempfänger konnte nicht reaktiviert werden",
       "categoryCreated": "Kategorie „{name}” erstellt",
       "categoryCreateFailed": "Kategorie konnte nicht erstellt werden",
-      "tagCreated": "Tag „{name}” erstellt"
+      "tagCreated": "Tag „{name}” erstellt",
+      "fxRateRequired": "Geben Sie einen Wechselkurs oder den umgerechneten Betrag ein, bevor Sie eine Fremdwährungstransaktion speichern.",
+      "attachmentsUploadFailed": "Transaktion gespeichert, aber {count} Anhang/Anhänge konnten nicht hochgeladen werden"
     },
     "ariaHistory": "Letzte Buchungen anzeigen",
     "ariaHistoryForPayee": "Letzte Buchungen für diesen Zahlungsempfänger anzeigen",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Eingabewährung",
+      "ariaLabel": "Eingabewährung ändern",
+      "title": "Betrag eingeben in",
+      "accountCurrency": "Kontowährung ({code})",
+      "addCurrency": "Währung hinzufügen...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Währung konnte nicht hinzugefügt werden",
+      "reactivated": "{code} reaktiviert"
+    },
+    "fx": {
+      "noRateWarning": "Kein Wechselkurs für {from} zu {to} am {date} gefunden. Bitte den umgerechneten Betrag manuell eingeben.",
+      "usingLatestRateHint": "Es wird der neueste verfügbare Kurs verwendet (nicht vom {date}).",
+      "displayToggle": {
+        "account": "Konto",
+        "original": "Original"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "Enthält eine Fremdwährungsgebühr von {percent}% ({fee}).",
+      "totalInCurrency": "Gesamt in {currency}"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Konto auswählen...",
     "memoPlaceholder": "Optionales Memo",
     "mobileMemoPlaceholder": "Memo",
-    "tagsPlaceholder": "Tags..."
+    "tagsPlaceholder": "Tags...",
+    "currencyToggle": {
+      "title": "Währung wechseln, in der die Teilbeträge angezeigt und bearbeitet werden",
+      "ariaAmountsIn": "Teilbeträge in {code} anzeigen und bearbeiten"
+    }
   },
   "recentPopover": {
     "recentForPayee": "Zuletzt für {name}",
@@ -397,15 +510,33 @@
       "current": "Aktuell",
       "ending": "Ende",
       "lowest": "Niedrigster",
-      "minBalance": "Mindestsaldo"
+      "minBalance": "Mindestsaldo",
+      "projected": "Prognostiziert",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "Alle ausgewählten Konten haben einen Saldo von null, daher gibt es kein Saldodiagramm anzuzeigen."
     },
     "monthlyTotals": {
       "title": "Monatliche Summen",
       "noData": "Keine Buchungsdaten verfügbar",
       "monthlyAvg": "Monatsdurchschnitt",
+      "quarterlyAvg": "Quartalsdurchschnitt",
+      "yearlyAvg": "Jahresdurchschnitt",
       "total": "Gesamt",
       "transactions": "Buchungen",
-      "tooltip": "{count, plural, one {# Buchung} other {# Buchungen}}"
+      "tooltip": "{count, plural, one {# Buchung} other {# Buchungen}}",
+      "quarterLabel": "Q{quarter} {year}",
+      "quarterTick": "Q{quarter} {year}",
+      "granularityLabel": "Gruppierung",
+      "granularity": {
+        "auto": "Auto",
+        "month": "Monat",
+        "quarter": "Quartal",
+        "year": "Jahr"
+      },
+      "granularityAutoTitle": "Auto ({granularity})",
+      "granularityTitle": "{label}-Ansicht"
     },
     "accountBalances": {
       "title": "Kontosalden",
@@ -430,9 +561,16 @@
     "loadFailed": "Buchungen konnten nicht geladen werden",
     "loadPayeeFailed": "Details des Zahlungsempfängers konnten nicht geladen werden",
     "payeeUpdateFailed": "Zahlungsempfänger konnte nicht aktualisiert werden",
+    "categoryUpdated": "Kategorie erfolgreich aktualisiert",
+    "categoryUpdateFailed": "Kategorie konnte nicht aktualisiert werden",
     "exportFailed": "Buchungen konnten nicht exportiert werden"
   },
   "validation": {
     "dateRequired": "Datum ist erforderlich"
+  },
+  "tagKeyBreakdown": {
+    "title": "Ausgaben nach {key}",
+    "other": "Sonstige",
+    "noData": "Keine getaggten Ausgaben für diesen Schlüssel."
   }
 }

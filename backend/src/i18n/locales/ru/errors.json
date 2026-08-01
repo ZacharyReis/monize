@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "У этого счёта уже настроен плановый платёж. Отредактируйте существующую плановую проводку вместо создания новой.",
     "sourceNotFound": "Исходный счёт не найден",
     "ambiguousBrokerage": "«{{ query }}» соответствует нескольким брокерским счетам: {{ list }}. Используйте точное название счёта.",
-    "unknownInvestmentAccount": "Неизвестный счёт: {{ name }}. Используйте точное название из списка счетов пользователя."
+    "unknownInvestmentAccount": "Неизвестный счёт: {{ name }}. Используйте точное название из списка счетов пользователя.",
+    "notACreditCard": "Расчётные периоды доступны только для счетов кредитных карт",
+    "noStatementSettlementDay": "Для этой кредитной карты не настроен день расчёта по выписке"
   },
   "actionHistory": {
     "nothingToUndo": "Нечего отменять",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Активные провайдеры AI не настроены. Пожалуйста, настройте провайдера в настройках AI.",
     "allProvidersFailed": "Все провайдеры AI завершились с ошибкой. Пожалуйста, проверьте конфигурацию провайдера и повторите попытку.",
     "noToolUseProvider": "Провайдер AI с поддержкой использования инструментов не настроен. Запросы на естественном языке требуют Anthropic, OpenAI или Ollama. Пожалуйста, настройте один из них в настройках AI.",
+    "relayAgentOffline": "Ваш агент ретрансляции MCP не подключён. Подключите агента и попробуйте снова.",
+    "relayCompletionTimedOut": "Ваш агент ретрансляции MCP не ответил вовремя. Убедитесь, что он подключён, и попробуйте снова.",
     "baseUrlInvalidBasic": "baseUrl должен быть допустимым HTTP или HTTPS URL",
     "baseUrlInvalidExternal": "baseUrl должен быть допустимым HTTP/HTTPS URL, указывающим на внешний хост",
     "ollamaCloudApiKeyRequired": "apiKey обязателен для провайдера ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Вложение превышает максимальный размер файла.",
     "attachmentCorrupt": "Не удалось прочитать вложение, либо это не тот тип файла, за который оно себя выдаёт.",
     "attachmentsTooLarge": "Вложения превышают общий лимит размера.",
+    "attachmentRefExpired": "Прикреплённый файл больше недоступен. Пожалуйста, загрузите его снова и повторите запрос.",
     "modelNoImageSupport": "Выбранная модель ИИ не может читать изображения или PDF-файлы. Удалите вложение и задайте вопрос текстом или переключитесь на модель с поддержкой изображений в настройках ИИ."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Неверный пароль"
   },
   "backup": {
-    "folderPathRequired": "Перед включением автоматического резервного копирования необходимо задать путь к папке",
     "folderNotExist": "Папка не существует: {{ safePath }}",
     "folderAccessError": "Нет доступа к папке: {{ safePath }}",
     "pathNotDirectory": "Путь не является каталогом: {{ safePath }}",
-    "notConfigured": "Автоматическое резервное копирование не настроено. Пожалуйста, сначала укажите путь к папке.",
     "userNotFound": "Пользователь {{ userId }} не найден",
     "encryptedPasswordDecryptFailed": "Зашифрованное резервное копирование включено, но сохранённый пароль не может быть расшифрован. Повторно включите шифрование в настройках безопасности.",
     "pathTraversal": "Обнаружен обход пути: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Недопустимый токен CSRF",
     "demoModeRestricted": "Это действие недоступно в демо-режиме.",
     "serviceNotReady": "Сервис не готов",
-    "oauthProviderNotInitialized": "Провайдер OAuth не инициализирован"
+    "oauthProviderNotInitialized": "Провайдер OAuth не инициализирован",
+    "invalidCurrencyCode": "Недопустимый код валюты: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Валюта \"{{ code }}\" уже в вашем списке",
     "notFound": "Валюта \"{{ code }}\" не найдена",
     "cannotModifySystem": "Невозможно изменить системные метаданные валюты",
     "cannotModifyOther": "Невозможно изменить валюту другого пользователя",
-    "inUse": "Валюта \"{{ code }}\" используется в ваших счетах, ценных бумагах или других записях. Деактивируйте её вместо удаления."
+    "inUse": "Валюта \"{{ code }}\" используется в ваших счетах, ценных бумагах или других записях. Деактивируйте её вместо удаления.",
+    "invalidRateDate": "date должна быть в формате ГГГГ-ММ-ДД",
+    "alreadyInListInactive": "Валюта \"{{ code }}\" уже в вашем списке, но сейчас неактивна. Активируйте её, чтобы использовать."
   },
   "delegation": {
     "delegatedAccessInvalid": "Делегированный доступ больше не действителен",
@@ -254,6 +260,7 @@
     "passwordBreached": "Этот пароль был найден в утечке данных. Пожалуйста, выберите другой пароль."
   },
   "http": {
+    "forbidden": "Доступ запрещён",
     "tooManyRequests": "Слишком много запросов. Пожалуйста, подождите несколько минут и повторите попытку.",
     "duplicateRecord": "Запись с таким значением уже существует",
     "referencedRecord": "Указанная запись не существует или не может быть удалена",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate должна быть в формате ГГГГ-ММ-ДД",
     "invalidEndDate": "endDate должна быть в формате ГГГГ-ММ-ДД",
-    "invalidAccountIds": "accountIds должны быть UUID, разделёнными запятыми"
+    "invalidAccountIds": "accountIds должны быть UUID, разделёнными запятыми",
+    "invalidGranularity": "granularity должно быть 'daily' или 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP не настроен. Задайте переменные окружения SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Псевдоним с ID {{ id }} не найден",
     "mergeSelf": "Невозможно объединить получателя с самим собой",
     "autoMergeDuplicatePayee": "Получатель присутствует в нескольких группах объединения",
-    "autoMergeSourceNotFound": "Один или несколько исходных получателей не найдены"
+    "autoMergeSourceNotFound": "Один или несколько исходных получателей не найдены",
+    "autoMergeGroupConflict": "Не удалось объединить \"{{ name }}\": значение \"{{ value }}\" уже используется",
+    "autoMergeGroupFailed": "Не удалось объединить \"{{ name }}\""
   },
   "reports": {
     "notFound": "Отчёт с ID {{ id }} не найден",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "«{{ query }}» соответствует нескольким ценным бумагам: {{ list }}. Повторите запрос, указав биржу.",
     "lookupNoCurrency": "Не удалось определить валюту для «{{ symbol }}». Добавьте ценную бумагу вручную.",
     "noUpdateFields": "Укажите хотя бы одно поле для изменения.",
-    "allocationExceedsTotal": "Сумма процентов распределения превышает 100%."
+    "allocationExceedsTotal": "Сумма процентов распределения превышает 100%.",
+    "invalidTagKey": "Требуется ключ тега (1–100 символов)"
   },
   "tags": {
     "notFound": "Тег с ID {{ id }} не найден",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId должен быть действительным UUID",
     "amountFromMustBeNumber": "amountFrom должен быть числом",
     "amountToMustBeNumber": "amountTo должен быть числом",
+    "invalidGroupBy": "groupBy должен быть 'category' или 'payee'",
+    "limitMustBePositive": "limit должен быть положительным числом",
+    "recurringPayeeRequired": "payeeIds обязателен",
+    "recurringDatesRequired": "startDate и endDate обязательны",
     "statementDateFormat": "statementDate должна быть в формате ГГГГ-ММ-ДД",
     "statementBalanceMustBeNumber": "statementBalance должен быть числом",
     "categoryNotFound": "Категория не найдена",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Некоторые проводки не найдены или не принадлежат указанному счёту",
     "cannotReconcileVoidPlural": "Невозможно согласовать аннулированные проводки",
     "transferSameAccount": "Исходный и целевой счета должны быть разными",
-    "transferSplitFromAccountFixed": "Счёт источника в разделённой строке перевода нельзя изменить",
     "transferAmountNegative": "Сумма перевода не должна быть отрицательной",
     "notATransfer": "Проводка не является переводом",
+    "splitTransferLegAccountLocked": "Этот перевод является частью разделённой проводки. Чтобы изменить его счета, отредактируйте часть в исходной проводке.",
     "notFoundById": "Проводка с ID {{ id }} не найдена",
     "bulkUpdateNoFields": "Должно быть указано хотя бы одно поле для обновления",
     "payeeNotFound": "Получатель не найден",
     "cannotEditTransfer": "Переводы нельзя редактировать здесь. Измените перевод на экране «Транзакции».",
     "cannotEditSplit": "Разделённые транзакции нельзя редактировать здесь. Измените разделение на экране «Транзакции».",
-    "noUpdateFields": "Укажите хотя бы одно поле для изменения."
+    "noUpdateFields": "Укажите хотя бы одно поле для изменения.",
+    "tagKeyTooLong": "tagKey не должен превышать 100 символов",
+    "invalidTagKeyOp": "Недопустимый tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue обязателен для contains / notContains",
+    "tagKeyRequired": "Требуется ключ тега (1–100 символов)",
+    "fxFieldsIncomplete": "originalAmount и originalCurrencyCode должны указываться вместе",
+    "fxRateRequired": "Для операции в иностранной валюте требуется положительный курс обмена",
+    "fxSignMismatch": "originalAmount и amount должны иметь одинаковый знак"
   },
   "users": {
     "userNotFound": "Пользователь не найден",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Невозможно удалить последний аккаунт администратора. Сначала повысьте роль другого пользователя.",
     "oidcReauthRequiredForDataDelete": "Требуется повторная аутентификация OIDC для подтверждения удаления данных",
     "passwordRequiredForDataDelete": "Для подтверждения удаления данных необходим пароль"
+  },
+  "loanScenarios": {
+    "notFound": "Сценарий кредита с ID {{ id }} не найден",
+    "nameConflict": "Сценарий с названием «{{ name }}» уже существует для этого счёта",
+    "notLoanAccount": "Сценарии кредита доступны только для счетов кредитов, ипотек и кредитных линий",
+    "budgetWindowInverted": "Дата начала бюджетного периода должна быть не позже даты его окончания"
+  },
+  "loanRateChanges": {
+    "notFound": "Изменение ставки с ID {{ id }} не найдено",
+    "notLoanAccount": "Изменения ставки доступны только для кредитных и ипотечных счетов",
+    "duplicateDate": "Изменение ставки, вступающее в силу {{ date }}, уже существует для этого счёта",
+    "paymentModeConflict": "Укажите либо новую сумму платежа, либо recalculatePayment, но не оба параметра",
+    "recalculateMortgageOnly": "Пересчёт платежа доступен только для ипотечных счетов",
+    "insufficientData": "Недостаточно платежей с данными о процентах для определения изменений ставки",
+    "frequencyMismatch": "Даты платежей не соответствуют периодичности платежей по счёту; выведенные ставки могут быть менее точными"
+  },
+  "attachments": {
+    "notFound": "Вложение не найдено",
+    "transactionNotFound": "Проводка не найдена",
+    "empty": "Загруженный файл пуст",
+    "fileTooLarge": "Файл превышает максимальный размер {{ max }} байт",
+    "unsupportedType": "Неподдерживаемый тип файла. Разрешённые типы: {{ types }}",
+    "tooMany": "У этой проводки уже максимальное число вложений — {{ max }}"
   }
 }

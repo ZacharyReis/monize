@@ -1,0 +1,30 @@
+{
+  "title": "Opłaty za transakcje w obcej walucie",
+  "currencyFilter": { "label": "Waluty", "placeholder": "Wszystkie waluty" },
+  "chart": {
+    "title": "Opłaty w czasie",
+    "noData": "Brak transakcji w obcej walucie",
+    "monthlyAvg": "Średnia miesięczna",
+    "quarterlyAvg": "Średnia kwartalna",
+    "yearlyAvg": "Średnia roczna",
+    "total": "Suma opłat",
+    "transactions": "Transakcje",
+    "tooltip": "{count, plural, one {# transakcja} few {# transakcje} many {# transakcji} other {# transakcji}}",
+    "quarterLabel": "K{quarter} {year}",
+    "quarterTick": "K{quarter} {year}",
+    "granularityLabel": "Grupowanie",
+    "granularity": { "auto": "Auto", "month": "Miesiąc", "quarter": "Kwartał", "year": "Rok" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "Widok: {label}"
+  },
+  "list": {
+    "title": "Transakcje w obcej walucie",
+    "editTitle": "Edytuj transakcję",
+    "investmentLinked": "Ta transakcja jest powiązana z inwestycją. Otwieram edytor inwestycji.",
+    "export": {
+      "success": "{count, plural, one {Wyeksportowano # transakcję} few {Wyeksportowano # transakcje} many {Wyeksportowano # transakcji} other {Wyeksportowano # transakcji}}",
+      "none": "Brak transakcji do wyeksportowania",
+      "failed": "Nie udało się wyeksportować transakcji"
+    }
+  }
+}

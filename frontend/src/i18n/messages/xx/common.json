@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "[XX-View release notes for v{version}-XX]"
   },
+  "whatsNew": {
+    "title": "[XX-What's New-XX]",
+    "versionLabel": "[XX-Version {version}-XX]",
+    "expandAll": "[XX-Expand all-XX]",
+    "collapseAll": "[XX-Collapse all-XX]",
+    "viewFullNotes": "[XX-View full release notes-XX]",
+    "dontShowAgain": "[XX-Don't show this again-XX]",
+    "showNextLogin": "[XX-Show at next login-XX]",
+    "close": "[XX-Close-XX]",
+    "unavailable": "[XX-Release notes for this version aren't available.-XX]",
+    "englishOnly": "[XX-The release notes below are in English only. Monize itself, including the guided tours, follows your language setting.-XX]"
+  },
   "save": "[XX-Save-XX]",
   "cancel": "[XX-Cancel-XX]",
   "delete": "[XX-Delete-XX]",
@@ -65,6 +77,9 @@
     "downloadAsPng": "[XX-Download {filename} as PNG-XX]",
     "unableToCapture": "[XX-Unable to capture chart image-XX]",
     "failedToDownload": "[XX-Failed to download chart-XX]"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "[XX-Download {filename} as CSV-XX]"
   },
   "chartViewToggle": {
     "pieChart": "[XX-Pie Chart-XX]",

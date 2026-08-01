@@ -157,6 +157,74 @@ describe('useTransactionFilters - URL/localStorage initialization', () => {
     expect(result.current.targetTransactionIdRef.current).toBeNull();
   });
 
+  it('applies a targetTransactionId that arrives via soft navigation while mounted', () => {
+    const id = '22222222-2222-4222-8222-222222222222';
+    // A persisted Show Accounts preference must survive the deep link, the same
+    // way the cross-page path keeps it.
+    localStorage.setItem('transactions.filter.accountStatus', JSON.stringify('closed'));
+    // Mounted with an active account filter and no deep link.
+    mockSearchParams = new URLSearchParams('accountIds=acc-1');
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.filterAccountIds).toEqual(['acc-1']);
+    expect(result.current.filterAccountStatus).toBe('closed');
+    expect(result.current.highlightTransactionId).toBeNull();
+
+    // Soft navigation to the AI "View transaction" deep link, same page.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`targetTransactionId=${id}`);
+      rerender();
+    });
+
+    expect(result.current.targetTransactionIdRef.current).toBe(id);
+    expect(result.current.highlightTransactionId).toBe(id);
+    // Existing filters are dropped so the target row is not hidden by them.
+    expect(result.current.filterAccountIds).toEqual([]);
+    // ...but the Show Accounts toggle is preserved (matches the cross-page path).
+    expect(result.current.filterAccountStatus).toBe('closed');
+  });
+
+  it('re-triggers the same targetTransactionId after the param is consumed', () => {
+    const id = '33333333-3333-4333-8333-333333333333';
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    // First "View transaction" click.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`targetTransactionId=${id}`);
+      rerender();
+    });
+    expect(result.current.highlightTransactionId).toBe(id);
+
+    // The load strips the param from the URL, and the highlight clears.
+    act(() => {
+      mockSearchParams = new URLSearchParams();
+      rerender();
+      result.current.setHighlightTransactionId(null);
+    });
+    expect(result.current.highlightTransactionId).toBeNull();
+
+    // Clicking the same link again re-applies the deep link.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`targetTransactionId=${id}`);
+      rerender();
+    });
+    expect(result.current.highlightTransactionId).toBe(id);
+    expect(result.current.targetTransactionIdRef.current).toBe(id);
+  });
+
+  it('ignores a malformed targetTransactionId that arrives via soft navigation', () => {
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      mockSearchParams = new URLSearchParams('targetTransactionId=not-a-uuid');
+      rerender();
+    });
+
+    expect(result.current.highlightTransactionId).toBeNull();
+    expect(result.current.targetTransactionIdRef.current).toBeNull();
+  });
+
   it('reads tagIds from URL params', () => {
     mockSearchParams = new URLSearchParams('tagIds=t1,t2');
     const { result } = renderHook(() => useTransactionFilters(defaultOptions));
@@ -179,6 +247,172 @@ describe('useTransactionFilters - URL/localStorage initialization', () => {
     mockSearchParams = new URLSearchParams('page=3');
     const { result } = renderHook(() => useTransactionFilters(defaultOptions));
     expect(result.current.currentPage).toBe(3);
+  });
+});
+
+describe('useTransactionFilters - entity deep-link watcher', () => {
+  const payeeUuid = '44444444-4444-4444-8444-444444444444';
+  const accountUuid = '55555555-5555-4555-8555-555555555555';
+  const categoryUuid = '66666666-6666-4666-8666-666666666666';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams();
+    localStorage.clear();
+  });
+
+  it('applies a singular payeeId that arrives via soft navigation and clears other filters', () => {
+    localStorage.setItem('transactions.filter.accountStatus', JSON.stringify('closed'));
+    mockSearchParams = new URLSearchParams('accountIds=acc-1&startDate=2026-01-01&search=coffee');
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.filterAccountIds).toEqual(['acc-1']);
+
+    act(() => {
+      result.current.goToPage(4);
+    });
+
+    // AI chat entity link clicked while the page is already mounted.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`payeeId=${payeeUuid}`);
+      rerender();
+    });
+
+    expect(result.current.filterPayeeIds).toEqual([payeeUuid]);
+    expect(result.current.filterAccountIds).toEqual([]);
+    expect(result.current.filterStartDate).toBe('');
+    expect(result.current.filterSearch).toBe('');
+    expect(result.current.searchInput).toBe('');
+    expect(result.current.currentPage).toBe(1);
+    // The link click already pushed history; the hook must not push again.
+    expect(result.current.isFilterChange.current).toBe(false);
+    // Show Accounts toggle preserved for payee links.
+    expect(result.current.filterAccountStatus).toBe('closed');
+  });
+
+  it('applies an accountId deep link and honours accountStatus=all', () => {
+    localStorage.setItem('transactions.filter.accountStatus', JSON.stringify('active'));
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.filterAccountStatus).toBe('active');
+
+    act(() => {
+      mockSearchParams = new URLSearchParams(`accountId=${accountUuid}&accountStatus=all`);
+      rerender();
+    });
+
+    expect(result.current.filterAccountIds).toEqual([accountUuid]);
+    expect(result.current.filterAccountStatus).toBe('');
+  });
+
+  it('applies a categoryId deep link, including the special pseudo-categories', () => {
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      mockSearchParams = new URLSearchParams(`categoryId=${categoryUuid}`);
+      rerender();
+    });
+    expect(result.current.filterCategoryIds).toEqual([categoryUuid]);
+
+    act(() => {
+      mockSearchParams = new URLSearchParams('categoryId=uncategorized');
+      rerender();
+    });
+    expect(result.current.filterCategoryIds).toEqual(['uncategorized']);
+  });
+
+  it('does not re-apply an unchanged signature (page URL rewrites keep later edits)', () => {
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      mockSearchParams = new URLSearchParams(`payeeId=${payeeUuid}`);
+      rerender();
+    });
+    expect(result.current.filterPayeeIds).toEqual([payeeUuid]);
+
+    // The user narrows further before the URL is rewritten to plural form.
+    act(() => {
+      result.current.setFilterStartDate('2026-02-01');
+      rerender();
+    });
+    expect(result.current.filterStartDate).toBe('2026-02-01');
+  });
+
+  it('re-triggers the same entity link after the singular param is consumed', () => {
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      mockSearchParams = new URLSearchParams(`payeeId=${payeeUuid}`);
+      rerender();
+    });
+    expect(result.current.filterPayeeIds).toEqual([payeeUuid]);
+
+    // The page effect rewrote the URL to the plural form, and the user then
+    // cleared the filter manually.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`payeeIds=${payeeUuid}`);
+      rerender();
+      result.current.setFilterPayeeIds([]);
+    });
+    expect(result.current.filterPayeeIds).toEqual([]);
+
+    // Clicking the same chat link again re-applies the filter.
+    act(() => {
+      mockSearchParams = new URLSearchParams(`payeeId=${payeeUuid}`);
+      rerender();
+    });
+    expect(result.current.filterPayeeIds).toEqual([payeeUuid]);
+  });
+
+  it('does not double-apply a singular param present at mount (co-applied filters survive)', () => {
+    mockSearchParams = new URLSearchParams(`payeeId=${payeeUuid}&startDate=2026-01-01`);
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    expect(result.current.filterPayeeIds).toEqual([payeeUuid]);
+    expect(result.current.filterStartDate).toBe('2026-01-01');
+
+    // Effects re-run with the same URL; the mount-applied startDate must survive.
+    act(() => {
+      rerender();
+    });
+    expect(result.current.filterStartDate).toBe('2026-01-01');
+  });
+
+  it('ignores a malformed singular entity id', () => {
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      result.current.setFilterStartDate('2026-03-01');
+    });
+
+    act(() => {
+      mockSearchParams = new URLSearchParams('payeeId=not-a-uuid');
+      rerender();
+    });
+
+    expect(result.current.filterPayeeIds).toEqual([]);
+    expect(result.current.filterStartDate).toBe('2026-03-01');
+  });
+
+  it('yields to the targetTransactionId watcher when both params are present', () => {
+    const targetId = '77777777-7777-4777-8777-777777777777';
+    mockSearchParams = new URLSearchParams();
+    const { result, rerender } = renderHook(() => useTransactionFilters(defaultOptions));
+
+    act(() => {
+      mockSearchParams = new URLSearchParams(
+        `payeeId=${payeeUuid}&targetTransactionId=${targetId}`,
+      );
+      rerender();
+    });
+
+    // The transaction deep link wins: filters are cleared for the highlight
+    // and the entity param is not applied on top of it.
+    expect(result.current.highlightTransactionId).toBe(targetId);
+    expect(result.current.filterPayeeIds).toEqual([]);
   });
 });
 
@@ -348,6 +582,8 @@ describe('useTransactionFilters - URL update', () => {
         amountFrom: '1',
         amountTo: '5',
         statuses: [],
+        originalCurrencyCodes: [],
+        tagKey: '', tagKeyOp: 'hasValue', tagKeyValue: '', hasAttachments: '',
       });
     });
     expect(mockReplace).toHaveBeenCalled();
@@ -364,9 +600,37 @@ describe('useTransactionFilters - URL update', () => {
         accountIds: [], categoryIds: [], payeeIds: [], tagIds: [],
         startDate: '', endDate: '', search: '', amountFrom: '', amountTo: '',
         statuses: [],
+        originalCurrencyCodes: [],
+        tagKey: '', tagKeyOp: 'hasValue', tagKeyValue: '', hasAttachments: '',
       }, true);
     });
     expect(mockPush).toHaveBeenCalledWith('/transactions', { scroll: false });
+  });
+
+  it('serializes hasAttachments to the query string', () => {
+    const { result } = renderHook(() => useTransactionFilters(defaultOptions));
+    act(() => {
+      result.current.updateUrl(1, {
+        accountIds: [], categoryIds: [], payeeIds: [], tagIds: [],
+        startDate: '', endDate: '', search: '', amountFrom: '', amountTo: '',
+        statuses: [], originalCurrencyCodes: [],
+        tagKey: '', tagKeyOp: 'hasValue', tagKeyValue: '', hasAttachments: 'yes',
+      });
+    });
+    expect(mockReplace.mock.calls[0][0]).toContain('hasAttachments=yes');
+  });
+
+  it('initializes hasAttachments from the URL and counts it as active', () => {
+    mockSearchParams = new URLSearchParams('hasAttachments=no');
+    const { result } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.filterHasAttachments).toBe('no');
+    expect(result.current.activeFilterCount).toBe(1);
+  });
+
+  it('ignores an invalid hasAttachments URL value', () => {
+    mockSearchParams = new URLSearchParams('hasAttachments=maybe');
+    const { result } = renderHook(() => useTransactionFilters(defaultOptions));
+    expect(result.current.filterHasAttachments).toBe('');
   });
 });
 
@@ -592,6 +856,8 @@ describe('useTransactionFilters - filter persistence', () => {
         accountIds: [], categoryIds: [], payeeIds: [], tagIds: [],
         startDate: '', endDate: '', search: '', amountFrom: '', amountTo: '',
         statuses: result.current.filterStatuses,
+        originalCurrencyCodes: result.current.filterOriginalCurrencyCodes,
+        tagKey: '', tagKeyOp: 'hasValue', tagKeyValue: '', hasAttachments: '',
       });
     });
     expect(mockReplace).toHaveBeenCalled();

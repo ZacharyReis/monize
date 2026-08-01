@@ -32,7 +32,7 @@
     },
     "deleteConfirm": {
       "title": "Видалити цінний папір",
-      "message": "Ви впевнені, що хочете видалити \"{symbol}\"? Уся histórico цін також буде видалена. Цю дію неможливо скасувати.",
+      "message": "Ви впевнені, що хочете видалити \"{symbol}\"? Уся історія цін також буде видалена. Цю дію неможливо скасувати.",
       "confirmLabel": "Видалити",
       "cancelLabel": "Скасувати"
     }
@@ -78,7 +78,7 @@
       "source": "Джерело останньої ціни"
     },
     "actions": {
-      "history": "Histórico",
+      "history": "Історія",
       "prices": "Ціни",
       "edit": "Редагувати",
       "deactivate": "Деактивувати",
@@ -94,7 +94,7 @@
       "subtitle": "Розпочніть, додавши перший цінний папір."
     },
     "contextMenu": {
-      "transactionHistory": "Histórico транзакцій",
+      "transactionHistory": "Історія транзакцій",
       "viewPrices": "Переглянути ціни",
       "editSecurity": "Редагувати цінний папір",
       "deactivate": "Деактивувати",
@@ -196,14 +196,20 @@
     "submitUpdate": "Оновити ціну"
   },
   "priceHistory": {
-    "title": "{symbol} — Histórico цін",
+    "title": "{symbol} — Історія цін",
     "forceUpdateButton": "Примусово оновити ціни",
-    "forceUpdateTitle": "Повторно завантажити histórico цін за весь período, протягом якого ви тримали цей цінний папір",
+    "forceUpdateTitle": "Повторно завантажити історію цін за весь період, протягом якого ви тримали цей цінний папір",
     "addPriceButton": "+ Додати ціну",
     "addPriceSection": "Додати ціну",
     "editPriceSection": "Редагувати ціну",
     "loading": "Завантаження цін...",
-    "empty": "Histórico цін відсутня",
+    "chartTitle": "Історія ціни",
+    "markers": {
+      "bought": "Купівля {quantity} · {account}",
+      "sold": "Продаж {quantity} · {account}"
+    },
+    "empty": "Історія цін відсутня",
+    "showingCount": "Відображається {shown} із {total} цін",
     "columns": {
       "date": "Дата",
       "close": "Закриття",
@@ -218,7 +224,7 @@
       "added": "Ціну додано",
       "updated": "Ціну оновлено",
       "deleted": "Ціну видалено",
-      "loadFailed": "Не вдалося завантажити histórico цін",
+      "loadFailed": "Не вдалося завантажити історію цін",
       "addFailed": "Не вдалося додати ціну",
       "updateFailed": "Не вдалося оновити ціну",
       "deleteFailed": "Не вдалося видалити ціну",
@@ -230,6 +236,7 @@
     "closeButton": "Закрити",
     "deleteConfirm": {
       "title": "Видалити ціну",
+      "message": "Видалити запис ціни за {date}?",
       "confirmLabel": "Видалити"
     }
   },
@@ -268,7 +275,7 @@
       "REMOVE_SHARES": "Видалити акції"
     },
     "toasts": {
-      "loadHistoryFailed": "Не вдалося завантажити histórico",
+      "loadHistoryFailed": "Не вдалося завантажити історію",
       "loadTransactionFailed": "Не вдалося завантажити транзакцію"
     }
   },

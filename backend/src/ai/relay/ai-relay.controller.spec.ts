@@ -59,6 +59,36 @@ describe("AiRelayController", () => {
     expect(events.some((e) => e.type === "assistant_text")).toBe(false);
   });
 
+  it("sets nosniff and escapes markup in the agent's answer", async () => {
+    const answer = "<img src=x onerror=alert(1)> Tom & Jerry's";
+    const controller = build({
+      enqueuePrompt: jest.fn().mockResolvedValue({ text: answer }),
+    });
+    const { res, events } = makeRes();
+    const written: string[] = [];
+    (res.write as unknown as jest.Mock).mockImplementation((chunk: string) => {
+      written.push(chunk);
+      if (chunk.startsWith("data: ")) {
+        events.push(JSON.parse(chunk.slice(6)));
+      }
+      return true;
+    });
+
+    await controller.streamQuery(req, { query: "what should I buy?" }, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "X-Content-Type-Options",
+      "nosniff",
+    );
+    // Character-level checks: no raw markup character reaches the socket.
+    const body = written.join("");
+    expect(body.includes("<")).toBe(false);
+    expect(body.includes(">")).toBe(false);
+    expect(body.includes("&")).toBe(false);
+    // The client still parses the original text back out unchanged.
+    expect(events).toContainEqual({ type: "content", text: answer });
+  });
+
   it("forwards uploaded attachments to enqueuePrompt", async () => {
     const enqueuePrompt = jest.fn().mockResolvedValue({ text: "ok" });
     const controller = build({ enqueuePrompt });
@@ -148,21 +178,38 @@ describe("AiRelayController", () => {
     const takeBufferedResponse = jest
       .fn()
       .mockReturnValue({ text: "the late answer" });
-    const controller = build({ takeBufferedResponse });
+    const takeBufferedActions = jest.fn().mockReturnValue([]);
+    const controller = build({ takeBufferedResponse, takeBufferedActions });
 
     expect(controller.pickupResponse(req, "prompt-123")).toEqual({
       text: "the late answer",
+      pendingActions: [],
     });
     expect(takeBufferedResponse).toHaveBeenCalledWith("user-1", "prompt-123");
   });
 
   it("returns null text when nothing is buffered for the prompt", () => {
     const takeBufferedResponse = jest.fn().mockReturnValue(null);
-    const controller = build({ takeBufferedResponse });
+    const takeBufferedActions = jest.fn().mockReturnValue([]);
+    const controller = build({ takeBufferedResponse, takeBufferedActions });
 
     expect(controller.pickupResponse(req, "prompt-123")).toEqual({
       text: null,
+      pendingActions: [],
     });
+  });
+
+  it("drains buffered confirmation cards on pickup, even without an answer", () => {
+    const cards = [{ actionId: "act-1" }, { actionId: "act-2" }];
+    const takeBufferedResponse = jest.fn().mockReturnValue(null);
+    const takeBufferedActions = jest.fn().mockReturnValue(cards);
+    const controller = build({ takeBufferedResponse, takeBufferedActions });
+
+    expect(controller.pickupResponse(req, "prompt-123")).toEqual({
+      text: null,
+      pendingActions: cards,
+    });
+    expect(takeBufferedActions).toHaveBeenCalledWith("user-1");
   });
 
   it("returns the relay tunnel status", () => {

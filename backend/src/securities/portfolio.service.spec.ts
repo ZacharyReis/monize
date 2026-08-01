@@ -1434,6 +1434,9 @@ describe("PortfolioService", () => {
       expect(result.timeWeightedReturn).toBe(8.57);
       expect(result.cagr).toBeNull();
       expect(result.holdings[0]).toMatchObject({
+        // The security's own id is surfaced (not the holding-row id) so the
+        // assistant can deep-link the holding to its Securities-page row.
+        securityId: "s1",
         symbol: "AAPL",
         name: "Apple Inc.",
         securityType: "STOCK",
@@ -3816,6 +3819,171 @@ describe("PortfolioService", () => {
       );
       expect(result.allocation.find((a) => a.name === "AI")?.value).toBe(50);
       expect(result.allocation.find((a) => a.type === "cash")?.value).toBe(50);
+    });
+  });
+
+  describe("getIntradayBreakdown", () => {
+    beforeEach(() => {
+      prefRepository.findOne.mockResolvedValue(mockPref);
+    });
+
+    it("returns empty series when the user has no holdings", async () => {
+      accountsRepository.find.mockResolvedValue([mockBrokerageAccount]);
+      holdingsRepository.find.mockResolvedValue([]);
+
+      const result = await service.getIntradayBreakdown(userId, {
+        range: "1d",
+      });
+
+      expect(result.series).toEqual([]);
+      expect(result.points).toEqual([]);
+      expect(result.currency).toBe("CAD");
+    });
+
+    it("splits the intraday value into per-security bands that stack to the total", async () => {
+      accountsRepository.find.mockResolvedValue([
+        mockBrokerageAccount,
+        mockCashAccount,
+      ]);
+      holdingsRepository.find.mockResolvedValue([
+        mockHoldingAAPL,
+        mockHoldingVFV,
+      ]);
+
+      const ts1 = new Date("2026-05-06T13:30:00.000Z");
+      const ts2 = new Date("2026-05-06T13:31:00.000Z");
+      yahooFinanceService.fetchIntradaySeries.mockImplementation(
+        async (symbol: string) => {
+          if (symbol === "AAPL")
+            return [
+              { timestamp: ts1, close: 100 },
+              { timestamp: ts2, close: 110 },
+            ];
+          if (symbol === "VFV.TO")
+            return [
+              { timestamp: ts1, close: 80 },
+              { timestamp: ts2, close: 81 },
+            ];
+          return null;
+        },
+      );
+      exchangeRateService.getLatestRate.mockImplementation(
+        async (from: string, to: string) =>
+          from === "USD" && to === "CAD" ? 1.4 : null,
+      );
+
+      const result = await service.getIntradayBreakdown(userId, {
+        range: "1d",
+      });
+
+      expect(result.fallbackToDaily).toBe(false);
+      // Ranked by peak contribution: VFV (peak 4050) before AAPL (peak 1540),
+      // then the cash band.
+      expect(result.series.map((s) => s.key)).toEqual([
+        "sec-2",
+        "sec-1",
+        "cash",
+      ]);
+      expect(result.series[0]).toEqual({
+        key: "sec-2",
+        type: "security",
+        symbol: "VFV.TO",
+        name: "Vanguard S&P 500 ETF",
+      });
+      expect(result.series[2].type).toBe("cash");
+
+      expect(result.points).toHaveLength(2);
+      // ts1: AAPL 10*100*1.4=1400, VFV 50*80=4000, cash 5000 -> 10400
+      expect(result.points[0].values).toEqual({
+        "sec-1": 1400,
+        "sec-2": 4000,
+        cash: 5000,
+      });
+      expect(result.points[0].total).toBeCloseTo(10400, 4);
+      // ts2: AAPL 10*110*1.4=1540, VFV 50*81=4050, cash 5000 -> 10590
+      expect(result.points[1].values).toEqual({
+        "sec-1": 1540,
+        "sec-2": 4050,
+        cash: 5000,
+      });
+      expect(result.points[1].total).toBeCloseTo(10590, 4);
+    });
+
+    it("rolls securities beyond the limit into a single 'other' band", async () => {
+      accountsRepository.find.mockResolvedValue([
+        mockBrokerageAccount,
+        mockCashAccount,
+      ]);
+      holdingsRepository.find.mockResolvedValue([
+        mockHoldingAAPL,
+        mockHoldingVFV,
+        { ...mockHoldingXIC, accountId: "acct-brokerage-1" },
+      ]);
+
+      const ts1 = new Date("2026-05-06T13:30:00.000Z");
+      yahooFinanceService.fetchIntradaySeries.mockImplementation(
+        async (symbol: string) => {
+          if (symbol === "AAPL") return [{ timestamp: ts1, close: 100 }];
+          if (symbol === "VFV.TO") return [{ timestamp: ts1, close: 80 }];
+          if (symbol === "XIC.TO") return [{ timestamp: ts1, close: 30 }];
+          return null;
+        },
+      );
+      exchangeRateService.getLatestRate.mockImplementation(
+        async (from: string, to: string) =>
+          from === "USD" && to === "CAD" ? 1.4 : null,
+      );
+
+      const result = await service.getIntradayBreakdown(userId, {
+        range: "1d",
+        limit: 1,
+      });
+
+      // VFV (4000) keeps its band; XIC (3000) + AAPL (1400) roll into "other".
+      expect(result.series.map((s) => s.key)).toEqual([
+        "sec-2",
+        "other",
+        "cash",
+      ]);
+      expect(result.series[1].type).toBe("other");
+      expect(result.points[0].values).toEqual({
+        "sec-2": 4000,
+        other: 4400,
+        cash: 5000,
+      });
+      expect(result.points[0].total).toBeCloseTo(13400, 4);
+    });
+
+    it("passes through fallbackToDaily when a holding lacks intraday support", async () => {
+      accountsRepository.find.mockResolvedValue([
+        mockBrokerageAccount,
+        mockCashAccount,
+      ]);
+      holdingsRepository.find.mockResolvedValue([
+        mockHoldingAAPL,
+        mockHoldingVFV,
+      ]);
+      // VFV resolves to a provider without fetchIntradaySeries (e.g. MSN Money).
+      quoteProviderRegistry.resolveForSecurity.mockImplementation(
+        (security: { symbol: string }) =>
+          security.symbol === "VFV.TO"
+            ? [{ name: "msn" }]
+            : [
+                {
+                  name: "yahoo",
+                  fetchIntradaySeries: yahooFinanceService.fetchIntradaySeries,
+                },
+              ],
+      );
+
+      const result = await service.getIntradayBreakdown(userId, {
+        range: "1d",
+      });
+
+      expect(result.fallbackToDaily).toBe(true);
+      expect(result.skippedSymbols).toEqual(["VFV.TO"]);
+      expect(result.series).toEqual([]);
+      expect(result.points).toEqual([]);
     });
   });
 });

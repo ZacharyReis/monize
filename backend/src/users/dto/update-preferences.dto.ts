@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsInt,
   IsArray,
+  IsObject,
   Min,
   Max,
   MaxLength,
@@ -12,6 +13,7 @@ import {
   Matches,
   IsIn,
 } from "class-validator";
+import { IsDashboardWidgetConfig } from "../validators/is-dashboard-widget-config.validator";
 
 export class UpdatePreferencesDto {
   @ApiPropertyOptional({
@@ -122,6 +124,14 @@ export class UpdatePreferencesDto {
   aiBubbleEnabled?: boolean;
 
   @ApiPropertyOptional({
+    description:
+      "Show the What's New release-notes popup automatically after an upgrade",
+  })
+  @IsOptional()
+  @IsBoolean()
+  showWhatsNew?: boolean;
+
+  @ApiPropertyOptional({
     description: "Day the week starts on (0=Sunday, 1=Monday, ..., 6=Saturday)",
     example: 1,
   })
@@ -162,6 +172,36 @@ export class UpdatePreferencesDto {
   })
   @ArrayMaxSize(100)
   favouriteReportIds?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Ordered ids of the widgets shown on the dashboard (empty = default layout)",
+    example: ["favourite-accounts", "upcoming-bills"],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  @Matches(/^[a-z0-9-]+$/, {
+    each: true,
+    message:
+      "each value in dashboardWidgets must contain only lowercase letters, numbers, and hyphens",
+  })
+  @ArrayMaxSize(50)
+  dashboardWidgets?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Per-widget dashboard settings (timeframe, account selection, chart type) keyed by widget id",
+    example: {
+      "spending-by-payee": { range: "3m" },
+      "income-by-source": { range: "1y", chartType: "pie" },
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  @IsDashboardWidgetConfig()
+  dashboardWidgetConfig?: Record<string, unknown>;
 
   @ApiPropertyOptional({
     description: "Show the Created At field in transaction forms",

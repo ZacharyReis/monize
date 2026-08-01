@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
+import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
@@ -19,7 +20,7 @@ import { scheduledTransactionsApi } from '@/lib/scheduled-transactions';
 import { investmentsApi } from '@/lib/investments';
 import { getLocalDateString } from '@/lib/utils';
 import { buildCategoryTree } from '@/lib/categoryUtils';
-import { roundToCents, getCurrencySymbol } from '@/lib/format';
+import { roundToCents, getCurrencySymbol, formatAmount } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { createLogger } from '@/lib/logger';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
@@ -77,6 +78,7 @@ export function PostTransactionDialog({
   const { formatCurrency, formatNumber } = useNumberFormat();
   const [isLoading, setIsLoading] = useState(false);
   const [amount, setAmount] = useState<number>(0);
+  const [amountCopied, setAmountCopied] = useState(false);
   const [categoryId, setCategoryId] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isSplit, setIsSplit] = useState(false);
@@ -471,12 +473,42 @@ export function PostTransactionDialog({
     setAmount(roundToCents(newAmount));
   };
 
+  // Copy the unsigned amount (no minus sign, no currency symbol or commas) so it
+  // pastes cleanly into other fields, e.g. when reconciling against a statement.
+  const handleCopyAmount = async () => {
+    try {
+      await navigator.clipboard.writeText(formatAmount(Math.abs(amount)));
+      setAmountCopied(true);
+      toast.success(t('postDialog.toasts.amountCopied'));
+      window.setTimeout(() => setAmountCopied(false), 2000);
+    } catch (error) {
+      toast.error(t('postDialog.toasts.copyFailed'));
+      logger.error?.('Failed to copy amount', error);
+    }
+  };
+
   const currentCategory = categoryId ? categories.find(c => c.id === categoryId) : null;
   // Parent-qualified label (e.g. "Investments: IKE") for the category, reusing
   // the dropdown's option labels so a categorized transfer can show it.
   const currentCategoryLabel = categoryId
     ? (categoryOptions.find(o => o.value === categoryId)?.label ?? currentCategory?.name ?? null)
     : null;
+
+  // Rendered next to the Category for regular rows, or standalone for
+  // split/transfer rows where no Category field is shown.
+  const referenceNumberField = (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {t('postDialog.referenceNumberLabel')}
+      </label>
+      <Input
+        type="text"
+        value={referenceNumber}
+        onChange={(e) => setReferenceNumber(e.target.value)}
+        placeholder={t('postDialog.referencePlaceholder')}
+      />
+    </div>
+  );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="5xl" className="p-6">
@@ -685,13 +717,30 @@ export function PostTransactionDialog({
 
         {/* Amount — non-investment only */}
         {!isInvestmentKind && (
-        <CurrencyInput
-          label={t('postDialog.amountLabel')}
-          prefix={getCurrencySymbol(scheduledTransaction.currencyCode)}
-          value={amount}
-          onChange={(value) => setAmount(value ?? 0)}
-          allowSignToggle
-        />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <CurrencyInput
+              label={t('postDialog.amountLabel')}
+              prefix={getCurrencySymbol(scheduledTransaction.currencyCode)}
+              value={amount}
+              onChange={(value) => setAmount(value ?? 0)}
+              allowSignToggle
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyAmount}
+            title={t('postDialog.copyAmount')}
+            aria-label={t('postDialog.copyAmount')}
+            className="shrink-0 flex items-center justify-center px-3 py-2.5 text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+          >
+            {amountCopied ? (
+              <CheckIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+            ) : (
+              <ClipboardDocumentIcon className="w-5 h-5" />
+            )}
+          </button>
+        </div>
         )}
 
         {/* Transfer indicator - shown instead of category for transfers */}
@@ -750,48 +799,42 @@ export function PostTransactionDialog({
                 currencyCode={scheduledTransaction.currencyCode}
               />
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('postDialog.categoryLabel')}
-                </label>
-                <Combobox
-                  placeholder={t('postDialog.selectCategoryPlaceholder')}
-                  options={categoryOptions}
-                  value={categoryId}
-                  initialDisplayValue={currentCategory?.name || ''}
-                  onChange={(value) => setCategoryId(value || '')}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {t('postDialog.categoryLabel')}
+                  </label>
+                  <Combobox
+                    placeholder={t('postDialog.selectCategoryPlaceholder')}
+                    options={categoryOptions}
+                    value={categoryId}
+                    initialDisplayValue={currentCategory?.name || ''}
+                    onChange={(value) => setCategoryId(value || '')}
+                  />
+                </div>
+                {referenceNumberField}
               </div>
             )}
           </>
         )
         )}
 
-        {/* Description and Reference Number — non-investment only (investment renders description in its own block) */}
+        {/* Reference # — only here for split/transfer rows; regular rows show it beside the Category */}
+        {!isInvestmentKind && (isSplit || scheduledTransaction.isTransfer) && referenceNumberField}
+
+        {/* Description — full-width, multi-line; non-investment only (investment renders description in its own block) */}
         {!isInvestmentKind && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('postDialog.descriptionLabel')}
-            </label>
-            <Input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('postDialog.descriptionPlaceholder')}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('postDialog.referenceNumberLabel')}
-            </label>
-            <Input
-              type="text"
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder={t('postDialog.referencePlaceholder')}
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('postDialog.descriptionLabel')}
+          </label>
+          <textarea
+            rows={2}
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('postDialog.descriptionPlaceholder')}
+          />
         </div>
         )}
       </div>

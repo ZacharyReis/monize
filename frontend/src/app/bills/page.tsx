@@ -59,6 +59,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useOnAiAction } from '@/hooks/useOnAiAction';
+import { useHighlightParam } from '@/hooks/useHighlightTarget';
 
 const logger = createLogger('Bills');
 const FORECAST_ACCOUNT_STORAGE_KEY = 'cashFlowForecast.accountId';
@@ -96,6 +98,9 @@ function BillsContent() {
   const reconcileCreate = searchParams.get('reconcileCreate');
   const reconcileTransferAccountId = searchParams.get('reconcileTransferAccountId');
   const reconcileAmount = searchParams.get('reconcileAmount');
+  // Passive deep-link target (e.g. the AI chat "view this bill" link): flash and
+  // scroll to the row without opening the post flow that ?postBillId triggers.
+  const highlightId = useHighlightParam();
   const { formatCurrency } = useNumberFormat();
   const preferences = usePreferencesStore((s) => s.preferences);
   const [scheduledTransactions, setScheduledTransactions] = useState<ScheduledTransaction[]>([]);
@@ -211,6 +216,8 @@ function BillsContent() {
   }, [loadTrends]);
 
   useOnUndoRedo(loadData);
+  // Refresh on AI chat-bubble writes (the forecast depends on transactions).
+  useOnAiAction(loadData);
 
   const handleCreateNew = () => {
     // Clear any stale reconcile prefill so a manual create starts blank.
@@ -797,6 +804,7 @@ function BillsContent() {
                 onPost={handlePost}
                 onRefresh={loadData}
                 categoryColorMap={categoryColorMap}
+                highlightId={highlightId}
               />
             )}
           </div>

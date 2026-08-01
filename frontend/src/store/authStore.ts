@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { AxiosError } from 'axios';
 import { User } from '@/types/auth';
 import { clearAllCache } from '@/lib/apiCache';
+import { markWhatsNewPendingForLogin } from './whatsNewStore';
 import type {
   DelegateContext,
   DelegateCapabilityFlags,
@@ -74,6 +75,11 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading) => set({ isLoading: loading }),
 
       login: (user, token) => {
+        // The only place a real login happens, so it is where the What's New
+        // digest gets its one-shot permission to auto-open. A refresh
+        // rehydrates isAuthenticated from localStorage without coming through
+        // here, which is exactly why the digest used to reappear on every one.
+        markWhatsNewPendingForLogin();
         // Backend sets httpOnly cookies; we only track auth state in Zustand
         set({
           user,

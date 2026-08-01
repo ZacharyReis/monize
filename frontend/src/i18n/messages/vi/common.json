@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Xem ghi chú phát hành cho v{version}"
   },
+  "whatsNew": {
+    "title": "Có gì mới",
+    "versionLabel": "Phiên bản {version}",
+    "expandAll": "Mở rộng tất cả",
+    "collapseAll": "Thu gọn tất cả",
+    "viewFullNotes": "Xem ghi chú phát hành đầy đủ",
+    "dontShowAgain": "Không hiển thị lại",
+    "showNextLogin": "Hiển thị ở lần đăng nhập tiếp theo",
+    "close": "Đóng",
+    "unavailable": "Không có ghi chú phát hành cho phiên bản này.",
+    "englishOnly": "Ghi chú phát hành bên dưới chỉ có bằng tiếng Anh. Bản thân Monize, bao gồm các hướng dẫn tương tác, tuân theo cài đặt ngôn ngữ của bạn."
+  },
   "save": "Lưu",
   "cancel": "Hủy",
   "delete": "Xóa",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Tải {filename} dưới dạng PNG",
     "unableToCapture": "Không thể chụp ảnh biểu đồ",
     "failedToDownload": "Không thể tải biểu đồ"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Tải {filename} dưới dạng CSV"
   },
   "chartViewToggle": {
     "pieChart": "Biểu đồ tròn",
@@ -158,10 +173,47 @@
     "length": "Mã phải có đúng 6 chữ số",
     "digits": "Mã phải có 6 chữ số"
   },
-  "monthsShort": ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"],
-  "weekdaysShort": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
-  "weekdaysMin": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
-  "weekdaysNarrow": ["C", "2", "3", "4", "5", "6", "7"],
+  "monthsShort": [
+    "Th1",
+    "Th2",
+    "Th3",
+    "Th4",
+    "Th5",
+    "Th6",
+    "Th7",
+    "Th8",
+    "Th9",
+    "Th10",
+    "Th11",
+    "Th12"
+  ],
+  "weekdaysShort": [
+    "CN",
+    "T2",
+    "T3",
+    "T4",
+    "T5",
+    "T6",
+    "T7"
+  ],
+  "weekdaysMin": [
+    "CN",
+    "T2",
+    "T3",
+    "T4",
+    "T5",
+    "T6",
+    "T7"
+  ],
+  "weekdaysNarrow": [
+    "C",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7"
+  ],
   "dateFormat": {
     "browserAuto": "Dùng ngôn ngữ trình duyệt (tự động nhận dạng: {sample})",
     "custom": "Tùy chỉnh..."

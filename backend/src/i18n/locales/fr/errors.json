@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Ce compte a déjà un paiement récurrent configuré. Modifiez la transaction récurrente existante.",
     "sourceNotFound": "Compte source introuvable",
     "ambiguousBrokerage": "« {{ query }} » correspond à plusieurs comptes de courtage : {{ list }}. Utilisez le nom exact du compte.",
-    "unknownInvestmentAccount": "Compte inconnu : {{ name }}. Utilisez un nom exact de la liste des comptes de l'utilisateur."
+    "unknownInvestmentAccount": "Compte inconnu : {{ name }}. Utilisez un nom exact de la liste des comptes de l'utilisateur.",
+    "notACreditCard": "Les cycles de facturation ne sont disponibles que pour les comptes de carte de crédit",
+    "noStatementSettlementDay": "Cette carte de crédit n'a aucun jour de clôture de relevé configuré"
   },
   "actionHistory": {
     "nothingToUndo": "Rien à annuler",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Aucun fournisseur IA actif configuré. Veuillez configurer un fournisseur dans les Paramètres IA.",
     "allProvidersFailed": "Tous les fournisseurs IA ont échoué. Vérifiez votre configuration de fournisseur et réessayez.",
     "noToolUseProvider": "Aucun fournisseur IA avec prise en charge des outils configuré. Les requêtes en langage naturel nécessitent Anthropic, OpenAI ou Ollama. Veuillez en configurer un dans les Paramètres IA.",
+    "relayAgentOffline": "Votre agent relais MCP n'est pas connecté. Connectez votre agent et réessayez.",
+    "relayCompletionTimedOut": "Votre agent relais MCP n'a pas répondu à temps. Assurez-vous qu'il est connecté, puis réessayez.",
     "baseUrlInvalidBasic": "baseUrl doit être une URL HTTP ou HTTPS valide",
     "baseUrlInvalidExternal": "baseUrl doit être une URL HTTP/HTTPS valide pointant vers un hôte externe",
     "ollamaCloudApiKeyRequired": "apiKey est requis pour le fournisseur ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Une pièce jointe dépasse la taille de fichier maximale.",
     "attachmentCorrupt": "Une pièce jointe n'a pas pu être lue ou n'est pas du type de fichier qu'elle prétend être.",
     "attachmentsTooLarge": "Les pièces jointes dépassent la limite de taille totale.",
+    "attachmentRefExpired": "Le fichier joint n'est plus disponible. Veuillez le téléverser à nouveau et redemander.",
     "modelNoImageSupport": "Le modèle d'IA sélectionné ne peut pas lire les images ni les PDF. Supprimez la pièce jointe et posez votre question par texte, ou passez à un modèle prenant en charge la vision dans les Paramètres IA."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Mot de passe incorrect"
   },
   "backup": {
-    "folderPathRequired": "Un chemin de dossier doit être défini avant d'activer les sauvegardes automatiques",
     "folderNotExist": "Le dossier n'existe pas : {{ safePath }}",
     "folderAccessError": "Impossible d'accéder au dossier : {{ safePath }}",
     "pathNotDirectory": "Le chemin n'est pas un répertoire : {{ safePath }}",
-    "notConfigured": "La sauvegarde automatique n'est pas configurée. Veuillez d'abord définir un chemin de dossier.",
     "userNotFound": "Utilisateur {{ userId }} introuvable",
     "encryptedPasswordDecryptFailed": "Les sauvegardes chiffrées sont activées mais le mot de passe stocké n'a pas pu être déchiffré. Réactivez le chiffrement dans les Paramètres de sécurité.",
     "pathTraversal": "Traversée de chemin détectée : {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Jeton CSRF invalide",
     "demoModeRestricted": "Cette action n'est pas disponible en mode démo.",
     "serviceNotReady": "Service non prêt",
-    "oauthProviderNotInitialized": "Fournisseur OAuth non initialisé"
+    "oauthProviderNotInitialized": "Fournisseur OAuth non initialisé",
+    "invalidCurrencyCode": "Code de devise non valide : {{ code }}"
   },
   "currencies": {
     "alreadyInList": "La devise « {{ code }} » est déjà dans votre liste",
     "notFound": "Devise « {{ code }} » introuvable",
     "cannotModifySystem": "Impossible de modifier les métadonnées de devise système",
     "cannotModifyOther": "Impossible de modifier la devise d'un autre utilisateur",
-    "inUse": "La devise « {{ code }} » est utilisée par vos comptes, titres ou autres enregistrements. Désactivez-la à la place."
+    "inUse": "La devise « {{ code }} » est utilisée par vos comptes, titres ou autres enregistrements. Désactivez-la à la place.",
+    "invalidRateDate": "date doit être au format AAAA-MM-JJ",
+    "alreadyInListInactive": "La devise « {{ code }} » est déjà dans votre liste, mais est actuellement inactive. Réactivez-la pour l'utiliser."
   },
   "delegation": {
     "delegatedAccessInvalid": "L'accès délégué n'est plus valide",
@@ -254,6 +260,7 @@
     "passwordBreached": "Ce mot de passe a été trouvé dans une fuite de données. Veuillez choisir un mot de passe différent."
   },
   "http": {
+    "forbidden": "Accès refusé",
     "tooManyRequests": "Trop de requêtes. Veuillez patienter quelques minutes et réessayer.",
     "duplicateRecord": "Un enregistrement avec cette valeur existe déjà",
     "referencedRecord": "L'enregistrement référencé n'existe pas ou ne peut pas être supprimé",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate doit être au format YYYY-MM-DD",
     "invalidEndDate": "endDate doit être au format YYYY-MM-DD",
-    "invalidAccountIds": "accountIds doit être une liste d'UUID séparés par des virgules"
+    "invalidAccountIds": "accountIds doit être une liste d'UUID séparés par des virgules",
+    "invalidGranularity": "granularity doit être 'daily' ou 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP n'est pas configuré. Définissez les variables d'environnement SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Alias avec l'ID {{ id }} introuvable",
     "mergeSelf": "Impossible de fusionner un bénéficiaire avec lui-même",
     "autoMergeDuplicatePayee": "Un bénéficiaire apparaît dans plusieurs groupes de fusion",
-    "autoMergeSourceNotFound": "Un ou plusieurs bénéficiaires sources sont introuvables"
+    "autoMergeSourceNotFound": "Un ou plusieurs bénéficiaires sources sont introuvables",
+    "autoMergeGroupConflict": "Impossible de fusionner « {{ name }} » : la valeur « {{ value }} » est déjà utilisée",
+    "autoMergeGroupFailed": "Impossible de fusionner « {{ name }} »"
   },
   "reports": {
     "notFound": "Rapport avec l'ID {{ id }} introuvable",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "« {{ query }} » correspond à plusieurs titres : {{ list }}. Relancez la recherche en précisant une place boursière.",
     "lookupNoCurrency": "Impossible de déterminer la devise de « {{ symbol }} ». Ajoutez le titre manuellement à la place.",
     "noUpdateFields": "Indiquez au moins un champ à modifier.",
-    "allocationExceedsTotal": "Les pourcentages de répartition dépassent 100 %."
+    "allocationExceedsTotal": "Les pourcentages de répartition dépassent 100 %.",
+    "invalidTagKey": "Une clé d'étiquette (1 à 100 caractères) est requise"
   },
   "tags": {
     "notFound": "Étiquette avec l'ID {{ id }} introuvable",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId doit être un UUID valide",
     "amountFromMustBeNumber": "amountFrom doit être un nombre",
     "amountToMustBeNumber": "amountTo doit être un nombre",
+    "invalidGroupBy": "groupBy doit être 'category' ou 'payee'",
+    "limitMustBePositive": "limit doit être un nombre positif",
+    "recurringPayeeRequired": "payeeIds est requis",
+    "recurringDatesRequired": "startDate et endDate sont requis",
     "statementDateFormat": "statementDate doit être au format YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance doit être un nombre",
     "categoryNotFound": "Catégorie introuvable",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Certaines transactions sont introuvables ou n'appartiennent pas au compte spécifié",
     "cannotReconcileVoidPlural": "Impossible de rapprocher des transactions annulées",
     "transferSameAccount": "Les comptes source et destination doivent être différents",
-    "transferSplitFromAccountFixed": "Le compte source d'une ligne de transfert ventilée ne peut pas être modifié",
     "transferAmountNegative": "Le montant du virement ne doit pas être négatif",
     "notATransfer": "La transaction n'est pas un virement",
+    "splitTransferLegAccountLocked": "Ce virement fait partie d'une transaction fractionnée. Pour changer ses comptes, modifiez la fraction sur la transaction d'origine.",
     "notFoundById": "Transaction avec l'ID {{ id }} introuvable",
     "bulkUpdateNoFields": "Au moins un champ de mise à jour doit être fourni",
     "payeeNotFound": "Bénéficiaire introuvable",
     "cannotEditTransfer": "Les virements ne peuvent pas être modifiés ici. Modifiez le virement depuis l'écran Transactions.",
     "cannotEditSplit": "Les transactions ventilées ne peuvent pas être modifiées ici. Modifiez la ventilation depuis l'écran Transactions.",
-    "noUpdateFields": "Indiquez au moins un champ à modifier."
+    "noUpdateFields": "Indiquez au moins un champ à modifier.",
+    "tagKeyTooLong": "tagKey ne doit pas dépasser 100 caractères",
+    "invalidTagKeyOp": "tagKeyOp non valide : {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue est requis pour contains / notContains",
+    "tagKeyRequired": "Une clé d'étiquette (1 à 100 caractères) est requise",
+    "fxFieldsIncomplete": "originalAmount et originalCurrencyCode doivent être fournis ensemble",
+    "fxRateRequired": "Un taux de change positif est requis pour une transaction en devise étrangère",
+    "fxSignMismatch": "originalAmount et amount doivent avoir le même signe"
   },
   "users": {
     "userNotFound": "Utilisateur introuvable",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Impossible de supprimer le dernier compte administrateur. Promouvez d'abord un autre utilisateur.",
     "oidcReauthRequiredForDataDelete": "Une ré-authentification OIDC est requise pour confirmer la suppression des données",
     "passwordRequiredForDataDelete": "Un mot de passe est requis pour confirmer la suppression des données"
+  },
+  "loanScenarios": {
+    "notFound": "Scénario de prêt avec l'ID {{ id }} introuvable",
+    "nameConflict": "Un scénario nommé « {{ name }} » existe déjà pour ce compte",
+    "notLoanAccount": "Les scénarios de prêt ne sont disponibles que pour les comptes de prêt, d'hypothèque et de marge de crédit",
+    "budgetWindowInverted": "La date de début de la période du budget doit être antérieure ou égale à sa date de fin"
+  },
+  "loanRateChanges": {
+    "notFound": "Changement de taux avec l'ID {{ id }} introuvable",
+    "notLoanAccount": "Les changements de taux ne sont disponibles que pour les comptes de prêt et de prêt hypothécaire",
+    "duplicateDate": "Un changement de taux prenant effet le {{ date }} existe déjà pour ce compte",
+    "paymentModeConflict": "Fournissez soit un nouveau montant de versement, soit recalculatePayment, mais pas les deux",
+    "recalculateMortgageOnly": "Le recalcul du versement n'est disponible que pour les comptes de prêt hypothécaire",
+    "insufficientData": "Pas assez de paiements avec des détails d'intérêts pour détecter les changements de taux",
+    "frequencyMismatch": "Les dates de paiement ne correspondent pas à la fréquence de paiement du compte ; les taux déduits peuvent être moins précis"
+  },
+  "attachments": {
+    "notFound": "Pièce jointe introuvable",
+    "transactionNotFound": "Transaction introuvable",
+    "empty": "Le fichier téléversé est vide",
+    "fileTooLarge": "Le fichier dépasse la taille maximale de {{ max }} octets",
+    "unsupportedType": "Type de fichier non pris en charge. Types autorisés : {{ types }}",
+    "tooMany": "Cette transaction a déjà le maximum de {{ max }} pièces jointes"
   }
 }

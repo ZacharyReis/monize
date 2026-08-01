@@ -65,11 +65,16 @@
     "cash": "Trésorerie",
     "untagged": "Sans étiquette",
     "noTagData": "Aucune position étiquetée à afficher. Ajoutez des étiquettes à vos titres pour voir la répartition par étiquette.",
-    "tagExposureNote": "Répartition par étiquette : une position comportant plusieurs étiquettes est comptée intégralement sous chacune, le total des pourcentages peut donc dépasser 100 %.",
+    "noCountryData": "Aucune donnée de répartition par pays disponible.",
+    "otherCountries": "Autres pays",
     "groupBy": {
       "security": "Par titre",
-      "tag": "Par étiquette"
-    }
+      "tag": "Par étiquette",
+      "country": "Par pays",
+      "tagKey": "Par clé"
+    },
+    "noKeyData": "Aucune position ne comporte de valeur pour cette clé d'étiquette. Étiquetez les titres au format clé:valeur (p. ex. country:usa) pour voir cette répartition.",
+    "keySelectorLabel": "Clé d'étiquette à agréger"
   },
   "holdingsList": {
     "title": "Positions",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "Valeur du portefeuille dans le temps",
+    "viewReport": "Voir le rapport",
+    "viewReportTitle": "Ouvrir le rapport complet Valeur du portefeuille",
     "updatingLabel": "Mise à jour…",
-    "updatingAriaLabel": "Mise à jour",
     "intradayFallbackWarningAriaLabel": "Cours intrajournalier détaillé indisponible",
     "intradayUnavailableTitle": "Vue intrajournalière indisponible pour cette combinaison de comptes",
     "intradayUnavailableDescription": "Une ou plusieurs positions utilisent un fournisseur de cours (MSN Money) qui n'expose pas les données intrajournalières. Passez à une plage plus longue pour voir les instantanés quotidiens.",

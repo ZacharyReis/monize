@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Visualizza le note di rilascio della v{version}"
   },
+  "whatsNew": {
+    "title": "Novità",
+    "versionLabel": "Versione {version}",
+    "expandAll": "Espandi tutto",
+    "collapseAll": "Comprimi tutto",
+    "viewFullNotes": "Visualizza le note di rilascio complete",
+    "dontShowAgain": "Non mostrare più",
+    "showNextLogin": "Mostra al prossimo accesso",
+    "close": "Chiudi",
+    "unavailable": "Le note di rilascio per questa versione non sono disponibili.",
+    "englishOnly": "Le note di rilascio qui sotto sono solo in inglese. Monize, comprese le visite guidate, segue le tue impostazioni della lingua."
+  },
   "save": "Salva",
   "cancel": "Annulla",
   "delete": "Elimina",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Scarica {filename} come PNG",
     "unableToCapture": "Impossibile acquisire l'immagine del grafico",
     "failedToDownload": "Download del grafico non riuscito"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Scarica {filename} come CSV"
   },
   "chartViewToggle": {
     "pieChart": "Grafico a torta",
@@ -158,10 +173,47 @@
     "length": "Il codice deve essere esattamente di 6 cifre",
     "digits": "Il codice deve essere di 6 cifre"
   },
-  "monthsShort": ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"],
-  "weekdaysShort": ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
-  "weekdaysMin": ["Do", "Lu", "Ma", "Me", "Gi", "Ve", "Sa"],
-  "weekdaysNarrow": ["D", "L", "M", "M", "G", "V", "S"],
+  "monthsShort": [
+    "Gen",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mag",
+    "Giu",
+    "Lug",
+    "Ago",
+    "Set",
+    "Ott",
+    "Nov",
+    "Dic"
+  ],
+  "weekdaysShort": [
+    "Dom",
+    "Lun",
+    "Mar",
+    "Mer",
+    "Gio",
+    "Ven",
+    "Sab"
+  ],
+  "weekdaysMin": [
+    "Do",
+    "Lu",
+    "Ma",
+    "Me",
+    "Gi",
+    "Ve",
+    "Sa"
+  ],
+  "weekdaysNarrow": [
+    "D",
+    "L",
+    "M",
+    "M",
+    "G",
+    "V",
+    "S"
+  ],
   "dateFormat": {
     "browserAuto": "Usa localizzazione del browser (rilevata automaticamente: {sample})",
     "custom": "Personalizzato..."

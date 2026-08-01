@@ -12,6 +12,9 @@ data:
   # Database
   DATABASE_HOST: {{ .Values.backend.database.DATABASE_HOST | quote }}
   DATABASE_NAME: {{ .Values.backend.database.DATABASE_NAME | quote }}
+  # Row-Level Security (mode + runtime role name; password lives in the DB Secret)
+  RLS_MODE: {{ .Values.backend.rls.RLS_MODE | default "off" | quote }}
+  DATABASE_APP_USER: {{ .Values.backend.rls.DATABASE_APP_USER | default "monize_app" | quote }}
   # Auth
   LOCAL_AUTH_ENABLED: {{ .Values.backend.auth.LOCAL_AUTH_ENABLED | quote }}
   REGISTRATION_ENABLED: {{ .Values.backend.auth.REGISTRATION_ENABLED | quote }}

@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Zobacz informacje o wydaniu v{version}"
   },
+  "whatsNew": {
+    "title": "Co nowego",
+    "versionLabel": "Wersja {version}",
+    "expandAll": "Rozwiń wszystko",
+    "collapseAll": "Zwiń wszystko",
+    "viewFullNotes": "Zobacz pełne informacje o wydaniu",
+    "dontShowAgain": "Nie pokazuj ponownie",
+    "showNextLogin": "Pokaż przy następnym logowaniu",
+    "close": "Zamknij",
+    "unavailable": "Informacje o wydaniu tej wersji są niedostępne.",
+    "englishOnly": "Informacje o wydaniu poniżej są dostępne tylko w języku angielskim. Sam Monize, w tym przewodniki, używa wybranego przez Ciebie języka."
+  },
   "save": "Zapisz",
   "cancel": "Anuluj",
   "delete": "Usuń",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Pobierz {filename} jako PNG",
     "unableToCapture": "Nie udało się przechwycić obrazu wykresu",
     "failedToDownload": "Nie udało się pobrać wykresu"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Pobierz {filename} jako CSV"
   },
   "chartViewToggle": {
     "pieChart": "Wykres kołowy",

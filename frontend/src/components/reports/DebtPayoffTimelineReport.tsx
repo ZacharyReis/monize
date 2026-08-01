@@ -15,15 +15,21 @@ import {
   Area,
   ReferenceLine,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
 import { accountsApi } from '@/lib/accounts';
-import { transactionsApi } from '@/lib/transactions';
 import { Transaction } from '@/types/transaction';
+import { generateLoanSchedule } from '@/lib/loan-schedule';
+import {
+  buildLoanProjectionInput,
+  deriveLoanPaymentHistory,
+  fetchAllAccountTransactions,
+  fetchLoanInterestTransactions,
+} from '@/lib/loan-history';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useReportData } from '@/hooks/useReportData';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { ReportError } from '@/components/reports/ReportError';
 import { chartColors } from '@/lib/chart-colors';
+import { useChartDateFormat } from '@/hooks/useChartDateFormat';
 import { useTranslations } from 'next-intl';
 
 interface PayoffScheduleItem {
@@ -39,79 +45,9 @@ interface PayoffScheduleItem {
   isProjected: boolean;
 }
 
-// --- Projection helper functions ---
-
-function getPeriodsPerYear(frequency: string): number {
-  switch (frequency) {
-    case 'WEEKLY':
-    case 'ACCELERATED_WEEKLY':
-      return 52;
-    case 'BIWEEKLY':
-    case 'ACCELERATED_BIWEEKLY':
-      return 26;
-    case 'SEMI_MONTHLY':
-      return 24;
-    case 'MONTHLY':
-      return 12;
-    case 'QUARTERLY':
-      return 4;
-    case 'YEARLY':
-      return 1;
-    default:
-      return 12;
-  }
-}
-
-function getPeriodicRate(
-  annualRate: number,
-  periodsPerYear: number,
-  isCanadianMortgage: boolean,
-  isVariableRate: boolean,
-): number {
-  if (annualRate === 0) return 0;
-  if (isCanadianMortgage && !isVariableRate) {
-    // Canadian fixed-rate: semi-annual compounding
-    const semiAnnualRate = annualRate / 100 / 2;
-    return Math.pow(1 + semiAnnualRate, 2 / periodsPerYear) - 1;
-  }
-  return annualRate / 100 / periodsPerYear;
-}
-
-function advanceDate(date: Date, frequency: string): Date {
-  const next = new Date(date);
-  switch (frequency) {
-    case 'WEEKLY':
-    case 'ACCELERATED_WEEKLY':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'BIWEEKLY':
-    case 'ACCELERATED_BIWEEKLY':
-      next.setDate(next.getDate() + 14);
-      break;
-    case 'SEMI_MONTHLY':
-      if (next.getDate() < 15) {
-        next.setDate(15);
-      } else {
-        next.setMonth(next.getMonth() + 1);
-        next.setDate(1);
-      }
-      break;
-    case 'QUARTERLY':
-      next.setMonth(next.getMonth() + 3);
-      break;
-    case 'YEARLY':
-      next.setFullYear(next.getFullYear() + 1);
-      break;
-    case 'MONTHLY':
-    default:
-      next.setMonth(next.getMonth() + 1);
-      break;
-  }
-  return next;
-}
-
 export function DebtPayoffTimelineReport() {
   const t = useTranslations('reports');
+  const formatChartDate = useChartDateFormat();
   const { formatCurrencyCompact: formatCurrency, formatCurrencyAxis } = useNumberFormat();
   const chartRef = useRef<HTMLDivElement>(null);
   const [selectedAccountIdState, setSelectedAccountId] = useState<string>('');
@@ -152,30 +88,38 @@ export function DebtPayoffTimelineReport() {
   } = useReportData(
     async () => {
       if (!selectedAccountId) return [] as Transaction[];
-      let allTransactions: Transaction[] = [];
-      let page = 1;
-      let hasMore = true;
-      while (hasMore) {
-        const result = await transactionsApi.getAll({
-          accountId: selectedAccountId,
-          limit: 200,
-          page,
-        });
-        allTransactions = allTransactions.concat(result.data);
-        hasMore = result.pagination.hasMore;
-        page++;
-      }
-      return allTransactions;
+      return fetchAllAccountTransactions(selectedAccountId);
     },
     [selectedAccountId],
   );
 
   const transactions = useMemo<Transaction[]>(() => transactionsData ?? [], [transactionsData]);
-  const isLoading = accountsLoading || transactionsLoading;
-  const error = accountsError || transactionsError;
+
+  // The loan's separately-booked interest expenses, so derived interest matches
+  // the loan detail page (see #893). Folded into the combined isLoading/error/
+  // reload below like the other loaders, so the schedule never paints with the
+  // analytic interest estimate and then snaps to the booked interest.
+  const {
+    data: interestData,
+    isLoading: interestLoading,
+    error: interestError,
+    reload: reloadInterest,
+  } = useReportData(
+    async () => {
+      const account = accounts.find((a) => a.id === selectedAccountId);
+      if (!account) return [] as Transaction[];
+      return fetchLoanInterestTransactions(account);
+    },
+    [selectedAccountId, accounts],
+  );
+  const interestTransactions = useMemo<Transaction[]>(() => interestData ?? [], [interestData]);
+
+  const isLoading = accountsLoading || transactionsLoading || interestLoading;
+  const error = accountsError || transactionsError || interestError;
   const reload = () => {
     reloadAccounts();
     reloadTransactions();
+    reloadInterest();
   };
 
   // Build payment timeline from actual transactions + projected future payments
@@ -185,116 +129,39 @@ export function DebtPayoffTimelineReport() {
   } => {
     if (!selectedAccount) return { payoffSchedule: [], projectionStartLabel: null };
 
-    const loanAccountId = selectedAccount.id;
-    const schedule: PayoffScheduleItem[] = [];
-
     // --- Historical payments from actual transactions ---
-    const sortedTransactions = [...transactions]
-      .filter((t) => t.amount > 0)
-      .sort((a, b) => new Date(a.transactionDate).getTime() - new Date(b.transactionDate).getTime());
-
-    const totalPrincipalPaid = sortedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
-    const openingBalance = Math.abs(selectedAccount.openingBalance || 0);
-    const currentBalance = Math.abs(selectedAccount.currentBalance || 0);
-    const calculatedOriginalBalance = currentBalance + totalPrincipalPaid;
-
-    let runningBalance = openingBalance > 0 ? openingBalance : calculatedOriginalBalance;
-
-    let cumulativePrincipal = 0;
-    let cumulativeInterest = 0;
-
-    const processedParentIds = new Set<string>();
-
-    for (const transaction of sortedTransactions) {
-      const principal = Math.abs(transaction.amount);
-      let interest = 0;
-
-      const linkedTx = transaction.linkedTransaction;
-      if (linkedTx?.splits && linkedTx.splits.length > 0) {
-        if (!processedParentIds.has(linkedTx.id)) {
-          processedParentIds.add(linkedTx.id);
-          const interestSplit = linkedTx.splits.find(
-            (s) => s.transferAccountId !== loanAccountId
-          );
-          if (interestSplit) {
-            interest = Math.abs(interestSplit.amount);
-          }
-        }
-      }
-
-      runningBalance = Math.max(0, runningBalance - principal);
-      cumulativePrincipal += principal;
-      cumulativeInterest += interest;
-
-      schedule.push({
-        date: transaction.transactionDate,
-        label: format(parseISO(transaction.transactionDate), 'MMM yyyy'),
-        balance: runningBalance,
-        principalPaid: principal,
-        interestPaid: interest,
-        cumulativePrincipal,
-        cumulativeInterest,
-        isProjected: false,
-      });
-    }
+    const history = deriveLoanPaymentHistory(selectedAccount, transactions, [], interestTransactions);
+    const schedule: PayoffScheduleItem[] = history.events.map((event) => ({
+      date: event.date,
+      label: formatChartDate(event.date, 'MMM yyyy'),
+      balance: event.balance,
+      principalPaid: event.principal,
+      interestPaid: event.interest,
+      cumulativePrincipal: event.cumulativePrincipal,
+      cumulativeInterest: event.cumulativeInterest,
+      isProjected: false,
+    }));
 
     // --- Project future payments ---
-    const projBalance = currentBalance;
-    const canProject =
-      projBalance > 0.01 &&
-      selectedAccount.interestRate != null &&
-      selectedAccount.paymentAmount &&
-      selectedAccount.paymentAmount > 0 &&
-      selectedAccount.paymentFrequency;
+    const projectionInput = buildLoanProjectionInput(selectedAccount, history);
+    if (projectionInput) {
+      const projection = generateLoanSchedule({
+        ...projectionInput,
+        initialCumulativePrincipal: history.cumulativePrincipal,
+        initialCumulativeInterest: history.cumulativeInterest,
+      });
 
-    if (canProject) {
-      const frequency = selectedAccount.paymentFrequency as string;
-      const periodsPerYear = getPeriodsPerYear(frequency);
-      const periodicRate = getPeriodicRate(
-        selectedAccount.interestRate!,
-        periodsPerYear,
-        selectedAccount.isCanadianMortgage || false,
-        selectedAccount.isVariableRate || false,
-      );
-      const paymentAmount = selectedAccount.paymentAmount!;
-
-      let projRunningBalance = projBalance;
-      let projCumulativePrincipal = cumulativePrincipal;
-      let projCumulativeInterest = cumulativeInterest;
-      let projDate = new Date();
-
-      const MAX_PROJECTED_PAYMENTS = 600;
-      let paymentCount = 0;
-
-      while (projRunningBalance > 0.01 && paymentCount < MAX_PROJECTED_PAYMENTS) {
-        projDate = advanceDate(projDate, frequency);
-        const interestCharge = projRunningBalance * periodicRate;
-        let principalPortion = paymentAmount - interestCharge;
-
-        if (principalPortion <= 0) break; // Payment doesn't cover interest
-
-        // Cap principal to remaining balance (final payment)
-        if (principalPortion > projRunningBalance) {
-          principalPortion = projRunningBalance;
-        }
-
-        projRunningBalance = Math.max(0, projRunningBalance - principalPortion);
-        projCumulativePrincipal += principalPortion;
-        projCumulativeInterest += interestCharge;
-
+      for (const row of projection.rows) {
         schedule.push({
-          date: format(projDate, 'yyyy-MM-dd'),
-          label: format(projDate, 'MMM yyyy'),
-          balance: Math.round(projRunningBalance * 100) / 100,
-          principalPaid: Math.round(principalPortion * 100) / 100,
-          interestPaid: Math.round(interestCharge * 100) / 100,
-          cumulativePrincipal: Math.round(projCumulativePrincipal * 100) / 100,
-          cumulativeInterest: Math.round(projCumulativeInterest * 100) / 100,
+          date: row.date,
+          label: formatChartDate(row.date, 'MMM yyyy'),
+          balance: row.balance,
+          principalPaid: row.principal,
+          interestPaid: row.interest,
+          cumulativePrincipal: row.cumulativePrincipal,
+          cumulativeInterest: row.cumulativeInterest,
           isProjected: true,
         });
-
-        paymentCount++;
       }
     }
 
@@ -354,7 +221,7 @@ export function DebtPayoffTimelineReport() {
     }
 
     return { payoffSchedule: monthlySchedule, projectionStartLabel: startLabel };
-  }, [selectedAccount, transactions]);
+  }, [selectedAccount, transactions, interestTransactions, formatChartDate]);
 
   const summary = useMemo(() => {
     if (payoffSchedule.length === 0 || !selectedAccount) return null;

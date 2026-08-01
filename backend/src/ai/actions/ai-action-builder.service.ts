@@ -31,6 +31,8 @@ import {
   ResolvedSplitLine,
   SplitRowDescriptor,
   AiActionSplitPreview,
+  AiActionAttachmentPreview,
+  AttachmentRefDescriptor,
 } from "./ai-action.types";
 import {
   CategorizeTransactionPreview,
@@ -69,6 +71,17 @@ function toSplitPreview(line: ResolvedSplitLine): AiActionSplitPreview {
     categoryName: line.categoryName,
     amount: line.amount,
     memo: line.memo,
+  };
+}
+
+/** Map an attachment ref to its display-only confirmation-card shape. */
+function toAttachmentPreview(
+  ref: AttachmentRefDescriptor,
+): AiActionAttachmentPreview {
+  return {
+    filename: ref.filename,
+    contentType: ref.contentType,
+    byteSize: ref.byteSize,
   };
 }
 
@@ -190,6 +203,7 @@ export class AiActionBuilderService {
     userId: string,
     preview: CreateTransactionPreview,
     splits?: ResolvedSplitLine[],
+    attachments?: AttachmentRefDescriptor[],
   ): PendingAiAction {
     const { actionId, expiresAt } = this.newEnvelope();
     const descriptor: CreateTransactionDescriptor = {
@@ -208,6 +222,7 @@ export class AiActionBuilderService {
       description: preview.description,
       currencyCode: preview.currencyCode,
       ...(splits ? { splits: splits.map(toSplitRowDescriptor) } : {}),
+      ...(attachments?.length ? { attachments } : {}),
     };
     return {
       actionId,
@@ -225,6 +240,9 @@ export class AiActionBuilderService {
         categoryName: preview.categoryName,
         description: preview.description,
         ...(splits ? { splits: splits.map(toSplitPreview) } : {}),
+        ...(attachments?.length
+          ? { attachments: attachments.map(toAttachmentPreview) }
+          : {}),
       },
     };
   }
@@ -483,6 +501,7 @@ export class AiActionBuilderService {
     userId: string,
     preview: UpdateTransactionPreview,
     splits?: ResolvedSplitLine[],
+    attachments?: AttachmentRefDescriptor[],
   ): PendingAiAction {
     const { actionId, expiresAt } = this.newEnvelope();
     const descriptor: UpdateTransactionDescriptor = {
@@ -502,6 +521,7 @@ export class AiActionBuilderService {
       description: preview.description,
       currencyCode: preview.currencyCode,
       ...(splits ? { splits: splits.map(toSplitRowDescriptor) } : {}),
+      ...(attachments?.length ? { attachments } : {}),
     };
     return {
       actionId,
@@ -518,7 +538,11 @@ export class AiActionBuilderService {
         payeeWillBeCreated: preview.payeeWillBeCreated,
         categoryName: preview.categoryName,
         description: preview.description,
+        isReconciled: preview.isReconciled,
         ...(splits ? { splits: splits.map(toSplitPreview) } : {}),
+        ...(attachments?.length
+          ? { attachments: attachments.map(toAttachmentPreview) }
+          : {}),
       },
     };
   }
@@ -549,6 +573,7 @@ export class AiActionBuilderService {
         payeeName: preview.payeeName,
         categoryName: preview.categoryName,
         description: preview.description,
+        isReconciled: preview.isReconciled,
       },
     };
   }

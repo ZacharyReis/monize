@@ -65,6 +65,12 @@ export const listAccountsOutput = {
       excludeFromNetWorth: bool.optional(),
       institutionName: strNull.optional(),
       accountNumber: strNull.optional(),
+      // Loan/mortgage schedule fields; null on non-debt accounts.
+      paymentAmount: numNull.optional(),
+      paymentFrequency: strNull.optional(),
+      paymentStartDate: strNull.optional(),
+      amortizationMonths: numNull.optional(),
+      originalPrincipal: numNull.optional(),
     }),
   ),
   totalAssets: num,
@@ -190,6 +196,8 @@ export const manageTransactionsOutput = manageToolOutput({
   payeeId: strNull.optional(),
   payeeName: strNull.optional(),
   categoryId: strNull.optional(),
+  // Files saved on the transaction by the direct (non-relay) confirm path.
+  attachments: z.array(looseObject({ id: str, filename: str })).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -322,6 +330,7 @@ export const getPortfolioSummaryOutput = {
   cagr: numNull,
   holdings: z.array(
     looseObject({
+      securityId: str,
       symbol: str,
       name: str,
       securityType: str,
@@ -345,6 +354,7 @@ export const getPortfolioSummaryOutput = {
       totalGainLossPercent: num,
       holdings: z.array(
         looseObject({
+          securityId: str,
           symbol: str,
           name: str,
           securityType: str,
@@ -579,6 +589,9 @@ export const getBudgetStatusOutput = {
 
 export const getNextPromptOutput = {
   hasPrompt: bool,
+  // True when the user has been inactive long enough that the agent should stop
+  // its polling loop and exit (only set alongside hasPrompt:false).
+  stop: bool.optional(),
   // Present only when hasPrompt is true.
   promptId: str.optional(),
   prompt: str.optional(),

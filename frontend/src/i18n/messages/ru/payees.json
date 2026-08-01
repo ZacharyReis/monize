@@ -4,6 +4,7 @@
     "subtitle": "Управляйте получателями и их категориями по умолчанию",
     "deactivateUnused": "Деактивировать неиспользуемых",
     "autoAssignCategories": "Автоматически назначить категории",
+    "maintenance": "Обслуживание",
     "autoMergePayees": "Автоматически объединить получателей",
     "newPayee": "+ Новый получатель",
     "searchPlaceholder": "Поиск получателей...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Реактивировать",
-      "reactivateShort": "Р",
       "merge": "Объединить",
-      "mergeShort": "О",
       "edit": "Изменить",
-      "editShort": "И",
-      "delete": "Удалить",
-      "deleteShort": "У"
+      "delete": "Удалить"
     },
     "viewTransactionsTitle": "Просмотр проводок с этим получателем",
     "uncategorizedBadge": "{count, plural, one {# без категории} other {# без категории}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Выберите хотя бы одну группу для объединения",
       "applied": "Объединено {groups, plural, one {# группа} other {# групп}} ({payees} получателей объединено)",
       "backfilled": "{count, plural, one {Категоризирована # проводка} other {Категоризировано # проводок}}",
-      "aliasesSkipped": "{count, plural, one {# псевдоним пропущен из-за конфликта} other {# псевдонимов пропущено из-за конфликтов}}",
+      "aliasesSkipped": "{count, plural, one {# псевдоним пропущен из-за конфликта} other {# псевдонимов пропущено из-за конфликтов}}: {aliases}",
       "loadFailed": "Не удалось загрузить группы для объединения",
-      "applyFailed": "Не удалось объединить получателей"
+      "applyFailed": "Не удалось объединить получателей",
+      "someGroupsFailed": "{count, plural, one {Не удалось объединить # группу} other {Не удалось объединить # групп}}: {reason}"
     },
     "categoryMatchLabel": "Объединять только получателей в одной категории",
     "categoryMatchHelp": "Не объединять получателей, если их категории различаются, что снижает количество ложных совпадений.",

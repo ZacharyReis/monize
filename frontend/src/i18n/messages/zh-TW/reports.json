@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "還債時間表",
       "loan-amortization": "貸款攤還計劃",
       "credit-utilization": "信用使用率",
+      "loan-overpayment-simulator": "貸款提前還款模擬器",
       "investment-performance": "投資績效",
       "dividend-income": "獲利、股利與利息",
       "sector-weightings": "類股比重",
@@ -57,13 +58,14 @@
       "security-type-allocation": "證券類型配置",
       "geographic-allocation": "地區/交易所配置",
       "dividend-yield-growth": "股利殖利率與成長",
-      "security-performance": "個別證券績效",
+      "security-performance": "證券績效",
       "currency-exposure": "貨幣曝險",
       "monte-carlo-simulation": "蒙地卡羅模擬",
       "recurring-expenses": "固定支出追蹤",
       "spending-anomalies": "支出異常",
       "weekend-weekday-spending": "假日與平日支出比較",
       "monthly-comparison": "月度比較",
+      "foreign-currency-fees": "境外交易手續費",
       "uncategorized-transactions": "未分類交易",
       "duplicate-transactions": "重複交易查找",
       "upcoming-bills": "即將到期帳單日曆",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "以圖表呈現還款進度並預測還清日期。",
       "loan-amortization": "房貸及貸款的詳細還款計劃，包含本金與利息明細。",
       "credit-utilization": "查看信用卡及信用額度的可用信用使用情況。",
+      "loan-overpayment-simulator": "選擇一筆貸款並模擬額外還款，看看能提前多久還清、能節省多少利息。",
       "investment-performance": "追蹤投資組合報酬、損益及資產配置的歷史變化。",
       "dividend-income": "追蹤資本利得與虧損（已實現及未實現），以及股利和利息收入。",
       "sector-weightings": "分析來自個股及 ETF 的投資組合類股曝險。",
@@ -102,13 +105,14 @@
       "security-type-allocation": "依資產類型（股票、ETF、共同基金、債券）查看投資組合配置，並可深入了解各持倉。",
       "geographic-allocation": "依交易所及地區分析投資組合的地理曝險，取得分散投資洞察。",
       "dividend-yield-growth": "追蹤股利殖利率、個別證券殖利率、年度成長及配息頻率分析。",
-      "security-performance": "深入分析個別證券績效，包含價格歷史、交易記錄及報酬率。",
+      "security-performance": "深入分析某檔證券的價格歷史、交易與報酬，或在同一圖表中比較多檔證券的績效。",
       "currency-exposure": "了解貨幣風險，包含依貨幣分析的投資組合配置及匯率詳情。",
       "monte-carlo-simulation": "以數千條隨機報酬路徑預測未來投資組合結果，並儲存情境。",
       "recurring-expenses": "識別並監控訂閱、會員及固定費用。",
       "spending-anomalies": "偵測需要關注的異常大額交易及支出激增。",
       "weekend-weekday-spending": "依星期幾分析消費模式以了解消費習慣。",
       "monthly-comparison": "比較當月與上月的收入、支出、資產淨值及投資。",
+      "foreign-currency-fees": "追蹤在收取換算手續費的各科目中產生的境外交易手續費。",
       "uncategorized-transactions": "找出並分類缺少類別的交易。",
       "duplicate-transactions": "識別可能需要審閱或刪除的重複記錄。",
       "upcoming-bills": "排程交易及即將到期帳單的視覺化日曆。",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "載入報表資料失敗。請再試一次。",
     "retry": "再試一次"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "沒有科目設定境外交易手續費。在科目上設定手續費百分比，即可在此追蹤其外幣手續費。"
   },
   "accountBalances": {
     "totalAssets": "總資產",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "結束：",
     "cashFlowEventPdfStarts": "開始：",
     "cashFlowEventPdfEnds": "結束：",
-    "cashFlowDefaultName": "現金流",
     "cashFlowPerYear": "/ 年",
     "tooltipRow90th": "第 90 百分位",
     "tooltipRow75th": "第 75 百分位",
@@ -1104,6 +1110,10 @@
     "noData": "此期間無投資資料。",
     "tooltipPortfolio": "投資組合：",
     "allAccounts": "所有科目",
+    "viewTotal": "總計",
+    "viewSecurities": "按證券",
+    "seriesCash": "現金",
+    "seriesOther": "其他證券",
     "colDate": "日期",
     "colPortfolioValue": "投資組合價值",
     "breakdownTitle": "目前投資組合明細",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "佔投資組合 %"
   },
   "securityPerformance": {
-    "selectPrompt": "請在上方選擇證券以查看其績效詳情。",
-    "selectSecurityPlaceholder": "選擇證券...",
+    "selectPrompt": "請在上方選擇一檔或多檔證券以查看其績效。選擇兩檔或以上即可在同一圖表中進行比較。",
+    "selectSecuritiesPlaceholder": "選擇證券...",
+    "comparisonTitle": "績效比較",
+    "comparisonSubtitle": "每檔所選證券的累計報酬，以其首個可用價格為基準歸零（0%），以便不論價格或幣別都能在同一刻度上比較。",
+    "comparisonNoData": "所選證券沒有可用的價格歷史。",
+    "comparisonError": "無法載入價格歷史，請重試。",
     "viewPriceChart": "價格圖表",
     "viewTransactions": "交易記錄",
     "viewDividends": "股利",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "持倉總計",
     "largestType": "最大類型",
     "assetTypeAllocation": "資產類型配置",
-    "typeStocks": "股票",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "共同基金",
-    "typeBonds": "債券",
-    "typeCash": "現金",
     "holdingsCount": "{count, plural, one {# 個科目} other {# 個科目}}",
     "total": "總計",
     "tooltipHoldings": "{count, plural, one {# 個持倉} other {# 個持倉}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "名稱為必填"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "選擇貸款帳戶",
+    "viewTransactions": "檢視交易",
+    "empty": "找不到貸款、抵押貸款或信用額度帳戶。"
   }
 }

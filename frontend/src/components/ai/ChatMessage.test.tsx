@@ -76,6 +76,33 @@ describe('ChatMessage', () => {
       expect(cursor).toBeNull();
     });
 
+    it('renders no text bubble (or lone cursor) for a card-only streaming message', () => {
+      // A relay turn that has delivered confirmation cards but no text answer
+      // yet: content is empty and isStreaming may be true. The grey text bubble
+      // -- and the lone blinking cursor -- must be suppressed so it does not read
+      // as a blank/lost answer; the cards still render.
+      const { container } = render(
+        <ChatMessage
+          role="assistant"
+          content=""
+          isStreaming
+          pendingActions={[
+            {
+              actionId: 'act-1',
+              type: 'create_transaction',
+              preview: {},
+              descriptor: { type: 'create_transaction' },
+              signature: 's',
+              expiresAt: Date.now() + 60000,
+              status: 'pending',
+            },
+          ]}
+        />,
+      );
+      expect(container.querySelector('.animate-pulse')).toBeNull();
+      expect(container.querySelector('.rounded-bl-sm')).toBeNull();
+    });
+
     it('shows error message when error prop is provided', () => {
       render(
         <ChatMessage

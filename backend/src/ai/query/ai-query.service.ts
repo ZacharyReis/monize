@@ -493,6 +493,7 @@ export class AiQueryService {
           userId,
           toolCall.name,
           toolCall.input,
+          { attachments },
         );
 
         this.logger.log(

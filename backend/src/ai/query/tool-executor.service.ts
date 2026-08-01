@@ -53,6 +53,13 @@ import {
 } from "../../scheduled-transactions/scheduled-transactions.service";
 import { BuiltInReportsService } from "../../built-in-reports/built-in-reports.service";
 import { validateToolInput } from "./tool-input-schemas";
+import { AttachmentDto } from "./dto/ai-query.dto";
+import {
+  AttachmentToolPrepService,
+  AttachmentPreview,
+} from "../../attachments/attachment-tool-prep.service";
+import { RelayAttachmentStore } from "../relay/relay-attachment.store";
+import { AttachmentRefDescriptor } from "../actions/ai-action.types";
 import { executeCalculation, CalculateInput } from "./calculate-tool";
 import { sanitizePromptValue } from "../../common/sanitization.util";
 import { formatDidYouMean } from "../../common/name-suggestions.util";
@@ -61,6 +68,15 @@ import {
   getDefaultPreviousMonth,
   resolveComparePeriods,
 } from "../../common/tool-schemas";
+
+/**
+ * Per-call context the query service threads into tool execution. Carries the
+ * current turn's chat attachments so `manage_transactions` can reference them
+ * by filename/position; older call sites that omit it keep working.
+ */
+export interface ToolExecutionContext {
+  attachments?: AttachmentDto[];
+}
 
 interface ToolResult {
   data: unknown;
@@ -118,12 +134,15 @@ export class ToolExecutorService {
     private readonly prepService: TransactionToolPrepService,
     private readonly actionBuilder: AiActionBuilderService,
     private readonly builtInReportsService: BuiltInReportsService,
+    private readonly attachmentPrepService: AttachmentToolPrepService,
+    private readonly relayAttachmentStore: RelayAttachmentStore,
   ) {}
 
   async execute(
     userId: string,
     toolName: string,
     input: Record<string, unknown>,
+    context?: ToolExecutionContext,
   ): Promise<ToolResult> {
     // LLM07-F1: Validate tool input against Zod schema
     const validation = validateToolInput(toolName, input);
@@ -185,7 +204,11 @@ export class ToolExecutorService {
           result = this.renderChart(validatedInput);
           break;
         case "manage_transactions":
-          result = await this.manageTransactions(userId, validatedInput);
+          result = await this.manageTransactions(
+            userId,
+            validatedInput,
+            context?.attachments ?? [],
+          );
           break;
         case "manage_payees":
           result = await this.managePayees(userId, validatedInput);
@@ -442,6 +465,7 @@ export class ToolExecutorService {
   private async manageTransactions(
     userId: string,
     input: Record<string, unknown>,
+    chatAttachments: AttachmentDto[],
   ): Promise<ToolResult> {
     const operation = input.operation as "create" | "update" | "delete";
     const items = (input.items as Array<Record<string, unknown>>) ?? [];
@@ -459,14 +483,122 @@ export class ToolExecutorService {
         "Split transactions must be sent one at a time: use a single item with a splits array.",
       );
     }
+    // Attachments follow the same rule: only the singular card carries them.
+    if (!single && items.some((i) => i.attachments !== undefined)) {
+      return this.toolError(
+        "Attachments must be sent one at a time: use a single item with an attachments array.",
+      );
+    }
 
     if (operation === "create") {
-      return this.manageCreate(userId, items, single, approvalMode);
+      return this.manageCreate(
+        userId,
+        items,
+        single,
+        approvalMode,
+        chatAttachments,
+      );
     }
     if (operation === "update") {
-      return this.manageUpdate(userId, items, single, approvalMode);
+      return this.manageUpdate(
+        userId,
+        items,
+        single,
+        approvalMode,
+        chatAttachments,
+      );
     }
     return this.manageDelete(userId, items, single, approvalMode);
+  }
+
+  /**
+   * Resolve the tool call's attachment references (filename or 1-based
+   * position) against the files attached to the current chat message. Returns
+   * the resolved DTOs, or an error string the model can act on.
+   */
+  private resolveAttachmentRefs(
+    refs: Array<string | number>,
+    chatAttachments: AttachmentDto[],
+  ): { dtos: AttachmentDto[] } | { error: string } {
+    if (chatAttachments.length === 0) {
+      return {
+        error:
+          "No files are attached to the current message. Ask the user to attach the file to their next message.",
+      };
+    }
+    const available = chatAttachments.map((a) => a.filename).join(", ");
+    const seen = new Set<number>();
+    const dtos: AttachmentDto[] = [];
+    for (const ref of refs) {
+      let index: number;
+      if (typeof ref === "number") {
+        index = ref - 1;
+        if (index < 0 || index >= chatAttachments.length) {
+          return {
+            error: `Attachment position ${ref} is out of range: the current message has ${chatAttachments.length} file(s) (${available}).`,
+          };
+        }
+      } else {
+        index = chatAttachments.findIndex(
+          (a) => a.filename.toLowerCase() === ref.toLowerCase(),
+        );
+        if (index < 0) {
+          return {
+            error: `No file named "${ref}" is attached to the current message. Available files: ${available}.`,
+          };
+        }
+      }
+      const dto = chatAttachments[index];
+      if (dto.kind === "text") {
+        return {
+          error: `"${dto.filename}" cannot be saved as a transaction attachment: only images and PDFs can be attached (CSV/text files cannot).`,
+        };
+      }
+      if (!seen.has(index)) {
+        seen.add(index);
+        dtos.push(dto);
+      }
+    }
+    return { dtos };
+  }
+
+  /**
+   * Validate the resolved chat files and park their bytes for confirm time.
+   * Returns the signed-descriptor refs. Validation errors bubble as
+   * HttpExceptions for `toolErrorFromException`.
+   */
+  private async prepareAttachmentRefs(
+    userId: string,
+    dtos: AttachmentDto[],
+    existingTransactionId?: string,
+  ): Promise<AttachmentRefDescriptor[]> {
+    const previews: AttachmentPreview[] =
+      await this.attachmentPrepService.prepareAttachments(
+        userId,
+        dtos.map((dto) => ({
+          filename: dto.filename,
+          buffer: Buffer.from(dto.data.replace(/\s+/g, ""), "base64"),
+        })),
+        existingTransactionId,
+      );
+    // Park the bytes under fresh ids owned by the pending action: ids minted
+    // for a relayed prompt are eagerly released when the prompt settles, which
+    // happens before the user approves the card.
+    const stored = this.relayAttachmentStore.store(userId, dtos);
+    return previews.map((preview, i) => ({
+      attachmentRefId: stored[i].id,
+      filename: preview.filename,
+      contentType: preview.contentType,
+      byteSize: preview.byteSize,
+      sha256: preview.sha256,
+    }));
+  }
+
+  /** Display suffix for proposing summaries, e.g. ` with 1 attachment (receipt.jpg)`. */
+  private attachmentSummarySuffix(refs?: AttachmentRefDescriptor[]): string {
+    if (!refs?.length) return "";
+    const names = refs.map((r) => r.filename).join(", ");
+    return ` with ${refs.length} attachment${refs.length === 1 ? "" : "s"} (${names})`;
   }
 
   private isTransferRow(item: Record<string, unknown>): boolean {
@@ -519,6 +651,7 @@ export class ToolExecutorService {
     items: Array<Record<string, unknown>>,
     single: boolean,
     approvalMode: "bulk" | "individual",
+    chatAttachments: AttachmentDto[],
   ): Promise<ToolResult> {
     if (single) {
       const item = items[0];
@@ -539,18 +672,34 @@ export class ToolExecutorService {
             pendingAction,
           };
         }
+        let attachmentDtos: AttachmentDto[] | undefined;
+        if (item.attachments !== undefined) {
+          const resolved = this.resolveAttachmentRefs(
+            item.attachments as Array<string | number>,
+            chatAttachments,
+          );
+          if ("error" in resolved) {
+            return this.toolError(resolved.error);
+          }
+          attachmentDtos = resolved.dtos;
+        }
         const { preview, splits } = await this.prepService.prepareCreateSingle(
           userId,
           this.toCreateRow(item),
         );
+        const attachmentRefs = attachmentDtos
+          ? await this.prepareAttachmentRefs(userId, attachmentDtos)
+          : undefined;
         const pendingAction = this.actionBuilder.buildCreateTransaction(
           userId,
           preview,
           splits,
+          attachmentRefs,
         );
+        const attachmentNote = this.attachmentSummarySuffix(attachmentRefs);
         const summary = splits
-          ? `Prepared a split transaction in ${preview.accountName} (${preview.amount} ${preview.currencyCode}) dated ${preview.transactionDate} across ${splits.length} categories. Awaiting user confirmation.`
-          : `Prepared a transaction for ${preview.accountName} (${preview.amount} ${preview.currencyCode}) dated ${preview.transactionDate}.${preview.payeeWillBeCreated ? ` A new payee "${preview.payeeName}" will be created on approval.` : ""} Awaiting user confirmation.`;
+          ? `Prepared a split transaction in ${preview.accountName} (${preview.amount} ${preview.currencyCode}) dated ${preview.transactionDate} across ${splits.length} categories${attachmentNote}. Awaiting user confirmation.`
+          : `Prepared a transaction for ${preview.accountName} (${preview.amount} ${preview.currencyCode}) dated ${preview.transactionDate}${attachmentNote}.${preview.payeeWillBeCreated ? ` A new payee "${preview.payeeName}" will be created on approval.` : ""} Awaiting user confirmation.`;
         return {
           data: PENDING_ACTION_TOOL_RESULT,
           summary,
@@ -641,14 +790,32 @@ export class ToolExecutorService {
     items: Array<Record<string, unknown>>,
     single: boolean,
     approvalMode: "bulk" | "individual",
+    chatAttachments: AttachmentDto[],
   ): Promise<ToolResult> {
     if (single) {
+      const item = items[0];
       try {
+        let attachmentDtos: AttachmentDto[] | undefined;
+        if (item.attachments !== undefined) {
+          const resolved = this.resolveAttachmentRefs(
+            item.attachments as Array<string | number>,
+            chatAttachments,
+          );
+          if ("error" in resolved) {
+            return this.toolError(resolved.error);
+          }
+          attachmentDtos = resolved.dtos;
+        }
         const result = await this.prepService.prepareUpdate(
           userId,
-          this.toUpdateRow(items[0]),
+          this.toUpdateRow(item),
         );
         if (result.kind === "transfer") {
+          if (attachmentDtos) {
+            return this.toolError(
+              "Attachments cannot be added to transfers: this transaction is a transfer between accounts.",
+            );
+          }
           const pendingAction = this.actionBuilder.buildUpdateTransfer(
             userId,
             result.preview,
@@ -660,14 +827,23 @@ export class ToolExecutorService {
             pendingAction,
           };
         }
+        const attachmentRefs = attachmentDtos
+          ? await this.prepareAttachmentRefs(
+              userId,
+              attachmentDtos,
+              item.transactionId as string,
+            )
+          : undefined;
         const pendingAction = this.actionBuilder.buildUpdateTransaction(
           userId,
           result.preview,
           result.splits,
+          attachmentRefs,
         );
+        const attachmentNote = this.attachmentSummarySuffix(attachmentRefs);
         const summary = result.splits
-          ? `Prepared an update to the transaction in ${result.preview.accountName} (${result.preview.amount} ${result.preview.currencyCode}) dated ${result.preview.transactionDate}, replacing its splits with ${result.splits.length} categories. Awaiting user confirmation.`
-          : `Prepared an update to the transaction in ${result.preview.accountName} (${result.preview.amount} ${result.preview.currencyCode}) dated ${result.preview.transactionDate}.${result.preview.payeeWillBeCreated ? ` A new payee "${result.preview.payeeName}" will be created on approval.` : ""} Awaiting user confirmation.`;
+          ? `Prepared an update to the transaction in ${result.preview.accountName} (${result.preview.amount} ${result.preview.currencyCode}) dated ${result.preview.transactionDate}, replacing its splits with ${result.splits.length} categories${attachmentNote}. Awaiting user confirmation.`
+          : `Prepared an update to the transaction in ${result.preview.accountName} (${result.preview.amount} ${result.preview.currencyCode}) dated ${result.preview.transactionDate}${attachmentNote}.${result.preview.payeeWillBeCreated ? ` A new payee "${result.preview.payeeName}" will be created on approval.` : ""} Awaiting user confirmation.`;
         return {
           data: PENDING_ACTION_TOOL_RESULT,
           summary,

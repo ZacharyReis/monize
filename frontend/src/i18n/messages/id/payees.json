@@ -4,6 +4,7 @@
     "subtitle": "Kelola penerima dan kategori default mereka",
     "deactivateUnused": "Nonaktifkan yang Tidak Digunakan",
     "autoAssignCategories": "Tetapkan Kategori Otomatis",
+    "maintenance": "Pemeliharaan",
     "autoMergePayees": "Gabungkan Penerima Otomatis",
     "newPayee": "+ Penerima Baru",
     "searchPlaceholder": "Cari penerima...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Aktifkan Kembali",
-      "reactivateShort": "Re",
       "merge": "Gabungkan",
-      "mergeShort": "G",
       "edit": "Edit",
-      "editShort": "E",
-      "delete": "Hapus",
-      "deleteShort": "X"
+      "delete": "Hapus"
     },
     "viewTransactionsTitle": "Lihat transaksi dengan penerima ini",
     "uncategorizedBadge": "{count, plural, one {# tanpa kategori} other {# tanpa kategori}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Pilih setidaknya satu kelompok untuk digabungkan",
       "applied": "Digabungkan {groups, plural, one {# kelompok} other {# kelompok}} ({payees} penerima digabungkan)",
       "backfilled": "{count, plural, one {Dikategorikan # transaksi} other {Dikategorikan # transaksi}}",
-      "aliasesSkipped": "{count, plural, one {# alias dilewati karena konflik} other {# alias dilewati karena konflik}}",
+      "aliasesSkipped": "{count, plural, one {# alias dilewati karena konflik} other {# alias dilewati karena konflik}}: {aliases}",
       "loadFailed": "Gagal memuat kelompok gabungan",
-      "applyFailed": "Gagal menggabungkan penerima"
+      "applyFailed": "Gagal menggabungkan penerima",
+      "someGroupsFailed": "{count, plural, one {# grup tidak dapat digabungkan} other {# grup tidak dapat digabungkan}}: {reason}"
     },
     "categoryMatchLabel": "Hanya gabungkan penerima dalam kategori yang sama",
     "categoryMatchHelp": "Pisahkan penerima ketika kategori mereka berbeda, mengurangi kecocokan yang salah.",

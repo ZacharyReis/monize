@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Total Gasto",
+    "income": "Receitas",
+    "net": "Líquido",
+    "transactions": "Transações",
+    "averageAmount": "Valor Médio",
+    "lastTransaction": "Última Transação",
+    "defaultCategory": "Categoria Predefinida",
+    "nextBill": "Próxima Fatura",
+    "viewBills": "Ver em Faturas e Depósitos",
+    "topCategories": "Categorias Principais",
+    "uncategorized": "Sem categoria",
+    "aliases": "Alias",
+    "recurring": "Recorrente: {cadence} · {amount}",
+    "recurringTooltip": "Detetado a partir de débitos repetidos no período selecionado (ou nos últimos 12 meses sem filtro de datas).",
+    "cadence": {
+      "weekly": "Semanal",
+      "biweekly": "A cada 2 Semanas",
+      "monthly": "Mensal",
+      "quarterly": "Trimestral",
+      "yearly": "Anual"
+    },
+    "inactive": "Inativo",
+    "noTransactions": "Sem transações neste período",
+    "editAria": "Editar beneficiário",
+    "collapseAria": "Ocultar informações do beneficiário",
+    "show": "Mostrar informações do beneficiário"
+  },
+  "categoryWidget": {
+    "totalSpent": "Total Gasto",
+    "totalEarned": "Total Recebido",
+    "income": "Receita",
+    "expense": "Despesa",
+    "budgetThisMonth": "Orçamento deste mês",
+    "budgetProgress": "{spent} de {budgeted}",
+    "transactions": "Transações",
+    "averageAmount": "Valor Médio",
+    "monthlyAverage": "Média Mensal",
+    "subcategories": "Subcategorias",
+    "thisCategory": "Esta categoria",
+    "topPayees": "Beneficiários Principais",
+    "noPayee": "Sem beneficiário",
+    "nextScheduled": "Próxima Agendada",
+    "noTransactions": "Sem transações neste período",
+    "editAria": "Editar categoria",
+    "collapseAria": "Ocultar informações da categoria",
+    "show": "Mostrar informações da categoria"
+  },
   "accountWidget": {
     "currentBalance": "Saldo Atual",
     "nextPayment": "Próximo Pagamento",
     "viewBills": "Ver em Faturas e Depósitos",
+    "viewDetailsAria": "Ver detalhes da conta",
     "type": "Tipo",
     "accountNumber": "Número de Conta",
     "currency": "Moeda",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Duplicar Transação",
       "newTitle": "Nova Transação",
       "scheduleTitle": "Agendar como Recorrente",
-      "editPayeeTitle": "Editar Beneficiário"
+      "editPayeeTitle": "Editar Beneficiário",
+      "editCategoryTitle": "Editar Categoria"
     },
     "loading": "A carregar transações...",
     "totalCount": "{count, plural, one {# transação} other {# transações}}",
@@ -54,9 +104,13 @@
       "refNumber": "Ref. #",
       "tags": "Etiquetas",
       "amount": "Montante",
+      "currency": "Moeda",
+      "paidAmount": "Montante Pago",
+      "feePaid": "Comissão Paga",
       "balance": "Saldo",
       "status": "Estado",
-      "actions": "Ações"
+      "actions": "Ações",
+      "attachments": "Anexos"
     },
     "today": "Hoje",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Tem a certeza de que quer eliminar esta transação? Esta ação não pode ser desfeita.",
       "success": "Transação eliminada",
       "transferSuccess": "Transferência eliminada",
-      "error": "Falha ao eliminar a transação"
+      "error": "Falha ao eliminar a transação",
+      "reconciledWarning": "Esta transação está reconciliada, por isso eliminá-la afetará uma reconciliação concluída."
     },
     "status": {
       "voidError": "Edite a transação para alterar o estado de Anulada",
@@ -90,7 +145,6 @@
       "cleared": "Confirmada",
       "reconciled": "Reconciliada",
       "void": "Anulada",
-      "unreconciledDense": "N",
       "clearedDense": "C",
       "reconciledDense": "R",
       "voidDense": "A",
@@ -118,7 +172,8 @@
       "editButton": "Editar",
       "deleteButton": "Eliminar"
     },
-    "itemNamePlural": "transações"
+    "itemNamePlural": "transações",
+    "attachmentsCount": "{count, plural, one {# anexo} other {# anexos}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Montante A Partir De",
       "amountTo": "Montante Até",
       "status": "Estado",
-      "search": "Pesquisar"
+      "search": "Pesquisar",
+      "tagKey": "Chave de etiqueta",
+      "tagKeyOp": "Condição",
+      "tagKeyValue": "Valor",
+      "currency": "Moeda",
+      "hasAttachments": "Anexos"
     },
     "placeholders": {
       "accounts": "Todas as contas",
@@ -176,7 +236,8 @@
       "statuses": "Todos os estados",
       "amountMin": "Mín",
       "amountMax": "Máx",
-      "search": "Pesquisar beneficiário, categoria, montante, etiqueta, descrição, referência #..."
+      "search": "Pesquisar beneficiário, categoria, montante, etiqueta, descrição, referência #...",
+      "tagKeyValue": "por ex. usa"
     },
     "chips": {
       "removeAccount": "Remover filtro {name}",
@@ -189,7 +250,11 @@
       "dateFrom": "A partir de {date}",
       "dateUntil": "Até {date}",
       "amountFrom": "A partir de {amount}",
-      "amountUpTo": "Até {amount}"
+      "amountUpTo": "Até {amount}",
+      "removeCurrency": "Remover o filtro de moeda {name}",
+      "hasAttachments": "Com anexos",
+      "noAttachments": "Sem anexos",
+      "removeAttachments": "Remover filtro de anexos"
     },
     "bulkUpdate": "Atualização em Massa",
     "cancelBulk": "Cancelar Massa",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Selecionar período...",
+      "allDates": "Todas as Datas",
       "today": "Hoje",
       "yesterday": "Ontem",
       "thisWeek": "Esta Semana",
       "lastWeek": "Semana Passada",
+      "last30Days": "Últimos 30 Dias",
       "monthToDate": "Mês até Hoje",
       "lastMonth": "Mês Passado",
+      "last365Days": "Últimos 365 Dias",
       "yearToDate": "Ano até Hoje",
       "lastYear": "Ano Passado",
       "custom": "Personalizado"
+    },
+    "tagKeyNone": "Qualquer (sem filtro de chave)",
+    "tagKeyOps": {
+      "hasValue": "Tem um valor",
+      "noValue": "Não tem valor",
+      "contains": "O valor contém",
+      "notContains": "O valor não contém"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Qualquer",
+      "yes": "Sim",
+      "no": "Não"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "Criar {mode}",
     "submitUpdate": "Atualizar {mode}",
+    "reconciledConfirm": {
+      "title": "Editar transação reconciliada?",
+      "message": "Esta transação está reconciliada. Alterá-la afetará uma reconciliação concluída. Pretende guardar as alterações mesmo assim?",
+      "confirm": "Guardar alterações"
+    },
     "modeLabel": {
       "transfer": "Transferência",
       "transaction": "Transação"
@@ -300,6 +385,7 @@
     "transferAmountNote": "O montante deve ser positivo nas transferências",
     "amountReceivedNote": "Montante recebido após conversão cambial",
     "splitTransaction": "Dividir Transação em Parcelas",
+    "splitDisabledDuringTour": "Indisponível durante a visita guiada",
     "newTagTitle": "Nova Etiqueta",
     "toasts": {
       "transferCreated": "Transferência criada",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Falha ao reativar beneficiário",
       "categoryCreated": "Categoria \"{name}\" criada",
       "categoryCreateFailed": "Falha ao criar categoria",
-      "tagCreated": "Etiqueta \"{name}\" criada"
+      "tagCreated": "Etiqueta \"{name}\" criada",
+      "fxRateRequired": "Introduza uma taxa de câmbio ou o montante convertido antes de guardar uma transação em moeda estrangeira.",
+      "attachmentsUploadFailed": "Transação guardada, mas falhou o carregamento de {count} anexo(s)"
     },
     "ariaHistory": "Mostrar transações recentes",
     "ariaHistoryForPayee": "Mostrar transações recentes deste beneficiário",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Moeda de introdução",
+      "ariaLabel": "Alterar a moeda de introdução",
+      "title": "Introduzir o montante em",
+      "accountCurrency": "Moeda da conta ({code})",
+      "addCurrency": "Adicionar moeda...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Falha ao adicionar a moeda",
+      "reactivated": "{code} reativada"
+    },
+    "fx": {
+      "noRateWarning": "Não foi encontrada uma taxa de câmbio de {from} para {to} em {date}. Introduza o montante convertido manualmente.",
+      "usingLatestRateHint": "A usar a taxa mais recente disponível (não com data {date}).",
+      "displayToggle": {
+        "account": "Conta",
+        "original": "Original"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "Inclui uma comissão de transação estrangeira de {percent}% ({fee}).",
+      "totalInCurrency": "Total em {currency}"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Selecionar conta...",
     "memoPlaceholder": "Nota opcional",
     "mobileMemoPlaceholder": "Nota",
-    "tagsPlaceholder": "Etiquetas..."
+    "tagsPlaceholder": "Etiquetas...",
+    "currencyToggle": {
+      "title": "Alternar a moeda em que os valores da divisão são mostrados e editados",
+      "ariaAmountsIn": "Mostrar e editar os valores da divisão em {code}"
+    }
   },
   "recentPopover": {
     "recentForPayee": "Recentes para {name}",
@@ -397,15 +510,33 @@
       "current": "Atual",
       "ending": "Final",
       "lowest": "Mínimo",
-      "minBalance": "Saldo Mínimo"
+      "minBalance": "Saldo Mínimo",
+      "projected": "Projetado",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "Todas as contas selecionadas têm saldo zero, portanto não há gráfico de saldo para mostrar."
     },
     "monthlyTotals": {
       "title": "Totais Mensais",
       "noData": "Sem dados de transações disponíveis",
       "monthlyAvg": "Média Mensal",
+      "quarterlyAvg": "Média Trimestral",
+      "yearlyAvg": "Média Anual",
       "total": "Total",
       "transactions": "Transações",
-      "tooltip": "{count, plural, one {# transação} other {# transações}}"
+      "tooltip": "{count, plural, one {# transação} other {# transações}}",
+      "quarterLabel": "T{quarter} {year}",
+      "quarterTick": "T{quarter} {year}",
+      "granularityLabel": "Agrupamento",
+      "granularity": {
+        "auto": "Auto",
+        "month": "Mês",
+        "quarter": "Trimestre",
+        "year": "Ano"
+      },
+      "granularityAutoTitle": "Auto ({granularity})",
+      "granularityTitle": "Ver por {label}"
     },
     "accountBalances": {
       "title": "Saldos das Contas",
@@ -430,9 +561,16 @@
     "loadFailed": "Falha ao carregar as transações",
     "loadPayeeFailed": "Falha ao carregar os detalhes do beneficiário",
     "payeeUpdateFailed": "Falha ao atualizar o beneficiário",
+    "categoryUpdated": "Categoria atualizada com sucesso",
+    "categoryUpdateFailed": "Falha ao atualizar a categoria",
     "exportFailed": "Falha ao exportar transações"
   },
   "validation": {
     "dateRequired": "A data é obrigatória"
+  },
+  "tagKeyBreakdown": {
+    "title": "Despesas por {key}",
+    "other": "Outros",
+    "noData": "Sem despesas etiquetadas para repartir por esta chave."
   }
 }

@@ -65,11 +65,16 @@
     "cash": "현금",
     "untagged": "태그 없음",
     "noTagData": "표시할 태그가 지정된 보유 종목이 없습니다. 태그별 노출을 보려면 증권에 태그를 추가하세요.",
-    "tagExposureNote": "태그별 노출: 여러 태그가 지정된 보유 종목은 각 태그에 전액 계산되므로 비율의 합이 100%를 초과할 수 있습니다.",
+    "noCountryData": "국가별 배분 데이터가 없습니다.",
+    "otherCountries": "기타 국가",
     "groupBy": {
       "security": "증권별",
-      "tag": "태그별"
-    }
+      "tag": "태그별",
+      "country": "국가별",
+      "tagKey": "키별"
+    },
+    "noKeyData": "이 태그 키에 대한 값을 가진 보유 종목이 없습니다. 이 분석을 보려면 증권을 key:value(예: country:usa) 형식으로 태그하세요.",
+    "keySelectorLabel": "집계할 태그 키"
   },
   "holdingsList": {
     "title": "보유 자산",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "시간별 포트폴리오 가치",
+    "viewReport": "보고서 보기",
+    "viewReportTitle": "전체 포트폴리오 가치 보고서 열기",
     "updatingLabel": "업데이트 중…",
-    "updatingAriaLabel": "업데이트 중",
     "intradayFallbackWarningAriaLabel": "세부 당일 가격 정보 사용 불가",
     "intradayUnavailableTitle": "이 계정 조합에서는 당일 보기를 사용할 수 없습니다",
     "intradayUnavailableDescription": "하나 이상의 보유 자산이 당일 데이터를 제공하지 않는 시세 제공자(MSN Money)를 사용합니다. 일별 스냅샷을 보려면 더 긴 범위로 전환하세요.",

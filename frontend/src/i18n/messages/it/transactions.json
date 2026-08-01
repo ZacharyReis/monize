@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Spesa totale",
+    "income": "Entrate",
+    "net": "Netto",
+    "transactions": "Transazioni",
+    "averageAmount": "Importo medio",
+    "lastTransaction": "Ultima transazione",
+    "defaultCategory": "Categoria predefinita",
+    "nextBill": "Prossima fattura",
+    "viewBills": "Visualizza in Fatture e Versamenti",
+    "topCategories": "Categorie principali",
+    "uncategorized": "Non categorizzata",
+    "aliases": "Alias",
+    "recurring": "Ricorrente: {cadence} · {amount}",
+    "recurringTooltip": "Rilevato da addebiti ripetuti nel periodo selezionato (o negli ultimi 12 mesi se non è impostato un filtro data).",
+    "cadence": {
+      "weekly": "Settimanale",
+      "biweekly": "Ogni 2 settimane",
+      "monthly": "Mensile",
+      "quarterly": "Trimestrale",
+      "yearly": "Annuale"
+    },
+    "inactive": "Inattivo",
+    "noTransactions": "Nessuna transazione in questo periodo",
+    "editAria": "Modifica beneficiario",
+    "collapseAria": "Nascondi info beneficiario",
+    "show": "Mostra info beneficiario"
+  },
+  "categoryWidget": {
+    "totalSpent": "Spesa totale",
+    "totalEarned": "Entrate totali",
+    "income": "Entrata",
+    "expense": "Spesa",
+    "budgetThisMonth": "Budget di questo mese",
+    "budgetProgress": "{spent} di {budgeted}",
+    "transactions": "Transazioni",
+    "averageAmount": "Importo medio",
+    "monthlyAverage": "Media mensile",
+    "subcategories": "Sottocategorie",
+    "thisCategory": "Questa categoria",
+    "topPayees": "Beneficiari principali",
+    "noPayee": "Nessun beneficiario",
+    "nextScheduled": "Prossima pianificata",
+    "noTransactions": "Nessuna transazione in questo periodo",
+    "editAria": "Modifica categoria",
+    "collapseAria": "Nascondi info categoria",
+    "show": "Mostra info categoria"
+  },
   "accountWidget": {
     "currentBalance": "Saldo attuale",
     "nextPayment": "Prossimo pagamento",
     "viewBills": "Visualizza in Fatture e Versamenti",
+    "viewDetailsAria": "Visualizza dettagli del conto",
     "type": "Tipo",
     "accountNumber": "Numero di conto",
     "currency": "Valuta",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Duplica transazione",
       "newTitle": "Nuova transazione",
       "scheduleTitle": "Pianifica come ricorrente",
-      "editPayeeTitle": "Modifica beneficiario"
+      "editPayeeTitle": "Modifica beneficiario",
+      "editCategoryTitle": "Modifica categoria"
     },
     "loading": "Caricamento transazioni...",
     "totalCount": "{count, plural, one {# transazione} other {# transazioni}}",
@@ -54,9 +104,13 @@
       "refNumber": "Rif. #",
       "tags": "Etichette",
       "amount": "Importo",
+      "currency": "Valuta",
+      "paidAmount": "Importo pagato",
+      "feePaid": "Commissione pagata",
       "balance": "Saldo",
       "status": "Stato",
-      "actions": "Azioni"
+      "actions": "Azioni",
+      "attachments": "Allegati"
     },
     "today": "Oggi",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Sei sicuro di voler eliminare questa transazione? Questa azione non può essere annullata.",
       "success": "Transazione eliminata",
       "transferSuccess": "Trasferimento eliminato",
-      "error": "Eliminazione transazione non riuscita"
+      "error": "Eliminazione transazione non riuscita",
+      "reconciledWarning": "Questa transazione è riconciliata, quindi eliminarla influirà su una riconciliazione completata."
     },
     "status": {
       "voidError": "Modifica la transazione per cambiarne lo stato da Annullata",
@@ -90,7 +145,6 @@
       "cleared": "Compensata",
       "reconciled": "Riconciliata",
       "void": "Annullata",
-      "unreconciledDense": "U",
       "clearedDense": "C",
       "reconciledDense": "R",
       "voidDense": "V",
@@ -118,7 +172,8 @@
       "editButton": "Modifica",
       "deleteButton": "Elimina"
     },
-    "itemNamePlural": "transazioni"
+    "itemNamePlural": "transazioni",
+    "attachmentsCount": "{count, plural, one {# allegato} other {# allegati}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Importo da",
       "amountTo": "Importo a",
       "status": "Stato",
-      "search": "Cerca"
+      "search": "Cerca",
+      "tagKey": "Chiave tag",
+      "tagKeyOp": "Condizione",
+      "tagKeyValue": "Valore",
+      "currency": "Valuta",
+      "hasAttachments": "Allegati"
     },
     "placeholders": {
       "accounts": "Tutti i conti",
@@ -176,7 +236,8 @@
       "statuses": "Tutti gli stati",
       "amountMin": "Min",
       "amountMax": "Max",
-      "search": "Cerca beneficiario, categoria, importo, etichetta, descrizione, rif. #..."
+      "search": "Cerca beneficiario, categoria, importo, etichetta, descrizione, rif. #...",
+      "tagKeyValue": "es. usa"
     },
     "chips": {
       "removeAccount": "Rimuovi filtro {name}",
@@ -189,7 +250,11 @@
       "dateFrom": "Dal {date}",
       "dateUntil": "Fino al {date}",
       "amountFrom": "Da {amount}",
-      "amountUpTo": "Fino a {amount}"
+      "amountUpTo": "Fino a {amount}",
+      "removeCurrency": "Rimuovi il filtro valuta {name}",
+      "hasAttachments": "Con allegati",
+      "noAttachments": "Senza allegati",
+      "removeAttachments": "Rimuovi filtro allegati"
     },
     "bulkUpdate": "Aggiornamento multiplo",
     "cancelBulk": "Annulla multiplo",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Seleziona periodo...",
+      "allDates": "Tutte le date",
       "today": "Oggi",
       "yesterday": "Ieri",
       "thisWeek": "Questa settimana",
       "lastWeek": "Settimana scorsa",
+      "last30Days": "Ultimi 30 giorni",
       "monthToDate": "Mese corrente",
       "lastMonth": "Mese scorso",
+      "last365Days": "Ultimi 365 giorni",
       "yearToDate": "Anno corrente",
       "lastYear": "Anno scorso",
       "custom": "Personalizzato"
+    },
+    "tagKeyNone": "Qualsiasi (nessun filtro chiave)",
+    "tagKeyOps": {
+      "hasValue": "Ha un valore",
+      "noValue": "Non ha valore",
+      "contains": "Il valore contiene",
+      "notContains": "Il valore non contiene"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Qualsiasi",
+      "yes": "Sì",
+      "no": "No"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "Crea {mode}",
     "submitUpdate": "Aggiorna {mode}",
+    "reconciledConfirm": {
+      "title": "Modificare la transazione riconciliata?",
+      "message": "Questa transazione è riconciliata. Modificarla influirà su una riconciliazione completata. Vuoi salvare comunque le modifiche?",
+      "confirm": "Salva modifiche"
+    },
     "modeLabel": {
       "transfer": "Trasferimento",
       "transaction": "Transazione"
@@ -300,6 +385,7 @@
     "transferAmountNote": "L'importo deve essere positivo per i trasferimenti",
     "amountReceivedNote": "Importo ricevuto dopo la conversione valuta",
     "splitTransaction": "Suddividi transazione",
+    "splitDisabledDuringTour": "Non disponibile durante il tour guidato",
     "newTagTitle": "Nuova etichetta",
     "toasts": {
       "transferCreated": "Trasferimento creato",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Riattivazione beneficiario non riuscita",
       "categoryCreated": "Categoria \"{name}\" creata",
       "categoryCreateFailed": "Creazione categoria non riuscita",
-      "tagCreated": "Etichetta \"{name}\" creata"
+      "tagCreated": "Etichetta \"{name}\" creata",
+      "fxRateRequired": "Inserisci un tasso di cambio o l'importo convertito prima di salvare una transazione in valuta estera.",
+      "attachmentsUploadFailed": "Transazione salvata, ma il caricamento di {count} allegato/i non è riuscito"
     },
     "ariaHistory": "Mostra transazioni recenti",
     "ariaHistoryForPayee": "Mostra transazioni recenti per questo beneficiario",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Valuta di inserimento",
+      "ariaLabel": "Cambia la valuta di inserimento",
+      "title": "Inserisci l'importo in",
+      "accountCurrency": "Valuta del conto ({code})",
+      "addCurrency": "Aggiungi valuta...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Impossibile aggiungere la valuta",
+      "reactivated": "{code} riattivata"
+    },
+    "fx": {
+      "noRateWarning": "Nessun tasso di cambio trovato da {from} a {to} il {date}. Inserisci manualmente l'importo convertito.",
+      "usingLatestRateHint": "Viene usato l'ultimo tasso disponibile (non alla data {date}).",
+      "displayToggle": {
+        "account": "Conto",
+        "original": "Originale"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "Include una commissione per transazione estera del {percent}% ({fee}).",
+      "totalInCurrency": "Totale in {currency}"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Seleziona conto...",
     "memoPlaceholder": "Memo facoltativo",
     "mobileMemoPlaceholder": "Memo",
-    "tagsPlaceholder": "Etichette..."
+    "tagsPlaceholder": "Etichette...",
+    "currencyToggle": {
+      "title": "Cambia la valuta in cui gli importi suddivisi vengono mostrati e modificati",
+      "ariaAmountsIn": "Mostra e modifica gli importi suddivisi in {code}"
+    }
   },
   "recentPopover": {
     "recentForPayee": "Recenti per {name}",
@@ -397,15 +510,33 @@
       "current": "Corrente",
       "ending": "Finale",
       "lowest": "Minimo",
-      "minBalance": "Saldo minimo"
+      "minBalance": "Saldo minimo",
+      "projected": "Previsto",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "Tutti i conti selezionati hanno saldo zero, quindi non c'è alcun grafico dei saldi da mostrare."
     },
     "monthlyTotals": {
       "title": "Totali mensili",
       "noData": "Nessun dato transazione disponibile",
       "monthlyAvg": "Media mensile",
+      "quarterlyAvg": "Media trimestrale",
+      "yearlyAvg": "Media annuale",
       "total": "Totale",
       "transactions": "Transazioni",
-      "tooltip": "{count, plural, one {# transazione} other {# transazioni}}"
+      "tooltip": "{count, plural, one {# transazione} other {# transazioni}}",
+      "quarterLabel": "T{quarter} {year}",
+      "quarterTick": "T{quarter} {year}",
+      "granularityLabel": "Raggruppamento",
+      "granularity": {
+        "auto": "Auto",
+        "month": "Mese",
+        "quarter": "Trimestre",
+        "year": "Anno"
+      },
+      "granularityAutoTitle": "Auto ({granularity})",
+      "granularityTitle": "Vista per {label}"
     },
     "accountBalances": {
       "title": "Saldi dei conti",
@@ -430,9 +561,16 @@
     "loadFailed": "Caricamento transazioni non riuscito",
     "loadPayeeFailed": "Caricamento dettagli beneficiario non riuscito",
     "payeeUpdateFailed": "Aggiornamento beneficiario non riuscito",
+    "categoryUpdated": "Categoria aggiornata con successo",
+    "categoryUpdateFailed": "Aggiornamento categoria non riuscito",
     "exportFailed": "Esportazione transazioni non riuscita"
   },
   "validation": {
     "dateRequired": "La data è obbligatoria"
+  },
+  "tagKeyBreakdown": {
+    "title": "Spese per {key}",
+    "other": "Altro",
+    "noData": "Nessuna spesa etichettata da ripartire per questa chiave."
   }
 }

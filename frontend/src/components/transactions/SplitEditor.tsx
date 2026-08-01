@@ -14,7 +14,7 @@ import { Account } from '@/types/account';
 import { Tag } from '@/types/tag';
 import { CreateSplitData, InvestmentSplitDetails } from '@/types/transaction';
 import { buildCategoryTree } from '@/lib/categoryUtils';
-import { roundToCents, getCurrencySymbol, formatAmountWithCommas, getDecimalPlacesForCurrency } from '@/lib/format';
+import { roundToCents, roundToDecimals, getCurrencySymbol, formatAmountWithCommas, getDecimalPlacesForCurrency } from '@/lib/format';
 import { buildAccountDropdownOptions } from '@/lib/account-utils';
 import { InvestmentSplitFields } from './InvestmentSplitFields';
 
@@ -44,6 +44,17 @@ interface SplitEditorProps {
    * The remaining split must be a category split for this to be offered.
    */
   onConvertToRegular?: (categoryId: string | undefined) => void;
+  /**
+   * Foreign-currency editing. When both are set (and the display currency
+   * differs from the account currency), a two-pill toggle lets the user view
+   * and edit split amounts in `displayCurrencyCode` instead of the account
+   * currency. `displayRate` is account-currency units per 1 unit of the display
+   * currency. Amounts are always stored in the account currency (splits sum to
+   * the account-currency transaction amount); the foreign values are converted
+   * on edit, so distribution and balancing stay exact in the account currency.
+   */
+  displayCurrencyCode?: string;
+  displayRate?: number;
 }
 
 export function SplitEditor({
@@ -59,12 +70,40 @@ export function SplitEditor({
   onTransactionAmountChange,
   currencyCode = 'CAD',
   onConvertToRegular,
+  displayCurrencyCode,
+  displayRate,
 }: SplitEditorProps) {
   const t = useTranslations('transactions');
   const investmentSplitsEnabled = parentAccountSubType === 'INVESTMENT_CASH';
   const currencySymbol = getCurrencySymbol(currencyCode);
   const decimals = getDecimalPlacesForCurrency(currencyCode);
   const [localSplits, setLocalSplits] = useState<SplitRow[]>(splits);
+
+  // Foreign-currency editing toggle. Available only when a display currency and
+  // a positive rate are supplied and the two currencies differ. Amounts are
+  // always stored in the account currency; the toggle only changes the currency
+  // the amounts are shown and entered in.
+  const canToggleCurrency =
+    !!displayCurrencyCode &&
+    !!displayRate &&
+    displayRate > 0 &&
+    displayCurrencyCode.toUpperCase() !== currencyCode.toUpperCase();
+  const [showForeignAmounts, setShowForeignAmounts] = useState(false);
+  const foreignActive = canToggleCurrency && showForeignAmounts;
+  const rate = displayRate ?? 1;
+  const activeSymbol = foreignActive
+    ? getCurrencySymbol(displayCurrencyCode as string)
+    : currencySymbol;
+  const activeDecimals = foreignActive
+    ? getDecimalPlacesForCurrency(displayCurrencyCode as string)
+    : decimals;
+  // Convert a stored account-currency amount to the currency currently shown.
+  const toDisplayAmount = (accountAmount: number) =>
+    foreignActive ? roundToDecimals(accountAmount / rate, activeDecimals) : accountAmount;
+  // Convert an amount typed in the currently shown currency back to the stored
+  // account currency (always rounded to cents, matching the rest of the editor).
+  const fromDisplayAmount = (displayAmount: number) =>
+    foreignActive ? roundToCents(displayAmount * rate) : roundToCents(displayAmount);
   // Index of the split pending removal that would convert the transaction back
   // to a regular one (only set while the confirmation dialog is open).
   const [convertPendingIndex, setConvertPendingIndex] = useState<number | null>(null);
@@ -114,7 +153,13 @@ export function SplitEditor({
 
   const splitsTotal = localSplits.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const remaining = Number(transactionAmount) - splitsTotal;
+  // Balance is always judged in the account currency so distribution and the
+  // balanced/remaining indicators stay exact regardless of the display currency.
   const isBalanced = Math.abs(remaining) < 0.01;
+  // Footer figures rendered in whichever currency the amounts are shown in.
+  const displaySplitsTotal = toDisplayAmount(splitsTotal);
+  const displayRemaining = toDisplayAmount(remaining);
+  const displayTransactionAmount = toDisplayAmount(Number(transactionAmount));
 
   const handleSplitChange = (index: number, field: keyof SplitRow, value: any) => {
     const newSplits = [...localSplits];
@@ -277,14 +322,13 @@ export function SplitEditor({
   const distributeEvenly = () => {
     if (localSplits.length === 0) return;
 
-    const totalAmount = Number(transactionAmount);
+    const totalAmount = Math.round(Number(transactionAmount) * 100) / 100;
     // Round each split to 2 decimal places (cents)
     const amountPerSplit = Math.round((totalAmount / localSplits.length) * 100) / 100;
 
-    // Distribute evenly, put remainder on last split
+    // Distribute evenly, putting the remainder on the last row for an exact sum.
     const newSplits = localSplits.map((split, index) => {
       if (index === localSplits.length - 1) {
-        // Last split gets remainder to ensure exact sum
         const otherSplitsTotal = Math.round(amountPerSplit * (localSplits.length - 1) * 100) / 100;
         const lastAmount = Math.round((totalAmount - otherSplitsTotal) * 100) / 100;
         return { ...split, amount: lastAmount };
@@ -307,13 +351,15 @@ export function SplitEditor({
     onChange(newSplits);
   };
 
-  // Distribute remaining amount proportionally across all splits based on their current amounts
+  // Distribute the remaining amount proportionally across the splits based on
+  // their current amounts.
   const distributeProportionally = () => {
     if (localSplits.length === 0 || Math.abs(remaining) < 0.01) return;
 
     const absTotal = localSplits.reduce((sum, s) => sum + Math.abs(Number(s.amount) || 0), 0);
+    const lastSplit = localSplits[localSplits.length - 1];
 
-    // If all splits are zero, fall back to equal distribution
+    // If all splits are zero, fall back to equal distribution.
     if (absTotal < 0.01) {
       const perSplit = Math.round((remaining / localSplits.length) * 100) / 100;
       const newSplits = localSplits.map((split, index) => {
@@ -331,12 +377,12 @@ export function SplitEditor({
     }
 
     let distributedSoFar = 0;
-    const newSplits = localSplits.map((split, index) => {
+    const newSplits = localSplits.map((split) => {
       const currentAmount = Number(split.amount) || 0;
       const proportion = Math.abs(currentAmount) / absTotal;
 
-      if (index === localSplits.length - 1) {
-        // Last split absorbs rounding remainder
+      if (split === lastSplit) {
+        // Last split absorbs the rounding remainder
         const lastPortion = Math.round((remaining - distributedSoFar) * 100) / 100;
         return { ...split, amount: Math.round((currentAmount + lastPortion) * 100) / 100 };
       }
@@ -359,8 +405,44 @@ export function SplitEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center gap-2">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('splitEditor.header')}</h4>
+      <div className="flex justify-between items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('splitEditor.header')}</h4>
+          {canToggleCurrency && (
+            <div
+              className="inline-flex overflow-hidden rounded-md border border-gray-300 dark:border-gray-600 text-xs"
+              role="group"
+              title={t('splitEditor.currencyToggle.title')}
+            >
+              <button
+                type="button"
+                onClick={() => setShowForeignAmounts(false)}
+                aria-pressed={!foreignActive}
+                aria-label={t('splitEditor.currencyToggle.ariaAmountsIn', { code: currencyCode })}
+                className={`px-2 py-1 font-medium transition-colors ${
+                  !foreignActive
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {currencyCode}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForeignAmounts(true)}
+                aria-pressed={foreignActive}
+                aria-label={t('splitEditor.currencyToggle.ariaAmountsIn', { code: displayCurrencyCode as string })}
+                className={`px-2 py-1 font-medium transition-colors ${
+                  foreignActive
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {displayCurrencyCode}
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button
             type="button"
@@ -395,7 +477,9 @@ export function SplitEditor({
             return (
               <div key={split.id} className="p-3 space-y-2 bg-white dark:bg-gray-900">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('splitEditor.splitLabel', { number: index + 1 })}</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                    {t('splitEditor.splitLabel', { number: index + 1 })}
+                  </span>
                   <div className="flex space-x-1">
                     <button
                       type="button"
@@ -472,9 +556,9 @@ export function SplitEditor({
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <CurrencyInput
-                    prefix={currencySymbol}
-                    value={split.amount}
-                    onChange={(value) => handleSplitChange(index, 'amount', roundToCents(value ?? 0))}
+                    prefix={activeSymbol}
+                    value={toDisplayAmount(split.amount)}
+                    onChange={(value) => handleSplitChange(index, 'amount', fromDisplayAmount(value ?? 0))}
                     allowSignToggle
                     disabled={disabled}
                     className="w-full"
@@ -519,13 +603,13 @@ export function SplitEditor({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('splitEditor.total')}</span>
                 <span className={`font-medium ${isBalanced ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {currencySymbol}{formatAmountWithCommas(splitsTotal, decimals)}
+                  {activeSymbol}{formatAmountWithCommas(displaySplitsTotal, activeDecimals)}
                 </span>
                 {isBalanced ? (
                   <span className="text-xs text-green-600 dark:text-green-400">{t('splitEditor.balanced')}</span>
                 ) : (
                   <span className="text-xs text-red-600 dark:text-red-400">
-                    {t('splitEditor.remaining', { symbol: currencySymbol, amount: formatAmountWithCommas(remaining, decimals) })}
+                    {t('splitEditor.remaining', { symbol: activeSymbol, amount: formatAmountWithCommas(displayRemaining, activeDecimals) })}
                   </span>
                 )}
               </div>
@@ -536,7 +620,7 @@ export function SplitEditor({
                   disabled={disabled}
                   className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline disabled:opacity-50 whitespace-nowrap"
                 >
-                  {t('splitEditor.setTotal', { symbol: currencySymbol, amount: formatAmountWithCommas(splitsTotal, decimals) })}
+                  {t('splitEditor.setTotal', { symbol: activeSymbol, amount: formatAmountWithCommas(displaySplitsTotal, activeDecimals) })}
                 </button>
               )}
             </div>
@@ -554,13 +638,13 @@ export function SplitEditor({
                   {t('splitEditor.columns.type')}
                 </th>
               )}
-              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: supportsTransfers ? '34%' : '45%' }}>
+              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: supportsTransfers ? '32%' : '45%' }}>
                 {supportsTransfers ? t('splitEditor.columns.categoryAccount') : t('splitEditor.columns.category')}
               </th>
-              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: supportsTransfers ? '15%' : '13%' }}>
+              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: supportsTransfers ? '20%' : '13%' }}>
                 {t('splitEditor.columns.amount')}
               </th>
-              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: '20%' }}>
+              <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase" style={{ width: '17%' }}>
                 {t('splitEditor.columns.memo')}
               </th>
               {tagOptions.length > 0 && (
@@ -635,9 +719,9 @@ export function SplitEditor({
                 </td>
                 <td className="px-1 py-2">
                   <CurrencyInput
-                    prefix={currencySymbol}
-                    value={split.amount}
-                    onChange={(value) => handleSplitChange(index, 'amount', roundToCents(value ?? 0))}
+                    prefix={activeSymbol}
+                    value={toDisplayAmount(split.amount)}
+                    onChange={(value) => handleSplitChange(index, 'amount', fromDisplayAmount(value ?? 0))}
                     allowSignToggle
                     disabled={disabled}
                     className="w-full"
@@ -732,13 +816,13 @@ export function SplitEditor({
                         isBalanced ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}
                     >
-                      {currencySymbol}{formatAmountWithCommas(splitsTotal, decimals)}
+                      {activeSymbol}{formatAmountWithCommas(displaySplitsTotal, activeDecimals)}
                     </span>
                     {isBalanced ? (
                       <span className="text-xs text-green-600 dark:text-green-400">{t('splitEditor.balanced')}</span>
                     ) : (
                       <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">
-                        {t('splitEditor.needAmount', { symbol: currencySymbol, amount: formatAmountWithCommas(Number(transactionAmount), decimals), remaining: formatAmountWithCommas(remaining, decimals) })}
+                        {t('splitEditor.needAmount', { symbol: activeSymbol, amount: formatAmountWithCommas(displayTransactionAmount, activeDecimals), remaining: formatAmountWithCommas(displayRemaining, activeDecimals) })}
                       </span>
                     )}
                   </div>
@@ -749,7 +833,7 @@ export function SplitEditor({
                       disabled={disabled}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline disabled:opacity-50 whitespace-nowrap"
                     >
-                      {t('splitEditor.setTotal', { symbol: currencySymbol, amount: formatAmountWithCommas(splitsTotal, decimals) })}
+                      {t('splitEditor.setTotal', { symbol: activeSymbol, amount: formatAmountWithCommas(displaySplitsTotal, activeDecimals) })}
                     </button>
                   )}
                 </div>

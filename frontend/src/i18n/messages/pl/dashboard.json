@@ -8,6 +8,7 @@
     "title": "Ulubione konta",
     "empty": "Brak ulubionych kont. Oznacz konta jako ulubione, aby zobaczyć je tutaj.",
     "reorder": "Zmień kolejność",
+    "dragToReorder": "Przeciągnij konta, aby zmienić ich kolejność, lub użyj przycisków strzałek.",
     "done": "Gotowe",
     "moveUp": "Przesuń w górę",
     "moveDown": "Przesuń w dół",
@@ -87,6 +88,7 @@
       "noLosers": "Brak spadków dzisiaj."
     },
     "dailyChange": "Zmiana dzienna",
+    "openPriceHistory": "Historia ceny: {symbol}",
     "refreshPrices": "Odśwież ceny",
     "viewPortfolio": "Zobacz portfel",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "Brak ulubionych papierów wartościowych. Odwiedź <securitiesLink>stronę Papiery wartościowe</securitiesLink> i oznacz gwiazdką te, które chcesz tu śledzić.",
     "noPriceYet": "Brak ceny",
     "dailyChange": "Zmiana dzienna",
+    "openPriceHistory": "Historia ceny: {symbol}",
     "refreshPrices": "Odśwież ceny",
     "manage": "Zarządzaj papierami wartościowymi"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "Wydatki według kategorii",
     "empty": "Brak danych o wydatkach dla tego okresu.",
-    "past30Days": "Ostatnie 30 dni",
     "total": "Suma",
     "uncategorized": "Bez kategorii",
     "other": "Inne"
   },
   "incomeExpenses": {
     "title": "Przychody a wydatki",
-    "last5Weeks": "Ostatnie 5 tygodni",
-    "weekOf": "Tydzień od {date}",
     "income": "Przychody",
     "expenses": "Wydatki",
     "net": "Saldo"
+  },
+  "customize": {
+    "button": "Dostosuj",
+    "title": "Dostosuj pulpit",
+    "description": "Poniższy układ odzwierciedla pulpit: widżety układają się od lewej do prawej, po dwa w wierszu na dużych ekranach.",
+    "moveEarlier": "Przesuń {name} wcześniej",
+    "moveLater": "Przesuń {name} później",
+    "dragToReorder": "Przeciągnij widżety, aby zmienić ich układ, lub użyj przycisków strzałek.",
+    "hiddenWidgets": "Ukryte widżety",
+    "hide": "Ukryj {name}",
+    "show": "Pokaż {name}",
+    "atLeastOne": "Wybierz co najmniej jeden widżet do wyświetlenia na pulpicie.",
+    "reset": "Przywróć domyślne",
+    "toasts": {
+      "saveFailed": "Nie udało się zapisać układu pulpitu"
+    }
+  },
+  "favouriteReports": {
+    "title": "Ulubione raporty",
+    "empty": "Brak ulubionych raportów. Oznacz raporty gwiazdką na stronie Raporty, aby zobaczyć je tutaj.",
+    "browseReports": "Przeglądaj raporty"
+  },
+  "widgets": {
+    "configure": "Konfiguruj {name}",
+    "done": "Gotowe",
+    "configSaveFailed": "Nie udało się zapisać ustawień widżetu. Spróbuj ponownie.",
+    "timeframe": "Zakres czasu",
+    "accounts": "Konta",
+    "chartType": "Typ wykresu",
+    "view": "Widok",
+    "displayName": "Nazwa wyświetlana",
+    "description": "Opis",
+    "descriptionPlaceholder": "Dodaj opcjonalny opis",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "Wszystkie"
+    }
+  },
+  "portfolioValue": {
+    "title": "Wartość portfela",
+    "empty": "Brak historii inwestycji do wyświetlenia.",
+    "refresh": "Odśwież bieżącą wartość"
+  },
+  "spendingByPayee": {
+    "title": "Wydatki według odbiorcy",
+    "empty": "Brak wydatków w tym okresie.",
+    "totalLabel": "Suma"
+  },
+  "monthlySpendingTrend": {
+    "title": "Trend wydatków miesięcznych",
+    "empty": "Brak danych dla tego okresu.",
+    "expenses": "Wydatki",
+    "income": "Przychody"
+  },
+  "incomeBySource": {
+    "title": "Przychody według źródła",
+    "empty": "Brak przychodów w tym okresie.",
+    "totalLabel": "Przychody łącznie"
+  },
+  "creditUtilizationAccounts": {
+    "title": "Wykorzystanie według konta",
+    "empty": "Brak kont kredytowych z ustawionym limitem.",
+    "utilization": "Wykorzystanie",
+    "used": "Wykorzystano"
+  },
+  "creditUtilizationTotal": {
+    "title": "Całkowite wykorzystanie",
+    "empty": "Brak kont kredytowych z ustawionym limitem.",
+    "used": "Wykorzystano",
+    "available": "Dostępne"
+  },
+  "sectorWeightings": {
+    "title": "Alokacja sektorowa",
+    "empty": "Brak dostępnych danych sektorowych.",
+    "direct": "Bezpośrednia",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "Alokacja według typu papieru wartościowego",
+    "empty": "Brak pozycji do wyświetlenia.",
+    "types": {
+      "STOCK": "Akcje",
+      "ETF": "ETF-y",
+      "MUTUAL_FUND": "Fundusze inwestycyjne",
+      "BOND": "Obligacje",
+      "CASH": "Gotówka"
+    }
+  },
+  "geographicAllocation": {
+    "title": "Alokacja geograficzna",
+    "empty": "Brak pozycji do wyświetlenia.",
+    "viewRegion": "Region",
+    "viewExchange": "Giełda",
+    "viewCountry": "Kraj"
+  },
+  "recurringExpenses": {
+    "title": "Największe wydatki cykliczne",
+    "empty": "Nie znaleziono wydatków cyklicznych.",
+    "minOccurrences": "Minimalna liczba wystąpień",
+    "minOccurrencesOption": "{count} lub więcej",
+    "occurrences": "{count} wystąpień",
+    "monthlyEstimate": "Szacunek miesięczny"
+  },
+  "weekendVsWeekday": {
+    "title": "Wydatki w weekend a w dni robocze",
+    "empty": "Brak wydatków w tym okresie.",
+    "weekendLabel": "Weekend",
+    "weekdayLabel": "Dzień powszedni",
+    "viewOverview": "Przegląd",
+    "viewByDay": "Wg dnia"
   }
 }

@@ -16,6 +16,7 @@ import { ScheduledTransactionsService } from "../scheduled-transactions/schedule
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { PortfolioService } from "../securities/portfolio.service";
 import { LoanMortgageAccountService } from "./loan-mortgage-account.service";
+import { LoanRateChangesService } from "../loan-rate-changes/loan-rate-changes.service";
 import { DataSource } from "typeorm";
 import { ActionHistoryService } from "../action-history/action-history.service";
 
@@ -31,6 +32,7 @@ describe("AccountsService", () => {
   let mockQueryRunner: Record<string, any>;
   let mockQrRepo: Record<string, jest.Mock>;
   let mockActionHistoryService: Record<string, jest.Mock>;
+  let loanRateChangesService: Record<string, jest.Mock>;
   // loanMortgageService uses the real class with mocked repositories
 
   const mockAccount = {
@@ -95,6 +97,19 @@ describe("AccountsService", () => {
       create: jest.fn().mockResolvedValue({ id: "sched-tx-1" }),
       update: jest.fn().mockResolvedValue({}),
       remove: jest.fn(),
+    };
+
+    loanRateChangesService = {
+      create: jest.fn().mockImplementation((_userId, _accountId, dto) =>
+        Promise.resolve({
+          id: "rate-change-1",
+          effectiveDate: dto.effectiveDate,
+          annualRate: dto.annualRate,
+          newPaymentAmount:
+            dto.newPaymentAmount ?? (dto.recalculatePayment ? 1450.25 : null),
+          source: "manual",
+        }),
+      ),
     };
 
     categoriesService = {
@@ -173,6 +188,10 @@ describe("AccountsService", () => {
           useValue: mockActionHistoryService,
         },
         LoanMortgageAccountService,
+        {
+          provide: LoanRateChangesService,
+          useValue: loanRateChangesService,
+        },
         {
           provide: DataSource,
           useValue: {
@@ -267,6 +286,18 @@ describe("AccountsService", () => {
       const createCall = accountsRepository.create.mock.calls[0][0];
       expect(createCall.openingBalance).toBe(0);
       expect(createCall.currentBalance).toBe(0);
+    });
+
+    it("creates an account with a foreign-transaction fee percentage", async () => {
+      await service.create("user-1", {
+        name: "Travel Card",
+        accountType: AccountType.CREDIT_CARD,
+        currencyCode: "USD",
+        fxFeePercent: 2.5,
+      } as any);
+
+      const createCall = accountsRepository.create.mock.calls[0][0];
+      expect(createCall.fxFeePercent).toBe(2.5);
     });
 
     it("creates a credit card account with statement date fields", async () => {
@@ -497,6 +528,28 @@ describe("AccountsService", () => {
       expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     });
 
+    it("links and unlinks a loan account for the equity view", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({ ...mockAccount });
+      await service.update("user-1", "account-1", {
+        linkedLoanAccountId: "loan-1",
+      });
+      expect(
+        mockQueryRunner.manager.save.mock.calls[0][0].linkedLoanAccountId,
+      ).toBe("loan-1");
+
+      mockQueryRunner.manager.save.mockClear();
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        ...mockAccount,
+        linkedLoanAccountId: "loan-1",
+      });
+      await service.update("user-1", "account-1", {
+        linkedLoanAccountId: null,
+      });
+      expect(
+        mockQueryRunner.manager.save.mock.calls[0][0].linkedLoanAccountId,
+      ).toBeNull();
+    });
+
     it("throws BadRequestException for closed account", async () => {
       mockQueryRunner.manager.findOne.mockResolvedValue({
         ...mockAccount,
@@ -569,6 +622,66 @@ describe("AccountsService", () => {
 
       const saved = mockQueryRunner.manager.save.mock.calls[0][0];
       expect(saved.amortizationMonths).toBe(360);
+    });
+
+    it("updates overpaymentCategoryId when provided", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        ...mockAccount,
+        accountType: "LOAN",
+        overpaymentCategoryId: null,
+      });
+
+      await service.update("user-1", "account-1", {
+        overpaymentCategoryId: "cat-overpay",
+      });
+
+      const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+      expect(saved.overpaymentCategoryId).toBe("cat-overpay");
+    });
+
+    it("clears overpaymentCategoryId when set to null", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        ...mockAccount,
+        accountType: "LOAN",
+        overpaymentCategoryId: "cat-overpay",
+      });
+
+      await service.update("user-1", "account-1", {
+        overpaymentCategoryId: null,
+      });
+
+      const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+      expect(saved.overpaymentCategoryId).toBeNull();
+    });
+
+    it("updates overpaymentMemo when provided, trimming whitespace", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        ...mockAccount,
+        accountType: "LOAN",
+        overpaymentMemo: null,
+      });
+
+      await service.update("user-1", "account-1", {
+        overpaymentMemo: "  Extra principal  ",
+      });
+
+      const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+      expect(saved.overpaymentMemo).toBe("Extra principal");
+    });
+
+    it("clears overpaymentMemo when set to null or blank", async () => {
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        ...mockAccount,
+        accountType: "LOAN",
+        overpaymentMemo: "Extra principal",
+      });
+
+      await service.update("user-1", "account-1", {
+        overpaymentMemo: "   ",
+      });
+
+      const saved = mockQueryRunner.manager.save.mock.calls[0][0];
+      expect(saved.overpaymentMemo).toBeNull();
     });
 
     it("updates credit card statement date fields", async () => {
@@ -1804,7 +1917,7 @@ describe("AccountsService", () => {
       expect(result.interestPayment).toBeGreaterThan(0);
     });
 
-    it("updates account interestRate and paymentAmount", async () => {
+    it("records a rate-history row via the rate-changes service", async () => {
       accountsRepository.findOne.mockResolvedValue({
         ...mockMortgageAccount,
       });
@@ -1816,12 +1929,19 @@ describe("AccountsService", () => {
         new Date("2025-06-01"),
       );
 
-      const savedAccount = accountsRepository.save.mock.calls[0][0];
-      expect(savedAccount.interestRate).toBe(4.0);
-      expect(savedAccount.paymentAmount).toBeGreaterThan(0);
+      expect(loanRateChangesService.create).toHaveBeenCalledWith(
+        "user-1",
+        "mortgage-1",
+        {
+          effectiveDate: "2025-06-01",
+          annualRate: 4.0,
+          newPaymentAmount: null,
+          recalculatePayment: true,
+        },
+      );
     });
 
-    it("updates scheduled transaction when scheduledTransactionId exists", async () => {
+    it("passes an explicit payment through without recalculation", async () => {
       accountsRepository.findOne.mockResolvedValue({
         ...mockMortgageAccount,
       });
@@ -1831,54 +1951,19 @@ describe("AccountsService", () => {
         "mortgage-1",
         4.0,
         new Date("2025-06-01"),
+        2000,
       );
 
-      expect(scheduledTransactionsService.update).toHaveBeenCalledWith(
-        "user-1",
-        "sched-tx-1",
-        expect.objectContaining({
-          amount: expect.any(Number),
-          splits: expect.arrayContaining([
-            expect.objectContaining({ memo: "Principal" }),
-            expect.objectContaining({ memo: "Interest" }),
-          ]),
-        }),
-      );
-    });
-
-    it("does not update scheduled transaction when scheduledTransactionId is null", async () => {
-      accountsRepository.findOne.mockResolvedValue({
-        ...mockMortgageAccount,
-        scheduledTransactionId: null,
-      });
-
-      await service.updateMortgageRate(
+      expect(loanRateChangesService.create).toHaveBeenCalledWith(
         "user-1",
         "mortgage-1",
-        4.0,
-        new Date("2025-06-01"),
+        {
+          effectiveDate: "2025-06-01",
+          annualRate: 4.0,
+          newPaymentAmount: 2000,
+          recalculatePayment: false,
+        },
       );
-
-      expect(scheduledTransactionsService.update).not.toHaveBeenCalled();
-    });
-
-    it("handles scheduled transaction update failure gracefully", async () => {
-      accountsRepository.findOne.mockResolvedValue({
-        ...mockMortgageAccount,
-      });
-      scheduledTransactionsService.update.mockRejectedValue(
-        new Error("update failed"),
-      );
-
-      // Should not throw - the error is caught and logged
-      const result = await service.updateMortgageRate(
-        "user-1",
-        "mortgage-1",
-        4.0,
-        new Date("2025-06-01"),
-      );
-
-      expect(result.newRate).toBe(4.0);
     });
   });
 
@@ -2828,6 +2913,12 @@ describe("AccountsService", () => {
       expect(checking.institutionName).toBe("Big Bank");
       expect(checking.accountNumber).toBe("1234");
       expect(checking.excludeFromNetWorth).toBe(false);
+      // Loan fields are null on non-debt accounts
+      expect(checking.paymentAmount).toBeNull();
+      expect(checking.paymentFrequency).toBeNull();
+      expect(checking.paymentStartDate).toBeNull();
+      expect(checking.amortizationMonths).toBeNull();
+      expect(checking.originalPrincipal).toBeNull();
 
       expect(savings.creditLimit).toBe(5000);
       expect(savings.interestRate).toBe(1.25);
@@ -2837,6 +2928,38 @@ describe("AccountsService", () => {
 
       expect(brokerage.subType).toBe(AccountSubType.INVESTMENT_BROKERAGE);
       expect(brokerage.institutionName).toBeNull();
+    });
+
+    it("exposes loan/mortgage schedule fields for debt accounts", async () => {
+      const loan = {
+        id: "l1",
+        userId: "user-1",
+        name: "Car Loan",
+        accountType: AccountType.LOAN,
+        accountSubType: null,
+        currencyCode: "USD",
+        currentBalance: -8000,
+        futureTransactionsSum: 0,
+        creditLimit: null,
+        interestRate: 6,
+        excludeFromNetWorth: false,
+        institutionId: null,
+        accountNumber: null,
+        isClosed: false,
+        paymentAmount: 500,
+        paymentFrequency: "MONTHLY",
+        paymentStartDate: "2024-02-01",
+        amortizationMonths: 60,
+        originalPrincipal: 20000,
+      };
+      jest.spyOn(service, "findAll").mockResolvedValue([loan] as never);
+      const r = await service.getLlmAccounts("user-1", { status: "all" });
+      const car = r.accounts.find((a) => a.name === "Car Loan")!;
+      expect(car.paymentAmount).toBe(500);
+      expect(car.paymentFrequency).toBe("MONTHLY");
+      expect(car.paymentStartDate).toBe("2024-02-01");
+      expect(car.amortizationMonths).toBe(60);
+      expect(car.originalPrincipal).toBe(20000);
     });
 
     it("skips the institution lookup when no account references one", async () => {
@@ -2933,6 +3056,85 @@ describe("AccountsService", () => {
       ds.query = jest.fn().mockResolvedValue([]);
       await service.getDailyBalances("user-1", "2024-01-01", "2024-12-31", []);
       expect(ds.query).toHaveBeenCalled();
+    });
+
+    it("keeps every day (step 1) for ranges within the point budget", async () => {
+      const ds = service["dataSource"] as unknown as { query: jest.Mock };
+      ds.query = jest.fn().mockResolvedValue([]);
+      await service.getDailyBalances("user-1", "2024-01-01", "2024-12-31", [
+        "a1",
+      ]);
+      const params = ds.query.mock.calls[0][1];
+      expect(params[2]).toBe("2024-01-01");
+      expect(params[3]).toBe("2024-12-31");
+      expect(params[4]).toBe(1); // 366 days <= 400 -> no downsampling
+    });
+
+    it("downsamples wide ranges with a step greater than 1", async () => {
+      const ds = service["dataSource"] as unknown as { query: jest.Mock };
+      ds.query = jest.fn().mockResolvedValue([]);
+      await service.getDailyBalances("user-1", "2010-01-01", "2024-12-31", [
+        "a1",
+      ]);
+      const params = ds.query.mock.calls[0][1];
+      expect(params[4]).toBeGreaterThan(1); // ~5479 days / 400 -> step 14
+    });
+
+    it("spans earliest to latest transaction when allTime and no startDate", async () => {
+      const ds = service["dataSource"] as unknown as { query: jest.Mock };
+      ds.query = jest
+        .fn()
+        // allTime -> combined MIN/MAX probe (no separate future-extension probe)
+        .mockResolvedValueOnce([
+          { min_date: "2015-06-01", max_date: "2021-03-15" },
+        ])
+        // main rows query
+        .mockResolvedValueOnce([]);
+      await service.getDailyBalances(
+        "user-1",
+        undefined,
+        undefined,
+        ["a1"],
+        true,
+      );
+      // Only the MIN/MAX probe and the main query run in all-time mode.
+      expect(ds.query).toHaveBeenCalledTimes(2);
+      const params = ds.query.mock.calls[1][1];
+      expect(params[2]).toBe("2015-06-01"); // start = earliest transaction
+      expect(params[3]).toBe("2021-03-15"); // end clamped to latest transaction
+    });
+
+    it("falls back to the one-year default and today when allTime finds no transactions", async () => {
+      const ds = service["dataSource"] as unknown as { query: jest.Mock };
+      ds.query = jest
+        .fn()
+        .mockResolvedValueOnce([{ min_date: null, max_date: null }])
+        .mockResolvedValueOnce([]);
+      await service.getDailyBalances(
+        "user-1",
+        undefined,
+        undefined,
+        ["a1"],
+        true,
+      );
+      const params = ds.query.mock.calls[1][1];
+      expect(params[2]).toMatch(/^\d{4}-\d{2}-\d{2}$/); // start = one year ago
+      expect(params[3]).toMatch(/^\d{4}-\d{2}-\d{2}$/); // end = today (not clamped)
+    });
+
+    it("does not probe for earliest transaction when startDate is given", async () => {
+      const ds = service["dataSource"] as unknown as { query: jest.Mock };
+      ds.query = jest.fn().mockResolvedValue([]);
+      await service.getDailyBalances(
+        "user-1",
+        "2024-01-01",
+        "2024-12-31",
+        ["a1"],
+        true,
+      );
+      // endDate + startDate both supplied -> only the main query runs
+      expect(ds.query).toHaveBeenCalledTimes(1);
+      expect(ds.query.mock.calls[0][1][2]).toBe("2024-01-01");
     });
   });
 

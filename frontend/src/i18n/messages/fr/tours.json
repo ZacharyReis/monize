@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Suivant",
+    "back": "Retour",
+    "done": "Terminé",
+    "endTour": "Terminer la visite",
+    "tryIt": "Essayez — la visite continue une fois que c'est fait",
+    "skipStep": "Passer cette étape",
+    "stepCounter": "{current} sur {total}",
+    "skippedTitle": "Visite terminée",
+    "skippedBody": "Certaines étapes ont été ignorées car leur écran ou leur contrôle n'était pas disponible. Vous pouvez refaire la visite à tout moment depuis les Paramètres.",
+    "move": "Déplacer cette carte — faites-la glisser ou déplacez-la avec les touches fléchées"
+  },
+  "offer": {
+    "heading": "Faire une visite rapide",
+    "subheading": "De courtes visites guidées des nouveautés de cette version. Cette fenêtre s'efface pendant une visite et revient à la fin.",
+    "showMe": "Me montrer",
+    "viewed": "Consultée",
+    "introTitle": "Nouveau ici ? Suivez la visite d'introduction",
+    "introSubtitle": "Un rapide tour des bases."
+  },
+  "areas": {
+    "intro": "Démarrage",
+    "transactions": "Transactions",
+    "accounts": "Comptes",
+    "budgets": "Budgets",
+    "reports": "Rapports",
+    "settings": "Paramètres"
+  },
+  "gettingStarted": {
+    "takeTour": "Faire la visite",
+    "retakeTour": "Refaire la visite"
+  },
+  "settings": {
+    "title": "Visites guidées",
+    "description": "Découvrez les fonctionnalités de l'application étape par étape.",
+    "showList": "Afficher les visites ({count})",
+    "hideList": "Masquer les visites",
+    "start": "Démarrer",
+    "restart": "Refaire",
+    "statusNotViewed": "Non consultée",
+    "statusDismissed": "Quittée en cours",
+    "reset": "Réinitialiser la progression des visites",
+    "resetSuccess": "Progression des visites réinitialisée.",
+    "resetError": "Impossible de réinitialiser la progression des visites. Veuillez réessayer."
+  },
+  "intro": {
+    "basics": {
+      "title": "Introduction à Monize",
+      "steps": {
+        "welcome": {
+          "title": "Bienvenue dans Monize",
+          "body": "Cette visite rapide vous fait découvrir l'essentiel de l'application. Vous pouvez la quitter à tout moment en appuyant sur **Échap** ou en cliquant sur **Terminer la visite**."
+        },
+        "dashboard": {
+          "title": "Votre tableau de bord",
+          "body": "Voici votre tableau de bord. Utilisez le bouton **Personnaliser** en haut à droite pour réorganiser ou masquer les widgets, afin que les résumés qui vous intéressent restent bien en haut."
+        },
+        "tools": {
+          "title": "Le menu Outils",
+          "body": "Le menu **Outils** est l'endroit où vous gérez les éléments de base de vos finances — bénéficiaires, catégories, devises, étiquettes et plus encore."
+        },
+        "accounts": {
+          "title": "Vos comptes",
+          "body": "Ajoutez ici vos comptes bancaires, cartes de crédit, prêts et comptes de placement avec le bouton mis en évidence. Chaque solde et chaque transaction appartiennent à un compte."
+        },
+        "transactions": {
+          "title": "Transactions",
+          "body": "Voici votre registre de transactions — chaque paiement et dépôt de vos comptes s'y trouve, prêt à être recherché et filtré."
+        },
+        "createTransaction": {
+          "title": "Enregistrer une transaction",
+          "body": "Ajoutez un revenu ou une dépense avec **Nouvelle transaction**. Allez-y, ouvrez le formulaire."
+        },
+        "fields": {
+          "title": "Bénéficiaire et catégorie",
+          "body": "Pour chaque transaction, vous choisissez un bénéficiaire et attribuez une catégorie. Ce sont les catégories qui alimentent vos budgets et vos rapports ; le montant vient à l'étape suivante."
+        },
+        "splits": {
+          "title": "Répartir une transaction",
+          "body": "Un achat couvre plusieurs catégories ? Utilisez **Répartir la transaction** pour diviser une seule transaction entre plusieurs catégories — l'épicerie et les articles ménagers d'un même magasin, par exemple."
+        },
+        "currencyField": {
+          "title": "Montant et devise",
+          "body": "Saisissez ici le montant de la transaction. Payé dans une autre devise ? Définissez la devise à côté du montant et saisissez-le tel que facturé — Monize le convertit pour vous dans la devise du compte."
+        },
+        "closeForm": {
+          "title": "Fermez le formulaire pour continuer",
+          "body": "Fermez le formulaire de transaction avec **Annuler**, ou enregistrez-la avec l'autre bouton, et la visite se poursuivra."
+        },
+        "bills": {
+          "title": "Factures et dépôts",
+          "body": "Planifiez des factures et des dépôts récurrents afin que les paiements à venir soient prévus et que rien ne vous échappe."
+        },
+        "investments": {
+          "title": "Investissements",
+          "body": "Suivez vos avoirs, leurs cours et leurs rendements dans l'ensemble de vos comptes de placement."
+        },
+        "budgets": {
+          "title": "Planifiez avec les budgets",
+          "body": "Les budgets vous permettent de définir des objectifs mensuels par catégorie et de suivre votre progression par rapport à ceux-ci."
+        },
+        "reports": {
+          "title": "Comprenez vos finances",
+          "body": "Les rapports transforment vos transactions en graphiques — dépenses par catégorie, évolution de la valeur nette, et bien plus."
+        },
+        "finish": {
+          "title": "Vous êtes prêt",
+          "body": "Voilà, la visite est terminée. Vous pouvez la refaire à tout moment depuis la section **Visites guidées** dans les **Paramètres**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transactions en devise étrangère",
+        "steps": {
+          "welcome": {
+            "title": "Suivez vos dépenses dans d'autres devises",
+            "body": "Un achat à l'étranger ? Cette visite configure les frais de transaction à l'étranger d'un compte, enregistre un achat dans la devise qui vous a été facturée et montre où ces coûts apparaissent. Vous pouvez partir à tout moment avec **Échap** ou **Terminer la visite**."
+          },
+          "openAccountEdit": {
+            "title": "Commencez par le compte",
+            "body": "Les frais de transaction à l'étranger appartiennent au compte. Choisissez le compte avec lequel vous payez à l'étranger — une carte de crédit ou de débit, ou celui qui alimente vos paiements mobiles — et sélectionnez **Modifier** dans les actions de sa ligne, ou appuyez longuement sur la ligne sur mobile, pour ouvrir ses paramètres."
+          },
+          "fxFeePercent": {
+            "title": "Définissez les frais de conversion",
+            "body": "Saisissez ici les frais de transaction à l'étranger du compte en pourcentage — 2,5 par exemple. Monize les intègre au montant converti de chaque achat à l'étranger, de sorte que les frais sont enregistrés pour vous."
+          },
+          "closeAccountForm": {
+            "title": "Enregistrer et fermer",
+            "body": "Utilisez ces boutons pour terminer : **Mettre à jour le compte** enregistre les frais, **Annuler** ferme sans enregistrer. Dans les deux cas, la visite se poursuit."
+          },
+          "newTransaction": {
+            "title": "Enregistrez un achat à l'étranger",
+            "body": "Enregistrez maintenant un achat effectué avec ce compte dans une autre devise. Ouvrez **Nouvelle transaction** et choisissez ce compte."
+          },
+          "chooseAccount": {
+            "title": "Vérifiez le compte et la date",
+            "body": "Les frais de conversion appartiennent au compte : assurez-vous donc que le champ **Compte** indique bien le compte que vous venez de configurer, et changez-le ici si besoin. Réglez aussi la **Date** sur le jour de l'achat : le taux de change est recherché pour cette date."
+          },
+          "enterDetails": {
+            "title": "Saisissez les détails",
+            "body": "Renseignez le bénéficiaire et la catégorie comme pour n'importe quelle autre transaction. La partie devise étrangère arrive juste après."
+          },
+          "entryCurrency": {
+            "title": "Choisissez la devise que vous avez payée",
+            "body": "Ouvrez ceci et choisissez la devise qui vous a été facturée. Seule votre propre devise apparaît dans la liste ? Choisissez **Ajouter une devise...** en bas pour en ajouter une — elle est sélectionnée pour vous aussitôt."
+          },
+          "enterAmount": {
+            "title": "Saisissez le montant qui vous a été facturé",
+            "body": "Tapez le total exactement tel qu'il figure sur votre relevé. Monize recherche le **taux de change** à la date de la transaction, affiche le total converti à côté et y intègre les **frais de transaction à l'étranger** que vous avez définis sur le compte — la légende ci-dessous détaille les deux. Votre banque a arrondi différemment ? Modifiez le taux ou le total converti au centime près."
+          },
+          "closeTransactionForm": {
+            "title": "Fermez le formulaire",
+            "body": "Même chose ici : enregistrez la transaction avec le bouton de validation, ou fermez-la avec **Annuler**, et la visite continue."
+          },
+          "openAccountDetail": {
+            "title": "Retour au compte",
+            "body": "Ouvrez la page Détails de ce compte — choisissez **Détails** dans les actions de sa ligne — pour voir comment l'activité en devise étrangère est résumée."
+          },
+          "fxSection": {
+            "title": "Votre section devises étrangères",
+            "body": "Les comptes ayant une activité en devise étrangère gagnent cette section : les frais payés par devise, un graphique dans le temps et les transactions correspondantes, exportables en CSV et PNG. Elle apparaît dès que le compte comporte un achat à l'étranger.",
+            "fallbackBody": "Ce compte n'a encore aucune activité en devise étrangère, la section n'est donc pas sur sa page. Enregistrez-y un achat dans une autre devise et la section apparaît : frais par devise, graphique dans le temps, export CSV et PNG."
+          },
+          "report": {
+            "title": "Le rapport Frais de transaction à l'étranger",
+            "body": "Ce rapport rassemble les achats à l'étranger de tous vos comptes et devises au même endroit, pour voir ce que coûtent vraiment les cartes « sans frais à l'étranger ». Ouvrez-le à tout moment depuis **Rapports**.",
+            "fallbackBody": "Le rapport **Frais de devises étrangères** rassemble les achats à l'étranger de tous vos comptes et devises en un seul endroit. Il n'est pas affiché pour le moment — une recherche ou un filtre de catégorie peut le masquer — mais vous le trouverez dans **Rapports**."
+          },
+          "finish": {
+            "title": "Voilà pour les devises étrangères dans Monize",
+            "body": "Définissez les frais une fois, saisissez les achats tels qu'ils sont facturés, et les frais se suivent tout seuls. Vous pouvez refaire cette visite à tout moment depuis la section **Visites guidées** des **Paramètres**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Résumé des Nouveautés",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Points marquants de la version",
+            "body": "Ce commutateur détermine si le résumé des Nouveautés s'affiche automatiquement après une mise à jour."
+          },
+          "appVersion": {
+            "title": "Relire les notes",
+            "body": "Cliquez à tout moment sur le numéro de version en bas des **Paramètres** pour rouvrir les notes de version."
+          },
+          "done": {
+            "title": "Et voilà",
+            "body": "Vous pouvez revenir sur ces points marquants quand vous le souhaitez, ici dans les Paramètres."
+          }
+        }
+      }
+    }
+  }
+}

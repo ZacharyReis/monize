@@ -41,7 +41,11 @@
     "importingTo": "Импорт в:",
     "clickToSelect": "Нажмите для выбора файла(ов)",
     "processing": "Обработка...",
-    "acceptedFormats": "QIF, OFX, QFX или CSV"
+    "acceptedFormats": "QIF, OFX, QFX или CSV",
+    "wikiNotice": {
+      "title": "Перед импортом",
+      "body": "Прежде чем что-либо импортировать, прочитайте раздел вики <money>Importing from Microsoft Money</money> или <quicken>Importing from Quicken</quicken>."
+    }
   },
   "selectAccount": {
     "headingSingle": "Выбрать целевой счёт",

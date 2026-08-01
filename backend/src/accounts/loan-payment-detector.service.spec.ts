@@ -1748,4 +1748,188 @@ describe("LoanPaymentDetectorService", () => {
       expect(result!.estimatedInterestRate).toBeGreaterThan(0);
     });
   });
+
+  describe("pairSeparateInterest", () => {
+    const interestAccount = {
+      id: "loan-1",
+      userId: "user-1",
+      interestCategoryId: "cat-int",
+    } as any;
+
+    const makePayment = (date: string, over: Partial<any> = {}): any => ({
+      date,
+      amount: 900,
+      sourceAccountId: "bank-1",
+      sourceAccountName: "Bank",
+      interestAmount: null,
+      principalAmount: null,
+      extraPrincipalAmount: null,
+      principalSplitAmounts: [],
+      interestCategoryId: null,
+      interestCategoryName: null,
+      ...over,
+    });
+
+    it("returns payments untouched when the loan has no interest category", async () => {
+      const payments = [makePayment("2026-01-05"), makePayment("2026-02-05")];
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        { id: "loan-1" } as any,
+        payments,
+      );
+      expect(result).toBe(payments);
+      expect(transactionRepository.find).not.toHaveBeenCalled();
+    });
+
+    it("fills interest from separate categorized transactions, paired by nearest date and summed per period", async () => {
+      const payments = [
+        makePayment("2026-01-05"),
+        makePayment("2026-02-05"),
+        makePayment("2026-03-05"),
+      ];
+      transactionRepository.find.mockResolvedValue([
+        {
+          transactionDate: "2026-01-05",
+          amount: -153.63,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+        {
+          transactionDate: "2026-02-06",
+          amount: -140.7,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+        // Interest split across two rows in the same period is summed.
+        {
+          transactionDate: "2026-03-04",
+          amount: -100,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+        {
+          transactionDate: "2026-03-05",
+          amount: -27.5,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+      ]);
+
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        interestAccount,
+        payments,
+      );
+
+      expect(result[0].interestAmount).toBeCloseTo(153.63, 2);
+      expect(result[1].interestAmount).toBeCloseTo(140.7, 2);
+      expect(result[2].interestAmount).toBeCloseTo(127.5, 2);
+      // Records are copied, not mutated.
+      expect(payments[0].interestAmount).toBeNull();
+    });
+
+    it("excludes principal transfers that share the interest category (only expenses count)", async () => {
+      const payments = [makePayment("2024-06-05", { amount: 259.13 })];
+      transactionRepository.find.mockResolvedValue([
+        // The interest expense -- counted.
+        {
+          transactionDate: "2024-06-05",
+          amount: -849.93,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+          isTransfer: false,
+        },
+        // The principal transfer, tagged with the same category -- excluded, so
+        // it is not folded into "interest" (which would give the full rata).
+        {
+          transactionDate: "2024-06-05",
+          amount: -259.13,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+          isTransfer: true,
+        },
+      ]);
+
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        interestAccount,
+        payments,
+      );
+
+      // Only the expense -> 849.93, not 849.93 + 259.13 = 1109.06 (full rata).
+      expect(result[0].interestAmount).toBeCloseTo(849.93, 2);
+    });
+
+    it("does not override interest already read from a payment split", async () => {
+      const payments = [
+        makePayment("2026-01-05", { interestAmount: 200 }),
+        makePayment("2026-02-05"),
+      ];
+      transactionRepository.find.mockResolvedValue([
+        {
+          transactionDate: "2026-01-05",
+          amount: -153.63,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+        {
+          transactionDate: "2026-02-05",
+          amount: -140.7,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+      ]);
+
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        interestAccount,
+        payments,
+      );
+
+      expect(result[0].interestAmount).toBe(200);
+      expect(result[1].interestAmount).toBeCloseTo(140.7, 2);
+    });
+
+    it("ignores interest transactions that are not near any payment", async () => {
+      const payments = [makePayment("2026-01-05"), makePayment("2026-02-05")];
+      transactionRepository.find.mockResolvedValue([
+        {
+          transactionDate: "2026-01-05",
+          amount: -153.63,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+        // Far from every payment -> dropped.
+        {
+          transactionDate: "2026-06-01",
+          amount: -999,
+          accountId: "bank-1",
+          categoryId: "cat-int",
+        },
+      ]);
+
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        interestAccount,
+        payments,
+      );
+
+      expect(result[0].interestAmount).toBeCloseTo(153.63, 2);
+      expect(result[1].interestAmount).toBeNull();
+    });
+
+    it("skips the lookup when the payments have no source account", async () => {
+      const payments = [
+        makePayment("2026-01-05", { sourceAccountId: null }),
+        makePayment("2026-02-05", { sourceAccountId: null }),
+      ];
+      const result = await service.pairSeparateInterest(
+        "user-1",
+        interestAccount,
+        payments,
+      );
+      expect(result).toBe(payments);
+      expect(transactionRepository.find).not.toHaveBeenCalled();
+    });
+  });
 });

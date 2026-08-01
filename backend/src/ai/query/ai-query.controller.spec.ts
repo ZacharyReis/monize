@@ -108,6 +108,7 @@ describe("AiQueryController", () => {
       expect(headers["Cache-Control"]).toBe("no-cache");
       expect(headers["Connection"]).toBe("keep-alive");
       expect(headers["X-Accel-Buffering"]).toBe("no");
+      expect(headers["X-Content-Type-Options"]).toBe("nosniff");
       expect(mockRes.flushHeaders).toHaveBeenCalled();
 
       // Verify events were written as SSE
@@ -118,6 +119,41 @@ describe("AiQueryController", () => {
 
       // Verify stream ended
       expect(mockRes.end).toHaveBeenCalled();
+    });
+
+    it("escapes markup in streamed content before writing it", async () => {
+      const payload = "<img src=x onerror=alert(1)> Tom & Jerry's";
+      mockQueryService.executeQueryStream.mockReturnValue(
+        (async function* () {
+          yield { type: "content", text: payload };
+        })(),
+      );
+
+      const written: string[] = [];
+      const mockRes = {
+        setHeader: jest.fn(),
+        flushHeaders: jest.fn(),
+        write: jest.fn((data: string) => written.push(data)),
+        end: jest.fn(),
+        on: jest.fn(),
+      };
+
+      await controller.streamQuery(
+        mockRequest,
+        { query: payload },
+        mockRes as any,
+      );
+
+      expect(written).toHaveLength(1);
+      // Character-level checks: no raw markup character reaches the socket.
+      expect(written[0].includes("<")).toBe(false);
+      expect(written[0].includes(">")).toBe(false);
+      expect(written[0].includes("&")).toBe(false);
+      // The client still parses the original text back out unchanged.
+      const parsed = JSON.parse(
+        written[0].slice("data: ".length, -"\n\n".length),
+      );
+      expect(parsed).toEqual({ type: "content", text: payload });
     });
 
     it("writes error event when stream throws", async () => {

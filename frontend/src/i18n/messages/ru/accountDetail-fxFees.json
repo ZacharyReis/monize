@@ -1,0 +1,30 @@
+{
+  "title": "Комиссии за проводки в иностранной валюте",
+  "currencyFilter": { "label": "Валюты", "placeholder": "Все валюты" },
+  "chart": {
+    "title": "Комиссии за период",
+    "noData": "Пока нет проводок в иностранной валюте",
+    "monthlyAvg": "Средн. в месяц",
+    "quarterlyAvg": "Средн. в квартал",
+    "yearlyAvg": "Средн. в год",
+    "total": "Всего комиссий",
+    "transactions": "Проводки",
+    "tooltip": "{count, plural, one {# проводка} other {# проводок}}",
+    "quarterLabel": "{quarter} кв. {year}",
+    "quarterTick": "{quarter} кв. {year}",
+    "granularityLabel": "Группировка",
+    "granularity": { "auto": "Авто", "month": "Месяц", "quarter": "Квартал", "year": "Год" },
+    "granularityAutoTitle": "Авто ({granularity})",
+    "granularityTitle": "Вид: {label}"
+  },
+  "list": {
+    "title": "Проводки в иностранной валюте",
+    "editTitle": "Редактировать проводку",
+    "investmentLinked": "Эта проводка связана с инвестицией. Открываем редактор инвестиции.",
+    "export": {
+      "success": "{count, plural, one {Экспортирована # проводка} other {Экспортировано # проводок}}",
+      "none": "Нет проводок для экспорта",
+      "failed": "Не удалось экспортировать проводки"
+    }
+  }
+}

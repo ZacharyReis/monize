@@ -15,6 +15,7 @@ import type {
   InsightSeverity,
   ConfirmActionResponse,
   AttachmentPayload,
+  PendingAction,
 } from '@/types/ai';
 
 export const aiApi = {
@@ -212,13 +213,19 @@ export const aiApi = {
 
   // Reverse MCP relay: pick up a late answer the agent posted after the SSE
   // stream already errored/closed. Returns null text when nothing is buffered
-  // (expired, never arrived, or already picked up).
+  // (expired, never arrived, or already picked up). `pendingActions` carries any
+  // confirmation cards the agent composed after the stream gave up, so the chat
+  // can still render and approve them.
   getRelayResponse: async (
     promptId: string,
-  ): Promise<{ text: string | null }> => {
-    const response = await apiClient.get<{ text: string | null }>(
-      `/ai/relay/response/${promptId}`,
-    );
+  ): Promise<{
+    text: string | null;
+    pendingActions?: Omit<PendingAction, 'status'>[];
+  }> => {
+    const response = await apiClient.get<{
+      text: string | null;
+      pendingActions?: Omit<PendingAction, 'status'>[];
+    }>(`/ai/relay/response/${promptId}`);
     return response.data;
   },
 
@@ -226,10 +233,12 @@ export const aiApi = {
   getRelayStatus: async (): Promise<{
     state: 'offline' | 'listening' | 'busy';
     queued: number;
+    idleDisconnected?: boolean;
   }> => {
     const response = await apiClient.get<{
       state: 'offline' | 'listening' | 'busy';
       queued: number;
+      idleDisconnected?: boolean;
     }>('/ai/relay/status');
     return response.data;
   },

@@ -51,16 +51,70 @@ import {
   parseIds,
   parseUuids,
   parseCategoryIds,
+  parseCurrencyCodes,
   validateDateParam,
   assertStringParam,
   UUID_REGEX,
   DATE_REGEX,
 } from "../common/query-param-utils";
 import { tr } from "../i18n/translate";
+import {
+  TagKeyFilter,
+  TagKeyFilterOp,
+  TAG_KEY_FILTER_OPS,
+  tagKeyOpNeedsValue,
+} from "./tag-key-filter.util";
 
 const ALL_TRANSACTION_STATUSES = new Set<string>(
   Object.values(TransactionStatus),
 );
+
+/**
+ * Build a KEY:VALUE tag filter from the `tagKey` / `tagKeyOp` / `tagKeyValue`
+ * query params. Returns undefined when no key is given. Validates the operator
+ * and that contains/notContains carry a term.
+ */
+function parseTagKeyFilter(
+  tagKey?: string,
+  tagKeyOp?: string,
+  tagKeyValue?: string,
+): TagKeyFilter | undefined {
+  const key = (tagKey ?? "").trim();
+  if (key === "") return undefined;
+  if (key.length > 100) {
+    throw new BadRequestException(
+      tr(
+        "errors.transactions.tagKeyTooLong",
+        "tagKey must not exceed 100 characters",
+      ),
+    );
+  }
+
+  const op = (tagKeyOp ?? "hasValue").trim() as TagKeyFilterOp;
+  if (!TAG_KEY_FILTER_OPS.includes(op)) {
+    throw new BadRequestException(
+      tr("errors.transactions.invalidTagKeyOp", `Invalid tagKeyOp: ${op}`, {
+        op,
+      }),
+    );
+  }
+
+  let value: string | undefined;
+  if (tagKeyOpNeedsValue(op)) {
+    value = (tagKeyValue ?? "").trim();
+    if (value === "") {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.tagKeyValueRequired",
+          "tagKeyValue is required for contains / notContains",
+        ),
+      );
+    }
+    value = value.slice(0, 200);
+  }
+
+  return { key, op, value };
+}
 
 function parseTransactionStatuses(
   value?: string,
@@ -201,6 +255,18 @@ export class TransactionsController {
     description:
       "Navigate to the page containing this transaction ID (overrides page parameter)",
   })
+  @ApiQuery({
+    name: "originalCurrencyCodes",
+    required: false,
+    description:
+      "Filter by the currency a transaction was entered in (comma-separated ISO codes, foreign-currency entries only)",
+  })
+  @ApiQuery({
+    name: "hasAttachments",
+    required: false,
+    description:
+      "Filter by attachment presence (true = only with attachments, false = only without)",
+  })
   @ApiResponse({
     status: 200,
     description: "List of transactions retrieved successfully",
@@ -227,6 +293,12 @@ export class TransactionsController {
     @Query("amountTo") amountTo?: string,
     @Query("tagIds") tagIdsParam?: string,
     @Query("statuses") statusesParam?: string,
+    @Query("tagKey") tagKey?: string,
+    @Query("tagKeyOp") tagKeyOp?: string,
+    @Query("tagKeyValue") tagKeyValue?: string,
+    @Query("originalCurrencyCodes") originalCurrencyCodes?: string,
+    @Query("hasAttachments", new ParseBoolPipe({ optional: true }))
+    hasAttachments?: boolean,
   ) {
     // Validate pagination parameters
     if (page !== undefined) {
@@ -296,6 +368,8 @@ export class TransactionsController {
       );
     }
 
+    const tagKeyFilter = parseTagKeyFilter(tagKey, tagKeyOp, tagKeyValue);
+
     let effectiveAccountIds = parseIds(accountIds, accountId);
     if (req.user.isActing) {
       // A delegate only ever sees transactions for the accounts they were
@@ -342,6 +416,11 @@ export class TransactionsController {
       parsedAmountTo,
       parseUuids(tagIdsParam),
       parseTransactionStatuses(statusesParam),
+      undefined,
+      undefined,
+      tagKeyFilter,
+      parseCurrencyCodes(originalCurrencyCodes),
+      hasAttachments,
     );
   }
 
@@ -421,6 +500,7 @@ export class TransactionsController {
     @Query("search") search?: string,
     @Query("amountFrom") amountFrom?: string,
     @Query("amountTo") amountTo?: string,
+    @Query("tagIds") tagIdsParam?: string,
   ) {
     validateDateParam(startDate, "startDate");
     validateDateParam(endDate, "endDate");
@@ -457,6 +537,316 @@ export class TransactionsController {
       search,
       parsedAmountFrom,
       parsedAmountTo,
+      parseUuids(tagIdsParam),
+    );
+  }
+
+  @Get("grouped-totals")
+  @ApiOperation({
+    summary:
+      "Get transaction totals grouped by category or payee under the same filters as the summary",
+  })
+  @ApiQuery({
+    name: "groupBy",
+    required: true,
+    enum: ["category", "payee"],
+    description: "Group rows by category or payee",
+  })
+  @ApiQuery({
+    name: "accountIds",
+    required: false,
+    description: "Filter by account IDs (comma-separated)",
+  })
+  @ApiQuery({
+    name: "startDate",
+    required: false,
+    description: "Filter by start date (YYYY-MM-DD)",
+  })
+  @ApiQuery({
+    name: "endDate",
+    required: false,
+    description: "Filter by end date (YYYY-MM-DD)",
+  })
+  @ApiQuery({
+    name: "categoryIds",
+    required: false,
+    description:
+      "Filter by category IDs (comma-separated, supports 'uncategorized' and 'transfer')",
+  })
+  @ApiQuery({
+    name: "payeeIds",
+    required: false,
+    description: "Filter by payee IDs (comma-separated)",
+  })
+  @ApiQuery({
+    name: "tagIds",
+    required: false,
+    description: "Filter by tag IDs (comma-separated)",
+  })
+  @ApiQuery({
+    name: "search",
+    required: false,
+    description: "Search text (same fields as the summary endpoint)",
+  })
+  @ApiQuery({
+    name: "amountFrom",
+    required: false,
+    description: "Filter by minimum amount (inclusive)",
+  })
+  @ApiQuery({
+    name: "amountTo",
+    required: false,
+    description: "Filter by maximum amount (inclusive)",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    description: "Maximum number of groups returned (default 100, max 500)",
+  })
+  @ApiQuery({
+    name: "includeUnreconciledBeforeStart",
+    required: false,
+    description:
+      "When true, also include transactions dated before startDate that are not yet reconciled (used by the credit-card cycle spending widget)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Grouped totals retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  getGroupedTotals(
+    @Request() req,
+    @Query("groupBy") groupBy?: string,
+    @Query("accountIds") accountIds?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("categoryIds") categoryIds?: string,
+    @Query("payeeIds") payeeIds?: string,
+    @Query("tagIds") tagIdsParam?: string,
+    @Query("search") search?: string,
+    @Query("amountFrom") amountFrom?: string,
+    @Query("amountTo") amountTo?: string,
+    @Query("limit") limit?: string,
+    @Query("includeUnreconciledBeforeStart")
+    includeUnreconciledBeforeStart?: string,
+  ) {
+    if (groupBy !== "category" && groupBy !== "payee") {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.invalidGroupBy",
+          "groupBy must be 'category' or 'payee'",
+        ),
+      );
+    }
+
+    validateDateParam(startDate, "startDate");
+    validateDateParam(endDate, "endDate");
+
+    const parsedAmountFrom =
+      amountFrom !== undefined ? parseFloat(amountFrom) : undefined;
+    if (parsedAmountFrom !== undefined && isNaN(parsedAmountFrom)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountFromMustBeNumber",
+          "amountFrom must be a number",
+        ),
+      );
+    }
+
+    const parsedAmountTo =
+      amountTo !== undefined ? parseFloat(amountTo) : undefined;
+    if (parsedAmountTo !== undefined && isNaN(parsedAmountTo)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountToMustBeNumber",
+          "amountTo must be a number",
+        ),
+      );
+    }
+
+    const parsedLimit = limit !== undefined ? parseInt(limit, 10) : undefined;
+    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 1)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.limitMustBePositive",
+          "limit must be a positive number",
+        ),
+      );
+    }
+
+    return this.transactionsService.getGroupedTotals(req.user.id, {
+      groupBy,
+      accountIds: parseUuids(accountIds),
+      startDate,
+      endDate,
+      categoryIds: parseCategoryIds(categoryIds),
+      payeeIds: parseUuids(payeeIds),
+      tagIds: parseUuids(tagIdsParam),
+      search,
+      amountFrom: parsedAmountFrom,
+      amountTo: parsedAmountTo,
+      limit: parsedLimit,
+      includeUnreconciledBeforeStart: includeUnreconciledBeforeStart === "true",
+    });
+  }
+
+  @Get("tag-key-breakdown")
+  @ApiOperation({
+    summary: "Spending broken down by the value of a KEY:VALUE tag key",
+    description:
+      "Value-weighted breakdown: each transaction's absolute amount is attributed to the value(s) of its `<key>:*` tags. Overlapping (a transaction tagged under several values counts under each). Rows are per-currency; the client converts to one display currency.",
+  })
+  @ApiQuery({
+    name: "key",
+    required: true,
+    description: "Tag key (e.g. country)",
+  })
+  @ApiQuery({ name: "accountIds", required: false })
+  @ApiQuery({ name: "startDate", required: false })
+  @ApiQuery({ name: "endDate", required: false })
+  @ApiQuery({ name: "categoryIds", required: false })
+  @ApiQuery({ name: "payeeIds", required: false })
+  @ApiQuery({ name: "tagIds", required: false })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "amountFrom", required: false })
+  @ApiQuery({ name: "amountTo", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  @ApiResponse({ status: 200, description: "Breakdown retrieved successfully" })
+  @ApiResponse({ status: 400, description: "Missing or invalid key" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  getTagKeyBreakdown(
+    @Request() req,
+    @Query("key") key?: string,
+    @Query("accountIds") accountIds?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("categoryIds") categoryIds?: string,
+    @Query("payeeIds") payeeIds?: string,
+    @Query("tagIds") tagIdsParam?: string,
+    @Query("search") search?: string,
+    @Query("amountFrom") amountFrom?: string,
+    @Query("amountTo") amountTo?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const trimmedKey = (key ?? "").trim();
+    if (trimmedKey === "" || trimmedKey.length > 100) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.tagKeyRequired",
+          "A tag key (1-100 characters) is required",
+        ),
+      );
+    }
+
+    validateDateParam(startDate, "startDate");
+    validateDateParam(endDate, "endDate");
+
+    const parsedAmountFrom =
+      amountFrom !== undefined ? parseFloat(amountFrom) : undefined;
+    if (parsedAmountFrom !== undefined && isNaN(parsedAmountFrom)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountFromMustBeNumber",
+          "amountFrom must be a number",
+        ),
+      );
+    }
+
+    const parsedAmountTo =
+      amountTo !== undefined ? parseFloat(amountTo) : undefined;
+    if (parsedAmountTo !== undefined && isNaN(parsedAmountTo)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.amountToMustBeNumber",
+          "amountTo must be a number",
+        ),
+      );
+    }
+
+    const parsedLimit = limit !== undefined ? parseInt(limit, 10) : undefined;
+    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 1)) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.limitMustBePositive",
+          "limit must be a positive number",
+        ),
+      );
+    }
+
+    return this.transactionsService.getTagKeyBreakdown(
+      req.user.id,
+      trimmedKey,
+      {
+        accountIds: parseUuids(accountIds),
+        startDate,
+        endDate,
+        categoryIds: parseCategoryIds(categoryIds),
+        payeeIds: parseUuids(payeeIds),
+        tagIds: parseUuids(tagIdsParam),
+        search,
+        amountFrom: parsedAmountFrom,
+        amountTo: parsedAmountTo,
+        limit: parsedLimit,
+      },
+    );
+  }
+
+  @Get("recurring-charges")
+  @ApiOperation({
+    summary:
+      "Detect recurring charges (cadence and typical amount) for the given payees within a date range",
+  })
+  @ApiQuery({
+    name: "payeeIds",
+    required: true,
+    description: "Payee IDs to inspect (comma-separated UUIDs)",
+  })
+  @ApiQuery({
+    name: "startDate",
+    required: true,
+    description: "Start of the detection window (YYYY-MM-DD)",
+  })
+  @ApiQuery({
+    name: "endDate",
+    required: true,
+    description: "End of the detection window (YYYY-MM-DD)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Recurring charges retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  getRecurringCharges(
+    @Request() req,
+    @Query("payeeIds") payeeIds?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ) {
+    const parsedPayeeIds = parseUuids(payeeIds);
+    if (!parsedPayeeIds || parsedPayeeIds.length === 0) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.recurringPayeeRequired",
+          "payeeIds is required",
+        ),
+      );
+    }
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.recurringDatesRequired",
+          "startDate and endDate are required",
+        ),
+      );
+    }
+    validateDateParam(startDate, "startDate");
+    validateDateParam(endDate, "endDate");
+
+    return this.transactionsService.getRecurringCharges(
+      req.user.id,
+      startDate,
+      endDate,
+      parsedPayeeIds,
     );
   }
 
@@ -572,6 +962,37 @@ export class TransactionsController {
       parsedAmountTo,
       parseUuids(tagIdsParam),
     );
+  }
+
+  @Get("fx-fee-summary")
+  @ApiOperation({
+    summary:
+      "Get monthly foreign-transaction fee totals for an account, grouped by the currency the transaction was paid in",
+  })
+  @ApiQuery({
+    name: "accountId",
+    required: true,
+    description: "Account UUID",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Monthly foreign-transaction fee totals retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @AllowDelegate()
+  async getFxFeeSummary(
+    @Request() req,
+    @Query("accountId", ParseUUIDPipe) accountId: string,
+  ) {
+    if (req.user.isActing) {
+      // A delegate only sees fee analytics for accounts they can READ.
+      const readable = await this.delegationService.readableAccountIds(
+        req.user.delegationId,
+      );
+      if (!readable.includes(accountId)) return [];
+    }
+    return this.transactionsService.getFxFeeSummary(req.user.id, accountId);
   }
 
   @Get("recent")

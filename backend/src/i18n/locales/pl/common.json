@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Gotówka",
     "brokerage": "Maklerskie"
+  },
+  "import": {
+    "voidedTransactionNote": "Anulowano w źródle; pierwotna kwota została pominięta w eksporcie i zaimportowana jako zero."
   }
 }

@@ -1,0 +1,19 @@
+{
+  "title": "Bijlagen",
+  "empty": "Nog geen bijlagen",
+  "upload": "Bijlage toevoegen",
+  "download": "Downloaden",
+  "delete": "Verwijderen",
+  "remove": "Weghalen",
+  "pendingHint": "Bestanden worden geüpload wanneer je de transactie opslaat.",
+  "deleteConfirmTitle": "Bijlage verwijderen?",
+  "deleteConfirmMessage": "\"{name}\" wordt permanent verwijderd.",
+  "uploaded": "Bijlage toegevoegd",
+  "deleted": "Bijlage verwijderd",
+  "loadFailed": "Bijlagen laden mislukt",
+  "uploadFailed": "Uploaden van bijlage mislukt",
+  "deleteFailed": "Verwijderen van bijlage mislukt",
+  "tooLarge": "Bestand is te groot (maximaal {max})",
+  "unsupported": "Niet-ondersteund bestandstype. Toegestaan: afbeeldingen of PDF",
+  "tooMany": "Maximaal {max} bijlagen per transactie"
+}

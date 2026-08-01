@@ -98,12 +98,15 @@
       "both": "Membukukan pada tanggal ini akan membuat <b>{fromAccount}</b> menjadi <b>{fromAmount}</b> ({fromCondition}) dan <b>{toAccount}</b> menjadi <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Bagi transaksi ini",
+    "copyAmount": "Salin jumlah",
     "referenceNumberLabel": "Nomor Referensi (opsional)",
     "noPriceHistory": "Belum ada riwayat harga untuk sekuritas ini. Masukkan harga secara manual.",
     "postButton": "Posting Transaksi",
     "toasts": {
       "posted": "Transaksi diposting",
       "postFailed": "Gagal memposting transaksi",
+      "amountCopied": "Jumlah disalin",
+      "copyFailed": "Gagal menyalin jumlah",
       "quantityRequired": "Kuantitas harus lebih dari nol",
       "priceRequired": "Harga harus lebih dari nol",
       "totalAmountRequired": "Total jumlah wajib diisi",

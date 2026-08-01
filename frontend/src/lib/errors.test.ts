@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AxiosError, AxiosHeaders } from 'axios';
 import toast from 'react-hot-toast';
-import { showErrorToast, getErrorMessage } from './errors';
+import { showErrorToast, getErrorMessage, getErrorCode } from './errors';
 
 describe('showErrorToast', () => {
   beforeEach(() => {
@@ -106,5 +106,40 @@ describe('getErrorMessage', () => {
   it('returns fallback for unknown error types', () => {
     expect(getErrorMessage(42, 'Fallback')).toBe('Fallback');
     expect(getErrorMessage(null, 'Fallback')).toBe('Fallback');
+  });
+});
+
+describe('getErrorCode', () => {
+  it('extracts errorCode from an AxiosError response', () => {
+    const error = new AxiosError('Conflict', '409', undefined, undefined, {
+      status: 409,
+      data: { message: 'Inactive', errorCode: 'CURRENCY_INACTIVE' },
+      statusText: 'Conflict',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    });
+    expect(getErrorCode(error)).toBe('CURRENCY_INACTIVE');
+  });
+
+  it('extracts errorCode from a plain object with a response', () => {
+    const error = { response: { data: { errorCode: 'CURRENCY_INACTIVE' } } };
+    expect(getErrorCode(error)).toBe('CURRENCY_INACTIVE');
+  });
+
+  it('returns undefined when there is no errorCode', () => {
+    const error = new AxiosError('Conflict', '409', undefined, undefined, {
+      status: 409,
+      data: { message: 'Already exists' },
+      statusText: 'Conflict',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    });
+    expect(getErrorCode(error)).toBeUndefined();
+  });
+
+  it('returns undefined for unknown error types', () => {
+    expect(getErrorCode(42)).toBeUndefined();
+    expect(getErrorCode(null)).toBeUndefined();
+    expect(getErrorCode(new Error('boom'))).toBeUndefined();
   });
 });

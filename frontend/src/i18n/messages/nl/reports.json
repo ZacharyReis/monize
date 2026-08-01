@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Tijdlijn aflossing schulden",
       "loan-amortization": "Afschrijvingsschema lening",
       "credit-utilization": "Kredietbenutting",
+      "loan-overpayment-simulator": "Simulator extra aflossen lening",
       "investment-performance": "Beleggingsprestaties",
       "dividend-income": "Winst, dividenden & rente",
       "sector-weightings": "Sectorgewichten",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Allocatie per type waardepapier",
       "geographic-allocation": "Geografische/beurs-allocatie",
       "dividend-yield-growth": "Dividendrendement & groei",
-      "security-performance": "Prestaties per waardepapier",
+      "security-performance": "Prestaties van waardepapieren",
       "currency-exposure": "Valutablootstelling",
       "monte-carlo-simulation": "Monte Carlo-simulatie",
       "recurring-expenses": "Tracker terugkerende uitgaven",
       "spending-anomalies": "Uitgavenafwijkingen",
       "weekend-weekday-spending": "Weekend- vs. weekdaguitgaven",
       "monthly-comparison": "Maandvergelijking",
+      "foreign-currency-fees": "Transactiekosten in vreemde valuta",
       "uncategorized-transactions": "Niet-gecategoriseerde transacties",
       "duplicate-transactions": "Zoeker dubbele transacties",
       "upcoming-bills": "Kalender aankomende rekeningen",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualiseer jouw schuldafbouwvoortgang met prognoses voor aflossingsdatums.",
       "loan-amortization": "Gedetailleerde betalingsschema's voor hypotheken en leningen met opsplitsing van aflossing en rente.",
       "credit-utilization": "Bekijk hoeveel van jouw beschikbare krediet je gebruikt op creditcards en kredietlijnen.",
+      "loan-overpayment-simulator": "Kies een lening en simuleer extra betalingen om te zien hoeveel eerder deze afgelost zou zijn en hoeveel rente u zou besparen.",
       "investment-performance": "Volg portefeuillerendementen, winsten/verliezen en activaspreiding in de tijd.",
       "dividend-income": "Volg kapitaalwinsten en -verliezen (gerealiseerd + ongerealiseerd) naast dividend- en rente-inkomsten.",
       "sector-weightings": "Analyseer de sectorblootstelling van jouw portefeuille via individuele aandelen en ETFs.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Bekijk portefeuillealllocatie per activatype (aandelen, ETFs, beleggingsfondsen, obligaties) met inzoom op posities.",
       "geographic-allocation": "Analyseer de geografische blootstelling van jouw portefeuille per beurs en regio voor diversificatie-inzichten.",
       "dividend-yield-growth": "Volg dividendrendement, rendement per waardepapier, jaar-op-jaargroei en frequentieanalyse van betalingen.",
-      "security-performance": "Diepgaande analyse van individuele waardepapieren met prijsgeschiedenis, transacties en rendementen.",
+      "security-performance": "Analyseer diepgaand de koershistorie, transacties en rendementen van een waardepapier, of vergelijk de prestaties van meerdere waardepapieren in één grafiek.",
       "currency-exposure": "Begrijp valutarisico met portefeuillealllocatie per valuta en wisselkoersdetails.",
       "monte-carlo-simulation": "Projecteer toekomstige portefeuilleresultaten met duizenden gerandomiseerde rendementspaden en een opgeslagen scenariobibliotheek.",
       "recurring-expenses": "Identificeer en bewaak abonnementen, lidmaatschappen en terugkerende kosten.",
       "spending-anomalies": "Detecteer ongewoon grote transacties en uitgavenpieken die aandacht vereisen.",
       "weekend-weekday-spending": "Analyseer jouw uitgavenpatronen per dag van de week om gewoonten te begrijpen.",
       "monthly-comparison": "Vergelijk een willekeurige maand met de vorige maand op inkomsten, uitgaven, nettowaarde en beleggingen.",
+      "foreign-currency-fees": "Houd de transactiekosten voor vreemde valuta bij die in rekening worden gebracht op rekeningen die omrekeningskosten toepassen.",
       "uncategorized-transactions": "Zoek en categoriseer transacties zonder categorie.",
       "duplicate-transactions": "Identificeer mogelijke dubbele vermeldingen die mogelijk herziening of verwijdering vereisen.",
       "upcoming-bills": "Visuele kalender van geplande transacties en aankomende vervaldatums van rekeningen.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Rapportgegevens konden niet worden geladen. Probeer het opnieuw.",
     "retry": "Opnieuw proberen"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Voor geen enkele rekening zijn transactiekosten voor vreemde valuta geconfigureerd. Stel een kostenpercentage in op een rekening om hier de transactiekosten voor vreemde valuta bij te houden."
   },
   "accountBalances": {
     "totalAssets": "Totale activa",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Einde: ",
     "cashFlowEventPdfStarts": "Begint: ",
     "cashFlowEventPdfEnds": "Eindigt: ",
-    "cashFlowDefaultName": "Kasstroom",
     "cashFlowPerYear": "/ jr",
     "tooltipRow90th": "90e percentiel",
     "tooltipRow75th": "75e percentiel",
@@ -1104,6 +1110,10 @@
     "noData": "Geen beleggingsgegevens voor deze periode.",
     "tooltipPortfolio": "Portefeuille:",
     "allAccounts": "Alle rekeningen",
+    "viewTotal": "Totaal",
+    "viewSecurities": "Per waardepapier",
+    "seriesCash": "Contanten",
+    "seriesOther": "Overige waardepapieren",
     "colDate": "Datum",
     "colPortfolioValue": "Portefeuillewaarde",
     "breakdownTitle": "Huidige portefeuille-uitsplitsing",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% van portefeuille"
   },
   "securityPerformance": {
-    "selectPrompt": "Selecteer hierboven een waardepapier om de prestatiedetails te bekijken.",
-    "selectSecurityPlaceholder": "Selecteer een waardepapier...",
+    "selectPrompt": "Selecteer hierboven een of meer waardepapieren om hun prestaties te bekijken. Kies er twee of meer om ze in één grafiek te vergelijken.",
+    "selectSecuritiesPlaceholder": "Waardepapieren selecteren...",
+    "comparisonTitle": "Prestatievergelijking",
+    "comparisonSubtitle": "Cumulatief rendement van elk geselecteerd waardepapier, herijkt naar 0% bij de eerste beschikbare koers, zodat ze op één schaal vergelijkbaar zijn ongeacht koers of valuta.",
+    "comparisonNoData": "Voor de geselecteerde waardepapieren is geen koershistorie beschikbaar.",
+    "comparisonError": "Kon de koershistorie niet laden. Probeer het opnieuw.",
     "viewPriceChart": "Koersgrafiek",
     "viewTransactions": "Transacties",
     "viewDividends": "Dividenden",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Totale posities",
     "largestType": "Grootste type",
     "assetTypeAllocation": "Allocatie per activatype",
-    "typeStocks": "Aandelen",
-    "typeEtfs": "ETFs",
-    "typeMutualFunds": "Beleggingsfondsen",
-    "typeBonds": "Obligaties",
-    "typeCash": "Contanten",
     "holdingsCount": "{count, plural, one {# rekening} other {# rekeningen}}",
     "total": "Totaal",
     "tooltipHoldings": "{count, plural, one {# positie} other {# posities}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Naam is verplicht"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Leningrekening selecteren",
+    "viewTransactions": "Transacties bekijken",
+    "empty": "Geen lening-, hypotheek- of kredietlijnrekeningen gevonden."
   }
 }

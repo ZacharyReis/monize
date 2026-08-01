@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "支出合計",
+    "income": "収入",
+    "net": "純額",
+    "transactions": "取引",
+    "averageAmount": "平均金額",
+    "lastTransaction": "最終取引",
+    "defaultCategory": "デフォルトカテゴリ",
+    "nextBill": "次回請求",
+    "viewBills": "請求書と入金で表示",
+    "topCategories": "上位カテゴリ",
+    "uncategorized": "未分類",
+    "aliases": "エイリアス",
+    "recurring": "定期: {cadence} · {amount}",
+    "recurringTooltip": "選択した期間(日付フィルターがない場合は過去12か月)の繰り返し請求から検出されました。",
+    "cadence": {
+      "weekly": "毎週",
+      "biweekly": "2週間ごと",
+      "monthly": "毎月",
+      "quarterly": "四半期ごと",
+      "yearly": "毎年"
+    },
+    "inactive": "無効",
+    "noTransactions": "この期間の取引はありません",
+    "editAria": "支払先を編集",
+    "collapseAria": "支払先情報を非表示",
+    "show": "支払先情報を表示"
+  },
+  "categoryWidget": {
+    "totalSpent": "支出合計",
+    "totalEarned": "収入合計",
+    "income": "収入",
+    "expense": "支出",
+    "budgetThisMonth": "今月の予算",
+    "budgetProgress": "{budgeted} 中 {spent}",
+    "transactions": "取引",
+    "averageAmount": "平均金額",
+    "monthlyAverage": "月平均",
+    "subcategories": "サブカテゴリ",
+    "thisCategory": "このカテゴリ",
+    "topPayees": "上位支払先",
+    "noPayee": "支払先なし",
+    "nextScheduled": "次回予定",
+    "noTransactions": "この期間の取引はありません",
+    "editAria": "カテゴリを編集",
+    "collapseAria": "カテゴリ情報を非表示",
+    "show": "カテゴリ情報を表示"
+  },
   "accountWidget": {
     "currentBalance": "現在残高",
     "nextPayment": "次回支払い",
     "viewBills": "請求書と入金で表示",
+    "viewDetailsAria": "口座詳細を表示",
     "type": "種類",
     "accountNumber": "口座番号",
     "currency": "通貨",
@@ -27,7 +76,8 @@
       "duplicateTitle": "取引を複製",
       "newTitle": "新規取引",
       "scheduleTitle": "定期取引としてスケジュール",
-      "editPayeeTitle": "支払先を編集"
+      "editPayeeTitle": "支払先を編集",
+      "editCategoryTitle": "カテゴリを編集"
     },
     "loading": "取引を読み込み中...",
     "totalCount": "{count, plural, one {# 件の取引} other {# 件の取引}}",
@@ -54,9 +104,13 @@
       "refNumber": "参照番号",
       "tags": "タグ",
       "amount": "金額",
+      "currency": "通貨",
+      "paidAmount": "支払金額",
+      "feePaid": "支払手数料",
       "balance": "残高",
       "status": "状態",
-      "actions": "操作"
+      "actions": "操作",
+      "attachments": "添付ファイル"
     },
     "today": "今日",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "この取引を削除してもよろしいですか？この操作は元に戻せません。",
       "success": "取引を削除しました",
       "transferSuccess": "振替を削除しました",
-      "error": "取引の削除に失敗しました"
+      "error": "取引の削除に失敗しました",
+      "reconciledWarning": "この取引は照合済みのため、削除すると完了した照合に影響します。"
     },
     "status": {
       "voidError": "取引を編集してVoid状態を変更してください",
@@ -90,7 +145,6 @@
       "cleared": "決済済み",
       "reconciled": "照合済み",
       "void": "無効",
-      "unreconciledDense": "未",
       "clearedDense": "済",
       "reconciledDense": "照",
       "voidDense": "無",
@@ -118,7 +172,8 @@
       "editButton": "編集",
       "deleteButton": "削除"
     },
-    "itemNamePlural": "件の取引"
+    "itemNamePlural": "件の取引",
+    "attachmentsCount": "{count, plural, other {# 件の添付ファイル}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "金額（下限）",
       "amountTo": "金額（上限）",
       "status": "状態",
-      "search": "検索"
+      "search": "検索",
+      "tagKey": "タグキー",
+      "tagKeyOp": "条件",
+      "tagKeyValue": "値",
+      "currency": "通貨",
+      "hasAttachments": "添付ファイル"
     },
     "placeholders": {
       "accounts": "すべての口座",
@@ -176,7 +236,8 @@
       "statuses": "すべての状態",
       "amountMin": "最小",
       "amountMax": "最大",
-      "search": "支払先、カテゴリ、金額、タグ、説明、参照番号で検索..."
+      "search": "支払先、カテゴリ、金額、タグ、説明、参照番号で検索...",
+      "tagKeyValue": "例: usa"
     },
     "chips": {
       "removeAccount": "{name}フィルターを削除",
@@ -189,7 +250,11 @@
       "dateFrom": "{date}以降",
       "dateUntil": "{date}まで",
       "amountFrom": "{amount}以上",
-      "amountUpTo": "{amount}以下"
+      "amountUpTo": "{amount}以下",
+      "removeCurrency": "{name} の通貨フィルターを削除",
+      "hasAttachments": "添付ファイルあり",
+      "noAttachments": "添付ファイルなし",
+      "removeAttachments": "添付ファイルフィルターを削除"
     },
     "bulkUpdate": "一括更新",
     "cancelBulk": "一括操作をキャンセル",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "期間を選択...",
+      "allDates": "すべての期間",
       "today": "今日",
       "yesterday": "昨日",
       "thisWeek": "今週",
       "lastWeek": "先週",
+      "last30Days": "過去30日間",
       "monthToDate": "今月初めから",
       "lastMonth": "先月",
+      "last365Days": "過去365日間",
       "yearToDate": "今年初めから",
       "lastYear": "昨年",
       "custom": "カスタム"
+    },
+    "tagKeyNone": "すべて（キーフィルターなし）",
+    "tagKeyOps": {
+      "hasValue": "値がある",
+      "noValue": "値がない",
+      "contains": "値が次を含む",
+      "notContains": "値が次を含まない"
+    },
+    "hasAttachmentsOptions": {
+      "any": "すべて",
+      "yes": "はい",
+      "no": "いいえ"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "{mode}を作成",
     "submitUpdate": "{mode}を更新",
+    "reconciledConfirm": {
+      "title": "照合済みの取引を編集しますか？",
+      "message": "この取引は照合済みです。変更すると完了した照合に影響します。それでも変更を保存しますか？",
+      "confirm": "変更を保存"
+    },
     "modeLabel": {
       "transfer": "振替",
       "transaction": "取引"
@@ -300,6 +385,7 @@
     "transferAmountNote": "振替の金額はプラスである必要があります",
     "amountReceivedNote": "通貨変換後の受取金額",
     "splitTransaction": "取引を分割",
+    "splitDisabledDuringTour": "ガイド付きツアー中は利用できません",
     "newTagTitle": "新しいタグ",
     "toasts": {
       "transferCreated": "振替を作成しました",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "支払先の再有効化に失敗しました",
       "categoryCreated": "カテゴリ「{name}」を作成しました",
       "categoryCreateFailed": "カテゴリの作成に失敗しました",
-      "tagCreated": "タグ「{name}」を作成しました"
+      "tagCreated": "タグ「{name}」を作成しました",
+      "fxRateRequired": "外貨取引を保存する前に、為替レートまたは換算後の金額を入力してください。",
+      "attachmentsUploadFailed": "取引は保存されましたが、{count} 件の添付ファイルのアップロードに失敗しました"
     },
     "ariaHistory": "最近の取引を表示",
     "ariaHistoryForPayee": "この支払先の最近の取引を表示",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "入力通貨",
+      "ariaLabel": "入力通貨を変更",
+      "title": "金額の入力通貨",
+      "accountCurrency": "口座通貨（{code}）",
+      "addCurrency": "通貨を追加...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "通貨を追加できませんでした",
+      "reactivated": "{code} を再有効化しました"
+    },
+    "fx": {
+      "noRateWarning": "{date} の {from} から {to} への為替レートが見つかりません。換算後の金額を手動で入力してください。",
+      "usingLatestRateHint": "最新の利用可能なレートを使用しています（{date} 時点ではありません）。",
+      "displayToggle": {
+        "account": "口座",
+        "original": "元の通貨"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "{percent}% の外貨取引手数料（{fee}）が含まれます。",
+      "totalInCurrency": "{currency} での合計"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "口座を選択...",
     "memoPlaceholder": "任意のメモ",
     "mobileMemoPlaceholder": "メモ",
-    "tagsPlaceholder": "タグ..."
+    "tagsPlaceholder": "タグ...",
+    "currencyToggle": {
+      "title": "分割金額を表示・編集する通貨を切り替えます",
+      "ariaAmountsIn": "{code} で分割金額を表示・編集"
+    }
   },
   "recentPopover": {
     "recentForPayee": "{name}の最近の取引",
@@ -397,15 +510,33 @@
       "current": "現在",
       "ending": "終了",
       "lowest": "最低",
-      "minBalance": "最小残高"
+      "minBalance": "最小残高",
+      "projected": "予測",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "選択したすべての口座の残高がゼロのため、表示する残高チャートはありません。"
     },
     "monthlyTotals": {
       "title": "月次合計",
       "noData": "取引データがありません",
       "monthlyAvg": "月次平均",
+      "quarterlyAvg": "四半期平均",
+      "yearlyAvg": "年次平均",
       "total": "合計",
       "transactions": "取引",
-      "tooltip": "{count, plural, one {# 件の取引} other {# 件の取引}}"
+      "tooltip": "{count, plural, one {# 件の取引} other {# 件の取引}}",
+      "quarterLabel": "{year}年Q{quarter}",
+      "quarterTick": "{year}年Q{quarter}",
+      "granularityLabel": "グループ化",
+      "granularity": {
+        "auto": "自動",
+        "month": "月",
+        "quarter": "四半期",
+        "year": "年"
+      },
+      "granularityAutoTitle": "自動（{granularity}）",
+      "granularityTitle": "{label}表示"
     },
     "accountBalances": {
       "title": "口座残高",
@@ -430,9 +561,16 @@
     "loadFailed": "取引の読み込みに失敗しました",
     "loadPayeeFailed": "支払先の詳細の読み込みに失敗しました",
     "payeeUpdateFailed": "支払先の更新に失敗しました",
+    "categoryUpdated": "カテゴリを更新しました",
+    "categoryUpdateFailed": "カテゴリの更新に失敗しました",
     "exportFailed": "取引のエクスポートに失敗しました"
   },
   "validation": {
     "dateRequired": "日付は必須です"
+  },
+  "tagKeyBreakdown": {
+    "title": "{key}別の支出",
+    "other": "その他",
+    "noData": "このキーで内訳を表示できるタグ付き支出がありません。"
   }
 }

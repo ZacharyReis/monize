@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Contanti",
     "brokerage": "Intermediazione"
+  },
+  "import": {
+    "voidedTransactionNote": "Annullata nell'origine; l'importo originale è stato omesso dall'esportazione e importato come zero."
   }
 }

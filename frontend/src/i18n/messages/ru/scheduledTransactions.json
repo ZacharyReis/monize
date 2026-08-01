@@ -98,12 +98,15 @@
       "both": "Проводка на эту дату приведёт <b>{fromAccount}</b> к <b>{fromAmount}</b> ({fromCondition}) и <b>{toAccount}</b> к <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Разделить эту проводку",
+    "copyAmount": "Копировать сумму",
     "referenceNumberLabel": "Референс-номер (необязательно)",
     "noPriceHistory": "Пока нет истории цен для этой ценной бумаги. Введите цену вручную.",
     "postButton": "Провести проводку",
     "toasts": {
       "posted": "Проводка проведена",
       "postFailed": "Не удалось провести проводку",
+      "amountCopied": "Сумма скопирована",
+      "copyFailed": "Не удалось скопировать сумму",
       "quantityRequired": "Количество должно быть больше нуля",
       "priceRequired": "Цена должна быть больше нуля",
       "totalAmountRequired": "Общая сумма обязательна",

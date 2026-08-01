@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "债务偿还时间表",
       "loan-amortization": "贷款摊销计划",
       "credit-utilization": "信用额度使用率",
+      "loan-overpayment-simulator": "贷款提前还款模拟器",
       "investment-performance": "投资表现",
       "dividend-income": "收益、股息与利息",
       "sector-weightings": "行业权重",
@@ -57,13 +58,14 @@
       "security-type-allocation": "证券类型配置",
       "geographic-allocation": "地理/交易所配置",
       "dividend-yield-growth": "股息收益率与增长",
-      "security-performance": "个别证券表现",
+      "security-performance": "证券表现",
       "currency-exposure": "货币风险敞口",
       "monte-carlo-simulation": "蒙特卡洛模拟",
       "recurring-expenses": "定期支出追踪",
       "spending-anomalies": "支出异常",
       "weekend-weekday-spending": "周末与工作日支出",
       "monthly-comparison": "月度对比",
+      "foreign-currency-fees": "境外交易手续费",
       "uncategorized-transactions": "未分类交易",
       "duplicate-transactions": "重复交易查找器",
       "upcoming-bills": "即将到期账单日历",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "通过偿还预测，可视化您的债务减少进度。",
       "loan-amortization": "抵押贷款和贷款的详细还款计划，含本金与利息明细。",
       "credit-utilization": "查看您在信用卡和信用额度上使用了多少可用信用额度。",
+      "loan-overpayment-simulator": "选择一笔贷款并模拟额外还款，看看能提前多久还清、能节省多少利息。",
       "investment-performance": "追踪投资组合回报、盈亏和资产配置随时间的变化。",
       "dividend-income": "追踪资本收益与损失（已实现+未实现）以及股息和利息收入。",
       "sector-weightings": "分析来自个股和 ETF 的投资组合行业敞口。",
@@ -102,13 +105,14 @@
       "security-type-allocation": "按资产类型（股票、ETF、共同基金、债券）查看投资组合配置，并可深入查看持仓。",
       "geographic-allocation": "按交易所和地区分析投资组合的地理敞口，获取多元化洞察。",
       "dividend-yield-growth": "追踪股息收益率、各证券收益率、同比增长和付款频率分析。",
-      "security-performance": "深入了解个别证券的表现，包含价格历史、交易记录和回报。",
+      "security-performance": "深入分析某只证券的价格历史、交易和回报，或在同一图表中比较多只证券的表现。",
       "currency-exposure": "了解货币风险，查看按货币划分的投资组合配置和汇率详情。",
       "monte-carlo-simulation": "通过数千条随机回报路径预测未来投资组合结果，并附有已保存情景库。",
       "recurring-expenses": "识别和监控订阅、会员和定期费用。",
       "spending-anomalies": "检测需要关注的异常大额交易和支出峰值。",
       "weekend-weekday-spending": "按星期分析支出模式，了解消费习惯。",
       "monthly-comparison": "对比当月与上月在收入、支出、资产净值和投资方面的情况。",
+      "foreign-currency-fees": "追踪在收取换算手续费的各账户中产生的境外交易手续费。",
       "uncategorized-transactions": "查找并分类缺少分类的交易。",
       "duplicate-transactions": "识别可能需要审查或删除的潜在重复条目。",
       "upcoming-bills": "计划交易和即将到期账单的可视化日历。",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "加载报告数据失败。请重试。",
     "retry": "重试"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "没有账户配置了境外交易手续费。在账户上设置手续费百分比，即可在此追踪其外币手续费。"
   },
   "accountBalances": {
     "totalAssets": "总资产",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "结束：",
     "cashFlowEventPdfStarts": "开始于：",
     "cashFlowEventPdfEnds": "结束于：",
-    "cashFlowDefaultName": "现金流",
     "cashFlowPerYear": "/ 年",
     "tooltipRow90th": "第 90 百分位",
     "tooltipRow75th": "第 75 百分位",
@@ -1104,6 +1110,10 @@
     "noData": "此期间无投资数据。",
     "tooltipPortfolio": "投资组合：",
     "allAccounts": "所有账户",
+    "viewTotal": "合计",
+    "viewSecurities": "按证券",
+    "seriesCash": "现金",
+    "seriesOther": "其他证券",
     "colDate": "日期",
     "colPortfolioValue": "投资组合价值",
     "breakdownTitle": "当前投资组合明细",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "占组合 %"
   },
   "securityPerformance": {
-    "selectPrompt": "在上方选择证券以查看其表现详情。",
-    "selectSecurityPlaceholder": "选择证券...",
+    "selectPrompt": "在上方选择一只或多只证券以查看其表现。选择两只或更多可在同一图表中进行比较。",
+    "selectSecuritiesPlaceholder": "选择证券...",
+    "comparisonTitle": "表现对比",
+    "comparisonSubtitle": "每只所选证券的累计回报，以其首个可用价格为基准归零（0%），以便不论价格或币种都能在同一刻度上比较。",
+    "comparisonNoData": "所选证券没有可用的价格历史。",
+    "comparisonError": "无法加载价格历史，请重试。",
     "viewPriceChart": "价格图表",
     "viewTransactions": "交易",
     "viewDividends": "股息",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "总持仓",
     "largestType": "最大类型",
     "assetTypeAllocation": "资产类型配置",
-    "typeStocks": "股票",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "共同基金",
-    "typeBonds": "债券",
-    "typeCash": "现金",
     "holdingsCount": "{count, plural, one {# 个账户} other {# 个账户}}",
     "total": "合计",
     "tooltipHoldings": "{count, plural, one {# 个持仓} other {# 个持仓}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "名称为必填项"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "选择贷款账户",
+    "viewTransactions": "查看交易",
+    "empty": "未找到贷款、抵押贷款或信用额度账户。"
   }
 }

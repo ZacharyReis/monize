@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { CategoriesController } from "./categories.controller";
 import { CategoriesService } from "./categories.service";
+import { DEFAULT_CATEGORY_COUNTRY_CODES } from "./country-category-additions";
 
 describe("CategoriesController", () => {
   let controller: CategoriesController;
@@ -97,15 +98,36 @@ describe("CategoriesController", () => {
   });
 
   describe("importDefaults()", () => {
-    it("delegates to categoriesService.importDefaults with userId", () => {
+    it("delegates to categoriesService.importDefaults with userId and options", () => {
       mockCategoriesService.importDefaults!.mockReturnValue("imported");
+      const dto = { country: "CA", language: "fr" };
 
-      const result = controller.importDefaults(mockReq);
+      const result = controller.importDefaults(mockReq, dto);
 
       expect(result).toBe("imported");
       expect(mockCategoriesService.importDefaults).toHaveBeenCalledWith(
         "user-1",
+        dto,
       );
+    });
+
+    it("passes an empty body through unchanged", () => {
+      mockCategoriesService.importDefaults!.mockReturnValue("imported");
+
+      controller.importDefaults(mockReq, {});
+
+      expect(mockCategoriesService.importDefaults).toHaveBeenCalledWith(
+        "user-1",
+        {},
+      );
+    });
+  });
+
+  describe("getDefaultCountries()", () => {
+    it("returns the supported country codes", () => {
+      expect(controller.getDefaultCountries()).toEqual({
+        countries: [...DEFAULT_CATEGORY_COUNTRY_CODES],
+      });
     });
   });
 

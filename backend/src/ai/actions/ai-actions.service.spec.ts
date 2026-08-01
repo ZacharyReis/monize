@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createHash } from "crypto";
 import { AiActionsService } from "./ai-actions.service";
 import { AiActionSigningService } from "./ai-action-signing.service";
 import { AiWriteLimiter, AI_DAILY_WRITE_LIMIT } from "./ai-write-limiter";
@@ -38,6 +39,8 @@ describe("AiActionsService", () => {
   let payees: Record<string, jest.Mock>;
   let investments: Record<string, jest.Mock>;
   let securities: Record<string, jest.Mock>;
+  let attachments: Record<string, jest.Mock>;
+  let attachmentStore: Record<string, jest.Mock>;
 
   beforeEach(() => {
     const config = {
@@ -80,6 +83,15 @@ describe("AiActionsService", () => {
       update: jest.fn().mockResolvedValue({ id: "sec-1" }),
       remove: jest.fn().mockResolvedValue(undefined),
     };
+    attachments = {
+      create: jest
+        .fn()
+        .mockResolvedValue({ id: "att-1", filename: "receipt.jpg" }),
+    };
+    attachmentStore = {
+      get: jest.fn(),
+      releaseForPrompt: jest.fn(),
+    };
     service = new AiActionsService(
       transactions as never,
       payees as never,
@@ -87,6 +99,8 @@ describe("AiActionsService", () => {
       securities as never,
       signing,
       limiter,
+      attachments as never,
+      attachmentStore as never,
     );
   });
 
@@ -238,6 +252,113 @@ describe("AiActionsService", () => {
       { categoryId: PAYEE, amount: -4.5, memo: undefined },
     ]);
     expect(result).toEqual({ type: "update_transaction", id: TX });
+  });
+
+  describe("attachments on create/update", () => {
+    const FILE_BYTES = Buffer.from("fake image bytes");
+    const FILE_SHA = createHash("sha256").update(FILE_BYTES).digest("hex");
+    const REF = "ref-1";
+
+    function attachmentRef(overrides: Record<string, unknown> = {}) {
+      return {
+        attachmentRefId: REF,
+        filename: "receipt.jpg",
+        contentType: "image/jpeg",
+        byteSize: FILE_BYTES.length,
+        sha256: FILE_SHA,
+        ...overrides,
+      };
+    }
+
+    it("persists parked attachments after creating the transaction and releases the refs", async () => {
+      attachmentStore.get.mockReturnValue({ data: FILE_BYTES });
+      const descriptor = createTxDescriptor({
+        attachments: [attachmentRef()],
+      });
+      const result = await service.confirm(USER, dtoFor(descriptor));
+
+      expect(attachmentStore.get).toHaveBeenCalledWith(USER, REF);
+      expect(attachments.create).toHaveBeenCalledWith(USER, "tx-new", {
+        originalname: "receipt.jpg",
+        buffer: FILE_BYTES,
+        size: FILE_BYTES.length,
+      });
+      expect(attachmentStore.releaseForPrompt).toHaveBeenCalledWith(USER, [
+        REF,
+      ]);
+      expect(result).toEqual({ type: "create_transaction", id: "tx-new" });
+    });
+
+    it("persists attachments on an update_transaction confirmation", async () => {
+      attachmentStore.get.mockReturnValue({ data: FILE_BYTES });
+      const descriptor: AiActionDescriptor = {
+        type: "update_transaction",
+        userId: USER,
+        actionId: "act-update-att",
+        expiresAt: Date.now() + 60_000,
+        transactionId: TX,
+        accountId: ACC,
+        amount: -12.5,
+        transactionDate: "2026-01-15",
+        payeeId: null,
+        payeeName: null,
+        createPayee: false,
+        categoryId: null,
+        description: null,
+        currencyCode: "USD",
+        attachments: [attachmentRef()],
+      };
+      const result = await service.confirm(USER, dtoFor(descriptor));
+
+      expect(transactions.update).toHaveBeenCalled();
+      expect(attachments.create).toHaveBeenCalledWith(USER, TX, {
+        originalname: "receipt.jpg",
+        buffer: FILE_BYTES,
+        size: FILE_BYTES.length,
+      });
+      expect(result).toEqual({ type: "update_transaction", id: TX });
+    });
+
+    it("rejects with a clear error and writes nothing when the parked bytes are gone", async () => {
+      attachmentStore.get.mockReturnValue(undefined);
+      const descriptor = createTxDescriptor({
+        actionId: "act-expired-ref",
+        attachments: [attachmentRef()],
+      });
+      await expect(service.confirm(USER, dtoFor(descriptor))).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(transactions.create).not.toHaveBeenCalled();
+      expect(attachments.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects when the parked bytes do not match the signed sha256", async () => {
+      attachmentStore.get.mockReturnValue({
+        data: Buffer.from("different bytes"),
+      });
+      const descriptor = createTxDescriptor({
+        actionId: "act-sha-mismatch",
+        attachments: [attachmentRef()],
+      });
+      await expect(service.confirm(USER, dtoFor(descriptor))).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(transactions.create).not.toHaveBeenCalled();
+      expect(attachments.create).not.toHaveBeenCalled();
+    });
+
+    it("allows a retry after an attachment-ref failure (action id released)", async () => {
+      attachmentStore.get.mockReturnValueOnce(undefined);
+      const descriptor = createTxDescriptor({
+        actionId: "act-retry-ref",
+        attachments: [attachmentRef()],
+      });
+      await expect(service.confirm(USER, dtoFor(descriptor))).rejects.toThrow();
+
+      attachmentStore.get.mockReturnValue({ data: FILE_BYTES });
+      const result = await service.confirm(USER, dtoFor(descriptor));
+      expect(result).toEqual({ type: "create_transaction", id: "tx-new" });
+    });
   });
 
   it("categorizes a transaction on a valid confirmation", async () => {

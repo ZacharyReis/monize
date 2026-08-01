@@ -65,11 +65,16 @@
     "cash": "现金",
     "untagged": "无标签",
     "noTagData": "没有可显示的带标签持仓。为你的证券添加标签即可按标签查看敞口。",
-    "tagExposureNote": "按标签的敞口：带有多个标签的持仓会在每个标签下全额计入，因此百分比合计可能超过100%。",
+    "noCountryData": "暂无国家/地区配置数据。",
+    "otherCountries": "其他国家/地区",
     "groupBy": {
       "security": "按证券",
-      "tag": "按标签"
-    }
+      "tag": "按标签",
+      "country": "按国家/地区",
+      "tagKey": "按键"
+    },
+    "noKeyData": "没有持仓包含此标签键的值。将证券标记为 key:value（例如 country:usa）以查看此细分。",
+    "keySelectorLabel": "用于汇总的标签键"
   },
   "holdingsList": {
     "title": "持仓",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "投资组合价值走势",
+    "viewReport": "查看报告",
+    "viewReportTitle": "打开完整的组合价值报告",
     "updatingLabel": "更新中…",
-    "updatingAriaLabel": "更新中",
     "intradayFallbackWarningAriaLabel": "详细日内定价不可用",
     "intradayUnavailableTitle": "此账户组合不支持日内视图",
     "intradayUnavailableDescription": "一个或多个持仓使用的行情提供商（MSN Money）不提供日内数据。请切换到较长时间范围以查看每日快照。",

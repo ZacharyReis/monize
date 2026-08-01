@@ -116,6 +116,7 @@ vi.mock('@/hooks/useLocalStorage', () => ({
   },
 }));
 
+let currentSearchParams = new URLSearchParams();
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -127,7 +128,7 @@ vi.mock('next/navigation', () => ({
     prefetch: vi.fn(),
   }),
   usePathname: () => '/reports',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => currentSearchParams,
 }));
 
 vi.mock('@/components/layout/PageLayout', () => ({
@@ -147,6 +148,7 @@ vi.mock('@/components/layout/PageHeader', () => ({
 describe('ReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentSearchParams = new URLSearchParams();
     currentDensity = 'normal';
     currentCategoryFilter = 'all';
     currentFavouriteReportIds = [];
@@ -183,6 +185,53 @@ describe('ReportsPage', () => {
     render(<ReportsPage />);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'All Reports' })).toBeInTheDocument();
+    });
+  });
+
+  describe('?category= deep link', () => {
+    it('overrides the remembered filter so the linked category is shown', async () => {
+      // Remembered filter would hide the insights reports entirely.
+      currentCategoryFilter = 'budgets';
+      currentSearchParams = new URLSearchParams('category=insights');
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'Insights' }),
+        ).toHaveClass('bg-blue-600');
+      });
+      // The linked category's report is on screen; the remembered one is not.
+      expect(
+        screen.getByText('Foreign Currency Transaction Fees'),
+      ).toBeInTheDocument();
+    });
+
+    it('ignores an unknown category and keeps the remembered filter', async () => {
+      currentCategoryFilter = 'all';
+      currentSearchParams = new URLSearchParams('category=not-a-category');
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'All Reports' }),
+        ).toHaveClass('bg-blue-600');
+      });
+    });
+
+    it('lets a manual pick take over from the deep link', async () => {
+      currentSearchParams = new URLSearchParams('category=insights');
+      render(<ReportsPage />);
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Insights' })).toHaveClass('bg-blue-600');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'All Reports' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'All Reports' })).toHaveClass('bg-blue-600');
+      });
     });
   });
 

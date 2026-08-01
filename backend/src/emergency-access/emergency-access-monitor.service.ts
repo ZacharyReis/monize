@@ -15,9 +15,11 @@ import {
   emergencyAccessReminderTemplate,
 } from "../notifications/email-templates";
 import { emailTranslator } from "../i18n/email-translator";
-import { DEFAULT_LOCALE } from "../i18n/config";
+import { resolveUserEmailLocale } from "../i18n/resolve-user-email-locale";
 import { hashToken } from "../auth/crypto.util";
 import { User } from "../users/entities/user.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
+import { withSystemContext } from "../common/db/with-context";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const CLAIM_TOKEN_BYTES = 32;
@@ -34,6 +36,8 @@ export class EmergencyAccessMonitorService {
     private readonly contactsRepo: Repository<EmergencyAccessContact>,
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
+    @InjectRepository(UserPreference)
+    private readonly preferencesRepo: Repository<UserPreference>,
     private readonly emailService: EmailService,
     private readonly encryption: AiEncryptionService,
     private readonly configService: ConfigService,
@@ -49,6 +53,14 @@ export class EmergencyAccessMonitorService {
       return;
     }
 
+    // RLS (task C4): cross-user sweep over every owner with emergency access
+    // enabled; processOne reads/writes owner-keyed rows (users, the emergency-
+    // access tables) for many users, so the whole sweep runs under a system
+    // context. Inert at RLS_MODE=off -- only seeds AsyncLocalStorage.
+    return withSystemContext(() => this.runDailyCheckWithinContext());
+  }
+
+  private async runDailyCheckWithinContext(): Promise<void> {
     const enabled = await this.settingsRepo.find({ where: { enabled: true } });
     if (enabled.length === 0) {
       this.logger.debug("No users with emergency access enabled");
@@ -147,7 +159,15 @@ export class EmergencyAccessMonitorService {
           await this.contactsRepo.save(contact);
 
           const claimUrl = `${appUrl}/emergency-access/claim?token=${rawToken}`;
-          const lang = DEFAULT_LOCALE;
+          // The contact may or may not be a Monize user; localize to their own
+          // account language when they have one, otherwise fall back to default.
+          const contactUser = await this.usersRepo.findOne({
+            where: { email: contact.email },
+          });
+          const lang = await resolveUserEmailLocale(
+            this.preferencesRepo,
+            contactUser?.id ?? null,
+          );
           const t = emailTranslator(this.i18n, lang);
           const html = emergencyAccessGrantTemplate(
             {
@@ -216,7 +236,10 @@ export class EmergencyAccessMonitorService {
         0,
         settings.grantAfterDays - daysSinceLogin,
       );
-      const reminderLang = DEFAULT_LOCALE;
+      const reminderLang = await resolveUserEmailLocale(
+        this.preferencesRepo,
+        settings.ownerUserId,
+      );
       const reminderT = emailTranslator(this.i18n, reminderLang);
       const html = emergencyAccessReminderTemplate(
         {
@@ -289,7 +312,10 @@ export class EmergencyAccessMonitorService {
 
     if (!owner.email) return;
     try {
-      const revokedLang = DEFAULT_LOCALE;
+      const revokedLang = await resolveUserEmailLocale(
+        this.preferencesRepo,
+        settings.ownerUserId,
+      );
       const revokedT = emailTranslator(this.i18n, revokedLang);
       const html = emergencyAccessGrantRevokedTemplate(
         {

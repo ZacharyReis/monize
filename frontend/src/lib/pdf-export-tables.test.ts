@@ -42,6 +42,10 @@ describe('addTableToPdf', () => {
     expect(callArgs.head[0]).toHaveLength(2);
     expect(callArgs.body).toHaveLength(2);
     expect(result).toBe(100);
+    // Uses the embedded UTF-8 font and wraps overflowing content (Excel-style).
+    expect(callArgs.styles.font).toBe('Roboto');
+    expect(callArgs.headStyles.font).toBe('Roboto');
+    expect(callArgs.styles.overflow).toBe('linebreak');
   });
 
   it('adds total row when showTotalRow is true', () => {

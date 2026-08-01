@@ -16,6 +16,9 @@ describe("McpTransactionsTools", () => {
   let relayService: { emitPendingAction: jest.Mock };
   let actionBuilder: Record<string, jest.Mock>;
   let prepService: Record<string, jest.Mock>;
+  let attachmentPrepService: Record<string, jest.Mock>;
+  let attachmentsService: Record<string, jest.Mock>;
+  let relayAttachmentStore: Record<string, jest.Mock>;
   let resolve: jest.MockedFunction<UserContextResolver>;
   const handlers: Record<string, (...args: any[]) => any> = {};
 
@@ -110,6 +113,20 @@ describe("McpTransactionsTools", () => {
       transferToBatchRow: jest.fn((p) => p),
     };
 
+    attachmentPrepService = {
+      prepareAttachments: jest.fn().mockResolvedValue([]),
+    };
+    attachmentsService = {
+      create: jest
+        .fn()
+        .mockResolvedValue({ id: "att-1", filename: "receipt.png" }),
+    };
+    relayAttachmentStore = {
+      get: jest.fn(),
+      store: jest.fn().mockReturnValue([]),
+      releaseForPrompt: jest.fn(),
+    };
+
     tool = new McpTransactionsTools(
       transactionsService as any,
       payeesService as any,
@@ -119,6 +136,9 @@ describe("McpTransactionsTools", () => {
       prepService as any,
       accountsService as any,
       new McpWriteLimiter(),
+      attachmentPrepService as any,
+      attachmentsService as any,
+      relayAttachmentStore as any,
     );
 
     elicitInput = jest.fn();
@@ -1380,6 +1400,26 @@ describe("McpTransactionsTools", () => {
       expect(transactionsService.removeAny).not.toHaveBeenCalled();
     });
 
+    it("warns in the confirmation when deleting a reconciled transaction", async () => {
+      acceptingClient();
+      prepService.prepareDelete.mockResolvedValue({
+        transactionId: "t1",
+        accountName: "Checking",
+        amount: -75,
+        transactionDate: "2025-02-01",
+        payeeName: "Store",
+        categoryName: "Groceries",
+        description: null,
+        currencyCode: "USD",
+        isReconciled: true,
+      });
+      await handlers["manage_transactions"](
+        { operation: "delete", items: [{ transactionId: "t1" }] },
+        { sessionId: "s1" },
+      );
+      expect(elicitInput.mock.calls[0][0].message).toContain("reconciled");
+    });
+
     it("commits a bulk delete via confirmWrite when relay is unavailable", async () => {
       relayService.emitPendingAction.mockReturnValue(false);
       acceptingClient();
@@ -1770,6 +1810,360 @@ describe("McpTransactionsTools", () => {
       expect(parsed.dryRun).toBe(true);
       expect(parsed.previews[0].splits).toHaveLength(2);
       expect(transactionsService.create).not.toHaveBeenCalled();
+    });
+  });
+  describe("manage_transactions attachments", () => {
+    const UUID_USER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const PNG_BYTES = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
+    ]);
+    const PNG_B64 = PNG_BYTES.toString("base64");
+    const stdPreview = {
+      accountId: "a1",
+      accountName: "Checking",
+      amount: -50,
+      transactionDate: "2025-01-15",
+      payeeId: null,
+      payeeName: null,
+      payeeMatched: false,
+      payeeWillBeCreated: false,
+      categoryId: null,
+      categoryName: null,
+      description: null,
+      currencyCode: "USD",
+    };
+    const attachmentPreview = {
+      filename: "receipt.png",
+      contentType: "image/png",
+      byteSize: PNG_BYTES.length,
+      sha256: "sha-1",
+    };
+
+    beforeEach(() => {
+      resolve.mockReturnValue({ userId: UUID_USER, scopes: "write" });
+      prepService.prepareCreate.mockResolvedValue({
+        okPreviews: [stdPreview],
+        okCreatePayee: [false],
+        okIndex: [0],
+        previewRows: [{ status: "ok" }],
+        skipped: [],
+      });
+      transactionsService.create.mockResolvedValue({
+        id: "t1",
+        transactionDate: "2025-01-15",
+      });
+      attachmentPrepService.prepareAttachments.mockResolvedValue([
+        attachmentPreview,
+      ]);
+      relayAttachmentStore.store.mockReturnValue([{ id: "fresh-1" }]);
+    });
+
+    function createArgs(attachments: unknown) {
+      return {
+        operation: "create",
+        items: [
+          {
+            accountName: "Checking",
+            amount: -50,
+            date: "2025-01-15",
+            attachments,
+          },
+        ],
+      };
+    }
+
+    it("rejects attachments on a multi-row batch", async () => {
+      const result = await handlers["manage_transactions"](
+        {
+          operation: "create",
+          items: [
+            {
+              accountName: "A",
+              amount: -1,
+              date: "2025-01-15",
+              attachments: [{ fileData: PNG_B64, fileName: "r.png" }],
+            },
+            { accountName: "B", amount: -2, date: "2025-01-15" },
+          ],
+        },
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("one at a time");
+    });
+
+    it("rejects attachments on delete", async () => {
+      const result = await handlers["manage_transactions"](
+        {
+          operation: "delete",
+          items: [
+            {
+              transactionId: "33333333-3333-4333-8333-333333333333",
+              attachments: [{ fileData: PNG_B64, fileName: "r.png" }],
+            },
+          ],
+        },
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("delete");
+    });
+
+    it("rejects attachments with dryRun", async () => {
+      const result = await handlers["manage_transactions"](
+        {
+          ...createArgs([{ fileData: PNG_B64, fileName: "r.png" }]),
+          dryRun: true,
+        },
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("dryRun");
+    });
+
+    it("rejects attachments on a transfer item", async () => {
+      const result = await handlers["manage_transactions"](
+        {
+          operation: "create",
+          items: [
+            {
+              fromAccountName: "Checking",
+              toAccountName: "Savings",
+              amount: 100,
+              date: "2025-01-15",
+              attachments: [{ fileData: PNG_B64, fileName: "r.png" }],
+            },
+          ],
+        },
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("transfer");
+    });
+
+    it("requires exactly one of attachmentUri or fileData per entry", async () => {
+      const both = await handlers["manage_transactions"](
+        createArgs([
+          {
+            attachmentUri: "monize-attachment://x",
+            fileData: PNG_B64,
+            fileName: "r.png",
+          },
+        ]),
+        { sessionId: "s1" },
+      );
+      expect(both.isError).toBe(true);
+      const neither = await handlers["manage_transactions"](createArgs([{}]), {
+        sessionId: "s1",
+      });
+      expect(neither.isError).toBe(true);
+    });
+
+    it("rejects an unknown or expired relay attachment reference", async () => {
+      relayAttachmentStore.get.mockReturnValue(undefined);
+      const result = await handlers["manage_transactions"](
+        createArgs([{ attachmentUri: "monize-attachment://gone" }]),
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("expired");
+      expect(relayAttachmentStore.get).toHaveBeenCalledWith(UUID_USER, "gone");
+    });
+
+    it("rejects a text-kind relay attachment", async () => {
+      relayAttachmentStore.get.mockReturnValue({
+        kind: "text",
+        mediaType: "text/csv",
+        filename: "data.csv",
+        data: Buffer.from("a,b"),
+      });
+      const result = await handlers["manage_transactions"](
+        createArgs([{ attachmentUri: "csv-ref" }]),
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("only images and PDFs");
+    });
+
+    it("rejects fileData without fileName and unsniffable fileData", async () => {
+      const noName = await handlers["manage_transactions"](
+        createArgs([{ fileData: PNG_B64 }]),
+        { sessionId: "s1" },
+      );
+      expect(noName.isError).toBe(true);
+      expect(noName.content[0].text).toContain("fileName");
+
+      const bad = await handlers["manage_transactions"](
+        createArgs([
+          {
+            fileData: Buffer.from("plain text").toString("base64"),
+            fileName: "x.png",
+          },
+        ]),
+        { sessionId: "s1" },
+      );
+      expect(bad.isError).toBe(true);
+      expect(bad.content[0].text).toContain("not a supported file type");
+    });
+
+    it("creates the transaction and persists inline attachments on direct confirm", async () => {
+      const result = await handlers["manage_transactions"](
+        createArgs([{ fileData: PNG_B64, fileName: "receipt.png" }]),
+        { sessionId: "s1" },
+      );
+
+      expect(attachmentPrepService.prepareAttachments).toHaveBeenCalledWith(
+        UUID_USER,
+        [expect.objectContaining({ filename: "receipt.png" })],
+        undefined,
+      );
+      // Bytes are parked for the signed card, and the builder receives refs.
+      expect(relayAttachmentStore.store).toHaveBeenCalledWith(UUID_USER, [
+        expect.objectContaining({ kind: "image", mediaType: "image/png" }),
+      ]);
+      expect(actionBuilder.buildCreateTransaction).toHaveBeenCalledWith(
+        UUID_USER,
+        stdPreview,
+        undefined,
+        [
+          expect.objectContaining({
+            attachmentRefId: "fresh-1",
+            filename: "receipt.png",
+            sha256: "sha-1",
+          }),
+        ],
+      );
+      expect(transactionsService.create).toHaveBeenCalledTimes(1);
+      expect(attachmentsService.create).toHaveBeenCalledWith(
+        UUID_USER,
+        "t1",
+        expect.objectContaining({ originalname: "receipt.png" }),
+      );
+      expect(relayAttachmentStore.releaseForPrompt).toHaveBeenCalledWith(
+        UUID_USER,
+        ["fresh-1"],
+      );
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.id).toBe("t1");
+      expect(parsed.attachments).toEqual([
+        { id: "att-1", filename: "receipt.png" },
+      ]);
+    });
+
+    it("resolves a relayed attachment reference into the same flow", async () => {
+      relayAttachmentStore.get.mockReturnValue({
+        kind: "image",
+        mediaType: "image/png",
+        filename: "receipt.png",
+        data: PNG_BYTES,
+      });
+      const result = await handlers["manage_transactions"](
+        createArgs([{ attachmentUri: "monize-attachment://ref-9" }]),
+        { sessionId: "s1" },
+      );
+      expect(relayAttachmentStore.get).toHaveBeenCalledWith(UUID_USER, "ref-9");
+      expect(attachmentsService.create).toHaveBeenCalled();
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.attachments).toHaveLength(1);
+    });
+
+    it("releases parked refs and writes nothing when the confirmation is declined", async () => {
+      server.server.getClientCapabilities.mockReturnValue({
+        elicitation: { form: {} },
+      });
+      elicitInput.mockResolvedValue({ action: "decline" });
+
+      const result = await handlers["manage_transactions"](
+        createArgs([{ fileData: PNG_B64, fileName: "receipt.png" }]),
+        { sessionId: "s1" },
+      );
+
+      expect(result.isError).toBe(true);
+      expect(transactionsService.create).not.toHaveBeenCalled();
+      expect(attachmentsService.create).not.toHaveBeenCalled();
+      expect(relayAttachmentStore.releaseForPrompt).toHaveBeenCalledWith(
+        UUID_USER,
+        ["fresh-1"],
+      );
+    });
+
+    it("emits the card to the relay without writing when a relay prompt is in flight", async () => {
+      relayService.emitPendingAction.mockReturnValue(true);
+      const result = await handlers["manage_transactions"](
+        createArgs([{ fileData: PNG_B64, fileName: "receipt.png" }]),
+        { sessionId: "s1" },
+      );
+      expect(transactionsService.create).not.toHaveBeenCalled();
+      expect(attachmentsService.create).not.toHaveBeenCalled();
+      // The parked bytes stay for the browser confirm.
+      expect(relayAttachmentStore.releaseForPrompt).not.toHaveBeenCalled();
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.status).toBe("preview_shown");
+    });
+
+    it("supports an attachments-only update and counts the existing cap for that transaction", async () => {
+      const TXID = "33333333-3333-4333-8333-333333333333";
+      prepService.prepareUpdate.mockResolvedValue({
+        kind: "standard",
+        preview: { ...stdPreview, transactionId: TXID, isReconciled: false },
+        createPayee: false,
+        splits: undefined,
+      });
+      transactionsService.update.mockResolvedValue({ id: TXID });
+
+      const result = await handlers["manage_transactions"](
+        {
+          operation: "update",
+          items: [
+            {
+              transactionId: TXID,
+              attachments: [{ fileData: PNG_B64, fileName: "receipt.png" }],
+            },
+          ],
+        },
+        { sessionId: "s1" },
+      );
+
+      expect(attachmentPrepService.prepareAttachments).toHaveBeenCalledWith(
+        UUID_USER,
+        [expect.objectContaining({ filename: "receipt.png" })],
+        TXID,
+      );
+      expect(actionBuilder.buildUpdateTransaction).toHaveBeenCalledWith(
+        UUID_USER,
+        expect.objectContaining({ transactionId: TXID }),
+        undefined,
+        [expect.objectContaining({ attachmentRefId: "fresh-1" })],
+      );
+      expect(attachmentsService.create).toHaveBeenCalledWith(
+        UUID_USER,
+        TXID,
+        expect.objectContaining({ originalname: "receipt.png" }),
+      );
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.attachments).toHaveLength(1);
+    });
+
+    it("rejects attachments when the updated transaction is a transfer", async () => {
+      prepService.prepareUpdate.mockResolvedValue({
+        kind: "transfer",
+        preview: { transactionId: "t9" },
+      });
+      const result = await handlers["manage_transactions"](
+        {
+          operation: "update",
+          items: [
+            {
+              transactionId: "33333333-3333-4333-8333-333333333333",
+              attachments: [{ fileData: PNG_B64, fileName: "receipt.png" }],
+            },
+          ],
+        },
+        { sessionId: "s1" },
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("transfer");
+      expect(attachmentsService.create).not.toHaveBeenCalled();
     });
   });
 });

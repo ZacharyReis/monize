@@ -2,21 +2,32 @@ import { test, expect } from '../fixtures';
 import { createCurrency } from '../helpers/factories';
 import { uniqueId, randomCurrencyCode } from '../helpers/api';
 
-// Currencies are a global catalog (seeded with ~21 real currencies, default
-// "active" filter). Tests use distinct fake 3-char codes so they don't collide
-// with the seeded set. The context-menu delete/deactivate is left as a
-// follow-up; these cover navigate/list/create/edit/validation.
+// Currencies are created on demand rather than pre-seeded: a fresh instance
+// only has the default-preference currency (USD, ensured on startup), and any
+// other currency is added when a user creates or picks it. Tests create their
+// own currencies with distinct fake 3-char codes. These cover
+// navigate/list/create/edit/deactivate/validation.
 test.describe('Currencies', () => {
   test('navigates to the currencies page', async ({ authedPage: page }) => {
     await page.goto('/currencies');
     await expect(page.locator('body')).toContainText(/currencies/i);
   });
 
-  test('lists the seeded currencies', async ({ authedPage: page }) => {
+  test('lists the default currency and created currencies', async ({
+    authedPage: page,
+    api,
+  }) => {
+    const created = await createCurrency(api, {
+      code: randomCurrencyCode(),
+      name: `Listed ${uniqueId()}`,
+    });
+
     await page.goto('/currencies');
 
+    // USD is ensured on startup as the default-preference currency.
     await expect(page.locator('tr', { hasText: 'US Dollar' })).toBeVisible();
-    await expect(page.locator('tr', { hasText: 'British Pound' })).toBeVisible();
+    // A user-created currency shows up in the list.
+    await expect(page.locator('tr', { hasText: created.name })).toBeVisible();
   });
 
   test('creates a currency through the UI', async ({ authedPage: page }) => {
@@ -59,17 +70,21 @@ test.describe('Currencies', () => {
     await expect(page.locator('tr', { hasText: newName })).toBeVisible();
   });
 
-  test('deactivates a seeded currency to hide it', async ({ authedPage: page }) => {
+  test('deactivates a currency to hide it', async ({ authedPage: page, api }) => {
+    const created = await createCurrency(api, {
+      code: randomCurrencyCode(),
+      name: `Hide Me ${uniqueId()}`,
+    });
+
     await page.goto('/currencies');
 
-    // Seeded currencies are a shared catalog and can't be deleted, but a
-    // non-default, unused one can be deactivated, which removes it from the
-    // default "active" view.
-    const row = page.locator('tr', { hasText: 'Japanese Yen' });
+    // A non-default, unused currency can be deactivated, which removes it from
+    // the default "active" view.
+    const row = page.locator('tr', { hasText: created.code });
     await expect(row).toBeVisible();
     await row.getByRole('button', { name: /deactivate/i }).click();
 
-    await expect(page.locator('tr', { hasText: 'Japanese Yen' })).toHaveCount(0);
+    await expect(page.locator('tr', { hasText: created.code })).toHaveCount(0);
   });
 
   test('rejects a too-short currency code', async ({ authedPage: page }) => {

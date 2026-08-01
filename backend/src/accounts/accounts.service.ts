@@ -18,7 +18,6 @@ import { InvestmentTransaction } from "../securities/entities/investment-transac
 import { Institution } from "../institutions/entities/institution.entity";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { UpdateAccountDto } from "./dto/update-account.dto";
-import { CategoriesService } from "../categories/categories.service";
 import { ScheduledTransactionsService } from "../scheduled-transactions/scheduled-transactions.service";
 import { NetWorthService } from "../net-worth/net-worth.service";
 import { PortfolioService } from "../securities/portfolio.service";
@@ -40,6 +39,7 @@ import { formatDateYMD, todayInTimezone, todayYMD } from "../common/date-utils";
 import { getUsersByEffectiveTimezone } from "../common/users-by-timezone.util";
 import { didYouMean } from "../common/name-suggestions.util";
 import { ActionHistoryService } from "../action-history/action-history.service";
+import { withSystemContext } from "../common/db/with-context";
 
 @Injectable()
 export class AccountsService {
@@ -54,8 +54,6 @@ export class AccountsService {
     private investmentTransactionRepository: Repository<InvestmentTransaction>,
     @InjectRepository(Institution)
     private institutionsRepository: Repository<Institution>,
-    @Inject(forwardRef(() => CategoriesService))
-    private categoriesService: CategoriesService,
     @Inject(forwardRef(() => ScheduledTransactionsService))
     private scheduledTransactionsService: ScheduledTransactionsService,
     @Inject(forwardRef(() => NetWorthService))
@@ -729,12 +727,26 @@ export class AccountsService {
         account.principalCategoryId = updateAccountDto.principalCategoryId;
       if (updateAccountDto.interestCategoryId !== undefined)
         account.interestCategoryId = updateAccountDto.interestCategoryId;
+      if (updateAccountDto.interestBookingMode !== undefined)
+        account.interestBookingMode = updateAccountDto.interestBookingMode;
+      if (updateAccountDto.overpaymentCategoryId !== undefined)
+        account.overpaymentCategoryId = updateAccountDto.overpaymentCategoryId;
+      if (updateAccountDto.overpaymentMemo !== undefined)
+        account.overpaymentMemo = updateAccountDto.overpaymentMemo?.trim()
+          ? updateAccountDto.overpaymentMemo.trim()
+          : null;
+      if (updateAccountDto.overpaymentPayeeId !== undefined)
+        account.overpaymentPayeeId = updateAccountDto.overpaymentPayeeId;
+      if (updateAccountDto.fxFeePercent !== undefined)
+        account.fxFeePercent = updateAccountDto.fxFeePercent;
       if (updateAccountDto.assetCategoryId !== undefined)
         account.assetCategoryId = updateAccountDto.assetCategoryId;
       if (updateAccountDto.dateAcquired !== undefined)
         account.dateAcquired = updateAccountDto.dateAcquired
           ? new Date(updateAccountDto.dateAcquired)
           : null;
+      if (updateAccountDto.linkedLoanAccountId !== undefined)
+        account.linkedLoanAccountId = updateAccountDto.linkedLoanAccountId;
       // Mortgage-specific fields
       if (updateAccountDto.isCanadianMortgage !== undefined)
         account.isCanadianMortgage = updateAccountDto.isCanadianMortgage;
@@ -1175,6 +1187,13 @@ export class AccountsService {
       excludeFromNetWorth: boolean;
       institutionName: string | null;
       accountNumber: string | null;
+      // Loan/mortgage fields, so an assistant can reason about a loan's
+      // schedule (null on non-debt accounts).
+      paymentAmount: number | null;
+      paymentFrequency: string | null;
+      paymentStartDate: string | null;
+      amortizationMonths: number | null;
+      originalPrincipal: number | null;
     }>;
     totalAssets: number;
     totalLiabilities: number;
@@ -1262,6 +1281,15 @@ export class AccountsService {
           ? (institutionNameMap.get(a.institutionId) ?? null)
           : null,
         accountNumber: a.accountNumber ?? null,
+        paymentAmount: a.paymentAmount ?? null,
+        paymentFrequency: a.paymentFrequency ?? null,
+        // The global pg DATE parser returns date columns as YYYY-MM-DD
+        // strings; guard the type and trim any time component defensively.
+        paymentStartDate: a.paymentStartDate
+          ? String(a.paymentStartDate).slice(0, 10)
+          : null,
+        amortizationMonths: a.amortizationMonths ?? null,
+        originalPrincipal: a.originalPrincipal ?? null,
       };
     });
 
@@ -1430,6 +1458,7 @@ export class AccountsService {
     startDate?: string,
     endDate?: string,
     accountIds?: string[],
+    allTime = false,
   ): Promise<
     Array<{
       date: string;
@@ -1438,12 +1467,15 @@ export class AccountsService {
       currencyCode: string;
     }>
   > {
+    const accountIdsParam =
+      accountIds && accountIds.length > 0 ? accountIds : null;
+
     let end = endDate || todayYMD();
 
-    // When no explicit endDate, extend to include future transactions
-    if (!endDate) {
-      const accountIdsFilter =
-        accountIds && accountIds.length > 0 ? accountIds : null;
+    // When no explicit endDate, extend to include future transactions. Skipped
+    // in all-time mode, where the MIN/MAX probe below already yields the last
+    // transaction date (future-dated ones included) and clamps `end` to it.
+    if (!endDate && !allTime) {
       const maxDateResult = await this.dataSource.query(
         `SELECT MAX(t.transaction_date)::TEXT as max_date
          FROM transactions t
@@ -1453,7 +1485,7 @@ export class AccountsService {
            AND (t.status IS NULL OR t.status != 'VOID')
            AND t.parent_transaction_id IS NULL
            AND t.transaction_date > $3`,
-        [userId, accountIdsFilter, end],
+        [userId, accountIdsParam, end],
       );
       const maxFutureDate = maxDateResult?.[0]?.max_date;
       if (maxFutureDate && maxFutureDate > end) {
@@ -1461,16 +1493,57 @@ export class AccountsService {
       }
     }
 
-    const start =
-      startDate ||
-      (() => {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() - 1);
-        return formatDateYMD(d);
-      })();
+    const oneYearAgo = () => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - 1);
+      return formatDateYMD(d);
+    };
 
-    const accountIdsParam =
-      accountIds && accountIds.length > 0 ? accountIds : null;
+    let start: string;
+    if (startDate) {
+      start = startDate;
+    } else if (allTime) {
+      // "All time" mirrors the transaction list's default (no start filter):
+      // span the account's actual activity, from its earliest to its latest
+      // transaction. Ending at the last transaction (rather than today) keeps a
+      // closed or dormant account from trailing a long flat line to today; the
+      // unbounded MAX still includes future-dated transactions, so projections
+      // remain visible. Both fall back to the one-year default / today when the
+      // account has no transactions yet.
+      const range = await this.dataSource.query(
+        `SELECT MIN(t.transaction_date)::TEXT as min_date,
+                MAX(t.transaction_date)::TEXT as max_date
+         FROM transactions t
+         JOIN accounts a ON a.id = t.account_id
+         WHERE a.user_id = $1
+           AND ($2::UUID[] IS NULL OR t.account_id = ANY($2::UUID[]))
+           AND (t.status IS NULL OR t.status != 'VOID')
+           AND t.parent_transaction_id IS NULL`,
+        [userId, accountIdsParam],
+      );
+      start = range?.[0]?.min_date || oneYearAgo();
+      const maxDate = range?.[0]?.max_date;
+      if (!endDate && maxDate) {
+        end = maxDate;
+      }
+    } else {
+      start = oneYearAgo();
+    }
+
+    // Downsample wide ranges so the series stays light to transfer and render.
+    // A running balance is a point-in-time value, so we thin by keeping every
+    // Nth day (plus always the final/latest point) rather than averaging.
+    // Ranges up to MAX_POINTS days (including a full year) keep every day, so
+    // callers that rely on the one-year default are byte-identical.
+    const MAX_POINTS = 400;
+    const totalDays =
+      Math.round(
+        (new Date(`${end}T00:00:00Z`).getTime() -
+          new Date(`${start}T00:00:00Z`).getTime()) /
+          86_400_000,
+      ) + 1;
+    const step =
+      totalDays <= MAX_POINTS ? 1 : Math.ceil(totalDays / MAX_POINTS);
 
     const rows: Array<{
       date: string;
@@ -1520,11 +1593,20 @@ export class AccountsService {
           CROSS JOIN generate_series($3::TIMESTAMP, $4::TIMESTAMP, '1 day') d(dt)
           LEFT JOIN pre_period pp ON pp.account_id = ta.id
           LEFT JOIN daily_tx dtx ON dtx.account_id = ta.id AND dtx.tx_date = d.dt::DATE
+        ),
+        numbered AS (
+          SELECT date, balance, account_id, currency_code,
+                 ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY date) - 1 AS idx,
+                 COUNT(*) OVER (PARTITION BY account_id) AS cnt
+          FROM account_daily
         )
+        -- Downsample: keep every $5th day (aligned across accounts, since all
+        -- share the same date series) plus always the final/latest point.
         SELECT date::TEXT, balance::NUMERIC, account_id, currency_code
-        FROM account_daily
+        FROM numbered
+        WHERE $5::int <= 1 OR idx % $5::int = 0 OR idx = cnt - 1
         ORDER BY date, account_id`,
-      [userId, accountIdsParam, start, end],
+      [userId, accountIdsParam, start, end, step],
     );
 
     return rows.map((r) => ({
@@ -1547,6 +1629,15 @@ export class AccountsService {
    */
   @Cron("0 * * * *")
   async applyDueTransactionBalances(): Promise<void> {
+    // RLS (task C2): fully cross-user -- timezone-bucketed bulk reads and a
+    // single multi-user UPDATE, with no per-user isolation body. The whole job
+    // runs under a system context.
+    return withSystemContext(() =>
+      this.applyDueTransactionBalancesWithinContext(),
+    );
+  }
+
+  private async applyDueTransactionBalancesWithinContext(): Promise<void> {
     try {
       const userIdsByTz = await getUsersByEffectiveTimezone(this.dataSource);
       if (userIdsByTz.size === 0) return;

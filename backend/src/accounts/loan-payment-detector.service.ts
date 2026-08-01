@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Between, In, Repository } from "typeorm";
 import { Account, AccountType } from "./entities/account.entity";
 import { Transaction } from "../transactions/entities/transaction.entity";
 import { TransactionSplit } from "../transactions/entities/transaction-split.entity";
@@ -48,7 +48,7 @@ export interface DetectedLoanPayment {
   lastInterestAmount: number | null;
 }
 
-interface PaymentRecord {
+export interface PaymentRecord {
   date: string;
   amount: number;
   sourceAccountId: string | null;
@@ -124,7 +124,14 @@ export class LoanPaymentDetectorService {
     // on the same date are part of the same payment (e.g., regular principal
     // + extra principal splits). This handles cases where linkedTransactionId-
     // based dedup doesn't fully eliminate duplicates (e.g., imported data).
-    const payments = this.consolidatePaymentsByDate(rawPayments);
+    const consolidated = this.consolidatePaymentsByDate(rawPayments);
+    // Recover interest booked as a separate categorized transaction (not a
+    // split leg) so payments entered that way still carry an interest amount.
+    const payments = await this.pairSeparateInterest(
+      userId,
+      account,
+      consolidated,
+    );
 
     if (payments.length < 2) {
       // Need at least 2 payments to detect a pattern
@@ -238,7 +245,7 @@ export class LoanPaymentDetectorService {
    * When no linked source transaction is found (simple transfer without splits),
    * the loan account transaction amount is used as the payment amount.
    */
-  private async buildPaymentRecords(
+  async buildPaymentRecords(
     userId: string,
     accountId: string,
     transactions: Transaction[],
@@ -385,6 +392,133 @@ export class LoanPaymentDetectorService {
   }
 
   /**
+   * Recover interest for payments recorded without an interest split.
+   *
+   * A very common ledger shape (especially outside North America) books the
+   * principal as a plain transfer to the loan and the interest as a SEPARATE
+   * categorized expense on the payment source account -- never as a split leg
+   * of the transfer. buildPaymentRecords only reads split-leg interest, so those
+   * payments carry interestAmount = null and yield no rate observation, which is
+   * why rate detection reports "not enough payments with interest details".
+   *
+   * When the loan designates an interest category, we recover the interest by
+   * pairing every source-account expense in that category to the nearest payment
+   * (within half a payment period) and summing per payment. Interest can
+   * legitimately be spread across several transactions in one period, so summing
+   * is correct. Transfers are excluded: a ledger that tags the principal transfer
+   * with the same category as the interest expense would otherwise fold the
+   * principal into "interest" and roughly double the implied rate. Records that
+   * already carry split-based interest are left as-is.
+   *
+   * Returns a new array (records are copied, not mutated).
+   */
+  async pairSeparateInterest(
+    userId: string,
+    account: Account,
+    payments: PaymentRecord[],
+  ): Promise<PaymentRecord[]> {
+    if (!account.interestCategoryId || payments.length === 0) return payments;
+    // Nothing to fill if every payment already has split-based interest.
+    if (payments.every((p) => p.interestAmount != null)) return payments;
+
+    // Restrict to the accounts these payments actually came from so a shared
+    // interest category on another loan cannot bleed in.
+    const sourceIds = [
+      ...new Set(
+        payments
+          .map((p) => p.sourceAccountId)
+          .filter((id): id is string => id != null),
+      ),
+    ];
+    if (sourceIds.length === 0) return payments;
+
+    const dateKeys = payments.map((p) => p.date.split("T")[0]).sort();
+    const rangeStart = this.shiftDateKey(dateKeys[0], -45);
+    const rangeEnd = this.shiftDateKey(dateKeys[dateKeys.length - 1], 45);
+
+    const interestTxns = await this.transactionRepository.find({
+      where: {
+        userId,
+        accountId: In(sourceIds),
+        categoryId: account.interestCategoryId,
+        transactionDate: Between(rangeStart, rangeEnd),
+      },
+    });
+    if (interestTxns.length === 0) return payments;
+
+    const tolerance = this.paymentPeriodToleranceDays(payments);
+    const byDate = new Map<string, number>();
+    for (const tx of interestTxns) {
+      // Interest is always a plain expense; principal is a transfer to the loan.
+      // A ledger that tags the principal transfer with the same category as the
+      // interest expense (a common style) would otherwise have its principal
+      // summed into "interest" and inflate the implied rate, so skip transfers.
+      if (tx.isTransfer) continue;
+      const txDate = tx.transactionDate.split("T")[0];
+      const nearest = this.nearestPaymentDateKey(txDate, dateKeys, tolerance);
+      if (!nearest) continue;
+      byDate.set(
+        nearest,
+        (byDate.get(nearest) || 0) + Math.abs(Number(tx.amount)),
+      );
+    }
+
+    return payments.map((p) => {
+      if (p.interestAmount != null) return p;
+      const summed = byDate.get(p.date.split("T")[0]);
+      if (summed == null || summed <= 0) return p;
+      return {
+        ...p,
+        interestAmount: roundMoney(summed),
+        interestCategoryId: p.interestCategoryId ?? account.interestCategoryId,
+      };
+    });
+  }
+
+  /** Shift an ISO date key (yyyy-MM-dd) by a number of days, timezone-safe. */
+  private shiftDateKey(dateKey: string, days: number): string {
+    const d = new Date(`${dateKey}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().split("T")[0];
+  }
+
+  /** Half the median payment interval, the window within which an interest
+   *  transaction is considered part of a given payment (min 10 days). */
+  private paymentPeriodToleranceDays(payments: PaymentRecord[]): number {
+    if (payments.length < 2) return 20;
+    const intervals: number[] = [];
+    for (let i = 1; i < payments.length; i++) {
+      const prev = new Date(payments[i - 1].date).getTime();
+      const curr = new Date(payments[i].date).getTime();
+      intervals.push(Math.round((curr - prev) / (1000 * 60 * 60 * 24)));
+    }
+    intervals.sort((a, b) => a - b);
+    const median = intervals[Math.floor(intervals.length / 2)];
+    return median > 0 ? Math.max(10, Math.round(median / 2)) : 20;
+  }
+
+  /** The payment date key nearest to a transaction date, or null when the
+   *  closest payment is further away than the tolerance. */
+  private nearestPaymentDateKey(
+    dateKey: string,
+    paymentDateKeys: string[],
+    tolerance: number,
+  ): string | null {
+    const target = new Date(dateKey).getTime();
+    let best: string | null = null;
+    let bestDiff = Infinity;
+    for (const key of paymentDateKeys) {
+      const diff =
+        Math.abs(new Date(key).getTime() - target) / (1000 * 60 * 60 * 24);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = key;
+      }
+    }
+    return best != null && bestDiff <= tolerance ? best : null;
+  }
+
+  /**
    * Consolidate payment records that share the same date.
    * When a source transaction has multiple transfer splits to the loan account,
    * each creates its own loan-side transaction. Even with linkedTransactionId
@@ -393,9 +527,7 @@ export class LoanPaymentDetectorService {
    *
    * Prefers the record with the most complete split data (has interestAmount).
    */
-  private consolidatePaymentsByDate(
-    payments: PaymentRecord[],
-  ): PaymentRecord[] {
+  consolidatePaymentsByDate(payments: PaymentRecord[]): PaymentRecord[] {
     const byDate = new Map<string, PaymentRecord[]>();
     for (const p of payments) {
       const dateKey = p.date.split("T")[0];
@@ -685,7 +817,7 @@ export class LoanPaymentDetectorService {
    * rather than forwards from openingBalance (which may not match
    * the actual balance when the user started tracking).
    */
-  private buildRunningBalanceMap(
+  buildRunningBalanceMap(
     account: Account,
     transactions: Transaction[],
   ): Map<string, number> {

@@ -19,6 +19,7 @@ import {
   SecurityPrice,
   SecurityTransactionHistory,
 } from '@/types/investment';
+import { IntradayBreakdown } from '@/types/net-worth';
 import { getCached, setCache, invalidateCache } from './apiCache';
 
 export const investmentsApi = {
@@ -56,6 +57,47 @@ export const investmentsApi = {
     const response = await apiClient.get<AssetAllocation>('/portfolio/allocation/by-tag', {
       params: accountIds && accountIds.length > 0 ? { accountIds: accountIds.join(',') } : undefined,
     });
+    setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  // List the KEY:VALUE tag keys present on the portfolio's securities (e.g.
+  // "country", "sector"), so the UI can offer an aggregate-by-key chart.
+  getPortfolioTagKeys: async (accountIds?: string[]): Promise<string[]> => {
+    const cacheKey = `investments:tag-keys:${accountIds?.join(',') || 'all'}`;
+    const cached = getCached<string[]>(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get<string[]>('/portfolio/tag-keys', {
+      params:
+        accountIds && accountIds.length > 0
+          ? { accountIds: accountIds.join(',') }
+          : undefined,
+    });
+    setCache(cacheKey, response.data, 60_000);
+    return response.data;
+  },
+
+  // Get portfolio allocation aggregated by the value of one KEY:VALUE tag key
+  // (e.g. key "country" -> a slice per country). Value-weighted; a mixed
+  // holding tagged under several values counts in full under each.
+  getAllocationByTagKey: async (
+    key: string,
+    accountIds?: string[],
+  ): Promise<AssetAllocation> => {
+    const cacheKey = `investments:allocation-by-tag-key:${key}:${accountIds?.join(',') || 'all'}`;
+    const cached = getCached<AssetAllocation>(cacheKey);
+    if (cached) return cached;
+    const response = await apiClient.get<AssetAllocation>(
+      '/portfolio/allocation/by-tag-key',
+      {
+        params: {
+          key,
+          ...(accountIds && accountIds.length > 0
+            ? { accountIds: accountIds.join(',') }
+            : {}),
+        },
+      },
+    );
     setCache(cacheKey, response.data, 60_000);
     return response.data;
   },
@@ -101,6 +143,22 @@ export const investmentsApi = {
     fallbackToDaily: boolean;
   }> => {
     const response = await apiClient.get('/portfolio/intraday-value', { params });
+    return response.data;
+  },
+
+  // Per-security intraday breakdown (1D / 1W / 1M ranges) for the Portfolio
+  // Value Over Time report's "by security" view. Carries the same availability
+  // metadata as getIntradayValue so the caller can apply identical fallback
+  // handling. Backend caches for 60s; not cached in sessionStorage here.
+  getIntradayBreakdown: async (params: {
+    range: '1d' | '1w' | '1m';
+    accountIds?: string;
+    displayCurrency?: string;
+  }): Promise<IntradayBreakdown> => {
+    const response = await apiClient.get<IntradayBreakdown>(
+      '/portfolio/intraday-breakdown',
+      { params },
+    );
     return response.data;
   },
 

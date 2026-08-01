@@ -244,6 +244,19 @@ const mockPayees = [
   { id: 'p-4', name: 'Electric Co', defaultCategoryId: null, defaultCategory: null, transactionCount: 12, isActive: true },
 ];
 
+/**
+ * Open the header's Maintenance menu. The four bulk actions moved behind it,
+ * so anything that used to click them straight from the header opens it first.
+ */
+async function openMaintenance() {
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /Maintenance/ })).toBeInTheDocument(),
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Maintenance/ }));
+  });
+}
+
 describe('PayeesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -267,11 +280,31 @@ describe('PayeesPage', () => {
       await waitFor(() => expect(screen.getByTestId('page-layout')).toBeInTheDocument());
     });
 
-    it('renders New Payee and Auto-Assign buttons', async () => {
+    it('keeps the bulk actions out of the header', async () => {
+      render(<PayeesPage />);
+      await openMaintenance();
+
+      // Four maintenance actions behind one trigger; the header itself carries
+      // only that trigger and the everyday New Payee button.
+      expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+      for (const label of [
+        'Auto-Merge Payees',
+        'Deactivate Unused',
+        'Auto-Assign Categories',
+        'Apply Default Categories',
+      ]) {
+        expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: label })).toBeNull();
+      }
+    });
+
+    it('renders New Payee and the Maintenance trigger', async () => {
       render(<PayeesPage />);
       await waitFor(() => {
         expect(screen.getByText('+ New Payee')).toBeInTheDocument();
-        expect(screen.getByText('Auto-Assign Categories')).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /Maintenance/ }),
+        ).toBeInTheDocument();
       });
     });
   });
@@ -390,8 +423,9 @@ describe('PayeesPage', () => {
   describe('Auto-Assign Categories', () => {
     it('opens auto-assign dialog when button is clicked', async () => {
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Auto-Assign Categories')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Auto-Assign Categories'));
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Auto-Assign Categories' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Auto-Assign Categories' }));
       await waitFor(() => expect(screen.getByTestId('auto-assign-dialog')).toBeInTheDocument());
     });
   });
@@ -399,7 +433,8 @@ describe('PayeesPage', () => {
   describe('Apply Default Categories', () => {
     it('renders the Apply Default Categories button', async () => {
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Apply Default Categories')).toBeInTheDocument());
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Apply Default Categories' })).toBeInTheDocument();
     });
 
     it('backfills each payee default category into its uncategorized transactions', async () => {
@@ -409,8 +444,9 @@ describe('PayeesPage', () => {
       ]);
       mockApplyCategorySuggestions.mockResolvedValue({ updated: 1, transactionsBackfilled: 5 });
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Apply Default Categories')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Apply Default Categories')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Apply Default Categories' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Apply Default Categories' })); });
       await act(async () => { fireEvent.click(screen.getByText('Apply', { exact: true })); });
       await waitFor(() =>
         expect(mockApplyCategorySuggestions).toHaveBeenCalledWith([
@@ -430,8 +466,9 @@ describe('PayeesPage', () => {
       ]);
       mockApplyCategorySuggestions.mockResolvedValue({ updated: 1, transactionsBackfilled: 5 });
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Apply Default Categories')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Apply Default Categories')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Apply Default Categories' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Apply Default Categories' })); });
       await act(async () => { fireEvent.click(screen.getByText('Apply', { exact: true })); });
       await waitFor(() =>
         expect(mockApplyCategorySuggestions).toHaveBeenCalledWith([
@@ -445,8 +482,9 @@ describe('PayeesPage', () => {
         { id: 'p-2', name: 'Gas Station', defaultCategoryId: 'cat-2', defaultCategory: { id: 'cat-2', name: 'Auto' }, transactionCount: 20, uncategorizedCount: 0, isActive: true },
       ]);
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Apply Default Categories')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Apply Default Categories')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Apply Default Categories' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Apply Default Categories' })); });
       await act(async () => { fireEvent.click(screen.getByText('Apply', { exact: true })); });
       expect(mockApplyCategorySuggestions).not.toHaveBeenCalled();
     });
@@ -456,8 +494,9 @@ describe('PayeesPage', () => {
         { id: 'p-1', name: 'Grocery Store', defaultCategoryId: 'cat-1', defaultCategory: { id: 'cat-1', name: 'Food' }, transactionCount: 50, uncategorizedCount: 5, isActive: true },
       ]);
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Apply Default Categories')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Apply Default Categories')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Apply Default Categories' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Apply Default Categories' })); });
       await act(async () => { fireEvent.click(screen.getByText('Cancel', { exact: true })); });
       expect(mockApplyCategorySuggestions).not.toHaveBeenCalled();
     });
@@ -768,15 +807,17 @@ describe('PayeesPage', () => {
   describe('Deactivate Unused', () => {
     it('opens deactivate dialog when Deactivate Unused button is clicked', async () => {
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Deactivate Unused')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Deactivate Unused')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Deactivate Unused' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Deactivate Unused' })); });
       await waitFor(() => expect(screen.getByTestId('deactivate-dialog')).toBeInTheDocument());
     });
 
     it('closes deactivate dialog', async () => {
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Deactivate Unused')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Deactivate Unused')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Deactivate Unused' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Deactivate Unused' })); });
       await waitFor(() => expect(screen.getByTestId('deactivate-dialog')).toBeInTheDocument());
       await act(async () => { fireEvent.click(screen.getByTestId('deactivate-close')); });
       expect(screen.queryByTestId('deactivate-dialog')).not.toBeInTheDocument();
@@ -784,8 +825,9 @@ describe('PayeesPage', () => {
 
     it('triggers data reload via auto-assign success callback', async () => {
       render(<PayeesPage />);
-      await waitFor(() => expect(screen.getByText('Auto-Assign Categories')).toBeInTheDocument());
-      await act(async () => { fireEvent.click(screen.getByText('Auto-Assign Categories')); });
+      await openMaintenance();
+      expect(screen.getByRole('menuitem', { name: 'Auto-Assign Categories' })).toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Auto-Assign Categories' })); });
       await waitFor(() => expect(screen.getByTestId('auto-assign-dialog')).toBeInTheDocument());
       mockGetAllPayees.mockClear();
       await act(async () => { fireEvent.click(screen.getByTestId('auto-assign-success')); });

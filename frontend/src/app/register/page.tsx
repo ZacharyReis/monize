@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import '@/lib/zodConfig';
@@ -17,8 +17,8 @@ import { useAuthStore } from '@/store/authStore';
 import { authApi, AuthMethods } from '@/lib/auth';
 import { buildPasswordSchema, buildEmailSchema } from '@/lib/zod-helpers';
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
-import { OnboardingPreferences } from '@/components/auth/OnboardingPreferences';
-import { AuthLanguageSwitcher } from '@/components/auth/AuthLanguageSwitcher';
+import { OnboardingPreferencesScreen } from '@/components/auth/OnboardingPreferencesScreen';
+import { AuthLanguagePicker } from '@/components/auth/AuthLanguagePicker';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('Register');
@@ -43,7 +43,6 @@ type RegisterFormData = z.infer<ReturnType<typeof buildRegisterSchema>>;
 export default function RegisterPage() {
   const t = useTranslations('auth.register');
   const tc = useTranslations('common');
-  const locale = useLocale();
   const router = useRouter();
   const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -260,32 +259,18 @@ export default function RegisterPage() {
 
   if (showPreferencesSetup) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <Image src="/icons/monize-logo.svg" alt="Monize" width={96} height={96} className="mx-auto rounded-xl" priority />
-            <h2 className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-              {t('preferences.title')}
-            </h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {t('preferences.subtitle')}
-            </p>
-          </div>
-          <OnboardingPreferences
-            initialLanguage={locale}
-            onComplete={(result) => {
-              if (result?.localeChanged) {
-                // Full document load so every layout segment re-renders in
-                // the newly chosen language; a client-side push would reuse
-                // the cached root layout (and its catalogs) in the old one.
-                window.location.assign('/dashboard');
-              } else {
-                router.push('/dashboard');
-              }
-            }}
-          />
-        </div>
-      </div>
+      <OnboardingPreferencesScreen
+        onComplete={(result) => {
+          if (result?.localeChanged) {
+            // Full document load so every layout segment re-renders in
+            // the newly chosen language; a client-side push would reuse
+            // the cached root layout (and its catalogs) in the old one.
+            window.location.assign('/dashboard');
+          } else {
+            router.push('/dashboard');
+          }
+        }}
+      />
     );
   }
 
@@ -459,7 +444,7 @@ export default function RegisterPage() {
           </p>
         </form>
 
-        <AuthLanguageSwitcher />
+        <AuthLanguagePicker />
       </div>
     </div>
   );

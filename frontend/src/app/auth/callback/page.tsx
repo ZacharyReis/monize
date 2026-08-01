@@ -1,20 +1,34 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
 import toast from 'react-hot-toast';
 import { useTranslations } from 'next-intl';
+import { OnboardingPreferencesScreen } from '@/components/auth/OnboardingPreferencesScreen';
 
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, setLoading, setError } = useAuthStore();
   const t = useTranslations('auth');
+  // Set when the backend flags this login as the one that provisioned the
+  // account: holds the path to continue to once the first-run language and
+  // currency step is done (or skipped).
+  const [onboardingTarget, setOnboardingTarget] = useState<string | null>(null);
+  // The sign-in exchange must run exactly once. Its effect depends on values
+  // that are not referentially stable across renders (the translator), so
+  // without this guard any re-render would re-run the whole handler --
+  // re-fetching the profile, re-toasting, and re-reading a `returnTo` that the
+  // first pass has already consumed.
+  const hasHandledCallback = useRef(false);
 
   useEffect(() => {
+    if (hasHandledCallback.current) return;
+    hasHandledCallback.current = true;
+
     const handleCallback = async () => {
       setLoading(true);
       try {
@@ -60,7 +74,12 @@ function CallbackContent() {
             } catch {
               // sessionStorage unavailable — fall through to /dashboard
             }
-            if (returnTo) {
+            // A brand-new SSO account gets the same first-run preferences
+            // step local registration ends on; the destination is held until
+            // the user finishes with it.
+            if (searchParams.get('welcome') === 'true') {
+              setOnboardingTarget(returnTo ?? '/dashboard');
+            } else if (returnTo) {
               window.location.href = returnTo;
             } else {
               router.push('/dashboard');
@@ -82,6 +101,23 @@ function CallbackContent() {
 
     handleCallback();
   }, [searchParams, router, login, setLoading, setError, t]);
+
+  if (onboardingTarget) {
+    return (
+      <OnboardingPreferencesScreen
+        onComplete={(result) => {
+          // A locale change needs a full document load so every layout
+          // segment re-renders with the new catalogs, and a stashed returnTo
+          // is followed the same way it would have been without this step.
+          if (result?.localeChanged || onboardingTarget !== '/dashboard') {
+            window.location.assign(onboardingTarget);
+          } else {
+            router.push(onboardingTarget);
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">

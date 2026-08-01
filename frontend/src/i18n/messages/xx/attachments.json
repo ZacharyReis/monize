@@ -1,0 +1,19 @@
+{
+  "title": "[XX-Attachments-XX]",
+  "empty": "[XX-No attachments yet-XX]",
+  "upload": "[XX-Add attachment-XX]",
+  "download": "[XX-Download-XX]",
+  "delete": "[XX-Delete-XX]",
+  "remove": "[XX-Remove-XX]",
+  "pendingHint": "[XX-Files will be uploaded when you save the transaction.-XX]",
+  "deleteConfirmTitle": "[XX-Delete attachment?-XX]",
+  "deleteConfirmMessage": "[XX-\"{name}\" will be permanently deleted.-XX]",
+  "uploaded": "[XX-Attachment added-XX]",
+  "deleted": "[XX-Attachment deleted-XX]",
+  "loadFailed": "[XX-Failed to load attachments-XX]",
+  "uploadFailed": "[XX-Failed to upload attachment-XX]",
+  "deleteFailed": "[XX-Failed to delete attachment-XX]",
+  "tooLarge": "[XX-File is too large (maximum {max})-XX]",
+  "unsupported": "[XX-Unsupported file type. Allowed: images or PDF-XX]",
+  "tooMany": "[XX-Maximum {max} attachments per transaction-XX]"
+}

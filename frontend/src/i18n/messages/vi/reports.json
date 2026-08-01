@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Lịch trình thanh toán nợ",
       "loan-amortization": "Lịch trả nợ vay",
       "credit-utilization": "Mức sử dụng tín dụng",
+      "loan-overpayment-simulator": "Trình mô phỏng trả nợ vay trước hạn",
       "investment-performance": "Hiệu suất đầu tư",
       "dividend-income": "Lãi vốn, cổ tức & lãi suất",
       "sector-weightings": "Tỷ trọng ngành",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Phân bổ theo loại chứng khoán",
       "geographic-allocation": "Phân bổ theo địa lý/sàn giao dịch",
       "dividend-yield-growth": "Lợi suất & tăng trưởng cổ tức",
-      "security-performance": "Hiệu suất chứng khoán riêng lẻ",
+      "security-performance": "Hiệu suất chứng khoán",
       "currency-exposure": "Rủi ro tiền tệ",
       "monte-carlo-simulation": "Mô phỏng Monte Carlo",
       "recurring-expenses": "Theo dõi chi phí định kỳ",
       "spending-anomalies": "Bất thường chi tiêu",
       "weekend-weekday-spending": "Chi tiêu cuối tuần so với ngày thường",
       "monthly-comparison": "So sánh hàng tháng",
+      "foreign-currency-fees": "Phí giao tác ngoại tệ",
       "uncategorized-transactions": "Giao tác chưa phân loại",
       "duplicate-transactions": "Tìm giao tác trùng lặp",
       "upcoming-bills": "Lịch hóa đơn sắp tới",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Hình dung tiến trình giảm nợ của bạn với các dự báo về ngày thanh toán.",
       "loan-amortization": "Lịch thanh toán chi tiết cho thế chấp và khoản vay với phân tích gốc so với lãi.",
       "credit-utilization": "Xem bạn đang sử dụng bao nhiêu tín dụng khả dụng trên thẻ tín dụng và hạn mức tín dụng.",
+      "loan-overpayment-simulator": "Chọn một khoản vay và mô phỏng các khoản trả thêm để xem nó được trả hết sớm hơn bao nhiêu và bạn tiết kiệm được bao nhiêu tiền lãi.",
       "investment-performance": "Theo dõi lợi nhuận danh mục, lãi/lỗ và phân bổ tài sản theo thời gian.",
       "dividend-income": "Theo dõi lãi và lỗ vốn (đã thực hiện + chưa thực hiện) cùng với thu nhập cổ tức và lãi suất.",
       "sector-weightings": "Phân tích mức độ phơi nhiễm ngành của danh mục từ cổ phiếu riêng lẻ và ETFs.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Xem phân bổ danh mục theo loại tài sản (cổ phiếu, ETFs, quỹ tương hỗ, trái phiếu) với phân tích sâu vào vị thế.",
       "geographic-allocation": "Phân tích mức độ phơi nhiễm địa lý của danh mục theo sàn giao dịch và khu vực để đa dạng hóa.",
       "dividend-yield-growth": "Theo dõi lợi suất cổ tức, lợi suất theo từng chứng khoán, tăng trưởng năm sau so với năm trước và phân tích tần suất thanh toán.",
-      "security-performance": "Phân tích sâu về hiệu suất chứng khoán riêng lẻ với lịch sử giá, giao tác và lợi nhuận.",
+      "security-performance": "Phân tích sâu về lịch sử giá, giao dịch và lợi nhuận của một chứng khoán, hoặc so sánh hiệu suất của nhiều chứng khoán trên cùng một biểu đồ.",
       "currency-exposure": "Hiểu rủi ro tiền tệ với phân bổ danh mục theo tiền tệ và chi tiết tỷ giá hối đoái.",
       "monte-carlo-simulation": "Dự báo kết quả danh mục tương lai với hàng nghìn đường lợi nhuận ngẫu nhiên và thư viện kịch bản đã lưu.",
       "recurring-expenses": "Xác định và theo dõi các đăng ký, thành viên và phí định kỳ.",
       "spending-anomalies": "Phát hiện các giao tác bất thường lớn và đột biến chi tiêu cần chú ý.",
       "weekend-weekday-spending": "Phân tích mô hình chi tiêu của bạn dựa trên ngày trong tuần để hiểu thói quen.",
       "monthly-comparison": "So sánh bất kỳ tháng nào với tháng trước về thu nhập, chi phí, giá trị ròng và đầu tư.",
+      "foreign-currency-fees": "Theo dõi phí giao dịch nước ngoài được tính trên các tài khoản áp dụng phí quy đổi.",
       "uncategorized-transactions": "Tìm và phân loại các giao tác bị thiếu danh mục.",
       "duplicate-transactions": "Xác định các mục có thể trùng lặp cần xem xét hoặc xóa.",
       "upcoming-bills": "Lịch trực quan của các giao tác theo lịch và ngày đến hạn hóa đơn sắp tới.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Không thể tải dữ liệu báo cáo. Vui lòng thử lại.",
     "retry": "Thử lại"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Không có tài khoản nào được cấu hình phí giao dịch nước ngoài. Đặt tỷ lệ phí phần trăm cho một tài khoản để theo dõi phí ngoại tệ của tài khoản đó tại đây."
   },
   "accountBalances": {
     "totalAssets": "Tổng tài sản",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Kết thúc: ",
     "cashFlowEventPdfStarts": "Bắt đầu: ",
     "cashFlowEventPdfEnds": "Kết thúc: ",
-    "cashFlowDefaultName": "Dòng tiền",
     "cashFlowPerYear": "/ năm",
     "tooltipRow90th": "Phân vị 90",
     "tooltipRow75th": "Phân vị 75",
@@ -1104,6 +1110,10 @@
     "noData": "Không có dữ liệu đầu tư trong kỳ này.",
     "tooltipPortfolio": "Danh mục:",
     "allAccounts": "Tất cả tài khoản",
+    "viewTotal": "Tổng",
+    "viewSecurities": "Theo chứng khoán",
+    "seriesCash": "Tiền mặt",
+    "seriesOther": "Chứng khoán khác",
     "colDate": "Ngày",
     "colPortfolioValue": "Giá trị danh mục",
     "breakdownTitle": "Phân tích danh mục hiện tại",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% Danh mục"
   },
   "securityPerformance": {
-    "selectPrompt": "Chọn một chứng khoán ở trên để xem chi tiết hiệu suất.",
-    "selectSecurityPlaceholder": "Chọn một chứng khoán...",
+    "selectPrompt": "Chọn một hoặc nhiều chứng khoán ở trên để xem hiệu suất của chúng. Chọn từ hai chứng khoán trở lên để so sánh chúng trên cùng một biểu đồ.",
+    "selectSecuritiesPlaceholder": "Chọn chứng khoán...",
+    "comparisonTitle": "So sánh hiệu suất",
+    "comparisonSubtitle": "Lợi suất tích lũy của từng chứng khoán đã chọn, được quy về 0% tại mức giá khả dụng đầu tiên để so sánh trên cùng một thang đo bất kể giá hay đơn vị tiền tệ.",
+    "comparisonNoData": "Không có lịch sử giá cho các chứng khoán đã chọn.",
+    "comparisonError": "Không thể tải lịch sử giá. Vui lòng thử lại.",
     "viewPriceChart": "Biểu đồ giá",
     "viewTransactions": "Giao tác",
     "viewDividends": "Cổ tức",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Tổng vị thế",
     "largestType": "Loại lớn nhất",
     "assetTypeAllocation": "Phân bổ theo loại tài sản",
-    "typeStocks": "Cổ phiếu",
-    "typeEtfs": "ETFs",
-    "typeMutualFunds": "Quỹ tương hỗ",
-    "typeBonds": "Trái phiếu",
-    "typeCash": "Tiền mặt",
     "holdingsCount": "{count, plural, one {# tài khoản} other {# tài khoản}}",
     "total": "Tổng",
     "tooltipHoldings": "{count, plural, one {# vị thế} other {# vị thế}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Tên là bắt buộc"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Chọn tài khoản khoản vay",
+    "viewTransactions": "Xem giao dịch",
+    "empty": "Không tìm thấy tài khoản khoản vay, thế chấp hoặc hạn mức tín dụng."
   }
 }

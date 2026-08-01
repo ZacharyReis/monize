@@ -47,6 +47,8 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
     amount: -50.0,
     currencyCode: 'CAD',
     exchangeRate: 1,
+    originalAmount: null,
+    originalCurrencyCode: null,
     description: 'Weekly groceries',
     referenceNumber: null,
     status: TransactionStatus.UNRECONCILED,
@@ -891,6 +893,21 @@ describe('TransactionList', () => {
         expect(screen.getByText('Amount')).toBeInTheDocument();
         expect(screen.getByText('Status')).toBeInTheDocument();
         expect(screen.getByText('Actions')).toBeInTheDocument();
+        expect(screen.getByLabelText('Attachments')).toBeInTheDocument();
+      });
+    });
+
+    it('renders the attachment count for a transaction that has attachments', async () => {
+      render(
+        <TransactionList
+          transactions={[createTransaction({ id: 'tx-att', attachmentCount: 4 })]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('4')).toBeInTheDocument();
       });
     });
 
@@ -1296,6 +1313,27 @@ describe('TransactionList', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete Transaction')).toBeInTheDocument();
         expect(screen.getByText(/This action cannot be undone/)).toBeInTheDocument();
+      });
+    });
+
+    it('adds a reconciled warning to the delete dialog for a reconciled transaction', async () => {
+      const tx = createTransaction({ status: TransactionStatus.RECONCILED });
+
+      render(
+        <TransactionList
+          transactions={[tx]}
+          onEdit={mockOnEdit}
+          onDelete={mockOnDelete}
+          onRefresh={mockOnRefresh}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/will affect a completed reconciliation/i),
+        ).toBeInTheDocument();
       });
     });
 
@@ -2805,6 +2843,142 @@ describe('TransactionList', () => {
       });
 
       expect(screen.queryByText('Duplicate')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('foreign-currency columns (showFxColumns)', () => {
+    // Ordinary foreign entry: the fee is folded into `amount`, not a split.
+    // base = round(100 EUR x 1.38) = 138; amount = -141.45 => fee = 3.45.
+    const foldedFeeTransaction = () =>
+      createTransaction({
+        amount: -141.45,
+        currencyCode: 'CAD',
+        exchangeRate: 1.38,
+        originalAmount: -100.0,
+        originalCurrencyCode: 'EUR',
+      });
+
+    // A split foreign transaction folds the fee into `amount` exactly like an
+    // ordinary one; its category lines sum to that fee-inclusive total
+    // (-100 + -41.45 = -141.45). base 138 - amount 141.45 => fee 3.45.
+    const splitFeeTransaction = () =>
+      createTransaction({
+        amount: -141.45,
+        currencyCode: 'CAD',
+        exchangeRate: 1.38,
+        originalAmount: -100.0,
+        originalCurrencyCode: 'EUR',
+        isSplit: true,
+        splits: [
+          {
+            id: 'split-1',
+            transactionId: '123e4567-e89b-12d3-a456-426614174000',
+            categoryId: 'cat-1',
+            category: { id: 'cat-1', name: 'Groceries', color: null } as any,
+            transferAccountId: null,
+            transferAccount: null,
+            linkedTransactionId: null,
+            amount: -100.0,
+            memo: null,
+            createdAt: '2024-01-15T00:00:00Z',
+          },
+          {
+            id: 'split-2',
+            transactionId: '123e4567-e89b-12d3-a456-426614174000',
+            categoryId: 'cat-2',
+            category: { id: 'cat-2', name: 'Dining', color: null } as any,
+            transferAccountId: null,
+            transferAccount: null,
+            linkedTransactionId: null,
+            amount: -41.45,
+            memo: null,
+            createdAt: '2024-01-15T00:00:00Z',
+          },
+        ],
+      });
+
+    it('hides the FX columns by default', async () => {
+      render(
+        <TransactionList
+          transactions={[foldedFeeTransaction()]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Grocery Store')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Paid Amount')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fee Paid')).not.toBeInTheDocument();
+    });
+
+    it('derives the fee folded into amount for an ordinary foreign entry', async () => {
+      render(
+        <TransactionList
+          transactions={[foldedFeeTransaction()]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          showFxColumns
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Currency')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Paid Amount')).toBeInTheDocument();
+      expect(screen.getByText('Fee Paid')).toBeInTheDocument();
+      expect(screen.getByText('EUR')).toBeInTheDocument();
+      // Paid amount: -100 EUR through the +/- formatter.
+      expect(screen.getByText(/-\$100\.00/)).toBeInTheDocument();
+      // Fee: base 138 - amount 141.45 = 3.45, shown as a positive cost.
+      expect(screen.getByText('$3.45')).toBeInTheDocument();
+    });
+
+    it('derives the folded-in fee for a split foreign transaction', async () => {
+      render(
+        <TransactionList
+          transactions={[splitFeeTransaction()]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          showFxColumns
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('EUR')).toBeInTheDocument();
+      });
+      // Fee: base 138 - amount 141.45 = 3.45, from the parent amount not a split.
+      expect(screen.getByText('$3.45')).toBeInTheDocument();
+    });
+
+    it('shows a dash in the fee column when a foreign transaction has no fee', async () => {
+      // amount equals the converted base (100 EUR x 1.38), so no fee applies.
+      const noFee = createTransaction({
+        amount: -138.0,
+        originalAmount: -100.0,
+        exchangeRate: 1.38,
+        originalCurrencyCode: 'EUR',
+      });
+
+      render(
+        <TransactionList
+          transactions={[noFee]}
+          onEdit={mockOnEdit}
+          onRefresh={mockOnRefresh}
+          showFxColumns
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('EUR')).toBeInTheDocument();
+      });
+      const row = screen.getByText('Grocery Store').closest('tr')!;
+      const cells = row.querySelectorAll('td');
+      // Fee column is the last cell before balance/status/actions; assert a
+      // dash is present somewhere in the row's fee cell.
+      const feeCell = cells[cells.length - 3];
+      expect(feeCell.textContent).toBe('-');
     });
   });
 });

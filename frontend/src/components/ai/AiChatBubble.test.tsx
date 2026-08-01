@@ -26,6 +26,7 @@ vi.mock('@/hooks/useIsMobile', () => ({
 import { AiChatBubble } from './AiChatBubble';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { AI_ENTITY_LINK_EVENT } from '@/lib/ai-entity-links';
 
 function setMobile(mobile: boolean) {
   (useIsMobile as unknown as Mock).mockReturnValue(mobile);
@@ -43,10 +44,16 @@ const launcher = () => screen.queryByLabelText('Open AI assistant');
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
   mockPathname = '/dashboard';
   setEnabled(true);
   setMobile(false);
 });
+
+// Viewport is jsdom's default 1024x768; panel is 420x600 with a 16px margin.
+const PLACEMENT_KEY = 'monize.aiBubble.placement';
+const DEFAULT_LEFT = `${1024 - 420 - 16}px`; // bottom-right
+const DEFAULT_TOP = `${768 - 600 - 16}px`;
 
 describe('AiChatBubble', () => {
   it('renders nothing when the preference is off', () => {
@@ -140,5 +147,109 @@ describe('AiChatBubble', () => {
     // The mobile bottom sheet sits over a scrim, so it still closes on nav.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(launcher()).toBeInTheDocument();
+  });
+
+  it('collapses the mobile sheet when an entity deep-link is clicked (query-only nav)', () => {
+    setMobile(true);
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Clicking a chat entity link while already on /transactions changes only
+    // the query string; the pathname never changes, so the link dispatches
+    // this event instead.
+    fireEvent(window, new CustomEvent(AI_ENTITY_LINK_EVENT));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(launcher()).toBeInTheDocument();
+  });
+
+  it('collapses a full-screen view when an entity deep-link is clicked', () => {
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+    fireEvent.click(screen.getByLabelText('Expand to full screen'));
+
+    fireEvent(window, new CustomEvent(AI_ENTITY_LINK_EVENT));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(launcher()).toBeInTheDocument();
+  });
+
+  it('keeps the desktop corner sheet open when an entity deep-link is clicked', () => {
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+
+    fireEvent(window, new CustomEvent(AI_ENTITY_LINK_EVENT));
+
+    // Non-blocking desktop sheet persists, same as the route-change rule.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  /** The grip in the panel header: drag it, nudge it, or click to snap. */
+  const moveHandle = () => screen.getByLabelText(/Move the panel/);
+
+  it('opens the desktop panel at the default bottom-right corner', () => {
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.left).toBe(DEFAULT_LEFT);
+    expect(dialog.style.top).toBe(DEFAULT_TOP);
+    expect(moveHandle()).toBeInTheDocument();
+  });
+
+  it('cycles the panel through corners and persists the new position', () => {
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+
+    const move = moveHandle();
+
+    // bottom-right -> bottom-left: hugs the left edge, keeps the same bottom.
+    fireEvent.click(move);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.left).toBe('16px');
+    expect(dialog.style.top).toBe(DEFAULT_TOP);
+
+    const stored = JSON.parse(window.localStorage.getItem(PLACEMENT_KEY)!);
+    expect(stored.corner).toBe('bottom-left');
+    expect(stored.x).toBe(16);
+
+    // bottom-left -> top-right: hugs the right edge and the top.
+    fireEvent.click(move);
+    expect(dialog.style.left).toBe(DEFAULT_LEFT);
+    expect(dialog.style.top).toBe('16px');
+    expect(JSON.parse(window.localStorage.getItem(PLACEMENT_KEY)!).corner).toBe(
+      'top-right',
+    );
+  });
+
+  it('restores a persisted position when the panel is opened', () => {
+    window.localStorage.setItem(
+      PLACEMENT_KEY,
+      JSON.stringify({ x: 120, y: 90, corner: 'top-left' }),
+    );
+
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.left).toBe('120px');
+    expect(dialog.style.top).toBe('90px');
+  });
+
+  it('uses the fixed bottom-sheet (no floating position) on mobile', () => {
+    setMobile(true);
+    render(<AiChatBubble />);
+    fireEvent.click(launcher()!);
+
+    const dialog = screen.getByRole('dialog');
+    // Mobile keeps the CSS-driven bottom sheet: no inline positioning and no
+    // reposition control.
+    expect(dialog.style.left).toBe('');
+    expect(dialog.style.top).toBe('');
+    expect(dialog.className).toContain('bottom-0');
+    expect(
+      screen.queryByLabelText(/Move the panel/),
+    ).not.toBeInTheDocument();
   });
 });

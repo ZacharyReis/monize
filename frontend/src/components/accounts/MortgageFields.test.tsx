@@ -62,8 +62,8 @@ const mockAccounts: Account[] = [
     accountNumber: null, institution: null, institutionId: null, openingBalance: 5000, currentBalance: 5000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
-    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
-    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null,
+    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null, overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
+    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null, linkedLoanAccountId: null,
     isCanadianMortgage: false, isVariableRate: false, termMonths: null, termEndDate: null,
     amortizationMonths: null, originalPrincipal: null,
     statementDueDay: null, statementSettlementDay: null,
@@ -75,8 +75,8 @@ const mockAccounts: Account[] = [
     accountNumber: null, institution: null, institutionId: null, openingBalance: 10000, currentBalance: 10000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
-    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
-    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null,
+    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null, overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
+    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null, linkedLoanAccountId: null,
     isCanadianMortgage: false, isVariableRate: false, termMonths: null, termEndDate: null,
     amortizationMonths: null, originalPrincipal: null,
     statementDueDay: null, statementSettlementDay: null,
@@ -126,6 +126,12 @@ describe('MortgageFields', () => {
     isEditing: false,
     selectedInterestCategoryId: '',
     handleInterestCategoryChange: vi.fn(),
+    interestBookingMode: 'AUTO' as const,
+    handleInterestBookingModeChange: vi.fn(),
+    selectedOverpaymentCategoryId: '',
+    handleOverpaymentCategoryChange: vi.fn(),
+    selectedOverpaymentPayeeId: '',
+    handleOverpaymentPayeeChange: vi.fn(),
   };
 
   beforeEach(() => {
@@ -286,11 +292,32 @@ describe('MortgageFields', () => {
     expect(screen.getByText('Term Length')).toBeInTheDocument();
     expect(screen.getByText('Amortization Period (required)')).toBeInTheDocument();
     expect(screen.getByText('Canadian Mortgage')).toBeInTheDocument();
-    // Payment fields should be hidden
+    // Payment-setup fields (create-only) should be hidden
     expect(screen.queryByText('Payment Frequency (required)')).not.toBeInTheDocument();
     expect(screen.queryByText('First Payment Date (required)')).not.toBeInTheDocument();
     expect(screen.queryByText('Payment From Account (required)')).not.toBeInTheDocument();
-    expect(screen.queryByText('Interest Category')).not.toBeInTheDocument();
+    // Recognition settings (interest category + overpayment) stay available on edit
+    expect(screen.getByText('Interest Category')).toBeInTheDocument();
+    expect(screen.getByText('Overpayment recognition')).toBeInTheDocument();
+  });
+
+  it('shows the Loan Details link when editing and onViewLoanDetails is provided', () => {
+    const onViewLoanDetails = vi.fn();
+    render(<MortgageFields {...defaultProps} isEditing={true} onViewLoanDetails={onViewLoanDetails} />);
+    const link = screen.getByRole('button', { name: 'Loan Details' });
+    expect(link).toBeInTheDocument();
+    fireEvent.click(link);
+    expect(onViewLoanDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the Loan Details link when not editing', () => {
+    render(<MortgageFields {...defaultProps} isEditing={false} onViewLoanDetails={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Loan Details' })).not.toBeInTheDocument();
+  });
+
+  it('hides the Loan Details link when onViewLoanDetails is absent', () => {
+    render(<MortgageFields {...defaultProps} isEditing={true} />);
+    expect(screen.queryByRole('button', { name: 'Loan Details' })).not.toBeInTheDocument();
   });
 
   it('does not call preview API when isEditing is true', async () => {
@@ -463,5 +490,34 @@ describe('MortgageFields', () => {
   it('shows term length help text', () => {
     render(<MortgageFields {...defaultProps} />);
     expect(screen.getByText('Leave at 0 years and 0 months for no term.')).toBeInTheDocument();
+  });
+
+  it('shows the Term Length field for Canadian mortgages', () => {
+    render(<MortgageFields {...defaultProps} isCanadianMortgage={true} />);
+    expect(screen.getByText('Term Length')).toBeInTheDocument();
+  });
+
+  it('hides the Term Length field for non-Canadian mortgages but keeps the amortization period', () => {
+    render(<MortgageFields {...defaultProps} isCanadianMortgage={false} />);
+    // Term (a Canada-only contract-renewal concept) is hidden...
+    expect(screen.queryByText('Term Length')).not.toBeInTheDocument();
+    expect(screen.queryByText('Leave at 0 years and 0 months for no term.')).not.toBeInTheDocument();
+    // ...but the single repayment period a non-Canadian mortgage has is still shown.
+    expect(screen.getByText('Amortization Period (required)')).toBeInTheDocument();
+  });
+
+  it('clears a stale term when the mortgage is not Canadian', () => {
+    render(<MortgageFields {...defaultProps} isCanadianMortgage={false} termMonths={60} />);
+    expect(mockSetValue).toHaveBeenCalledWith('termMonths', 0, { shouldDirty: false });
+  });
+
+  it('does not clear the term when none is set on a non-Canadian mortgage', () => {
+    render(<MortgageFields {...defaultProps} isCanadianMortgage={false} termMonths={undefined} />);
+    expect(mockSetValue).not.toHaveBeenCalledWith('termMonths', 0, expect.anything());
+  });
+
+  it('does not clear the term for a Canadian mortgage that has one', () => {
+    render(<MortgageFields {...defaultProps} isCanadianMortgage={true} termMonths={60} />);
+    expect(mockSetValue).not.toHaveBeenCalledWith('termMonths', 0, expect.anything());
   });
 });

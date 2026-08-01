@@ -4,6 +4,7 @@
     "subtitle": "Alacaklılarınızı ve varsayılan kategorilerini yönetin",
     "deactivateUnused": "Kullanılmayanları Devre Dışı Bırak",
     "autoAssignCategories": "Kategorileri Otomatik Ata",
+    "maintenance": "Bakım",
     "autoMergePayees": "Alacaklıları Otomatik Birleştir",
     "newPayee": "+ Yeni Alacaklı",
     "searchPlaceholder": "Alacaklı ara...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Yeniden Etkinleştir",
-      "reactivateShort": "YE",
       "merge": "Birleştir",
-      "mergeShort": "B",
       "edit": "Düzenle",
-      "editShort": "D",
-      "delete": "Sil",
-      "deleteShort": "S"
+      "delete": "Sil"
     },
     "viewTransactionsTitle": "Bu alacaklının işlemlerini görüntüle",
     "uncategorizedBadge": "{count, plural, one {# kategorisiz} other {# kategorisiz}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Birleştirilecek en az bir grup seçin",
       "applied": "{groups, plural, one {# grup} other {# grup}} birleştirildi ({payees} alacaklı birleştirildi)",
       "backfilled": "{count, plural, one {# işlem kategorize edildi} other {# işlem kategorize edildi}}",
-      "aliasesSkipped": "{count, plural, one {# takma ad çakışma nedeniyle atlandı} other {# takma ad çakışma nedeniyle atlandı}}",
+      "aliasesSkipped": "{count, plural, one {# takma ad çakışma nedeniyle atlandı} other {# takma ad çakışma nedeniyle atlandı}}: {aliases}",
       "loadFailed": "Birleştirme grupları yüklenemedi",
-      "applyFailed": "Alacaklılar birleştirilemedi"
+      "applyFailed": "Alacaklılar birleştirilemedi",
+      "someGroupsFailed": "{count, plural, one {# grup birleştirilemedi} other {# grup birleştirilemedi}}: {reason}"
     },
     "categoryMatchLabel": "Yalnızca aynı kategorideki alacaklıları birleştir",
     "categoryMatchHelp": "Kategorileri farklı olduğunda alacaklıları ayırın, böylece yanlış eşleşmeler azalır.",

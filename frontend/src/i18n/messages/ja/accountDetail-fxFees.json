@@ -1,0 +1,30 @@
+{
+  "title": "外貨取引手数料",
+  "currencyFilter": { "label": "通貨", "placeholder": "すべての通貨" },
+  "chart": {
+    "title": "手数料の推移",
+    "noData": "外貨取引はまだありません",
+    "monthlyAvg": "月次平均",
+    "quarterlyAvg": "四半期平均",
+    "yearlyAvg": "年次平均",
+    "total": "手数料合計",
+    "transactions": "取引",
+    "tooltip": "{count, plural, one {# 件の取引} other {# 件の取引}}",
+    "quarterLabel": "{year}年Q{quarter}",
+    "quarterTick": "{year}年Q{quarter}",
+    "granularityLabel": "グループ化",
+    "granularity": { "auto": "自動", "month": "月", "quarter": "四半期", "year": "年" },
+    "granularityAutoTitle": "自動（{granularity}）",
+    "granularityTitle": "{label}表示"
+  },
+  "list": {
+    "title": "外貨取引",
+    "editTitle": "取引を編集",
+    "investmentLinked": "この取引は投資にリンクされています。投資エディタを開きます。",
+    "export": {
+      "success": "{count, plural, one {# 件の取引をエクスポートしました} other {# 件の取引をエクスポートしました}}",
+      "none": "エクスポートする取引がありません",
+      "failed": "取引のエクスポートに失敗しました"
+    }
+  }
+}

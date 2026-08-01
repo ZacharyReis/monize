@@ -80,6 +80,56 @@ export function CompleteStep({
     (la) => !completedSetups.has(la.accountId),
   );
 
+  // The Transactions and Investments pages restore their last-viewed account
+  // filter from localStorage, so navigating to a bare path would show a
+  // previously-imported account rather than the one just imported (issue #911).
+  // Build a destination that pins the filter to the account(s) this import
+  // touched -- an explicit URL filter takes precedence over the persisted one.
+  const viewDestination = useMemo(() => {
+    const seen = new Set<string>();
+    const accountIds: string[] = [];
+    const addId = (id: string | undefined | null) => {
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        accountIds.push(id);
+      }
+    };
+    // Accounts explicitly targeted by the imported files (single + bulk).
+    for (const f of importFiles) addId(f.selectedAccountId);
+    addId(selectedAccountId);
+    // Multi-account QIF imports create their accounts during import and leave
+    // importFiles empty, so fall back to the accounts the import created.
+    if (accountIds.length === 0 && importResult?.createdMappings) {
+      for (const id of Object.values(importResult.createdMappings.accounts)) addId(id);
+    }
+
+    if (hasInvestmentFile) {
+      // The Investments page filters by a single brokerage account, so use the
+      // first imported investment account to surface its holdings immediately.
+      const investmentFile = importFiles.find(
+        (f) => f.parsedData?.accountType === 'INVESTMENT' && f.selectedAccountId,
+      );
+      return investmentFile
+        ? `/investments?accountId=${investmentFile.selectedAccountId}`
+        : '/investments';
+    }
+
+    if (accountIds.length === 0) return '/transactions';
+
+    const params = new URLSearchParams();
+    if (accountIds.length === 1) {
+      params.set('accountId', accountIds[0]);
+    } else {
+      params.set('accountIds', accountIds.join(','));
+    }
+    // A closed account is pruned by the persisted "Show Accounts" toggle, so
+    // force it to All to keep the just-imported transactions visible.
+    if (accountIds.some((id) => accounts.find((a) => a.id === id)?.isClosed)) {
+      params.set('accountStatus', 'all');
+    }
+    return `/transactions?${params.toString()}`;
+  }, [importFiles, selectedAccountId, importResult, hasInvestmentFile, accounts]);
+
   return (
     <div className={isBulkImport ? "max-w-4xl mx-auto" : "max-w-xl mx-auto"}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -266,7 +316,7 @@ export function CompleteStep({
         <div className="flex justify-center space-x-4">
           <Button
             variant="outline"
-            onClick={() => router.push(hasInvestmentFile ? '/investments' : '/transactions')}
+            onClick={() => router.push(viewDestination)}
           >
             {hasInvestmentFile ? t('complete.viewInvestments') : t('complete.viewTransactions')}
           </Button>

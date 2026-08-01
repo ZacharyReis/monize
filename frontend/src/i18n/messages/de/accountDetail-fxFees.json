@@ -1,0 +1,30 @@
+{
+  "title": "Fremdwährungs-Transaktionsgebühren",
+  "currencyFilter": { "label": "Währungen", "placeholder": "Alle Währungen" },
+  "chart": {
+    "title": "Gebühren im Zeitverlauf",
+    "noData": "Noch keine Fremdwährungsbuchungen",
+    "monthlyAvg": "Monatsdurchschnitt",
+    "quarterlyAvg": "Quartalsdurchschnitt",
+    "yearlyAvg": "Jahresdurchschnitt",
+    "total": "Gesamtgebühren",
+    "transactions": "Buchungen",
+    "tooltip": "{count, plural, one {# Buchung} other {# Buchungen}}",
+    "quarterLabel": "Q{quarter} {year}",
+    "quarterTick": "Q{quarter} {year}",
+    "granularityLabel": "Gruppierung",
+    "granularity": { "auto": "Auto", "month": "Monat", "quarter": "Quartal", "year": "Jahr" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "{label}-Ansicht"
+  },
+  "list": {
+    "title": "Fremdwährungsbuchungen",
+    "editTitle": "Buchung bearbeiten",
+    "investmentLinked": "Diese Buchung ist mit einer Investition verknüpft. Öffnet den Investitions-Editor.",
+    "export": {
+      "success": "{count, plural, one {# Buchung exportiert} other {# Buchungen exportiert}}",
+      "none": "Keine Buchungen zum Exportieren",
+      "failed": "Buchungen konnten nicht exportiert werden"
+    }
+  }
+}

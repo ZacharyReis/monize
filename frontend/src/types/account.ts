@@ -12,6 +12,27 @@ export type AccountType =
 
 export type AccountSubType = 'INVESTMENT_CASH' | 'INVESTMENT_BROKERAGE' | null;
 
+/**
+ * Account types whose balances represent money owed rather than money held.
+ * A negative balance on these is the normal, expected state -- not something
+ * to flag as an anomaly.
+ */
+export const LIABILITY_ACCOUNT_TYPES: ReadonlySet<AccountType> = new Set<AccountType>([
+  'CREDIT_CARD',
+  'LOAN',
+  'MORTGAGE',
+  'LINE_OF_CREDIT',
+]);
+
+/** True when the account type is a liability (credit card, loan, mortgage, line of credit). */
+export function isLiabilityAccountType(type: AccountType | undefined | null): boolean {
+  return type != null && LIABILITY_ACCOUNT_TYPES.has(type);
+}
+
+/** How a loan/mortgage's interest is recorded, for rate detection. */
+export type InterestBookingMode = 'AUTO' | 'SPLIT' | 'SEPARATE';
+export const INTEREST_BOOKING_MODES: InterestBookingMode[] = ['AUTO', 'SPLIT', 'SEPARATE'];
+
 export type PaymentFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
 
 export type MortgagePaymentFrequency =
@@ -46,17 +67,37 @@ export interface Account {
   // Credit card statement fields
   statementDueDay: number | null;
   statementSettlementDay: number | null;
-  // Loan-specific fields
+  // Loan-specific fields. Mortgages persist their (possibly accelerated or
+  // semi-monthly) cadence in this same column, so the stored value may be a
+  // MortgagePaymentFrequency, not only a loan PaymentFrequency.
   paymentAmount: number | null;
-  paymentFrequency: PaymentFrequency | null;
+  paymentFrequency: PaymentFrequency | MortgagePaymentFrequency | null;
   paymentStartDate: string | null;
   sourceAccountId: string | null;
   principalCategoryId: string | null;
   interestCategoryId: string | null;
+  // How interest is recorded, for rate detection: AUTO | SPLIT | SEPARATE.
+  // Always set by the backend (defaults to AUTO); optional here so fixtures and
+  // non-loan accounts need not specify it.
+  interestBookingMode?: InterestBookingMode;
+  // Category tagging standalone overpayments (extra principal) so the loan
+  // schedule can flag them as 100% principal.
+  overpaymentCategoryId: string | null;
+  // Memo text marking a payment as a standalone overpayment (case-insensitive
+  // substring match); usable with or instead of the overpayment category.
+  overpaymentMemo: string | null;
+  // Payee whose payments count as standalone overpayments (extra principal),
+  // usable with or instead of the overpayment category / memo.
+  overpaymentPayeeId: string | null;
+  // Foreign-transaction fee: the bank's FX conversion fee (percent) booked as an
+  // percentage folded into the converted amount on foreign-entered transactions.
+  fxFeePercent: number | null;
   scheduledTransactionId: string | null;
   // Asset-specific fields
   assetCategoryId: string | null;
   dateAcquired: string | null;
+  // Links an asset/other account to its financing loan/mortgage (equity view)
+  linkedLoanAccountId: string | null;
   // Mortgage-specific fields
   isCanadianMortgage: boolean;
   isVariableRate: boolean;
@@ -93,10 +134,17 @@ export interface CreateAccountData {
   paymentStartDate?: string;
   sourceAccountId?: string;
   principalCategoryId?: string;
-  interestCategoryId?: string;
+  interestCategoryId?: string | null;
+  interestBookingMode?: InterestBookingMode;
+  overpaymentCategoryId?: string | null;
+  overpaymentMemo?: string | null;
+  overpaymentPayeeId?: string | null;
+  // Foreign-transaction fee percentage (null clears).
+  fxFeePercent?: number | null;
   // Asset-specific fields
   assetCategoryId?: string;
   dateAcquired?: string;
+  linkedLoanAccountId?: string | null;
   // Mortgage-specific fields
   isCanadianMortgage?: boolean;
   isVariableRate?: boolean;

@@ -41,6 +41,11 @@ services:
       DATABASE_NAME: monize
       DATABASE_USER: monize_user
       DATABASE_PASSWORD: monize_password
+      # RLS stays off for E2E (behavior identical to pre-RLS). Keys present so
+      # the compose files stay uniform; see docs/future-plans/row-level-security.md.
+      RLS_MODE: "off"
+      DATABASE_APP_USER: monize_app
+      DATABASE_APP_PASSWORD: ""
       JWT_SECRET: test-jwt-secret-for-ci-minimum-32-characters-long
       JWT_EXPIRATION: 15m
       PUBLIC_APP_URL: http://localhost:3001

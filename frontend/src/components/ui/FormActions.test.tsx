@@ -43,4 +43,28 @@ describe('FormActions', () => {
     const { container } = render(<FormActions className="custom-class" />);
     expect(container.querySelector('.custom-class')).toBeInTheDocument();
   });
+
+  it('wraps only the buttons when anchorProps is given', () => {
+    const onCancel = vi.fn();
+    const { container } = render(
+      <FormActions
+        onCancel={onCancel}
+        anchorProps={{ 'data-tour-id': 'transaction-form-actions' }}
+      />,
+    );
+    const anchor = container.querySelector(
+      '[data-tour-id="transaction-form-actions"]',
+    )!;
+    // A guided tour spotlights this element, so it must hold the button pair
+    // and nothing else -- not the full-width row around them.
+    expect(anchor).toBeInTheDocument();
+    expect(anchor.querySelectorAll('button')).toHaveLength(2);
+    expect(anchor.parentElement).toBe(container.firstChild);
+  });
+
+  it('renders the buttons unwrapped without anchorProps', () => {
+    const { container } = render(<FormActions onCancel={vi.fn()} />);
+    expect(container.querySelector('[data-tour-id]')).toBeNull();
+    expect((container.firstChild as HTMLElement).children).toHaveLength(2);
+  });
 });

@@ -65,11 +65,16 @@
     "cash": "現金",
     "untagged": "無標籤",
     "noTagData": "沒有可顯示的帶標籤持倉。為你的證券新增標籤即可按標籤查看曝險。",
-    "tagExposureNote": "按標籤的曝險：帶有多個標籤的持倉會在每個標籤下全額計入，因此百分比合計可能超過100%。",
+    "noCountryData": "無國家/地區配置資料。",
+    "otherCountries": "其他國家/地區",
     "groupBy": {
       "security": "按證券",
-      "tag": "按標籤"
-    }
+      "tag": "按標籤",
+      "country": "依國家/地區",
+      "tagKey": "依鍵"
+    },
+    "noKeyData": "沒有持倉包含此標籤鍵的值。將證券標記為 key:value（例如 country:usa）以檢視此細分。",
+    "keySelectorLabel": "用於彙總的標籤鍵"
   },
   "holdingsList": {
     "title": "持倉",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "投資組合價值歷史",
+    "viewReport": "查看報告",
+    "viewReportTitle": "開啟完整的投資組合價值報告",
     "updatingLabel": "更新中…",
-    "updatingAriaLabel": "更新中",
     "intradayFallbackWarningAriaLabel": "無法取得詳細的盤中報價",
     "intradayUnavailableTitle": "此科目組合無法使用盤中檢視",
     "intradayUnavailableDescription": "一個或多個持倉使用不提供盤中資料的報價來源（MSN Money），請切換至較長的時間範圍以查看每日快照。",

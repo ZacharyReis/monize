@@ -24,6 +24,16 @@
     "createButton": "Crea le tue categorie",
     "hint": "Il set predefinito include categorie comuni di entrate e uscite con sottocategorie"
   },
+  "importDialog": {
+    "title": "Importa le categorie predefinite",
+    "description": "Parti da un set pronto di categorie di entrate e uscite. Scegli il tuo paese per ottenere anche le sue categorie fiscali e previdenziali, e la lingua in cui creare i nomi.",
+    "countryLabel": "Paese",
+    "countryHelp": "Aggiunge categorie specifiche del paese, come imposte e prestazioni locali. Scegli il set generico se il tuo paese non è elencato.",
+    "genericCountry": "Generico (nessuna categoria specifica per paese)",
+    "languageLabel": "Lingua",
+    "languageHelp": "Le categorie vengono create con i nomi in questa lingua. Puoi rinominarle in qualsiasi momento.",
+    "submit": "Importa categorie"
+  },
   "toasts": {
     "created": "Categoria creata con successo",
     "updated": "Categoria aggiornata con successo",

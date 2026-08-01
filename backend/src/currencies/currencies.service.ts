@@ -4,6 +4,7 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
+  OnApplicationBootstrap,
 } from "@nestjs/common";
 import { tr } from "../i18n/translate";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -12,6 +13,12 @@ import { Currency } from "./entities/currency.entity";
 import { UserCurrencyPreference } from "./entities/user-currency-preference.entity";
 import { CreateCurrencyDto } from "./dto/create-currency.dto";
 import { UpdateCurrencyDto } from "./dto/update-currency.dto";
+import {
+  CURRENCY_METADATA,
+  resolveCurrencyMetadata,
+  getCurrencyCatalog,
+  type CurrencyMetadata,
+} from "./currency-metadata";
 
 export interface CurrencyLookupResult {
   code: string;
@@ -34,59 +41,13 @@ export interface UserCurrencyView {
   createdAt: Date;
 }
 
-// Known currency metadata for lookup (Yahoo Finance doesn't return symbol/name directly)
-const CURRENCY_METADATA: Record<
-  string,
-  { name: string; symbol: string; decimalPlaces: number }
-> = {
-  USD: { name: "US Dollar", symbol: "$", decimalPlaces: 2 },
-  EUR: { name: "Euro", symbol: "\u20AC", decimalPlaces: 2 },
-  JPY: { name: "Japanese Yen", symbol: "\u00A5", decimalPlaces: 0 },
-  GBP: { name: "British Pound", symbol: "\u00A3", decimalPlaces: 2 },
-  AUD: { name: "Australian Dollar", symbol: "A$", decimalPlaces: 2 },
-  CAD: { name: "Canadian Dollar", symbol: "CA$", decimalPlaces: 2 },
-  CHF: { name: "Swiss Franc", symbol: "CHF", decimalPlaces: 2 },
-  CNY: { name: "Chinese Yuan", symbol: "\u00A5", decimalPlaces: 2 },
-  HKD: { name: "Hong Kong Dollar", symbol: "HK$", decimalPlaces: 2 },
-  NZD: { name: "New Zealand Dollar", symbol: "NZ$", decimalPlaces: 2 },
-  SEK: { name: "Swedish Krona", symbol: "kr", decimalPlaces: 2 },
-  KRW: { name: "South Korean Won", symbol: "\u20A9", decimalPlaces: 0 },
-  SGD: { name: "Singapore Dollar", symbol: "S$", decimalPlaces: 2 },
-  NOK: { name: "Norwegian Krone", symbol: "kr", decimalPlaces: 2 },
-  MXN: { name: "Mexican Peso", symbol: "MX$", decimalPlaces: 2 },
-  INR: { name: "Indian Rupee", symbol: "\u20B9", decimalPlaces: 2 },
-  RUB: { name: "Russian Ruble", symbol: "\u20BD", decimalPlaces: 2 },
-  ZAR: { name: "South African Rand", symbol: "R", decimalPlaces: 2 },
-  TRY: { name: "Turkish Lira", symbol: "\u20BA", decimalPlaces: 2 },
-  BRL: { name: "Brazilian Real", symbol: "R$", decimalPlaces: 2 },
-  TWD: { name: "New Taiwan Dollar", symbol: "NT$", decimalPlaces: 2 },
-  DKK: { name: "Danish Krone", symbol: "kr", decimalPlaces: 2 },
-  PLN: { name: "Polish Zloty", symbol: "z\u0142", decimalPlaces: 2 },
-  THB: { name: "Thai Baht", symbol: "\u0E3F", decimalPlaces: 2 },
-  IDR: { name: "Indonesian Rupiah", symbol: "Rp", decimalPlaces: 0 },
-  HUF: { name: "Hungarian Forint", symbol: "Ft", decimalPlaces: 2 },
-  CZK: { name: "Czech Koruna", symbol: "K\u010D", decimalPlaces: 2 },
-  ILS: { name: "Israeli Shekel", symbol: "\u20AA", decimalPlaces: 2 },
-  CLP: { name: "Chilean Peso", symbol: "CL$", decimalPlaces: 0 },
-  PHP: { name: "Philippine Peso", symbol: "\u20B1", decimalPlaces: 2 },
-  SAR: { name: "Saudi Riyal", symbol: "\uFDFC", decimalPlaces: 2 },
-  AED: { name: "UAE Dirham", symbol: "AED", decimalPlaces: 2 },
-  COP: { name: "Colombian Peso", symbol: "COL$", decimalPlaces: 2 },
-  MYR: { name: "Malaysian Ringgit", symbol: "RM", decimalPlaces: 2 },
-  PEN: { name: "Peruvian Sol", symbol: "S/", decimalPlaces: 2 },
-  ARS: { name: "Argentine Peso", symbol: "AR$", decimalPlaces: 2 },
-  NGN: { name: "Nigerian Naira", symbol: "\u20A6", decimalPlaces: 2 },
-  EGP: { name: "Egyptian Pound", symbol: "E\u00A3", decimalPlaces: 2 },
-  VND: { name: "Vietnamese Dong", symbol: "\u20AB", decimalPlaces: 0 },
-  PKR: { name: "Pakistani Rupee", symbol: "\u20A8", decimalPlaces: 2 },
-  BDT: { name: "Bangladeshi Taka", symbol: "\u09F3", decimalPlaces: 2 },
-  KWD: { name: "Kuwaiti Dinar", symbol: "KWD", decimalPlaces: 3 },
-  BHD: { name: "Bahraini Dinar", symbol: "BHD", decimalPlaces: 3 },
-  OMR: { name: "Omani Rial", symbol: "OMR", decimalPlaces: 3 },
-};
+// The currency every new user's preferences default to (see
+// buildDefaultPreferences). It must exist because user_preferences.default_currency
+// has a foreign key to currencies(code).
+const DEFAULT_CURRENCY_CODE = "USD";
 
 @Injectable()
-export class CurrenciesService {
+export class CurrenciesService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CurrenciesService.name);
 
   constructor(
@@ -96,6 +57,23 @@ export class CurrenciesService {
     private userCurrencyPrefRepository: Repository<UserCurrencyPreference>,
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * Currencies are created on demand rather than pre-seeded, but a brand-new
+   * instance still needs the default-preference currency to exist: registration
+   * writes user_preferences.default_currency = 'USD', which has a foreign key to
+   * currencies(code). Guarantee that single currency on startup so the first
+   * user can register before anyone picks a currency at onboarding. Idempotent.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      await this.ensureSystemCurrency(DEFAULT_CURRENCY_CODE);
+    } catch (err) {
+      this.logger.warn(
+        `Could not ensure default currency ${DEFAULT_CURRENCY_CODE} on startup: ${err?.message ?? err}`,
+      );
+    }
+  }
 
   async create(
     userId: string,
@@ -113,6 +91,21 @@ export class CurrenciesService {
         where: { userId, currencyCode: code },
       });
       if (existingPref) {
+        // Distinguish an already-active currency from one the user previously
+        // deactivated: the inactive case ships a machine-readable `errorCode`
+        // so the UI can offer to reactivate it instead of leaving the user
+        // stuck (the currency is hidden from their active list).
+        if (!existingPref.isActive) {
+          throw new ConflictException({
+            message: tr(
+              "errors.currencies.alreadyInListInactive",
+              `Currency "${code}" is already in your list but currently inactive. Reactivate it to use it.`,
+              { code },
+            ),
+            errorCode: "CURRENCY_INACTIVE",
+            currencyCode: code,
+          });
+        }
         throw new ConflictException(
           tr(
             "errors.currencies.alreadyInList",
@@ -175,7 +168,59 @@ export class CurrenciesService {
 
     query += ` ORDER BY c.code ASC`;
 
-    return this.dataSource.query(query, [userId]);
+    const rows: UserCurrencyView[] = await this.dataSource.query(query, [
+      userId,
+    ]);
+
+    // A fresh instance no longer pre-seeds a list of currencies; the user's
+    // chosen currency is created when they pick it at onboarding. If they
+    // skipped onboarding this list is empty on first use, so lazily create
+    // their default-preference currency (with a proper symbol) here.
+    if (rows.length === 0) {
+      const prefRows: Array<{ default_currency: string | null }> =
+        await this.dataSource.query(
+          `SELECT default_currency FROM user_preferences WHERE user_id = $1`,
+          [userId],
+        );
+      const defaultCurrency = prefRows[0]?.default_currency;
+      if (defaultCurrency) {
+        await this.ensureSystemCurrency(defaultCurrency);
+        return this.dataSource.query(query, [userId]);
+      }
+    }
+
+    return rows;
+  }
+
+  /**
+   * The catalog of known currencies (curated metadata) used to populate the
+   * onboarding picker without pre-seeding every currency into the database.
+   */
+  getCatalog(): CurrencyLookupResult[] {
+    return getCurrencyCatalog();
+  }
+
+  /**
+   * Ensure a system currency row exists for `code`, creating it from the
+   * curated/derived metadata (name, symbol, decimal places) when missing.
+   * Idempotent and safe to call on every default-currency change. Used so we
+   * create a currency on demand -- with a real symbol -- instead of seeding a
+   * whole list up front.
+   */
+  async ensureSystemCurrency(code: string): Promise<void> {
+    const upper = code.toUpperCase();
+    const existing = await this.currencyRepository.findOne({
+      where: { code: upper },
+    });
+    if (existing) return;
+
+    const meta = resolveCurrencyMetadata(upper);
+    await this.dataSource.query(
+      `INSERT INTO currencies (code, name, symbol, decimal_places, is_active, created_by_user_id)
+       VALUES ($1, $2, $3, $4, true, NULL)
+       ON CONFLICT (code) DO NOTHING`,
+      [upper, meta.name, meta.symbol, meta.decimalPlaces],
+    );
   }
 
   async findOne(code: string): Promise<Currency> {
@@ -463,7 +508,7 @@ export class CurrenciesService {
    */
   private searchMetadataByText(
     query: string,
-  ): { code: string; metadata: (typeof CURRENCY_METADATA)[string] } | null {
+  ): { code: string; metadata: CurrencyMetadata } | null {
     const lowerQuery = query.toLowerCase();
 
     // Exact name match first
@@ -476,7 +521,7 @@ export class CurrenciesService {
     // Substring match (e.g., "Ringgit" matches "Malaysian Ringgit")
     const matches: Array<{
       code: string;
-      metadata: (typeof CURRENCY_METADATA)[string];
+      metadata: CurrencyMetadata;
     }> = [];
     for (const [code, meta] of Object.entries(CURRENCY_METADATA)) {
       if (meta.name.toLowerCase().includes(lowerQuery)) {
@@ -492,7 +537,7 @@ export class CurrenciesService {
    */
   private async verifyAndReturnCurrency(
     code: string,
-    metadata: (typeof CURRENCY_METADATA)[string],
+    metadata: CurrencyMetadata,
   ): Promise<CurrencyLookupResult> {
     try {
       const yahooSymbol = `${code}USD=X`;

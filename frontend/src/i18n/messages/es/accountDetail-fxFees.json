@@ -1,0 +1,30 @@
+{
+  "title": "Comisiones por transacción en moneda extranjera",
+  "currencyFilter": { "label": "Monedas", "placeholder": "Todas las monedas" },
+  "chart": {
+    "title": "Comisiones a lo largo del tiempo",
+    "noData": "Aún no hay transacciones en moneda extranjera",
+    "monthlyAvg": "Prom. mensual",
+    "quarterlyAvg": "Prom. trimestral",
+    "yearlyAvg": "Prom. anual",
+    "total": "Total de comisiones",
+    "transactions": "Transacciones",
+    "tooltip": "{count, plural, one {# transacción} other {# transacciones}}",
+    "quarterLabel": "T{quarter} {year}",
+    "quarterTick": "T{quarter} {year}",
+    "granularityLabel": "Agrupación",
+    "granularity": { "auto": "Auto", "month": "Mes", "quarter": "Trimestre", "year": "Año" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "Vista por {label}"
+  },
+  "list": {
+    "title": "Transacciones en moneda extranjera",
+    "editTitle": "Editar transacción",
+    "investmentLinked": "Esta transacción está vinculada a una inversión. Abriendo el editor de inversiones.",
+    "export": {
+      "success": "{count, plural, one {Se exportó # transacción} other {Se exportaron # transacciones}}",
+      "none": "No hay transacciones para exportar",
+      "failed": "Error al exportar transacciones"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import * as fs from "fs";
 import * as path from "path";
+import { provisionAppRole } from "./common/db/app-role";
 
 const SCHEMA_FILENAME = "schema.sql";
 
@@ -37,9 +38,28 @@ async function initDatabase() {
     database: requiredEnv("DATABASE_NAME"),
   });
 
+  // Surface Postgres NOTICE/WARNING messages (e.g. the insufficient-privilege
+  // warning raised when the owner cannot create the runtime role on CNPG).
+  client.on("notice", (msg) => {
+    if (msg?.message) {
+      console.warn(`Postgres: ${msg.message}`);
+    }
+  });
+
   try {
     await client.connect();
     console.log("Connected to database");
+
+    // RLS role + grants (Phase 1). Runs on EVERY startup, BEFORE the
+    // "tables already exist" early return below -- placed after it, the block
+    // would never run on an initialized DB and password rotation / grant
+    // re-apply would silently break. Idempotent; never fatal (missing password
+    // or insufficient privilege degrade to warnings) so an upgrade at
+    // RLS_MODE=off is unaffected. No migration contains role or grant SQL.
+    await provisionAppRole(client, {
+      appUser: process.env.DATABASE_APP_USER,
+      appPassword: process.env.DATABASE_APP_PASSWORD,
+    });
 
     // Check if tables already exist
     const result = await client.query(`

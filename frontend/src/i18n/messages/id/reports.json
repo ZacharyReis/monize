@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Linimasa Pelunasan Utang",
       "loan-amortization": "Jadwal Amortisasi Pinjaman",
       "credit-utilization": "Utilisasi Kredit",
+      "loan-overpayment-simulator": "Simulator Pelunasan Dipercepat Pinjaman",
       "investment-performance": "Kinerja Investasi",
       "dividend-income": "Laba Modal, Dividen & Bunga",
       "sector-weightings": "Bobot Sektor",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Alokasi Tipe Keamanan Dokumen",
       "geographic-allocation": "Alokasi Geografis/Bursa",
       "dividend-yield-growth": "Imbal Hasil Dividen & Pertumbuhan",
-      "security-performance": "Kinerja Keamanan Dokumen Individual",
+      "security-performance": "Kinerja Efek",
       "currency-exposure": "Eksposur Mata Uang",
       "monte-carlo-simulation": "Simulasi Monte Carlo",
       "recurring-expenses": "Pelacak Pengeluaran Berulang",
       "spending-anomalies": "Anomali Pengeluaran",
       "weekend-weekday-spending": "Pengeluaran Akhir Pekan vs Hari Kerja",
       "monthly-comparison": "Perbandingan Bulanan",
+      "foreign-currency-fees": "Biaya Transaksi Mata Uang Asing",
       "uncategorized-transactions": "Transaksi Belum Dikategorikan",
       "duplicate-transactions": "Pencari Transaksi Duplikat",
       "upcoming-bills": "Kalender Tagihan yang Akan Datang",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualisasikan kemajuan pengurangan utang Anda dengan proyeksi tanggal pelunasan.",
       "loan-amortization": "Jadwal pembayaran terperinci untuk hipotek dan pinjaman dengan rincian pokok vs bunga.",
       "credit-utilization": "Lihat seberapa banyak kredit yang tersedia yang Anda gunakan di kartu kredit dan jalur kredit.",
+      "loan-overpayment-simulator": "Pilih pinjaman dan simulasikan pembayaran tambahan untuk melihat seberapa cepat lunas dan berapa banyak bunga yang bisa Anda hemat.",
       "investment-performance": "Lacak imbal hasil portofolio, keuntungan/kerugian, dan alokasi aset dari waktu ke waktu.",
       "dividend-income": "Lacak laba modal dan kerugian (direalisasi + belum direalisasi) bersama pendapatan dividen dan bunga.",
       "sector-weightings": "Analisis eksposur sektor portofolio dari saham individual dan ETF.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Lihat alokasi portofolio berdasarkan tipe aset (saham, ETF, reksadana, obligasi) dengan penelusuran ke kepemilikan.",
       "geographic-allocation": "Analisis eksposur geografis portofolio berdasarkan bursa dan wilayah untuk wawasan diversifikasi.",
       "dividend-yield-growth": "Lacak imbal hasil dividen, imbal hasil per keamanan dokumen, pertumbuhan tahun ke tahun, dan analisis frekuensi pembayaran.",
-      "security-performance": "Penyelaman mendalam ke kinerja keamanan dokumen individual dengan riwayat harga, transaksi, dan imbal hasil.",
+      "security-performance": "Penyelaman mendalam ke riwayat harga, transaksi, dan imbal hasil suatu efek, atau bandingkan kinerja beberapa efek dalam satu grafik.",
       "currency-exposure": "Pahami risiko mata uang dengan alokasi portofolio berdasarkan mata uang dan detail kurs.",
       "monte-carlo-simulation": "Proyeksikan hasil portofolio masa depan dengan ribuan jalur imbal hasil yang diacak dan pustaka skenario yang disimpan.",
       "recurring-expenses": "Identifikasi dan pantau langganan, keanggotaan, dan tagihan berulang.",
       "spending-anomalies": "Deteksi transaksi yang sangat besar dan lonjakan pengeluaran yang perlu diperhatikan.",
       "weekend-weekday-spending": "Analisis pola pengeluaran Anda berdasarkan hari dalam seminggu untuk memahami kebiasaan.",
       "monthly-comparison": "Bandingkan bulan apa pun dengan bulan sebelumnya di seluruh pendapatan, pengeluaran, nilai bersih, dan investasi.",
+      "foreign-currency-fees": "Lacak biaya transaksi luar negeri yang dikenakan di seluruh akun yang menerapkan biaya konversi.",
       "uncategorized-transactions": "Temukan dan kategorikan transaksi yang tidak memiliki kategori.",
       "duplicate-transactions": "Identifikasi entri duplikat potensial yang mungkin perlu ditinjau atau dihapus.",
       "upcoming-bills": "Kalender visual transaksi terjadwal dan tanggal jatuh tempo tagihan yang akan datang.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Gagal memuat data laporan. Silakan coba lagi.",
     "retry": "Coba lagi"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Tidak ada akun yang memiliki biaya transaksi luar negeri yang dikonfigurasi. Tetapkan persentase biaya pada akun untuk melacak biaya mata uang asingnya di sini."
   },
   "accountBalances": {
     "totalAssets": "Total Aset",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Akhir: ",
     "cashFlowEventPdfStarts": "Dimulai: ",
     "cashFlowEventPdfEnds": "Berakhir: ",
-    "cashFlowDefaultName": "Arus kas",
     "cashFlowPerYear": "/ thn",
     "tooltipRow90th": "Persentil ke-90",
     "tooltipRow75th": "Persentil ke-75",
@@ -1104,6 +1110,10 @@
     "noData": "Tidak ada data investasi untuk periode ini.",
     "tooltipPortfolio": "Portofolio:",
     "allAccounts": "Semua Akun",
+    "viewTotal": "Total",
+    "viewSecurities": "Per sekuritas",
+    "seriesCash": "Tunai",
+    "seriesOther": "Sekuritas lainnya",
     "colDate": "Tanggal",
     "colPortfolioValue": "Nilai Portofolio",
     "breakdownTitle": "Rincian Portofolio Saat Ini",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% dari Portofolio"
   },
   "securityPerformance": {
-    "selectPrompt": "Pilih keamanan dokumen di atas untuk melihat detail kinerjanya.",
-    "selectSecurityPlaceholder": "Pilih keamanan dokumen...",
+    "selectPrompt": "Pilih satu atau beberapa efek di atas untuk melihat kinerjanya. Pilih dua atau lebih untuk membandingkannya dalam satu grafik.",
+    "selectSecuritiesPlaceholder": "Pilih efek...",
+    "comparisonTitle": "Perbandingan Kinerja",
+    "comparisonSubtitle": "Imbal hasil kumulatif setiap efek yang dipilih, disesuaikan ke 0% pada harga pertama yang tersedia agar dapat dibandingkan dalam satu skala tanpa memandang harga atau mata uang.",
+    "comparisonNoData": "Tidak ada riwayat harga yang tersedia untuk efek yang dipilih.",
+    "comparisonError": "Tidak dapat memuat riwayat harga. Silakan coba lagi.",
     "viewPriceChart": "Grafik Harga",
     "viewTransactions": "Transaksi",
     "viewDividends": "Dividen",
@@ -1303,7 +1317,7 @@
     "colTotal": "Total",
     "colType": "Tipe",
     "colAmount": "Jumlah",
-    "pdfTitle": "Kinerja Keamanan Dokumen",
+    "pdfTitle": "Kinerja Efek",
     "pdfCurrentValue": "Nilai Saat Ini",
     "pdfCostBasis": "Dasar Biaya",
     "pdfTotalReturn": "Total Imbal Hasil",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Total Kepemilikan",
     "largestType": "Tipe Terbesar",
     "assetTypeAllocation": "Alokasi Tipe Aset",
-    "typeStocks": "Saham",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "Reksadana",
-    "typeBonds": "Obligasi",
-    "typeCash": "Tunai",
     "holdingsCount": "{count, plural, one {# akun} other {# akun}}",
     "total": "Total",
     "tooltipHoldings": "{count, plural, one {# kepemilikan} other {# kepemilikan}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Nama diperlukan"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Pilih Akun Pinjaman",
+    "viewTransactions": "Lihat Transaksi",
+    "empty": "Tidak ada akun pinjaman, hipotek, atau jalur kredit yang ditemukan."
   }
 }

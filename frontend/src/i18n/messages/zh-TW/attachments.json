@@ -1,0 +1,19 @@
+{
+  "title": "附件",
+  "empty": "尚無附件",
+  "upload": "新增附件",
+  "download": "下載",
+  "delete": "刪除",
+  "remove": "移除",
+  "pendingHint": "檔案將在您儲存交易時上傳。",
+  "deleteConfirmTitle": "刪除附件？",
+  "deleteConfirmMessage": "「{name}」將被永久刪除。",
+  "uploaded": "已新增附件",
+  "deleted": "已刪除附件",
+  "loadFailed": "載入附件失敗",
+  "uploadFailed": "上傳附件失敗",
+  "deleteFailed": "刪除附件失敗",
+  "tooLarge": "檔案過大（最大 {max}）",
+  "unsupported": "不支援的檔案類型。允許：圖片或 PDF",
+  "tooMany": "每筆交易最多 {max} 個附件"
+}

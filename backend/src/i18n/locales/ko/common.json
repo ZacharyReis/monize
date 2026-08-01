@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "현금",
     "brokerage": "증권"
+  },
+  "import": {
+    "voidedTransactionNote": "원본에서 무효 처리되었습니다. 원래 금액이 내보내기에서 누락되어 0으로 가져왔습니다."
   }
 }

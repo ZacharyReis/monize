@@ -104,8 +104,12 @@
       "lookupTooShort": "Masukkan kode atau nama mata uang (minimal 2 karakter) untuk mencari",
       "found": "Ditemukan: {details}",
       "notFound": "Tidak ada mata uang ditemukan untuk \"{query}\"",
-      "lookupFailed": "Pencarian gagal - silakan coba lagi"
-    }
+      "lookupFailed": "Pencarian gagal - silakan coba lagi",
+      "reactivateFailed": "Gagal mengaktifkan kembali mata uang"
+    },
+    "inactiveNotice": "{code} sudah ada di daftar Anda, tetapi tidak aktif.",
+    "reactivateButton": "Aktifkan kembali {code}",
+    "reactivating": "Mengaktifkan kembali..."
   },
   "validation": {
     "codeLength": "Kode mata uang harus tepat 3 karakter",

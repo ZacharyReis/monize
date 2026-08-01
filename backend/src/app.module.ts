@@ -18,6 +18,7 @@ import { MustChangePasswordGuard } from "./auth/guards/must-change-password.guar
 import { PatScopeGuard } from "./auth/guards/pat-scope.guard";
 import { CsrfRefreshInterceptor } from "./common/interceptors/csrf-refresh.interceptor";
 import { RequestContextInterceptor } from "./common/interceptors/request-context.interceptor";
+import { parseRlsMode, resolveRlsDatabaseAuth } from "./common/db/rls-config";
 import { DemoModeModule } from "./common/demo-mode.module";
 import { UserPreference } from "./users/entities/user-preference.entity";
 import { User } from "./users/entities/user.entity";
@@ -26,6 +27,7 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { AccountsModule } from "./accounts/accounts.module";
 import { TransactionsModule } from "./transactions/transactions.module";
+import { AttachmentsModule } from "./attachments/attachments.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { CurrenciesModule } from "./currencies/currencies.module";
 import { SecuritiesModule } from "./securities/securities.module";
@@ -47,6 +49,8 @@ import { McpModule } from "./mcp/mcp.module";
 import { OAuthModule } from "./oauth/oauth.module";
 import { BudgetsModule } from "./budgets/budgets.module";
 import { TagsModule } from "./tags/tags.module";
+import { LoanScenariosModule } from "./loan-scenarios/loan-scenarios.module";
+import { LoanRateChangesModule } from "./loan-rate-changes/loan-rate-changes.module";
 import { BackupModule } from "./backup/backup.module";
 import { ActionHistoryModule } from "./action-history/action-history.module";
 import { UpdatesModule } from "./updates/updates.module";
@@ -67,25 +71,42 @@ import { I18nModule } from "./i18n/i18n.module";
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: "postgres",
-        host: configService.get("DATABASE_HOST"),
-        port: configService.get("DATABASE_PORT"),
-        username: configService.get("DATABASE_USER"),
-        password: configService.get("DATABASE_PASSWORD"),
-        database: configService.get("DATABASE_NAME"),
-        entities: [__dirname + "/**/*.entity{.ts,.js}"],
-        synchronize: false, // Use migrations in production
-        logging: ["error"],
-        ssl:
-          configService.get("DATABASE_SSL") === "true"
-            ? {
-                rejectUnauthorized:
-                  configService.get("DATABASE_SSL_REJECT_UNAUTHORIZED") !==
-                  "false",
-              }
-            : false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        // RLS runtime mode selects both GUC emission and the DB role. Both
+        // parses throw on misconfiguration (invalid mode, or enforce without
+        // DATABASE_APP_PASSWORD), which refuses the boot -- the safe outcome.
+        // At off/shadow the runtime keeps the owner credentials, so the image
+        // is deployable before the monize_app role exists and a revert is one
+        // flag flip. No pool-size change: connections are held only for each
+        // short tenant transaction (see the RLS design doc, Phase 1).
+        const rlsMode = parseRlsMode(configService.get("RLS_MODE"));
+        const { username, password } = resolveRlsDatabaseAuth({
+          mode: rlsMode,
+          databaseUser: configService.get("DATABASE_USER"),
+          databasePassword: configService.get("DATABASE_PASSWORD"),
+          appUser: configService.get("DATABASE_APP_USER"),
+          appPassword: configService.get("DATABASE_APP_PASSWORD"),
+        });
+        return {
+          type: "postgres",
+          host: configService.get("DATABASE_HOST"),
+          port: configService.get("DATABASE_PORT"),
+          username,
+          password,
+          database: configService.get("DATABASE_NAME"),
+          entities: [__dirname + "/**/*.entity{.ts,.js}"],
+          synchronize: false, // Use migrations in production
+          logging: ["error"],
+          ssl:
+            configService.get("DATABASE_SSL") === "true"
+              ? {
+                  rejectUnauthorized:
+                    configService.get("DATABASE_SSL_REJECT_UNAUTHORIZED") !==
+                    "false",
+                }
+              : false,
+        };
+      },
     }),
 
     // Rate limiting — global default; auth endpoints override with stricter limits
@@ -117,6 +138,7 @@ import { I18nModule } from "./i18n/i18n.module";
     UsersModule,
     AccountsModule,
     TransactionsModule,
+    AttachmentsModule,
     CategoriesModule,
     PayeesModule,
     InstitutionsModule,
@@ -137,6 +159,8 @@ import { I18nModule } from "./i18n/i18n.module";
     OAuthModule,
     BudgetsModule,
     TagsModule,
+    LoanScenariosModule,
+    LoanRateChangesModule,
     BackupModule,
     ActionHistoryModule,
     UpdatesModule,

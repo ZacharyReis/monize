@@ -8,6 +8,7 @@
     "title": "Comptes favoris",
     "empty": "Aucun compte favori pour l'instant. Marquez des comptes comme favoris pour les voir ici.",
     "reorder": "Réorganiser",
+    "dragToReorder": "Faites glisser les comptes pour les réorganiser, ou utilisez les boutons fléchés.",
     "done": "Terminé",
     "moveUp": "Déplacer vers le haut",
     "moveDown": "Déplacer vers le bas",
@@ -87,6 +88,7 @@
       "noLosers": "Aucun perdant aujourd'hui."
     },
     "dailyChange": "Variation quotidienne",
+    "openPriceHistory": "Historique du cours de {symbol}",
     "refreshPrices": "Actualiser les cours",
     "viewPortfolio": "Voir le portefeuille",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "Aucun titre favori pour l'instant. Rendez-vous sur la <securitiesLink>page Titres</securitiesLink> et mettez en favori les titres que vous souhaitez suivre ici.",
     "noPriceYet": "Aucun cours pour l'instant",
     "dailyChange": "Variation quotidienne",
+    "openPriceHistory": "Historique du cours de {symbol}",
     "refreshPrices": "Actualiser les cours",
     "manage": "Gérer les titres"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "Dépenses par catégorie",
     "empty": "Aucune donnée de dépenses pour cette période.",
-    "past30Days": "30 derniers jours",
     "total": "Total",
     "uncategorized": "Non catégorisé",
     "other": "Autre"
   },
   "incomeExpenses": {
     "title": "Revenus et dépenses",
-    "last5Weeks": "5 dernières semaines",
-    "weekOf": "Semaine du {date}",
     "income": "Revenus",
     "expenses": "Dépenses",
     "net": "Net"
+  },
+  "customize": {
+    "button": "Personnaliser",
+    "title": "Personnaliser le tableau de bord",
+    "description": "La disposition ci-dessous reflète votre tableau de bord : les widgets s'enchaînent de gauche à droite, deux par ligne sur les grands écrans.",
+    "moveEarlier": "Avancer {name}",
+    "moveLater": "Reculer {name}",
+    "dragToReorder": "Faites glisser les widgets pour les réorganiser, ou utilisez les boutons fléchés.",
+    "hiddenWidgets": "Widgets masqués",
+    "hide": "Masquer {name}",
+    "show": "Afficher {name}",
+    "atLeastOne": "Sélectionnez au moins un widget à afficher sur le tableau de bord.",
+    "reset": "Réinitialiser par défaut",
+    "toasts": {
+      "saveFailed": "Échec de l'enregistrement de la disposition du tableau de bord"
+    }
+  },
+  "favouriteReports": {
+    "title": "Rapports favoris",
+    "empty": "Aucun rapport favori pour l’instant. Mettez des rapports en favori sur la page Rapports pour les voir ici.",
+    "browseReports": "Parcourir les rapports"
+  },
+  "widgets": {
+    "configure": "Configurer {name}",
+    "done": "Terminé",
+    "configSaveFailed": "Impossible d'enregistrer les paramètres du widget. Veuillez réessayer.",
+    "timeframe": "Période",
+    "accounts": "Comptes",
+    "chartType": "Type de graphique",
+    "view": "Vue",
+    "displayName": "Nom d'affichage",
+    "description": "Description",
+    "descriptionPlaceholder": "Ajoutez une description facultative",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "Tout"
+    }
+  },
+  "portfolioValue": {
+    "title": "Valeur du portefeuille",
+    "empty": "Aucun historique d'investissement à afficher pour l'instant.",
+    "refresh": "Actualiser la valeur actuelle"
+  },
+  "spendingByPayee": {
+    "title": "Dépenses par bénéficiaire",
+    "empty": "Aucune dépense sur cette période.",
+    "totalLabel": "Total"
+  },
+  "monthlySpendingTrend": {
+    "title": "Tendance mensuelle des dépenses",
+    "empty": "Aucune donnée pour cette période.",
+    "expenses": "Dépenses",
+    "income": "Revenus"
+  },
+  "incomeBySource": {
+    "title": "Revenus par source",
+    "empty": "Aucun revenu sur cette période.",
+    "totalLabel": "Revenus totaux"
+  },
+  "creditUtilizationAccounts": {
+    "title": "Utilisation du crédit par compte",
+    "empty": "Aucun compte de crédit avec une limite définie.",
+    "utilization": "Utilisation",
+    "used": "Utilisé"
+  },
+  "creditUtilizationTotal": {
+    "title": "Utilisation totale du crédit",
+    "empty": "Aucun compte de crédit avec une limite définie.",
+    "used": "Utilisé",
+    "available": "Disponible"
+  },
+  "sectorWeightings": {
+    "title": "Répartition sectorielle",
+    "empty": "Aucune donnée sectorielle disponible.",
+    "direct": "Direct",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "Répartition par type de titre",
+    "empty": "Aucune position à afficher.",
+    "types": {
+      "STOCK": "Actions",
+      "ETF": "ETF",
+      "MUTUAL_FUND": "Fonds communs de placement",
+      "BOND": "Obligations",
+      "CASH": "Liquidités"
+    }
+  },
+  "geographicAllocation": {
+    "title": "Répartition géographique",
+    "empty": "Aucune position à afficher.",
+    "viewRegion": "Région",
+    "viewExchange": "Bourse",
+    "viewCountry": "Pays"
+  },
+  "recurringExpenses": {
+    "title": "Principales dépenses récurrentes",
+    "empty": "Aucune dépense récurrente trouvée.",
+    "minOccurrences": "Occurrences minimales",
+    "minOccurrencesOption": "{count} ou plus",
+    "occurrences": "{count} occurrences",
+    "monthlyEstimate": "Estimation mensuelle"
+  },
+  "weekendVsWeekday": {
+    "title": "Dépenses week-end vs semaine",
+    "empty": "Aucune dépense sur cette période.",
+    "weekendLabel": "Week-end",
+    "weekdayLabel": "Semaine",
+    "viewOverview": "Vue d'ensemble",
+    "viewByDay": "Par jour"
   }
 }

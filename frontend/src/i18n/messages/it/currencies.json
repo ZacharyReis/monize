@@ -104,8 +104,12 @@
       "lookupTooShort": "Inserisci un codice o nome valuta (almeno 2 caratteri) per la ricerca",
       "found": "Trovato: {details}",
       "notFound": "Nessuna valuta trovata per \"{query}\"",
-      "lookupFailed": "Ricerca non riuscita - riprova"
-    }
+      "lookupFailed": "Ricerca non riuscita - riprova",
+      "reactivateFailed": "Impossibile riattivare la valuta"
+    },
+    "inactiveNotice": "{code} è già nella tua lista, ma non è attiva.",
+    "reactivateButton": "Riattiva {code}",
+    "reactivating": "Riattivazione..."
   },
   "validation": {
     "codeLength": "Il codice valuta deve essere esattamente di 3 caratteri",

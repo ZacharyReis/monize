@@ -4,6 +4,7 @@
     "subtitle": "Zarządzaj odbiorcami i ich domyślnymi kategoriami",
     "deactivateUnused": "Dezaktywuj nieużywanych",
     "autoAssignCategories": "Automatycznie przypisz kategorie",
+    "maintenance": "Zarządzaj",
     "autoMergePayees": "Automatycznie scal odbiorców",
     "newPayee": "+ Nowy odbiorca",
     "searchPlaceholder": "Szukaj odbiorców...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Przywróć",
-      "reactivateShort": "Pr",
       "merge": "Scal",
-      "mergeShort": "S",
       "edit": "Edytuj",
-      "editShort": "E",
-      "delete": "Usuń",
-      "deleteShort": "X"
+      "delete": "Usuń"
     },
     "viewTransactionsTitle": "Wyświetl transakcje z tym odbiorcą",
     "uncategorizedBadge": "{count, plural, one {# bez kategorii} few {# bez kategorii} many {# bez kategorii} other {# bez kategorii}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Wybierz co najmniej jedną grupę do scalenia",
       "applied": "Scalono {groups, plural, one {# grupę} few {# grupy} many {# grup} other {# grup}} (połączono {payees} odbiorców)",
       "backfilled": "{count, plural, one {Skategoryzowano # transakcję} few {Skategoryzowano # transakcje} many {Skategoryzowano # transakcji} other {Skategoryzowano # transakcji}}",
-      "aliasesSkipped": "{count, plural, one {Pominięto # alias z powodu konfliktu} few {Pominięto # aliasy z powodu konfliktów} many {Pominięto # aliasów z powodu konfliktów} other {Pominięto # aliasów z powodu konfliktów}}",
+      "aliasesSkipped": "{count, plural, one {Pominięto # alias z powodu konfliktu} few {Pominięto # aliasy z powodu konfliktów} many {Pominięto # aliasów z powodu konfliktów} other {Pominięto # aliasów z powodu konfliktów}}: {aliases}",
       "loadFailed": "Nie udało się załadować grup scalania",
-      "applyFailed": "Nie udało się scalić odbiorców"
+      "applyFailed": "Nie udało się scalić odbiorców",
+      "someGroupsFailed": "{count, plural, one {Nie udało się scalić # grupy} few {Nie udało się scalić # grup} many {Nie udało się scalić # grup} other {Nie udało się scalić # grup}}: {reason}"
     },
     "categoryMatchLabel": "Scalaj tylko odbiorców z tej samej kategorii",
     "categoryMatchHelp": "Rozdziela odbiorców o różnych kategoriach, ograniczając błędne dopasowania.",

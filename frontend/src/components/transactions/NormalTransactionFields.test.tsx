@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@/test/render';
 import { NormalTransactionFields } from './NormalTransactionFields';
 import { Account } from '@/types/account';
 import { Payee } from '@/types/payee';
+import { useTourStore } from '@/store/tourStore';
 
 vi.mock('@/lib/format', () => ({
   getCurrencySymbol: (code: string) => (code === 'USD' ? 'US$' : '$'),
@@ -84,9 +85,12 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     sourceAccountId: null,
     principalCategoryId: null,
     interestCategoryId: null,
+    interestBookingMode: 'AUTO',
+    overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
     scheduledTransactionId: null,
     assetCategoryId: null,
     dateAcquired: null,
+    linkedLoanAccountId: null,
     isCanadianMortgage: false,
     isVariableRate: false,
     termMonths: null,
@@ -143,6 +147,9 @@ describe('NormalTransactionFields', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // No tour running by default, so a tour started in one test cannot leak
+    // its form constraints into the next.
+    useTourStore.setState({ active: null });
   });
 
   it('renders Account select', () => {
@@ -179,6 +186,55 @@ describe('NormalTransactionFields', () => {
     render(<NormalTransactionFields {...defaultProps} />);
 
     expect(screen.getByText('Reference Number')).toBeInTheDocument();
+  });
+
+  it('uses the amountLabel override for the Amount input when provided', () => {
+    render(<NormalTransactionFields {...defaultProps} amountLabel="Total in USD" />);
+
+    expect(screen.getByText('Total in USD')).toBeInTheDocument();
+    expect(screen.queryByText('Amount')).not.toBeInTheDocument();
+  });
+
+  it('stacks each currency field and Reference Number on its own line on mobile in the foreign-currency layout', () => {
+    const { container } = render(
+      <NormalTransactionFields
+        {...defaultProps}
+        amountLabel="Total in EUR"
+        convertedAmountSlot={<div data-testid="converted-slot">Total in CAD</div>}
+      />,
+    );
+
+    // The foreign layout stacks every field on mobile (grid-cols-1) and only
+    // packs the amount, converted amount, and Reference Number into one row
+    // from md up (md:grid-cols-3).
+    const grid = container.querySelector('.grid-cols-1.md\\:grid-cols-3');
+    expect(grid).not.toBeNull();
+    expect(grid).toHaveTextContent('Total in EUR');
+    expect(grid).toHaveTextContent('Total in CAD');
+    expect(grid).toHaveTextContent('Reference Number');
+  });
+
+  it('renders the conversion note spanning both currency fields on desktop', () => {
+    render(
+      <NormalTransactionFields
+        {...defaultProps}
+        amountLabel="Total in EUR"
+        convertedAmountSlot={<div data-testid="converted-slot">Total in CAD</div>}
+        fxCaptionSlot={<p data-testid="fx-caption">1 EUR = 1.45 CAD</p>}
+      />,
+    );
+
+    // The note is a sibling below the two-column currency grid (not a grid row,
+    // so only its own margin separates it), inside the span container that
+    // covers both currency columns on desktop (md:col-span-2).
+    const currencyGrid = screen.getByTestId('converted-slot').parentElement;
+    expect(currencyGrid?.className).toContain('md:grid-cols-2');
+    expect(currencyGrid).not.toContainElement(screen.getByTestId('fx-caption'));
+
+    const spanContainer = screen.getByTestId('fx-caption').parentElement;
+    expect(spanContainer?.className).toContain('md:col-span-2');
+    expect(spanContainer).toContainElement(screen.getByTestId('converted-slot'));
+    expect(spanContainer).toContainElement(screen.getByTestId('fx-caption'));
   });
 
   // --- New tests below ---
@@ -380,6 +436,38 @@ describe('NormalTransactionFields', () => {
     fireEvent.click(splitButtons[0]);
 
     expect(defaultProps.handleModeChange).toHaveBeenCalledWith('split');
+  });
+
+  it('disables Split while a tour asks for the single-path form', () => {
+    // The Split control sits inside the payee/category row the tour highlights,
+    // and interactive steps deliberately let clicks through so the fields can
+    // be filled in -- so the tour flag is what keeps Split out of reach.
+    useTourStore.getState().startTour({
+      id: 'test/no-split',
+      area: 'transactions',
+      i18nPrefix: 'intro.basics',
+      disableTransactionSplit: true,
+      steps: [{ id: 'fields', route: '/transactions', anchorId: null }],
+    });
+
+    render(<NormalTransactionFields {...defaultProps} />);
+    for (const button of screen.getAllByText('Split Transaction')) {
+      expect(button).toBeDisabled();
+    }
+    fireEvent.click(screen.getAllByText('Split Transaction')[0]);
+    expect(defaultProps.handleModeChange).not.toHaveBeenCalled();
+  });
+
+  it('leaves Split enabled for tours that do not ask for it', () => {
+    useTourStore.getState().startTour({
+      id: 'test/with-split',
+      area: 'intro',
+      i18nPrefix: 'intro.basics',
+      steps: [{ id: 'splits', route: '/transactions', anchorId: null }],
+    });
+
+    render(<NormalTransactionFields {...defaultProps} />);
+    expect(screen.getAllByText('Split Transaction')[0]).toBeEnabled();
   });
 
   it('includes currency code in account labels', () => {

@@ -10,6 +10,7 @@ import { SecuritiesModule } from "../securities/securities.module";
 import { BudgetsModule } from "../budgets/budgets.module";
 import { BuiltInReportsModule } from "../built-in-reports/built-in-reports.module";
 import { OAuthModule } from "../oauth/oauth.module";
+import { AttachmentsModule } from "../attachments/attachments.module";
 import { AiRelayModule } from "../ai/relay/ai-relay.module";
 import { AiActionBuilderModule } from "../ai/actions/ai-action-builder.module";
 
@@ -53,6 +54,8 @@ import { McpSpendingAnalysisPrompt } from "./prompts/spending-analysis.prompt";
     forwardRef(() => BudgetsModule),
     BuiltInReportsModule,
     OAuthModule,
+    // manage_transactions attachment support (prep + direct-confirm persist).
+    AttachmentsModule,
     AiRelayModule,
     AiActionBuilderModule,
   ],

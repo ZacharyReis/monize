@@ -1,0 +1,30 @@
+{
+  "title": "Taxas de transação em moeda estrangeira",
+  "currencyFilter": { "label": "Moedas", "placeholder": "Todas as moedas" },
+  "chart": {
+    "title": "Taxas ao longo do tempo",
+    "noData": "Ainda sem transações em moeda estrangeira",
+    "monthlyAvg": "Média Mensal",
+    "quarterlyAvg": "Média Trimestral",
+    "yearlyAvg": "Média Anual",
+    "total": "Total de taxas",
+    "transactions": "Transações",
+    "tooltip": "{count, plural, one {# transação} other {# transações}}",
+    "quarterLabel": "T{quarter} {year}",
+    "quarterTick": "T{quarter} {year}",
+    "granularityLabel": "Agrupamento",
+    "granularity": { "auto": "Auto", "month": "Mês", "quarter": "Trimestre", "year": "Ano" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "Ver por {label}"
+  },
+  "list": {
+    "title": "Transações em moeda estrangeira",
+    "editTitle": "Editar Transação",
+    "investmentLinked": "Esta transação está associada a um investimento. Abrindo o editor de investimento.",
+    "export": {
+      "success": "{count, plural, one {# transação exportada} other {# transações exportadas}}",
+      "none": "Sem transações para exportar",
+      "failed": "Falha ao exportar transações"
+    }
+  }
+}

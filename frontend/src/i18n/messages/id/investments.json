@@ -65,11 +65,16 @@
     "cash": "Tunai",
     "untagged": "Tanpa tag",
     "noTagData": "Tidak ada kepemilikan bertag untuk ditampilkan. Tambahkan tag ke sekuritas Anda untuk melihat eksposur berdasarkan tag.",
-    "tagExposureNote": "Eksposur berdasarkan tag: kepemilikan dengan beberapa tag dihitung penuh pada masing-masing, sehingga total persentase bisa lebih dari 100%.",
+    "noCountryData": "Tidak ada data alokasi negara tersedia.",
+    "otherCountries": "Negara lainnya",
     "groupBy": {
       "security": "Berdasarkan sekuritas",
-      "tag": "Berdasarkan tag"
-    }
+      "tag": "Berdasarkan tag",
+      "country": "Berdasarkan negara",
+      "tagKey": "Menurut kunci"
+    },
+    "noKeyData": "Tidak ada kepemilikan yang memiliki nilai untuk kunci tag ini. Beri tag sekuritas sebagai key:value (mis. country:usa) untuk melihat rincian ini.",
+    "keySelectorLabel": "Kunci tag untuk diagregasi"
   },
   "holdingsList": {
     "title": "Kepemilikan",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "Nilai Portofolio dari Waktu ke Waktu",
+    "viewReport": "Lihat laporan",
+    "viewReportTitle": "Buka laporan Nilai Portofolio lengkap",
     "updatingLabel": "Memperbarui…",
-    "updatingAriaLabel": "Memperbarui",
     "intradayFallbackWarningAriaLabel": "Harga intraday terperinci tidak tersedia",
     "intradayUnavailableTitle": "Tampilan intraday tidak tersedia untuk kombinasi akun ini",
     "intradayUnavailableDescription": "Satu atau lebih kepemilikan menggunakan penyedia kutipan (MSN Money) yang tidak mengekspos data intraday. Beralih ke rentang yang lebih panjang untuk melihat snapshot harian.",

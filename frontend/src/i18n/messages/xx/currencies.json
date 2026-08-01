@@ -100,11 +100,15 @@
     "clearTitle": "[XX-Clear all fields-XX]",
     "submitCreate": "[XX-Create Currency-XX]",
     "submitUpdate": "[XX-Update Currency-XX]",
+    "inactiveNotice": "[XX-{code} is already in your list but inactive.-XX]",
+    "reactivateButton": "[XX-Reactivate {code}-XX]",
+    "reactivating": "[XX-Reactivating...-XX]",
     "toasts": {
       "lookupTooShort": "[XX-Enter a currency code or name (at least 2 characters) to lookup-XX]",
       "found": "[XX-Found: {details}-XX]",
       "notFound": "[XX-No currency found for \"{query}\"-XX]",
-      "lookupFailed": "[XX-Lookup failed - please try again-XX]"
+      "lookupFailed": "[XX-Lookup failed - please try again-XX]",
+      "reactivateFailed": "[XX-Failed to reactivate currency-XX]"
     }
   },
   "validation": {

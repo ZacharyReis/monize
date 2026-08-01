@@ -203,7 +203,13 @@
     "addPriceSection": "Fiyat Ekle",
     "editPriceSection": "Fiyatı Düzenle",
     "loading": "Fiyatlar yükleniyor...",
+    "chartTitle": "Fiyat geçmişi",
+    "markers": {
+      "bought": "Alım {quantity} · {account}",
+      "sold": "Satım {quantity} · {account}"
+    },
     "empty": "Fiyat geçmişi mevcut değil",
+    "showingCount": "{total} fiyatın {shown} tanesi gösteriliyor",
     "columns": {
       "date": "Tarih",
       "close": "Kapanış",
@@ -230,6 +236,7 @@
     "closeButton": "Kapat",
     "deleteConfirm": {
       "title": "Fiyatı Sil",
+      "message": "{date} tarihli fiyat kaydı silinsin mi?",
       "confirmLabel": "Sil"
     }
   },

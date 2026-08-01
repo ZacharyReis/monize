@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "借金返済タイムライン",
       "loan-amortization": "ローン償還スケジュール",
       "credit-utilization": "クレジット使用率",
+      "loan-overpayment-simulator": "ローン繰上返済シミュレーター",
       "investment-performance": "投資パフォーマンス",
       "dividend-income": "損益、配当 & 利息",
       "sector-weightings": "セクターウェイト",
@@ -57,13 +58,14 @@
       "security-type-allocation": "有価証券タイプ配分",
       "geographic-allocation": "地域 / 取引所配分",
       "dividend-yield-growth": "配当利回りと成長",
-      "security-performance": "個別有価証券パフォーマンス",
+      "security-performance": "有価証券パフォーマンス",
       "currency-exposure": "通貨エクスポージャー",
       "monte-carlo-simulation": "モンテカルロシミュレーション",
       "recurring-expenses": "定期費用トラッカー",
       "spending-anomalies": "支出の異常",
       "weekend-weekday-spending": "週末 vs 平日の支出",
       "monthly-comparison": "月次比較",
+      "foreign-currency-fees": "外貨取引手数料",
       "uncategorized-transactions": "未分類取引",
       "duplicate-transactions": "重複取引ファインダー",
       "upcoming-bills": "支払い予定カレンダー",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "返済期日の予測で借金返済の進捗を視覚化します。",
       "loan-amortization": "元金 vs 利息の内訳付き住宅ローンとローンの詳細な支払いスケジュール。",
       "credit-utilization": "クレジットカードと当座貸越で利用可能なクレジットの使用率を確認します。",
+      "loan-overpayment-simulator": "ローンを選び、追加返済をシミュレーションして、どれだけ早く完済でき、利息をいくら節約できるかを確認できます。",
       "investment-performance": "ポートフォリオのリターン、損益、資産配分を時系列で追跡します。",
       "dividend-income": "配当と利息収入とともにキャピタルゲインと損失（実現 + 未実現）を追跡します。",
       "sector-weightings": "個別株とETFからのポートフォリオのセクターエクスポージャーを分析します。",
@@ -102,13 +105,14 @@
       "security-type-allocation": "保有銘柄へのドリルダウンを含む資産タイプ（株式、ETF、投資信託、債券）別のポートフォリオ配分を確認します。",
       "geographic-allocation": "分散投資のインサイトのために取引所と地域別のポートフォリオの地理的エクスポージャーを分析します。",
       "dividend-yield-growth": "配当利回り、有価証券ごとの利回り、前年比成長、支払い頻度分析を追跡します。",
-      "security-performance": "価格履歴、取引、リターンを含む個別有価証券のパフォーマンスの詳細分析。",
+      "security-performance": "有価証券の価格履歴、取引、リターンを詳しく分析したり、複数の有価証券のパフォーマンスを1つのチャートで比較したりできます。",
       "currency-exposure": "通貨別ポートフォリオ配分と為替レートの詳細で通貨リスクを把握します。",
       "monte-carlo-simulation": "数千のランダム化されたリターンパスで将来のポートフォリオ結果を予測し、シナリオライブラリを保存します。",
       "recurring-expenses": "サブスクリプション、会員費、定期料金を特定して監視します。",
       "spending-anomalies": "注意が必要な異常に大きな取引や支出急増を検出します。",
       "weekend-weekday-spending": "曜日別の支出パターンを分析して習慣を把握します。",
       "monthly-comparison": "収入、支出、純資産、投資の観点から任意の月を前月と比較します。",
+      "foreign-currency-fees": "換算手数料を適用する口座全体で請求された外貨取引手数料を追跡します。",
       "uncategorized-transactions": "カテゴリが設定されていない取引を検索して分類します。",
       "duplicate-transactions": "レビューまたは削除が必要な可能性のある重複エントリを特定します。",
       "upcoming-bills": "スケジュール取引と支払い期日の予定の視覚的なカレンダー。",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "レポートデータの読み込みに失敗しました。再試行してください。",
     "retry": "再試行"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "外貨取引手数料が設定されている口座はありません。口座に手数料の割合を設定すると、その外貨手数料をここで追跡できます。"
   },
   "accountBalances": {
     "totalAssets": "総資産",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "終了：",
     "cashFlowEventPdfStarts": "開始：",
     "cashFlowEventPdfEnds": "終了：",
-    "cashFlowDefaultName": "キャッシュフロー",
     "cashFlowPerYear": "/ 年",
     "tooltipRow90th": "90パーセンタイル",
     "tooltipRow75th": "75パーセンタイル",
@@ -1104,6 +1110,10 @@
     "noData": "この期間の投資データがありません。",
     "tooltipPortfolio": "ポートフォリオ：",
     "allAccounts": "すべての口座",
+    "viewTotal": "合計",
+    "viewSecurities": "銘柄別",
+    "seriesCash": "現金",
+    "seriesOther": "その他の銘柄",
     "colDate": "日付",
     "colPortfolioValue": "ポートフォリオ価値",
     "breakdownTitle": "現在のポートフォリオ内訳",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% ポートフォリオ"
   },
   "securityPerformance": {
-    "selectPrompt": "上で有価証券を選択してパフォーマンスの詳細を確認してください。",
-    "selectSecurityPlaceholder": "有価証券を選択...",
+    "selectPrompt": "上で1つ以上の有価証券を選択すると、そのパフォーマンスを表示します。2つ以上を選択すると、1つのチャートで比較できます。",
+    "selectSecuritiesPlaceholder": "有価証券を選択...",
+    "comparisonTitle": "パフォーマンス比較",
+    "comparisonSubtitle": "選択した各有価証券の累積リターンを、最初に取得できた価格を0%として再基準化し、価格や通貨に関係なく同じ尺度で比較できるようにしたものです。",
+    "comparisonNoData": "選択した有価証券の価格履歴がありません。",
+    "comparisonError": "価格履歴を読み込めませんでした。もう一度お試しください。",
     "viewPriceChart": "価格グラフ",
     "viewTransactions": "取引",
     "viewDividends": "配当",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "総保有銘柄数",
     "largestType": "最大タイプ",
     "assetTypeAllocation": "資産タイプ配分",
-    "typeStocks": "株式",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "投資信託",
-    "typeBonds": "債券",
-    "typeCash": "現金",
     "holdingsCount": "{count, plural, one {# 口座} other {# 口座}}",
     "total": "合計",
     "tooltipHoldings": "{count, plural, one {# 件の保有} other {# 件の保有}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "名前は必須です"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "ローン勘定科目を選択",
+    "viewTransactions": "取引を表示",
+    "empty": "ローン、住宅ローン、与信枠の勘定科目が見つかりません。"
   }
 }

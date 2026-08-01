@@ -1,0 +1,19 @@
+{
+  "title": "Anexos",
+  "empty": "Nenhum anexo ainda",
+  "upload": "Adicionar anexo",
+  "download": "Baixar",
+  "delete": "Excluir",
+  "remove": "Remover",
+  "pendingHint": "Os arquivos serão enviados quando você salvar a transação.",
+  "deleteConfirmTitle": "Excluir anexo?",
+  "deleteConfirmMessage": "\"{name}\" será excluído permanentemente.",
+  "uploaded": "Anexo adicionado",
+  "deleted": "Anexo excluído",
+  "loadFailed": "Falha ao carregar os anexos",
+  "uploadFailed": "Falha ao enviar o anexo",
+  "deleteFailed": "Falha ao excluir o anexo",
+  "tooLarge": "O arquivo é muito grande (máximo {max})",
+  "unsupported": "Tipo de arquivo não suportado. Permitidos: imagens ou PDF",
+  "tooMany": "Máximo de {max} anexos por transação"
+}

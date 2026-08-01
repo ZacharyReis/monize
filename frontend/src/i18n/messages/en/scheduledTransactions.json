@@ -98,12 +98,15 @@
       "both": "Posting on this date will bring <b>{fromAccount}</b> to <b>{fromAmount}</b> ({fromCondition}) and <b>{toAccount}</b> to <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Split this transaction",
+    "copyAmount": "Copy amount",
     "referenceNumberLabel": "Reference Number (optional)",
     "noPriceHistory": "No price history yet for this security. Enter the price manually.",
     "postButton": "Post Transaction",
     "toasts": {
       "posted": "Transaction posted",
       "postFailed": "Failed to post transaction",
+      "amountCopied": "Amount copied",
+      "copyFailed": "Failed to copy amount",
       "quantityRequired": "Quantity must be greater than zero",
       "priceRequired": "Price must be greater than zero",
       "totalAmountRequired": "Total amount is required",

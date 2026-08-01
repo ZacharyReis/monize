@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "现金",
     "brokerage": "证券"
+  },
+  "import": {
+    "voidedTransactionNote": "已在源中作废；原始金额未包含在导出中，因此以零导入。"
   }
 }

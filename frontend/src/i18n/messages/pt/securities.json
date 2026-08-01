@@ -203,7 +203,13 @@
     "addPriceSection": "Adicionar Cotação",
     "editPriceSection": "Editar Cotação",
     "loading": "A carregar cotações...",
+    "chartTitle": "Histórico de preços",
+    "markers": {
+      "bought": "Compra {quantity} · {account}",
+      "sold": "Venda {quantity} · {account}"
+    },
     "empty": "Sem histórico de cotações disponível",
+    "showingCount": "A mostrar {shown} de {total} cotações",
     "columns": {
       "date": "Data",
       "close": "Fecho",
@@ -230,6 +236,7 @@
     "closeButton": "Fechar",
     "deleteConfirm": {
       "title": "Eliminar Cotação",
+      "message": "Eliminar a cotação de {date}?",
       "confirmLabel": "Eliminar"
     }
   },

@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Akun ini sudah memiliki pembayaran terjadwal yang dikonfigurasi. Edit transaksi terjadwal yang sudah ada.",
     "sourceNotFound": "Akun sumber tidak ditemukan",
     "ambiguousBrokerage": "\"{{ query }}\" cocok dengan beberapa akun pialang: {{ list }}. Gunakan nama akun yang tepat.",
-    "unknownInvestmentAccount": "Akun tidak dikenal: {{ name }}. Gunakan nama yang tepat dari daftar akun pengguna."
+    "unknownInvestmentAccount": "Akun tidak dikenal: {{ name }}. Gunakan nama yang tepat dari daftar akun pengguna.",
+    "notACreditCard": "Siklus laporan hanya tersedia untuk akun kartu kredit",
+    "noStatementSettlementDay": "Kartu kredit ini tidak memiliki hari penyelesaian laporan yang dikonfigurasi"
   },
   "actionHistory": {
     "nothingToUndo": "Tidak ada yang dapat dibatalkan",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Tidak ada penyedia AI aktif yang dikonfigurasi. Harap konfigurasikan penyedia di Pengaturan AI.",
     "allProvidersFailed": "Semua penyedia AI gagal. Periksa konfigurasi penyedia Anda dan coba lagi.",
     "noToolUseProvider": "Tidak ada penyedia AI dengan dukungan penggunaan alat yang dikonfigurasi. Kueri bahasa alami memerlukan Anthropic, OpenAI, atau Ollama. Harap konfigurasikan salah satunya di Pengaturan AI.",
+    "relayAgentOffline": "Agen relay MCP Anda tidak terhubung. Hubungkan agen Anda dan coba lagi.",
+    "relayCompletionTimedOut": "Agen relay MCP Anda tidak menjawab tepat waktu. Pastikan agen terhubung, lalu coba lagi.",
     "baseUrlInvalidBasic": "baseUrl harus berupa URL HTTP atau HTTPS yang valid",
     "baseUrlInvalidExternal": "baseUrl harus berupa URL HTTP/HTTPS yang valid yang menunjuk ke host eksternal",
     "ollamaCloudApiKeyRequired": "apiKey diperlukan untuk penyedia ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Sebuah lampiran melebihi ukuran file maksimum.",
     "attachmentCorrupt": "Sebuah lampiran tidak dapat dibaca atau bukan tipe file seperti yang diklaim.",
     "attachmentsTooLarge": "Lampiran melebihi batas ukuran total.",
+    "attachmentRefExpired": "File yang dilampirkan sudah tidak tersedia. Silakan unggah ulang lalu tanyakan lagi.",
     "modelNoImageSupport": "Model AI yang dipilih tidak dapat membaca gambar atau PDF. Hapus lampiran dan tanyakan dalam teks, atau beralih ke model yang mendukung visi di Pengaturan AI."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Kata sandi salah"
   },
   "backup": {
-    "folderPathRequired": "Jalur folder harus diatur sebelum mengaktifkan pencadangan otomatis",
     "folderNotExist": "Folder tidak ada: {{ safePath }}",
     "folderAccessError": "Tidak dapat mengakses folder: {{ safePath }}",
     "pathNotDirectory": "Jalur bukan direktori: {{ safePath }}",
-    "notConfigured": "Pencadangan otomatis belum dikonfigurasi. Harap atur jalur folder terlebih dahulu.",
     "userNotFound": "Pengguna {{ userId }} tidak ditemukan",
     "encryptedPasswordDecryptFailed": "Pencadangan terenkripsi diaktifkan tetapi kata sandi yang tersimpan tidak dapat didekripsi. Aktifkan kembali enkripsi di pengaturan Keamanan.",
     "pathTraversal": "Traversal jalur terdeteksi: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Token CSRF tidak valid",
     "demoModeRestricted": "Tindakan ini tidak tersedia dalam mode demo.",
     "serviceNotReady": "Layanan belum siap",
-    "oauthProviderNotInitialized": "Penyedia OAuth belum diinisialisasi"
+    "oauthProviderNotInitialized": "Penyedia OAuth belum diinisialisasi",
+    "invalidCurrencyCode": "Kode mata uang tidak valid: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Mata uang \"{{ code }}\" sudah ada dalam daftar Anda",
     "notFound": "Mata uang \"{{ code }}\" tidak ditemukan",
     "cannotModifySystem": "Tidak dapat mengubah metadata mata uang sistem",
     "cannotModifyOther": "Tidak dapat mengubah mata uang pengguna lain",
-    "inUse": "Mata uang \"{{ code }}\" sedang digunakan oleh akun, sekuritas, atau catatan lain Anda. Nonaktifkan saja."
+    "inUse": "Mata uang \"{{ code }}\" sedang digunakan oleh akun, sekuritas, atau catatan lain Anda. Nonaktifkan saja.",
+    "invalidRateDate": "date harus dalam format YYYY-MM-DD",
+    "alreadyInListInactive": "Mata uang \"{{ code }}\" sudah ada dalam daftar Anda, tetapi saat ini tidak aktif. Aktifkan kembali untuk menggunakannya."
   },
   "delegation": {
     "delegatedAccessInvalid": "Akses yang didelegasikan tidak lagi valid",
@@ -254,6 +260,7 @@
     "passwordBreached": "Kata sandi ini ditemukan dalam kebocoran data. Pilih kata sandi yang berbeda."
   },
   "http": {
+    "forbidden": "Akses ditolak",
     "tooManyRequests": "Terlalu banyak permintaan. Tunggu beberapa menit dan coba lagi.",
     "duplicateRecord": "Catatan dengan nilai ini sudah ada",
     "referencedRecord": "Catatan yang direferensikan tidak ada atau tidak dapat dihapus",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate harus dalam format YYYY-MM-DD",
     "invalidEndDate": "endDate harus dalam format YYYY-MM-DD",
-    "invalidAccountIds": "accountIds harus berupa UUID yang dipisahkan koma"
+    "invalidAccountIds": "accountIds harus berupa UUID yang dipisahkan koma",
+    "invalidGranularity": "granularity harus 'daily' atau 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP belum dikonfigurasi. Atur variabel lingkungan SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Alias dengan ID {{ id }} tidak ditemukan",
     "mergeSelf": "Tidak dapat menggabungkan penerima dengan dirinya sendiri",
     "autoMergeDuplicatePayee": "Satu penerima muncul di lebih dari satu grup penggabungan",
-    "autoMergeSourceNotFound": "Satu atau lebih penerima sumber tidak ditemukan"
+    "autoMergeSourceNotFound": "Satu atau lebih penerima sumber tidak ditemukan",
+    "autoMergeGroupConflict": "Tidak dapat menggabungkan \"{{ name }}\": nilai \"{{ value }}\" sudah digunakan",
+    "autoMergeGroupFailed": "Tidak dapat menggabungkan \"{{ name }}\""
   },
   "reports": {
     "notFound": "Laporan dengan ID {{ id }} tidak ditemukan",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" cocok dengan beberapa sekuritas: {{ list }}. Jalankan lagi dengan menentukan bursa.",
     "lookupNoCurrency": "Tidak dapat menentukan mata uang untuk \"{{ symbol }}\". Tambahkan sekuritas secara manual sebagai gantinya.",
     "noUpdateFields": "Berikan setidaknya satu kolom untuk diubah.",
-    "allocationExceedsTotal": "Persentase alokasi berjumlah lebih dari 100%."
+    "allocationExceedsTotal": "Persentase alokasi berjumlah lebih dari 100%.",
+    "invalidTagKey": "Kunci tag (1-100 karakter) diperlukan"
   },
   "tags": {
     "notFound": "Tag dengan ID {{ id }} tidak ditemukan",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId harus berupa UUID yang valid",
     "amountFromMustBeNumber": "amountFrom harus berupa angka",
     "amountToMustBeNumber": "amountTo harus berupa angka",
+    "invalidGroupBy": "groupBy harus 'category' atau 'payee'",
+    "limitMustBePositive": "limit harus berupa angka positif",
+    "recurringPayeeRequired": "payeeIds wajib diisi",
+    "recurringDatesRequired": "startDate dan endDate wajib diisi",
     "statementDateFormat": "statementDate harus dalam format YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance harus berupa angka",
     "categoryNotFound": "Kategori tidak ditemukan",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Beberapa transaksi tidak ditemukan atau tidak termasuk dalam akun yang ditentukan",
     "cannotReconcileVoidPlural": "Tidak dapat merekonsiliasi transaksi yang dibatalkan",
     "transferSameAccount": "Akun sumber dan tujuan harus berbeda",
-    "transferSplitFromAccountFixed": "Akun sumber dari baris transfer terpisah tidak dapat diubah",
     "transferAmountNegative": "Jumlah transfer tidak boleh negatif",
     "notATransfer": "Transaksi bukan merupakan transfer",
+    "splitTransferLegAccountLocked": "Transfer ini adalah bagian dari transaksi terbagi. Ubah akunnya dengan mengedit pembagian pada transaksi sumber.",
     "notFoundById": "Transaksi dengan ID {{ id }} tidak ditemukan",
     "bulkUpdateNoFields": "Minimal satu kolom pembaruan harus diberikan",
     "payeeNotFound": "Penerima tidak ditemukan",
     "cannotEditTransfer": "Transfer tidak dapat diedit di sini. Edit transfer dari layar Transaksi.",
     "cannotEditSplit": "Transaksi terpisah tidak dapat diedit di sini. Edit pemisahan dari layar Transaksi.",
-    "noUpdateFields": "Berikan setidaknya satu kolom untuk diubah."
+    "noUpdateFields": "Berikan setidaknya satu kolom untuk diubah.",
+    "tagKeyTooLong": "tagKey tidak boleh melebihi 100 karakter",
+    "invalidTagKeyOp": "tagKeyOp tidak valid: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue diperlukan untuk contains / notContains",
+    "tagKeyRequired": "Kunci tag (1-100 karakter) diperlukan",
+    "fxFieldsIncomplete": "originalAmount dan originalCurrencyCode harus diberikan bersama",
+    "fxRateRequired": "Nilai tukar positif diperlukan untuk transaksi mata uang asing",
+    "fxSignMismatch": "originalAmount dan amount harus memiliki tanda yang sama"
   },
   "users": {
     "userNotFound": "Pengguna tidak ditemukan",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Tidak dapat menghapus akun admin terakhir. Promosikan pengguna lain terlebih dahulu.",
     "oidcReauthRequiredForDataDelete": "Autentikasi ulang OIDC diperlukan untuk mengonfirmasi penghapusan data",
     "passwordRequiredForDataDelete": "Kata sandi diperlukan untuk mengonfirmasi penghapusan data"
+  },
+  "loanScenarios": {
+    "notFound": "Skenario pinjaman dengan ID {{ id }} tidak ditemukan",
+    "nameConflict": "Skenario bernama \"{{ name }}\" sudah ada untuk akun ini",
+    "notLoanAccount": "Skenario pinjaman hanya tersedia untuk akun pinjaman, hipotek, dan jalur kredit",
+    "budgetWindowInverted": "Tanggal mulai periode anggaran harus pada atau sebelum tanggal akhirnya"
+  },
+  "loanRateChanges": {
+    "notFound": "Perubahan suku bunga dengan ID {{ id }} tidak ditemukan",
+    "notLoanAccount": "Perubahan suku bunga hanya tersedia untuk akun pinjaman dan hipotek",
+    "duplicateDate": "Perubahan suku bunga yang berlaku {{ date }} sudah ada untuk akun ini",
+    "paymentModeConflict": "Berikan salah satu: jumlah angsuran baru atau recalculatePayment, bukan keduanya",
+    "recalculateMortgageOnly": "Penghitungan ulang angsuran hanya tersedia untuk akun hipotek",
+    "insufficientData": "Tidak cukup pembayaran dengan rincian bunga untuk mendeteksi perubahan suku bunga",
+    "frequencyMismatch": "Tanggal pembayaran tidak sesuai dengan frekuensi pembayaran akun; suku bunga yang diperkirakan mungkin kurang akurat"
+  },
+  "attachments": {
+    "notFound": "Lampiran tidak ditemukan",
+    "transactionNotFound": "Transaksi tidak ditemukan",
+    "empty": "File yang diunggah kosong",
+    "fileTooLarge": "File melebihi ukuran maksimum {{ max }} byte",
+    "unsupportedType": "Jenis file tidak didukung. Jenis yang diizinkan: {{ types }}",
+    "tooMany": "Transaksi ini sudah memiliki maksimum {{ max }} lampiran"
   }
 }

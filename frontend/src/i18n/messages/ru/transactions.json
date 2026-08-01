@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Всего потрачено",
+    "income": "Доход",
+    "net": "Итог",
+    "transactions": "Проводки",
+    "averageAmount": "Средняя сумма",
+    "lastTransaction": "Последняя проводка",
+    "defaultCategory": "Категория по умолчанию",
+    "nextBill": "Следующий счёт",
+    "viewBills": "Просмотр в разделе Счета и депозиты",
+    "topCategories": "Основные категории",
+    "uncategorized": "Без категории",
+    "aliases": "Псевдонимы",
+    "recurring": "Регулярно: {cadence} · {amount}",
+    "recurringTooltip": "Определено по повторяющимся списаниям за выбранный период (или за последние 12 месяцев, если фильтр по дате не задан).",
+    "cadence": {
+      "weekly": "Еженедельно",
+      "biweekly": "Каждые 2 недели",
+      "monthly": "Ежемесячно",
+      "quarterly": "Ежеквартально",
+      "yearly": "Ежегодно"
+    },
+    "inactive": "Неактивен",
+    "noTransactions": "Нет проводок за этот период",
+    "editAria": "Редактировать получателя",
+    "collapseAria": "Скрыть информацию о получателе",
+    "show": "Показать информацию о получателе"
+  },
+  "categoryWidget": {
+    "totalSpent": "Всего потрачено",
+    "totalEarned": "Всего получено",
+    "income": "Доход",
+    "expense": "Расход",
+    "budgetThisMonth": "Бюджет на этот месяц",
+    "budgetProgress": "{spent} из {budgeted}",
+    "transactions": "Проводки",
+    "averageAmount": "Средняя сумма",
+    "monthlyAverage": "Среднее за месяц",
+    "subcategories": "Подкатегории",
+    "thisCategory": "Эта категория",
+    "topPayees": "Основные получатели",
+    "noPayee": "Без получателя",
+    "nextScheduled": "Следующая запланированная",
+    "noTransactions": "Нет проводок за этот период",
+    "editAria": "Редактировать категорию",
+    "collapseAria": "Скрыть информацию о категории",
+    "show": "Показать информацию о категории"
+  },
   "accountWidget": {
     "currentBalance": "Текущий остаток",
     "nextPayment": "Следующий платёж",
     "viewBills": "Просмотр в разделе Счета и депозиты",
+    "viewDetailsAria": "Просмотреть сведения о счёте",
     "type": "Тип",
     "accountNumber": "Номер счёта",
     "currency": "Валюта",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Дублировать проводку",
       "newTitle": "Новая проводка",
       "scheduleTitle": "Запланировать как повторяющуюся",
-      "editPayeeTitle": "Редактировать получателя"
+      "editPayeeTitle": "Редактировать получателя",
+      "editCategoryTitle": "Редактировать категорию"
     },
     "loading": "Загрузка проводок...",
     "totalCount": "{count, plural, one {# проводка} other {# проводок}}",
@@ -54,9 +104,13 @@
       "refNumber": "Реф. №",
       "tags": "Теги",
       "amount": "Сумма",
+      "currency": "Валюта",
+      "paidAmount": "Оплаченная сумма",
+      "feePaid": "Уплаченная комиссия",
       "balance": "Остаток",
       "status": "Статус",
-      "actions": "Действия"
+      "actions": "Действия",
+      "attachments": "Вложения"
     },
     "today": "Сегодня",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Вы уверены, что хотите удалить эту проводку? Это действие нельзя отменить.",
       "success": "Проводка удалена",
       "transferSuccess": "Перевод удалён",
-      "error": "Не удалось удалить проводку"
+      "error": "Не удалось удалить проводку",
+      "reconciledWarning": "Эта транзакция согласована, поэтому её удаление повлияет на завершённое согласование."
     },
     "status": {
       "voidError": "Отредактируйте проводку для изменения статуса с Аннулирована",
@@ -90,7 +145,6 @@
       "cleared": "Очищена",
       "reconciled": "Согласована",
       "void": "Аннулирована",
-      "unreconciledDense": "Н",
       "clearedDense": "О",
       "reconciledDense": "С",
       "voidDense": "А",
@@ -118,7 +172,8 @@
       "editButton": "Изменить",
       "deleteButton": "Удалить"
     },
-    "itemNamePlural": "проводки"
+    "itemNamePlural": "проводки",
+    "attachmentsCount": "{count, plural, one {# вложение} few {# вложения} many {# вложений} other {# вложения}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Сумма от",
       "amountTo": "Сумма до",
       "status": "Статус",
-      "search": "Поиск"
+      "search": "Поиск",
+      "tagKey": "Ключ тега",
+      "tagKeyOp": "Условие",
+      "tagKeyValue": "Значение",
+      "currency": "Валюта",
+      "hasAttachments": "Вложения"
     },
     "placeholders": {
       "accounts": "Все счета",
@@ -176,7 +236,8 @@
       "statuses": "Все статусы",
       "amountMin": "Мин.",
       "amountMax": "Макс.",
-      "search": "Поиск получателя, категории, суммы, тега, описания, реф. номера..."
+      "search": "Поиск получателя, категории, суммы, тега, описания, реф. номера...",
+      "tagKeyValue": "например, usa"
     },
     "chips": {
       "removeAccount": "Убрать фильтр {name}",
@@ -189,7 +250,11 @@
       "dateFrom": "С {date}",
       "dateUntil": "До {date}",
       "amountFrom": "От {amount}",
-      "amountUpTo": "До {amount}"
+      "amountUpTo": "До {amount}",
+      "removeCurrency": "Удалить фильтр по валюте {name}",
+      "hasAttachments": "С вложениями",
+      "noAttachments": "Без вложений",
+      "removeAttachments": "Убрать фильтр вложений"
     },
     "bulkUpdate": "Массовое обновление",
     "cancelBulk": "Отменить массовое",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Выберите период...",
+      "allDates": "Все даты",
       "today": "Сегодня",
       "yesterday": "Вчера",
       "thisWeek": "Эта неделя",
       "lastWeek": "Прошлая неделя",
+      "last30Days": "Последние 30 дней",
       "monthToDate": "Текущий месяц",
       "lastMonth": "Прошлый месяц",
+      "last365Days": "Последние 365 дней",
       "yearToDate": "Текущий год",
       "lastYear": "Прошлый год",
       "custom": "Произвольный"
+    },
+    "tagKeyNone": "Любой (без фильтра по ключу)",
+    "tagKeyOps": {
+      "hasValue": "Имеет значение",
+      "noValue": "Нет значения",
+      "contains": "Значение содержит",
+      "notContains": "Значение не содержит"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Любые",
+      "yes": "Да",
+      "no": "Нет"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "Создать {mode}",
     "submitUpdate": "Обновить {mode}",
+    "reconciledConfirm": {
+      "title": "Изменить согласованную транзакцию?",
+      "message": "Эта транзакция согласована. Её изменение повлияет на завершённое согласование. Всё равно сохранить изменения?",
+      "confirm": "Сохранить изменения"
+    },
     "modeLabel": {
       "transfer": "Перевод",
       "transaction": "Проводку"
@@ -300,6 +385,7 @@
     "transferAmountNote": "Сумма для переводов должна быть положительной",
     "amountReceivedNote": "Полученная сумма после конвертации валюты",
     "splitTransaction": "Разделить проводку",
+    "splitDisabledDuringTour": "Недоступно во время обучающего тура",
     "newTagTitle": "Новый тег",
     "toasts": {
       "transferCreated": "Перевод создан",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Не удалось реактивировать получателя",
       "categoryCreated": "Категория \"{name}\" создана",
       "categoryCreateFailed": "Не удалось создать категорию",
-      "tagCreated": "Тег \"{name}\" создан"
+      "tagCreated": "Тег \"{name}\" создан",
+      "fxRateRequired": "Введите курс обмена или конвертированную сумму перед сохранением операции в иностранной валюте.",
+      "attachmentsUploadFailed": "Проводка сохранена, но не удалось загрузить вложений: {count}"
     },
     "ariaHistory": "Показать последние проводки",
     "ariaHistoryForPayee": "Показать последние проводки для этого получателя",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Валюта ввода",
+      "ariaLabel": "Изменить валюту ввода",
+      "title": "Ввести сумму в",
+      "accountCurrency": "Валюта счёта ({code})",
+      "addCurrency": "Добавить валюту...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Не удалось добавить валюту",
+      "reactivated": "{code} снова активирована"
+    },
+    "fx": {
+      "noRateWarning": "Не найден курс обмена {from} в {to} на {date}. Введите конвертированную сумму вручную.",
+      "usingLatestRateHint": "Используется последний доступный курс (не на дату {date}).",
+      "displayToggle": {
+        "account": "Счёт",
+        "original": "Оригинал"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "Включает комиссию за зарубежную операцию {percent}% ({fee}).",
+      "totalInCurrency": "Итого в {currency}"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Выберите счёт...",
     "memoPlaceholder": "Необязательная памятка",
     "mobileMemoPlaceholder": "Памятка",
-    "tagsPlaceholder": "Теги..."
+    "tagsPlaceholder": "Теги...",
+    "currencyToggle": {
+      "title": "Переключить валюту, в которой отображаются и редактируются суммы разбивки",
+      "ariaAmountsIn": "Показать и редактировать суммы разбивки в {code}"
+    }
   },
   "recentPopover": {
     "recentForPayee": "Последние для {name}",
@@ -397,15 +510,33 @@
       "current": "Текущий",
       "ending": "Конечный",
       "lowest": "Минимальный",
-      "minBalance": "Мин. остаток"
+      "minBalance": "Мин. остаток",
+      "projected": "Прогноз",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "У всех выбранных счетов нулевой баланс, поэтому график баланса отсутствует."
     },
     "monthlyTotals": {
       "title": "Месячные итоги",
       "noData": "Нет данных о проводках",
       "monthlyAvg": "Средн. в месяц",
+      "quarterlyAvg": "Средн. в квартал",
+      "yearlyAvg": "Средн. в год",
       "total": "Итого",
       "transactions": "Проводки",
-      "tooltip": "{count, plural, one {# проводка} other {# проводок}}"
+      "tooltip": "{count, plural, one {# проводка} other {# проводок}}",
+      "quarterLabel": "{quarter} кв. {year}",
+      "quarterTick": "{quarter} кв. {year}",
+      "granularityLabel": "Группировка",
+      "granularity": {
+        "auto": "Авто",
+        "month": "Месяц",
+        "quarter": "Квартал",
+        "year": "Год"
+      },
+      "granularityAutoTitle": "Авто ({granularity})",
+      "granularityTitle": "Вид: {label}"
     },
     "accountBalances": {
       "title": "Остатки по счетам",
@@ -430,9 +561,16 @@
     "loadFailed": "Не удалось загрузить проводки",
     "loadPayeeFailed": "Не удалось загрузить данные получателя",
     "payeeUpdateFailed": "Не удалось обновить получателя",
+    "categoryUpdated": "Категория успешно обновлена",
+    "categoryUpdateFailed": "Не удалось обновить категорию",
     "exportFailed": "Не удалось экспортировать проводки"
   },
   "validation": {
     "dateRequired": "Дата обязательна"
+  },
+  "tagKeyBreakdown": {
+    "title": "Расходы по {key}",
+    "other": "Прочее",
+    "noData": "Нет помеченных тегами расходов для разбивки по этому ключу."
   }
 }

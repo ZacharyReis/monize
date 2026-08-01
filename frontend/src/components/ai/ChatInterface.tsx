@@ -66,8 +66,18 @@ export function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Auto-scroll only when the conversation actually advances: a new message
+  // arrives, or we are following a live turn (streaming / thinking). Patching an
+  // existing message in place -- e.g. approving or cancelling a confirmation card
+  // mid-chat, which flips that card's status -- must NOT yank the view to the
+  // bottom; that made mid-chat approvals very awkward.
+  const prevMessageCountRef = useRef(0);
   useEffect(() => {
-    if (messages.length > 0) {
+    const grew = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    const lastMessage = messages[messages.length - 1];
+    const followingLiveTurn = thinking.active || lastMessage?.isStreaming === true;
+    if (messages.length > 0 && (grew || followingLiveTurn)) {
       scrollToBottom();
     }
   }, [messages, thinking, scrollToBottom]);

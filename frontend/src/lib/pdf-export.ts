@@ -7,6 +7,7 @@ import type { jsPDF } from 'jspdf';
 import { captureAllChartsAsImages } from './pdf-export-charts';
 import { addSummaryCardsToPdf } from './pdf-export-cards';
 import { addTableToPdf, type CellValue } from './pdf-export-tables';
+import { PDF_FONT, registerPdfFonts } from './pdf-fonts';
 
 export type { PdfSummaryCard } from './pdf-export-cards';
 export type { CellValue } from './pdf-export-tables';
@@ -56,6 +57,9 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
   const orientation = hasChart ? 'landscape' : 'portrait';
   const { jsPDF: JsPDF } = await import('jspdf');
   const doc = new JsPDF({ orientation, unit: 'mm', format: 'a4' });
+  // Embed a UTF-8 font so Polish and other Latin-Extended/Cyrillic/Greek text
+  // renders correctly instead of jsPDF's WinAnsi-only built-in Helvetica.
+  registerPdfFonts(doc);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -69,7 +73,7 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
   // Description text block
   if (description) {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONT, 'normal');
     doc.setTextColor(55, 65, 81);
     const maxTextWidth = pageWidth - margin * 2;
     const lines = doc.splitTextToSize(description, maxTextWidth) as string[];
@@ -85,7 +89,9 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
   // Charts
   if (hasChart && chartContainer) {
     try {
-      const charts = await captureAllChartsAsImages(chartContainer);
+      // scale 2 is ~325 dpi at the printed width -- crisp for print, while
+      // scale 3 produced needlessly huge (5160 px) rasters.
+      const charts = await captureAllChartsAsImages(chartContainer, 2);
       if (charts.length > 0) {
         const cols = chartColumns && chartColumns > 1 ? chartColumns : 1;
         // Dynamic max height: single chart gets full space, multiple charts share space
@@ -119,7 +125,9 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
                 imgWidth = imgHeight * aspectRatio;
               }
               const xOffset = margin + j * (colWidth + chartGap) + (colWidth - imgWidth) / 2;
-              doc.addImage(chart.dataUrl, 'PNG', xOffset, currentY, imgWidth, imgHeight);
+              // 'FAST' deflates the raster: without a compression flag jsPDF
+              // stores the decoded pixels raw (a chart was ~16 MB uncompressed).
+              doc.addImage(chart.dataUrl, 'PNG', xOffset, currentY, imgWidth, imgHeight, undefined, 'FAST');
               maxRowHeight = Math.max(maxRowHeight, imgHeight);
             }
 
@@ -144,7 +152,7 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
             }
 
             const xOffset = (pageWidth - imgWidth) / 2;
-            doc.addImage(chart.dataUrl, 'PNG', xOffset, currentY, imgWidth, imgHeight);
+            doc.addImage(chart.dataUrl, 'PNG', xOffset, currentY, imgWidth, imgHeight, undefined, 'FAST');
             currentY += imgHeight + chartGap;
           }
         }
@@ -191,7 +199,7 @@ export async function exportToPdf(options: PdfExportOptions): Promise<void> {
       if (table.title) {
         currentY += 4;
         doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(PDF_FONT, 'bold');
         doc.setTextColor(30, 58, 95);
         doc.text(table.title, margin, currentY);
         currentY += 4;
@@ -225,14 +233,14 @@ function addHeader(
 ): void {
   // Title
   doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(PDF_FONT, 'bold');
   doc.setTextColor(30, 58, 95);
   doc.text(title, margin, 14);
 
   // Subtitle / date info
   if (subtitle) {
     doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONT, 'normal');
     doc.setTextColor(107, 114, 128);
     doc.text(subtitle, margin, 22);
   }
@@ -247,7 +255,7 @@ function addHeader(
     minute: '2-digit',
   });
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONT, 'normal');
   doc.setTextColor(156, 163, 175);
   doc.text(`Generated: ${timestamp}`, pageWidth - margin, 14, { align: 'right' });
 
@@ -271,7 +279,7 @@ function addChartLegend(
   const availableWidth = pageWidth - margin * 2;
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONT, 'normal');
 
   let x = margin;
   let y = startY;
@@ -315,7 +323,7 @@ function addFooter(
 ): void {
   const pageHeight = doc.internal.pageSize.getHeight();
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(PDF_FONT, 'normal');
   doc.setTextColor(156, 163, 175);
   doc.text('Monize', 14, pageHeight - 8);
   doc.text(

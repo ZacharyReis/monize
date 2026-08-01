@@ -34,6 +34,46 @@ export interface IntradayValuePoint {
   value: number;
 }
 
+/**
+ * One stacked band on the intraday "by security" chart. Mirrors the
+ * daily/monthly breakdown's series shape: an individual security, the
+ * rolled-up "other" bucket of smaller holdings, or the aggregate cash band.
+ */
+export interface IntradayBreakdownSeries {
+  /** securityId for a real holding, or the sentinel "cash" / "other". */
+  key: string;
+  type: "security" | "cash" | "other";
+  symbol: string | null;
+  name: string;
+}
+
+export interface IntradayBreakdownPoint {
+  timestamp: string;
+  /** Sum of every band at this bar (in the display currency). */
+  total: number;
+  /** Per-series value keyed by {@link IntradayBreakdownSeries.key}. */
+  values: Record<string, number>;
+}
+
+/**
+ * Per-security intraday series for the Portfolio Value Over Time report's "by
+ * security" view on the 1D / 1W / 1M ranges. Carries the same intraday
+ * availability metadata as {@link IntradayValueResponse} so the frontend can
+ * apply the identical fallback handling (1D unavailable notice, 1W/1M silent
+ * fall back to the daily-snapshot breakdown).
+ */
+export interface IntradayBreakdownResponse {
+  series: IntradayBreakdownSeries[];
+  points: IntradayBreakdownPoint[];
+  interval: "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m";
+  currency: string;
+  range: IntradayRangeKey;
+  fetchedAt: string;
+  skippedSymbols: string[];
+  failedSymbols: string[];
+  fallbackToDaily: boolean;
+}
+
 export interface IntradayValueResponse {
   points: IntradayValuePoint[];
   interval: "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m";

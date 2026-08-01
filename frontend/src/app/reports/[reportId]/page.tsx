@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useOnAiAction } from '@/hooks/useOnAiAction';
 
 const reportComponents: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
   'spending-by-category': lazy(() => import('@/components/reports/SpendingByCategoryReport').then(m => ({ default: m.SpendingByCategoryReport }))),
@@ -26,6 +27,7 @@ const reportComponents: Record<string, React.LazyExoticComponent<React.Component
   'debt-payoff-timeline': lazy(() => import('@/components/reports/DebtPayoffTimelineReport').then(m => ({ default: m.DebtPayoffTimelineReport }))),
   'loan-amortization': lazy(() => import('@/components/reports/LoanAmortizationReport').then(m => ({ default: m.LoanAmortizationReport }))),
   'credit-utilization': lazy(() => import('@/components/reports/CreditUtilizationReport').then(m => ({ default: m.CreditUtilizationReport }))),
+  'loan-overpayment-simulator': lazy(() => import('@/components/reports/LoanOverpaymentSimulatorReport').then(m => ({ default: m.LoanOverpaymentSimulatorReport }))),
   // Investment
   'investment-performance': lazy(() => import('@/components/reports/InvestmentPerformanceReport').then(m => ({ default: m.InvestmentPerformanceReport }))),
   'dividend-income': lazy(() => import('@/components/reports/DividendIncomeReport').then(m => ({ default: m.DividendIncomeReport }))),
@@ -44,6 +46,7 @@ const reportComponents: Record<string, React.LazyExoticComponent<React.Component
   'spending-anomalies': lazy(() => import('@/components/reports/SpendingAnomaliesReport').then(m => ({ default: m.SpendingAnomaliesReport }))),
   'weekend-weekday-spending': lazy(() => import('@/components/reports/WeekendVsWeekdayReport').then(m => ({ default: m.WeekendVsWeekdayReport }))),
   'monthly-comparison': lazy(() => import('@/components/reports/MonthlyComparisonReport').then(m => ({ default: m.MonthlyComparisonReport }))),
+  'foreign-currency-fees': lazy(() => import('@/components/reports/ForeignCurrencyFeesReport').then(m => ({ default: m.ForeignCurrencyFeesReport }))),
   // Maintenance & Cleanup
   'uncategorized-transactions': lazy(() => import('@/components/reports/UncategorizedTransactionsReport').then(m => ({ default: m.UncategorizedTransactionsReport }))),
   'duplicate-transactions': lazy(() => import('@/components/reports/DuplicateTransactionReport').then(m => ({ default: m.DuplicateTransactionReport }))),
@@ -100,6 +103,8 @@ function ReportContent() {
   const [refreshKey, setRefreshKey] = useState(0);
   const handleUndoRedo = useCallback(() => setRefreshKey((k) => k + 1), []);
   useOnUndoRedo(handleUndoRedo);
+  // Refresh on AI chat-bubble writes the same way as undo/redo.
+  useOnAiAction(handleUndoRedo);
 
   const ReportComponent = reportComponents[reportId];
 

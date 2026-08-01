@@ -142,4 +142,20 @@ describe('FavouriteSecurities', () => {
     fireEvent.click(screen.getByText('Manage securities'));
     expect(mockPush).toHaveBeenCalledWith('/securities');
   });
+
+  it('opens the price history for the clicked row, like Top Movers', () => {
+    render(<FavouriteSecurities securities={[quote({ securityId: 'sec-9' })]} isLoading={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Price history for AAPL/i }));
+
+    expect(mockPush).toHaveBeenCalledWith('/securities?price=sec-9');
+  });
+
+  it('highlights the row edge on hover, matching the Top Movers widget', () => {
+    render(<FavouriteSecurities securities={[quote()]} isLoading={false} />);
+
+    const row = screen.getByRole('button', { name: /Price history for AAPL/i });
+    expect(row.className).toContain('hover:border-blue-400');
+    expect(row.className).toContain('dark:hover:border-blue-500');
+  });
 });

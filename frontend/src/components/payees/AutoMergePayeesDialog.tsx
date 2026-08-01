@@ -217,20 +217,63 @@ export function AutoMergePayeesDialog({
       }));
 
       const result = await payeesApi.applyAutoMerge(payload);
-      toast.success(
-        t('autoMerge.toasts.applied', {
-          groups: result.groupsMerged,
-          payees: result.payeesMerged,
-        }),
-      );
+
+      // Conflict notices must be readable: they name exactly what conflicted
+      // (not just a count) and stay on screen until the user dismisses them
+      // rather than auto-timing-out.
+      const showConflictToast = (message: string) =>
+        toast.error(
+          instance => (
+            <div className="flex items-start gap-2">
+              <span className="whitespace-pre-wrap">{message}</span>
+              <button
+                type="button"
+                onClick={() => toast.dismiss(instance.id)}
+                aria-label={tc('close')}
+                className="ml-1 shrink-0 font-semibold leading-none"
+              >
+                ×
+              </button>
+            </div>
+          ),
+          { duration: Infinity },
+        );
+
+      if (result.groupsMerged > 0) {
+        toast.success(
+          t('autoMerge.toasts.applied', {
+            groups: result.groupsMerged,
+            payees: result.payeesMerged,
+          }),
+        );
+      }
       if (result.transactionsBackfilled > 0) {
         toast.success(
           t('autoMerge.toasts.backfilled', { count: result.transactionsBackfilled }),
         );
       }
+      // An alias already in use is skipped (the merge itself still succeeds).
+      // Say which alias(es), and keep the notice up until dismissed.
       if (result.skippedAliases > 0) {
-        toast(
-          t('autoMerge.toasts.aliasesSkipped', { count: result.skippedAliases }),
+        const aliases = result.skippedAliasDetails
+          .map(d => d.alias)
+          .filter(Boolean)
+          .join(', ');
+        showConflictToast(
+          t('autoMerge.toasts.aliasesSkipped', {
+            count: result.skippedAliases,
+            aliases,
+          }),
+        );
+      }
+      // Some groups can fail independently (e.g. a name/alias collision) while
+      // the rest merge. List every failure with its reason, and keep it up.
+      if (result.failures.length > 0) {
+        showConflictToast(
+          t('autoMerge.toasts.someGroupsFailed', {
+            count: result.failures.length,
+            reason: result.failures.map(f => f.reason).join('\n'),
+          }),
         );
       }
       onSuccess();

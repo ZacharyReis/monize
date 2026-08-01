@@ -953,6 +953,144 @@ describe("TransactionTransferService", () => {
       );
     });
 
+    describe("split transfer leg", () => {
+      // A transfer split's counterpart in the target account. Its
+      // linkedTransactionId points at the split PARENT (amount = sum of splits),
+      // not a mirror leg.
+      const splitParent = {
+        id: "parent-tx",
+        accountId: "from-account",
+        amount: -1000,
+        isSplit: true,
+        transactionDate: "2020-01-01",
+      } as unknown as Transaction;
+
+      const counterpartLeg = {
+        id: "leg-tx",
+        accountId: "to-account",
+        amount: 500,
+        isTransfer: true,
+        linkedTransactionId: "parent-tx",
+        transactionDate: "2020-01-01",
+      } as unknown as Transaction;
+
+      const parentSplit = {
+        id: "split-1",
+        transactionId: "parent-tx",
+        transferAccountId: "to-account",
+        amount: -500,
+        linkedTransactionId: "leg-tx",
+      } as unknown as TransactionSplit;
+
+      it("edits only the leg's metadata and never rewrites the split parent's amount", async () => {
+        splitsRepository.findOne.mockResolvedValue(parentSplit);
+        mockFindOne
+          .mockResolvedValueOnce(counterpartLeg) // transaction being edited
+          .mockResolvedValueOnce(splitParent) // parent lookup
+          .mockResolvedValueOnce(counterpartLeg); // refreshed leg
+
+        // Mirrors the form payload: amount resent unchanged, accounts unchanged.
+        await service.updateTransfer(
+          "user-1",
+          "leg-tx",
+          {
+            amount: 500,
+            fromAccountId: "from-account",
+            toAccountId: "to-account",
+            description: "New note",
+            fromCurrencyCode: "USD",
+            toCurrencyCode: "USD",
+          } as any,
+          mockFindOne,
+        );
+
+        // The leg gets its own note...
+        expect(transactionsRepository.update).toHaveBeenCalledWith(
+          "leg-tx",
+          expect.objectContaining({ description: "New note" }),
+        );
+        // ...and the note mirrors back to the source split's memo.
+        expect(transactionsRepository.update).toHaveBeenCalledWith(
+          "split-1",
+          expect.objectContaining({ memo: "New note" }),
+        );
+        // The parent split's amount is never rewritten.
+        expect(transactionsRepository.update).not.toHaveBeenCalledWith(
+          "parent-tx",
+          expect.anything(),
+        );
+        // No amount change => no balance movement.
+        expect(accountsService.updateBalance).not.toHaveBeenCalled();
+      });
+
+      it("syncs a leg amount change into the split row, parent total, and both balances", async () => {
+        splitsRepository.findOne.mockResolvedValue(parentSplit);
+        splitsRepository.find.mockResolvedValue([
+          { id: "split-1", amount: -500 },
+          { id: "split-2", amount: -500 },
+        ]);
+        mockFindOne
+          .mockResolvedValueOnce(counterpartLeg)
+          .mockResolvedValueOnce(splitParent)
+          .mockResolvedValueOnce({ ...counterpartLeg, amount: 600 });
+
+        await service.updateTransfer(
+          "user-1",
+          "leg-tx",
+          {
+            amount: 600,
+            fromAccountId: "from-account",
+            toAccountId: "to-account",
+          } as any,
+          mockFindOne,
+        );
+
+        // Leg amount updated, matching split mirrored to -600.
+        expect(transactionsRepository.update).toHaveBeenCalledWith(
+          "leg-tx",
+          expect.objectContaining({ amount: 600 }),
+        );
+        expect(transactionsRepository.update).toHaveBeenCalledWith(
+          "split-1",
+          expect.objectContaining({ amount: -600 }),
+        );
+        // Parent total = sum of splits = -600 + -500 = -1100.
+        expect(transactionsRepository.update).toHaveBeenCalledWith(
+          "parent-tx",
+          expect.objectContaining({ amount: -1100 }),
+        );
+        // Target account gains the +100 delta; source account absorbs -100.
+        expect(accountsService.updateBalance).toHaveBeenCalledWith(
+          "to-account",
+          100,
+          expect.anything(),
+        );
+        expect(accountsService.updateBalance).toHaveBeenCalledWith(
+          "from-account",
+          -100,
+          expect.anything(),
+        );
+      });
+
+      it("rejects moving a split transfer leg to a different account", async () => {
+        splitsRepository.findOne.mockResolvedValue(parentSplit);
+        mockFindOne
+          .mockResolvedValueOnce(counterpartLeg)
+          .mockResolvedValueOnce(splitParent);
+
+        await expect(
+          service.updateTransfer(
+            "user-1",
+            "leg-tx",
+            { toAccountId: "other-account" } as any,
+            mockFindOne,
+          ),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(transactionsRepository.update).not.toHaveBeenCalled();
+      });
+    });
+
     it("rewrites created_at on both legs via raw query when createdAt is provided", async () => {
       mockFindOne
         .mockResolvedValueOnce(fromTransaction)
@@ -1437,223 +1575,6 @@ describe("TransactionTransferService", () => {
 
       expect(transactionsRepository.update).not.toHaveBeenCalled();
       expect(accountsService.updateBalance).not.toHaveBeenCalled();
-    });
-  });
-
-  // Regression: a transfer created from a split line links the counterpart's
-  // linkedTransactionId to the split PARENT. updateTransfer used to treat that
-  // parent as the plain "from" leg and write this leg's amount/date/payee/
-  // category onto it, so editing the far side silently destroyed the parent's
-  // split-derived total. Reproduces the live payroll case: a $547.28 paycheck
-  // split (gross 1847.28, -1300 transferred out) that ended up stored as -1300.
-  describe("updateTransfer on a split-originated transfer", () => {
-    const grossSplit = {
-      id: "split-gross",
-      transactionId: "parent-tx",
-      amount: 1847.28,
-      linkedTransactionId: null,
-      transferAccountId: null,
-    };
-    const transferSplit = {
-      id: "split-transfer",
-      transactionId: "parent-tx",
-      amount: -1300,
-      linkedTransactionId: "counterpart-tx",
-      transferAccountId: "to-account",
-    };
-
-    const parentTransaction = {
-      id: "parent-tx",
-      accountId: "from-account",
-      account: mockFromAccount,
-      amount: 547.28,
-      transactionDate: "2026-07-16",
-      payeeId: "payee-payroll",
-      payeeName: "STERLING NORTH A PAYROLL",
-      categoryId: null,
-      isSplit: true,
-      isTransfer: false,
-      exchangeRate: 1,
-    };
-
-    const counterpart = {
-      id: "counterpart-tx",
-      accountId: "to-account",
-      account: mockToAccount,
-      amount: 1300,
-      transactionDate: "2026-07-16",
-      payeeId: null,
-      payeeName: "Zachary Reis",
-      categoryId: null,
-      isSplit: false,
-      isTransfer: true,
-      linkedTransactionId: "parent-tx",
-      exchangeRate: 1,
-    };
-
-    const parentUpdates = () =>
-      transactionsRepository.update.mock.calls.filter(
-        ([id]) => id === "parent-tx",
-      );
-
-    let splitRows: Array<Record<string, any>>;
-
-    beforeEach(() => {
-      // Model the split rows as mutable storage so the service's re-read after
-      // writing the leg sees the new amount, as it would against the database.
-      splitRows = [{ ...grossSplit }, { ...transferSplit }];
-
-      // The counterpart's transfer originates from a split row.
-      splitsRepository.findOne.mockResolvedValue({ ...transferSplit });
-      splitsRepository.find.mockImplementation(() =>
-        Promise.resolve(splitRows),
-      );
-
-      mockQueryRunner.manager.update.mockImplementation(
-        (_Entity: any, id: any, data: any) => {
-          const row = splitRows.find((s) => s.id === id);
-          if (row) Object.assign(row, data);
-          return transactionsRepository.update(id, data);
-        },
-      );
-
-      mockFindOne.mockImplementation((_userId: string, id: string) =>
-        Promise.resolve(id === "parent-tx" ? parentTransaction : counterpart),
-      );
-    });
-
-    it("never writes date, payee or category onto the split parent", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        {
-          amount: 1300,
-          transactionDate: "2026-07-20",
-          payeeName: "Zachary Reis",
-          categoryId: "cat-1",
-        },
-        mockFindOne,
-      );
-
-      for (const [, data] of parentUpdates()) {
-        expect(data).not.toHaveProperty("transactionDate");
-        expect(data).not.toHaveProperty("payeeName");
-        expect(data).not.toHaveProperty("payeeId");
-        expect(data).not.toHaveProperty("categoryId");
-        expect(data).not.toHaveProperty("accountId");
-      }
-    });
-
-    it("re-derives the parent amount from SUM(splits), not from the leg amount", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        { amount: 1400 },
-        mockFindOne,
-      );
-
-      // split leg becomes -1400, so the parent is 1847.28 - 1400 = 447.28.
-      // The pre-fix bug wrote -1400 (the leg) onto the parent instead.
-      expect(
-        transactionsRepository.update.mock.calls.find(
-          ([id]) => id === "split-transfer",
-        )?.[1],
-      ).toEqual({ amount: -1400 });
-
-      const parentAmounts = parentUpdates().map(([, d]) => d.amount);
-      expect(parentAmounts).toContain(447.28);
-      expect(parentAmounts).not.toContain(-1400);
-    });
-
-    it("preserves the split leg's direction when only the magnitude changes", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        { amount: 250 },
-        mockFindOne,
-      );
-
-      expect(
-        transactionsRepository.update.mock.calls.find(
-          ([id]) => id === "split-transfer",
-        )?.[1].amount,
-      ).toBe(-250);
-    });
-
-    it("applies the edit to the counterpart leg with the opposite sign", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        { amount: 1400, transactionDate: "2026-07-20" },
-        mockFindOne,
-      );
-
-      const [, data] =
-        transactionsRepository.update.mock.calls.find(
-          ([id]) => id === "counterpart-tx",
-        ) ?? [];
-      expect(data.amount).toBe(1400);
-      expect(data.transactionDate).toBe("2026-07-20");
-    });
-
-    it("leaves the parent untouched when no amount field changed", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        { description: "renamed" },
-        mockFindOne,
-      );
-
-      expect(parentUpdates()).toHaveLength(0);
-      expect(
-        transactionsRepository.update.mock.calls.find(
-          ([id]) => id === "split-transfer",
-        ),
-      ).toBeUndefined();
-    });
-
-    it("rejects relocating the split leg to another source account", async () => {
-      await expect(
-        service.updateTransfer(
-          "user-1",
-          "counterpart-tx",
-          { fromAccountId: "some-other-account" },
-          mockFindOne,
-        ),
-      ).rejects.toThrow(BadRequestException);
-
-      expect(transactionsRepository.update).not.toHaveBeenCalled();
-    });
-
-    it("rejects a destination equal to the parent's own account", async () => {
-      await expect(
-        service.updateTransfer(
-          "user-1",
-          "counterpart-tx",
-          { toAccountId: "from-account" },
-          mockFindOne,
-        ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("recalculates balances for the parent and both destination accounts", async () => {
-      await service.updateTransfer(
-        "user-1",
-        "counterpart-tx",
-        { amount: 1400, toAccountId: "new-to-account" },
-        mockFindOne,
-      );
-
-      const recalced =
-        accountsService.recalculateCurrentBalance.mock.calls.map(([id]) => id);
-      expect(recalced).toEqual(
-        expect.arrayContaining([
-          "from-account",
-          "to-account",
-          "new-to-account",
-        ]),
-      );
-      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });
   });
 

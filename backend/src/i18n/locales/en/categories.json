@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "Automobile",
+      "sub": {
+        "accessories": "Accessories",
+        "carPayment": "Car Payment",
+        "cleaning": "Cleaning",
+        "congestionCharge": "Congestion Charge",
+        "fines": "Fines",
+        "fuel": "Fuel",
+        "maintenance": "Maintenance",
+        "mot": "MOT",
+        "parking": "Parking",
+        "parts": "Parts",
+        "registration": "Registration",
+        "roadTax": "Road Tax",
+        "tolls": "Tolls"
+      }
+    },
+    "bankFees": {
+      "name": "Bank Fees",
+      "sub": {
+        "annualFee": "Annual Fee",
+        "atm": "ATM",
+        "foreignTransaction": "Foreign Transaction",
+        "nsf": "NSF",
+        "other": "Other",
+        "overdraft": "Overdraft",
+        "serviceCharge": "Service Charge",
+        "unpaidItemFee": "Unpaid Item Fee"
+      }
+    },
+    "bills": {
+      "name": "Bills",
+      "sub": {
+        "electricity": "Electricity",
+        "internet": "Internet",
+        "mobilePhone": "Mobile Phone",
+        "naturalGas": "Natural Gas",
+        "streamingServices": "Streaming Services",
+        "telephone": "Telephone",
+        "television": "Television",
+        "tvLicence": "TV Licence",
+        "wasteCollection": "Waste Collection",
+        "waterSewer": "Water & Sewer"
+      }
+    },
+    "business": {
+      "name": "Business",
+      "sub": {
+        "airfare": "Airfare",
+        "carRental": "Car Rental",
+        "diningOut": "Dining Out",
+        "fuel": "Fuel",
+        "lodging": "Lodging",
+        "mileage": "Mileage",
+        "miscellaneous": "Miscellaneous",
+        "mobilePhone": "Mobile Phone",
+        "officeSupplies": "Office Supplies",
+        "parking": "Parking",
+        "software": "Software",
+        "transit": "Transit"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "Cash Withdrawal",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "Charitable Donations",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "Childcare",
+      "sub": {
+        "activities": "Activities",
+        "allowance": "Allowance",
+        "babysitting": "Babysitting",
+        "clothing": "Clothing",
+        "daycare": "Daycare",
+        "schoolSupplies": "School Supplies",
+        "sports": "Sports",
+        "toysGames": "Toys & Games"
+      }
+    },
+    "clothing": {
+      "name": "Clothing",
+      "sub": {
+        "accessories": "Accessories",
+        "clothes": "Clothes",
+        "outerwear": "Outerwear",
+        "shoes": "Shoes"
+      }
+    },
+    "education": {
+      "name": "Education",
+      "sub": {
+        "529PlanContribution": "529 Plan Contribution",
+        "books": "Books",
+        "fees": "Fees",
+        "supplies": "Supplies",
+        "tuition": "Tuition"
+      }
+    },
+    "food": {
+      "name": "Food",
+      "sub": {
+        "alcohol": "Alcohol",
+        "cannabis": "Cannabis",
+        "coffeeShops": "Coffee Shops",
+        "diningOut": "Dining Out",
+        "groceries": "Groceries",
+        "takeout": "Takeout"
+      }
+    },
+    "furnishings": {
+      "name": "Furnishings",
+      "sub": {
+        "accessories": "Accessories",
+        "appliances": "Appliances",
+        "bathroom": "Bathroom",
+        "bedroom": "Bedroom",
+        "decor": "Decor",
+        "dishes": "Dishes",
+        "kitchen": "Kitchen",
+        "livingRoom": "Living Room",
+        "office": "Office",
+        "outdoor": "Outdoor"
+      }
+    },
+    "gifts": {
+      "name": "Gifts",
+      "sub": {
+        "anniversary": "Anniversary",
+        "birthday": "Birthday",
+        "cards": "Cards",
+        "flowers": "Flowers",
+        "holiday": "Holiday",
+        "respContribution": "RESP Contribution",
+        "wedding": "Wedding"
+      }
+    },
+    "governmentFees": {
+      "name": "Government Fees",
+      "sub": {
+        "licencesPermits": "Licences & Permits",
+        "passport": "Passport"
+      }
+    },
+    "healthcare": {
+      "name": "Healthcare",
+      "sub": {
+        "copay": "Copay",
+        "counselling": "Counselling",
+        "dental": "Dental",
+        "eyecare": "Eyecare",
+        "fitness": "Fitness",
+        "healthSavingsAccount": "Health Savings Account",
+        "hospital": "Hospital",
+        "medication": "Medication",
+        "physician": "Physician",
+        "physiotherapy": "Physiotherapy",
+        "supplies": "Supplies"
+      }
+    },
+    "housing": {
+      "name": "Housing",
+      "sub": {
+        "fees": "Fees",
+        "garden": "Garden",
+        "groundRent": "Ground Rent",
+        "homeImprovement": "Home Improvement",
+        "maintenance": "Maintenance",
+        "mortgageInterest": "Mortgage Interest",
+        "mortgagePrincipal": "Mortgage Principal",
+        "rent": "Rent",
+        "serviceCharge": "Service Charge",
+        "supplies": "Supplies",
+        "tools": "Tools"
+      }
+    },
+    "insurance": {
+      "name": "Insurance",
+      "sub": {
+        "automobile": "Automobile",
+        "disability": "Disability",
+        "health": "Health",
+        "home": "Home",
+        "life": "Life",
+        "provincialHealthPremium": "Provincial Health Premium",
+        "renter": "Renter",
+        "travel": "Travel"
+      }
+    },
+    "interestExpense": {
+      "name": "Interest Expense",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "Investment Income",
+      "sub": {
+        "capitalGains": "Capital Gains",
+        "dividends": "Dividends",
+        "interest": "Interest",
+        "respGrant": "RESP Grant"
+      }
+    },
+    "leisure": {
+      "name": "Leisure",
+      "sub": {
+        "booksMagazines": "Books & Magazines",
+        "camping": "Camping",
+        "concerts": "Concerts",
+        "culturalEvents": "Cultural Events",
+        "electronics": "Electronics",
+        "games": "Games",
+        "hobbies": "Hobbies",
+        "movies": "Movies",
+        "music": "Music",
+        "sportingEvents": "Sporting Events",
+        "sportingGoods": "Sporting Goods",
+        "sports": "Sports"
+      }
+    },
+    "loan": {
+      "name": "Loan",
+      "sub": {
+        "loanInterest": "Loan Interest",
+        "loanPrincipal": "Loan Principal",
+        "studentLoanInterest": "Student Loan Interest",
+        "studentLoanPrincipal": "Student Loan Principal",
+        "studentLoanRepayment": "Student Loan Repayment"
+      }
+    },
+    "miscellaneous": {
+      "name": "Miscellaneous",
+      "sub": {
+        "other": "Other",
+        "postage": "Postage"
+      }
+    },
+    "otherIncome": {
+      "name": "Other Income",
+      "sub": {
+        "businessReimbursement": "Business Reimbursement",
+        "canadaChildBenefit": "Canada Child Benefit",
+        "cashback": "Cashback",
+        "childBenefit": "Child Benefit",
+        "creditCardReward": "Credit Card Reward",
+        "freelance": "Freelance",
+        "giftsReceived": "Gifts Received",
+        "gstHstCredit": "GST/HST Credit",
+        "rentalIncome": "Rental Income",
+        "stateTaxRefund": "State Tax Refund",
+        "taxRefund": "Tax Refund"
+      }
+    },
+    "personalCare": {
+      "name": "Personal Care",
+      "sub": {
+        "cosmetics": "Cosmetics",
+        "dryCleaning": "Dry Cleaning",
+        "haircut": "Haircut",
+        "laundry": "Laundry",
+        "spa": "Spa",
+        "toiletries": "Toiletries"
+      }
+    },
+    "petCare": {
+      "name": "Pet Care",
+      "sub": {
+        "food": "Food",
+        "grooming": "Grooming",
+        "supplies": "Supplies",
+        "veterinarian": "Veterinarian"
+      }
+    },
+    "professionalServices": {
+      "name": "Professional Services",
+      "sub": {
+        "accounting": "Accounting",
+        "financialAdvice": "Financial Advice",
+        "legal": "Legal"
+      }
+    },
+    "retirementIncome": {
+      "name": "Retirement Income",
+      "sub": {
+        "401KWithdrawal": "401(k) Withdrawal",
+        "annuity": "Annuity",
+        "cppQppBenefits": "CPP/QPP Benefits",
+        "iraWithdrawal": "IRA Withdrawal",
+        "oasBenefits": "OAS Benefits",
+        "pension": "Pension",
+        "retirementAccountWithdrawal": "Retirement Account Withdrawal",
+        "rrifWithdrawal": "RRIF Withdrawal",
+        "rrspWithdrawal": "RRSP Withdrawal",
+        "socialSecurityBenefits": "Social Security Benefits",
+        "statePension": "State Pension",
+        "workplacePension": "Workplace Pension"
+      }
+    },
+    "taxes": {
+      "name": "Taxes",
+      "sub": {
+        "councilTax": "Council Tax",
+        "cppQppContributions": "CPP/QPP Contributions",
+        "eiPremiums": "EI Premiums",
+        "federalIncomeTax": "Federal Income Tax",
+        "gstHst": "GST/HST",
+        "incomeTax": "Income Tax",
+        "localIncomeTax": "Local Income Tax",
+        "medicareTax": "Medicare Tax",
+        "nationalInsurance": "National Insurance",
+        "other": "Other",
+        "propertyTax": "Property Tax",
+        "provincialIncomeTax": "Provincial Income Tax",
+        "provincialSalesTax": "Provincial Sales Tax",
+        "salesTax": "Sales Tax",
+        "socialSecurityTax": "Social Security Tax",
+        "stateIncomeTax": "State Income Tax",
+        "unionDues": "Union Dues",
+        "vat": "VAT"
+      }
+    },
+    "technology": {
+      "name": "Technology",
+      "sub": {
+        "hardware": "Hardware",
+        "software": "Software",
+        "subscriptions": "Subscriptions",
+        "webHosting": "Web Hosting"
+      }
+    },
+    "transportation": {
+      "name": "Transportation",
+      "sub": {
+        "bicycle": "Bicycle",
+        "publicTransit": "Public Transit",
+        "rideshare": "Rideshare",
+        "taxi": "Taxi"
+      }
+    },
+    "vacation": {
+      "name": "Vacation",
+      "sub": {
+        "activities": "Activities",
+        "airfare": "Airfare",
+        "carRental": "Car Rental",
+        "fuel": "Fuel",
+        "lodging": "Lodging",
+        "miscellaneous": "Miscellaneous",
+        "parking": "Parking"
+      }
+    },
+    "wagesSalary": {
+      "name": "Wages & Salary",
+      "sub": {
+        "bonus": "Bonus",
+        "commission": "Commission",
+        "employerMatching": "Employer Matching",
+        "grossPay": "Gross Pay",
+        "netPay": "Net Pay",
+        "overtime": "Overtime",
+        "stockOptions": "Stock Options",
+        "tips": "Tips",
+        "vacationPay": "Vacation Pay"
+      }
+    }
+  }
+}

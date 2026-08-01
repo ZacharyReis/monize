@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Espèces",
     "brokerage": "Courtage"
+  },
+  "import": {
+    "voidedTransactionNote": "Annulée dans la source ; le montant d'origine a été omis de l'exportation et importé comme zéro."
   }
 }

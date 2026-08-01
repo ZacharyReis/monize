@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "週起始日",
     "showCreatedAtLabel": "在交易表單中顯示建立日期",
     "showCreatedAtTooltip": "在交易表單中顯示交易最初建立的日期和時間。此時間獨立於交易日期，可幫助您了解記錄實際新增至 Monize 的時間。",
+    "showWhatsNewLabel": "升級後顯示更新內容",
+    "showWhatsNewTooltip": "在 Monize 更新到新版本後，您首次登入時顯示版本說明摘要。您隨時可以透過點按本頁面底部或登入畫面上的版本號碼重新開啟它。",
     "timeFormatLabel": "時間格式",
     "recentTransactionsLabel": "快速填字中的最近交易",
     "recentTransactionsHelp": "在交易表單收款人欄位旁的歷史按鈕彈出視窗中顯示的記錄數量。",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "儲存色彩主題失敗"
     },
     "browserLocale": "使用瀏覽器語言設定（自動偵測）",
-    "browserTimezonePrefix": "使用瀏覽器時區（自動偵測為 {tz}）",
     "numberFormatOptions": {
       "browser": "使用瀏覽器語言設定（自動偵測為 {sample}）",
       "enUS": "英文（美國）- 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "瀏覽指南和說明文件。"
+    },
+    "supportBackup": {
+      "label": "建立支援備份",
+      "description": "分享一份去識別化且加密的資料副本,讓維護者無需看到您的真實名稱或金額即可重現問題。"
     }
+  },
+  "supportBackup": {
+    "title": "建立支援備份",
+    "howItWorks": "產生備份的去識別化副本:名稱會被遮罩(保留首尾各兩個字元),備註/描述/帳號會被移除,每筆金額乘以同一個隱藏係數,而公開數值(匯率、價格、利率)保持不變。檔案一律以下方密碼加密,並像一般備份一樣還原。這只能防範偶然外洩,防不了已經認識您的人——日期、頻率與結構會被保留,讓問題仍可重現。",
+    "sectionsLabel": "包含內容",
+    "sections": {
+      "investments": "投資(證券、持倉、價格)",
+      "scheduled": "定期交易",
+      "budgets": "預算",
+      "reports": "報表與預測",
+      "importMappings": "匯入欄位對應",
+      "autoBackup": "自動備份設定"
+    },
+    "priceHistoryLabel": "包含證券價格歷史",
+    "priceHistoryHint": "預設關閉:完整的價格序列與公開市場資料一致,可能識別出被遮罩的代號。僅在問題涉及價格或估值時開啟。",
+    "accountsLabel": "限定為特定帳戶",
+    "accountsHint": "全部不勾選則包含所有帳戶。選擇子集時也會帶入其引用的帳戶與收款人。",
+    "dateRangeLabel": "日期範圍(選填)",
+    "dateRangeHint": "將匯出的歷史限定在這些日期內。期初餘額會相應調整,使裁剪後的檔案依然對帳。",
+    "dateFromLabel": "從",
+    "dateToLabel": "至",
+    "multiplierLabel": "金額乘數",
+    "multiplierHint": "每筆私人金額都會乘以該數字,以在保持一致性的同時隱藏真實數值。任何大於 1 的非整數皆可;「重新產生」會選取新值。",
+    "multiplierWarning": "請勿將乘數分享給任何人——它是還原隱藏金額的密鑰。",
+    "multiplierInvalid": "請輸入大於 1 的非整數。",
+    "regenerate": "重新產生",
+    "passwordLabel": "加密密碼",
+    "preview": "預覽",
+    "previewLabel": "預覽",
+    "previewBefore": "之前",
+    "previewAfter": "之後",
+    "previewEmpty": "目前選擇沒有可預覽的範例列。",
+    "previewFailed": "無法產生預覽,請重試。",
+    "generate": "產生",
+    "confirmPasswordTitle": "密碼儲存好了嗎?",
+    "confirmPasswordMessage": "檔案只能用上方顯示的加密密碼開啟。密碼不會被儲存在任何地方,之後也無法找回——產生前請確認已妥善保存。",
+    "confirmPasswordConfirm": "已儲存——產生",
+    "generatedToast": "支援備份已下載。",
+    "generateFailed": "無法產生支援備份,請重試。",
+    "passwordHint": "檔案一律加密。請透過另外的管道將此密碼交給排查者,不要與檔案一起傳送。",
+    "passwordInvalid": "請輸入至少 8 個字元。"
   },
   "dangerZone": {
     "heading": "危險區域",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "自動備份",
-    "description": "依排程自動將您的資料備份至資料夾。由於 Monize 在 Docker 中運行，您必須將主機資料夾映射至容器作為磁碟區（例如：-v /host/backups:/backups）。",
+    "description": "依排程自動將您的資料備份至資料夾。由於 Monize 在 Docker 中運行，您必須將主機資料夾映射至容器作為磁碟區（例如：-v /host/backups:/data/backups）。",
     "loadingText": "載入中...",
     "enableLabel": "啟用自動備份",
     "backupFolderLabel": "備份資料夾",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "瀏覽...",
     "validateButton": "驗證",
     "validatingButton": "驗證中...",

@@ -94,6 +94,30 @@ describe('AccountInfoWidget', () => {
     expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 
+  it('links to the account detail page from the details icon', () => {
+    render(
+      <AccountInfoWidget
+        account={makeAccount({ id: 'loan-9', accountType: 'MORTGAGE' })}
+        onEdit={vi.fn()}
+        onCollapse={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('View account details'));
+    expect(mockPush).toHaveBeenCalledWith('/accounts/loan-9');
+  });
+
+  it('shows the details icon for every account type', () => {
+    render(
+      <AccountInfoWidget
+        account={makeAccount({ id: 'chq-1', accountType: 'CHEQUING' })}
+        onEdit={vi.fn()}
+        onCollapse={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('View account details'));
+    expect(mockPush).toHaveBeenCalledWith('/accounts/chq-1');
+  });
+
   it('renders optional fields and a closed badge when present', () => {
     render(
       <AccountInfoWidget

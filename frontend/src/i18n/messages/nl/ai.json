@@ -8,7 +8,15 @@
     "title": "AI-assistent",
     "expand": "Naar volledig scherm vergroten",
     "collapse": "Tot paneel verkleinen",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "movePanel": "Paneel verplaatsen: sleep het, verplaats het met de pijltjestoetsen of klik om het naar de volgende hoek te zetten",
+    "moveCornerTo": "Naar {corner} verplaatsen",
+    "corner": {
+      "bottom-right": "rechtsonder",
+      "bottom-left": "linksonder",
+      "top-right": "rechtsboven",
+      "top-left": "linksboven"
+    }
   },
   "chat": {
     "conversationSaved": "Gesprek opgeslagen in je browser",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "AI niet geconfigureerd",
-    "message": "Er is geen AI-provider geconfigureerd. Om de AI-assistent te gebruiken, {link} in je instellingen.",
-    "linkText": "configureer een AI-provider"
+    "message": "Er is geen AI-provider geconfigureerd. Om de AI-assistent te gebruiken, {link} in je instellingen."
   },
   "suggestedQueries": {
     "heading": "Stel een vraag over je financiën",
@@ -70,6 +77,7 @@
     "newPayee": "(nieuwe begunstigde)",
     "category": "Categorie",
     "splits": "Splitsingen",
+    "attachments": "Bijlagen",
     "newCategory": "Nieuwe categorie",
     "currentCategory": "Huidige categorie",
     "description": "Beschrijving",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {Geen beleggingstransacties aangemaakt} one {# beleggingstransactie aangemaakt} other {# beleggingstransacties aangemaakt}}",
     "rowsSkipped": "{count, plural, one {# rij overgeslagen} other {# rijen overgeslagen}}",
     "rowSkippedBadge": "Overgeslagen",
+    "reconciledBadge": "Afgestemd",
+    "reconciledWarning": "Deze transactie is afgestemd. Het wijzigen ervan heeft invloed op een voltooide afstemming.",
     "investmentActions": {
       "BUY": "Kopen",
       "SELL": "Verkopen",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "Assistent offline",
-      "listening": "Assistent luistert",
-      "busy": "Assistent werkt"
+      "offline": "MCP-agent offline",
+      "listening": "MCP-agent luistert",
+      "busy": "MCP-agent werkt",
+      "idle": "Verbroken na inactiviteit — verbind opnieuw om door te gaan"
     },
     "howToConnect": "Hoe verbinden",
     "hideHelp": "Verbergen",

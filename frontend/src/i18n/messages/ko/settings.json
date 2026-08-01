@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "주 시작일",
     "showCreatedAtLabel": "거래 양식에 생성 날짜 표시",
     "showCreatedAtTooltip": "거래 양식에 거래가 최초 생성된 날짜와 시간을 표시합니다. 거래 날짜와는 별개이며 항목이 Monize에 실제로 추가된 시점을 확인하는 데 도움이 됩니다.",
+    "showWhatsNewLabel": "업그레이드 후 새로운 기능 표시",
+    "showWhatsNewTooltip": "Monize가 새 버전으로 업데이트된 후 처음 로그인할 때 릴리스 노트 요약을 표시합니다. 이 페이지 하단이나 로그인 화면의 버전 번호를 클릭하여 언제든지 다시 열 수 있습니다.",
     "timeFormatLabel": "시간 형식",
     "recentTransactionsLabel": "빠른 채우기의 최근 거래 수",
     "recentTransactionsHelp": "거래 양식의 수취인 필드 옆 기록 버튼 팝오버에 표시되는 항목 수입니다.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "색상 테마 저장에 실패했습니다"
     },
     "browserLocale": "브라우저 로케일 사용 (자동 감지)",
-    "browserTimezonePrefix": "브라우저 시간대 사용 ({tz}로 자동 감지됨)",
     "numberFormatOptions": {
       "browser": "브라우저 로케일 사용 (자동 감지: {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "위키",
       "description": "가이드와 문서를 탐색하세요."
+    },
+    "supportBackup": {
+      "label": "지원용 백업 만들기",
+      "description": "유지관리자가 실제 이름이나 금액을 보지 않고도 버그를 재현할 수 있도록 비식별화·암호화된 데이터 사본을 공유하세요."
     }
+  },
+  "supportBackup": {
+    "title": "지원용 백업 만들기",
+    "howItWorks": "백업의 비식별화 사본을 만듭니다. 이름은 마스킹되고(처음과 마지막 두 글자만 남음), 메모/설명/계좌번호는 제거되며, 모든 금액은 하나의 숨겨진 계수로 곱해집니다. 공개 값(환율, 가격, 이자율)은 그대로 유지됩니다. 파일은 항상 아래 비밀번호로 암호화되며 일반 백업처럼 복원됩니다. 이는 우발적 노출로부터 보호할 뿐, 이미 당신을 아는 사람으로부터 보호하지는 않습니다 — 버그 재현을 위해 날짜, 빈도, 구조는 보존됩니다.",
+    "sectionsLabel": "포함할 항목",
+    "sections": {
+      "investments": "투자(증권, 보유, 가격)",
+      "scheduled": "예약 거래",
+      "budgets": "예산",
+      "reports": "보고서 및 전망",
+      "importMappings": "가져오기 열 매핑",
+      "autoBackup": "자동 백업 설정"
+    },
+    "priceHistoryLabel": "증권 가격 이력 포함",
+    "priceHistoryHint": "기본값은 꺼짐: 전체 가격 시계열은 공개 시장 데이터와 일치하여 마스킹된 티커를 식별할 수 있습니다. 버그가 가격이나 평가와 관련될 때만 켜세요.",
+    "accountsLabel": "특정 계좌로 제한",
+    "accountsHint": "모두 선택 해제하면 모든 계좌가 포함됩니다. 일부만 선택하면 참조된 계좌와 수취인도 함께 포함됩니다.",
+    "dateRangeLabel": "기간(선택)",
+    "dateRangeHint": "내보내는 이력을 이 기간으로 제한합니다. 잘린 파일도 잔액이 맞도록 기초 잔액이 조정됩니다.",
+    "dateFromLabel": "시작",
+    "dateToLabel": "종료",
+    "multiplierLabel": "금액 배수",
+    "multiplierHint": "모든 개인 금액은 이 숫자로 곱해져 실제 값을 숨기면서 일관성을 유지합니다. 1보다 큰 비정수라면 무엇이든 되며, “다시 생성”이 새 값을 고릅니다.",
+    "multiplierWarning": "배수는 누구와도 공유하지 마세요 — 숨긴 금액을 되돌리는 열쇠입니다.",
+    "multiplierInvalid": "1보다 큰 비정수를 입력하세요.",
+    "regenerate": "다시 생성",
+    "passwordLabel": "암호화 비밀번호",
+    "preview": "미리보기",
+    "previewLabel": "미리보기",
+    "previewBefore": "변환 전",
+    "previewAfter": "변환 후",
+    "previewEmpty": "이 선택에는 미리 볼 샘플 행이 없습니다.",
+    "previewFailed": "미리보기를 만들지 못했습니다. 다시 시도하세요.",
+    "generate": "생성",
+    "confirmPasswordTitle": "비밀번호를 저장했나요?",
+    "confirmPasswordMessage": "파일은 위에 표시된 암호화 비밀번호로만 열 수 있습니다. 비밀번호는 어디에도 저장되지 않으며 나중에 복구할 수 없습니다. 생성하기 전에 반드시 저장했는지 확인하세요.",
+    "confirmPasswordConfirm": "저장했습니다 — 생성",
+    "generatedToast": "지원용 백업을 다운로드했습니다.",
+    "generateFailed": "지원용 백업을 생성하지 못했습니다. 다시 시도하세요.",
+    "passwordHint": "파일은 항상 암호화됩니다. 이 비밀번호는 파일과 함께가 아니라 별도의 경로로 조사자에게 전달하세요.",
+    "passwordInvalid": "8자 이상 입력하세요."
   },
   "dangerZone": {
     "heading": "위험 구역",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "자동 백업",
-    "description": "일정에 따라 데이터를 폴더에 자동으로 백업합니다. Monize는 Docker에서 실행되므로 호스트 폴더를 볼륨으로 컨테이너에 매핑해야 합니다 (예: -v /host/backups:/backups).",
+    "description": "일정에 따라 데이터를 폴더에 자동으로 백업합니다. Monize는 Docker에서 실행되므로 호스트 폴더를 볼륨으로 컨테이너에 매핑해야 합니다 (예: -v /host/backups:/data/backups).",
     "loadingText": "로딩 중...",
     "enableLabel": "자동 백업 활성화",
     "backupFolderLabel": "백업 폴더",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "찾아보기...",
     "validateButton": "유효성 검사",
     "validatingButton": "유효성 검사 중...",

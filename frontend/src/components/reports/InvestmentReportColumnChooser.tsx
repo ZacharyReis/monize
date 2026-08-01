@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   INVESTMENT_REPORT_COLUMNS,
   INVESTMENT_COLUMN_MAP,
 } from '@/types/investment-report';
 import { useTranslations } from 'next-intl';
+import { useDragReorder, dropIndicatorClass } from '@/hooks/useDragReorder';
 
 interface InvestmentReportColumnChooserProps {
   /** Ordered selected column keys. */
@@ -23,8 +24,6 @@ export function InvestmentReportColumnChooser({
   onChange,
 }: InvestmentReportColumnChooserProps) {
   const t = useTranslations('reports');
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const available = useMemo(
     () => INVESTMENT_REPORT_COLUMNS.filter((c) => !value.includes(c.key)),
@@ -34,16 +33,14 @@ export function InvestmentReportColumnChooser({
   const add = (key: string) => onChange([...value, key]);
   const remove = (key: string) => onChange(value.filter((c) => c !== key));
 
-  const handleDrop = (targetIndex: number) => {
-    setOverIndex(null);
-    const from = dragIndex;
-    setDragIndex(null);
-    if (from === null || from === targetIndex) return;
+  const moveColumn = (from: number, to: number) => {
     const next = [...value];
     const [moved] = next.splice(from, 1);
-    next.splice(targetIndex, 0, moved);
+    next.splice(to, 0, moved);
     onChange(next);
   };
+
+  const { dragIndex, rowProps, dropIndicator } = useDragReorder(moveColumn);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -64,27 +61,10 @@ export function InvestmentReportColumnChooser({
               <li
                 key={key}
                 data-testid={`selected-${key}`}
-                draggable
-                onDragStart={() => setDragIndex(index)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (overIndex !== index) setOverIndex(index);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  handleDrop(index);
-                }}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setOverIndex(null);
-                }}
+                {...rowProps(index)}
                 className={`flex items-center gap-2 px-3 py-2 text-sm cursor-grab ${
                   dragIndex === index ? 'opacity-50' : ''
-                } ${
-                  overIndex === index && dragIndex !== null && dragIndex !== index
-                    ? 'bg-blue-50 dark:bg-blue-900/20'
-                    : ''
-                }`}
+                } ${dropIndicatorClass(dropIndicator(index, value.length))}`}
               >
                 <span aria-hidden="true" className="select-none text-gray-400">
                   ⠿

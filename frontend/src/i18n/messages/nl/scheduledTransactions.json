@@ -98,12 +98,15 @@
       "both": "Boeken op deze datum brengt <b>{fromAccount}</b> op <b>{fromAmount}</b> ({fromCondition}) en <b>{toAccount}</b> op <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Transactie splitsen",
+    "copyAmount": "Bedrag kopiëren",
     "referenceNumberLabel": "Referentienummer (optioneel)",
     "noPriceHistory": "Nog geen koershistorie voor dit waardepapier. Voer de koers handmatig in.",
     "postButton": "Transactie boeken",
     "toasts": {
       "posted": "Transactie geboekt",
       "postFailed": "Transactie boeken mislukt",
+      "amountCopied": "Bedrag gekopieerd",
+      "copyFailed": "Kopiëren van bedrag mislukt",
       "quantityRequired": "Hoeveelheid moet groter zijn dan nul",
       "priceRequired": "Koers moet groter zijn dan nul",
       "totalAmountRequired": "Totaalbedrag is verplicht",

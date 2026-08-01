@@ -203,7 +203,13 @@
     "addPriceSection": "Add Price",
     "editPriceSection": "Edit Price",
     "loading": "Loading prices...",
+    "chartTitle": "Price History",
+    "markers": {
+      "bought": "Bought {quantity} · {account}",
+      "sold": "Sold {quantity} · {account}"
+    },
     "empty": "No price history available",
+    "showingCount": "Showing {shown} of {total} prices",
     "columns": {
       "date": "Date",
       "close": "Close",
@@ -230,6 +236,7 @@
     "closeButton": "Close",
     "deleteConfirm": {
       "title": "Delete Price",
+      "message": "Delete price entry for {date}?",
       "confirmLabel": "Delete"
     }
   },

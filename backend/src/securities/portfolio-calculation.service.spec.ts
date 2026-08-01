@@ -9,6 +9,7 @@ import {
 } from "./entities/investment-transaction.entity";
 import { Account } from "../accounts/entities/account.entity";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
+import { HoldingWithMarketValue } from "./portfolio.service";
 
 describe("PortfolioCalculationService.calculateRealizedGains", () => {
   let service: PortfolioCalculationService;
@@ -1005,10 +1006,7 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
   it("counts a multi-tagged holding in full under each tag (overlapping exposure)", () => {
     const items = [securityItem("VWCE", 100), securityItem("SMH", 50)];
     const tags = new Map([
-      [
-        "VWCE",
-        [{ id: "t-aw", name: "All-World", color: "#111111" }],
-      ],
+      ["VWCE", [{ id: "t-aw", name: "All-World", color: "#111111" }]],
       [
         "SMH",
         [
@@ -1018,7 +1016,7 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
       ],
     ]);
 
-    const result = service.buildAllocationByTag(items, tags, 0, 150, "CAD");
+    const result = service.buildAllocationByTag(items, tags, 0, "CAD");
 
     const allWorld = result.find((r) => r.name === "All-World");
     const ai = result.find((r) => r.name === "AI");
@@ -1041,7 +1039,7 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
       ["SMH", [{ id: "t-ai", name: "AI", color: null }]],
     ]);
 
-    const result = service.buildAllocationByTag(items, tags, 0, 200, "CAD");
+    const result = service.buildAllocationByTag(items, tags, 0, "CAD");
 
     expect(result.find((r) => r.name === "All-World")?.color).toBe("#abcdef");
     expect(result.find((r) => r.name === "AI")?.color).toMatch(/^#/);
@@ -1053,7 +1051,7 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
       ["VWCE", [{ id: "t-aw", name: "All-World", color: null }]],
     ]);
 
-    const result = service.buildAllocationByTag(items, tags, 60, 200, "CAD");
+    const result = service.buildAllocationByTag(items, tags, 60, "CAD");
 
     const cash = result.find((r) => r.type === "cash");
     const untagged = result.find((r) => r.type === "untagged");
@@ -1069,7 +1067,7 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
       ["VWCE", [{ id: "t-aw", name: "All-World", color: null }]],
     ]);
 
-    const result = service.buildAllocationByTag(items, tags, 0, 100, "CAD");
+    const result = service.buildAllocationByTag(items, tags, 0, "CAD");
 
     expect(result.some((r) => r.type === "cash")).toBe(false);
     expect(result.some((r) => r.type === "untagged")).toBe(false);
@@ -1083,9 +1081,315 @@ describe("PortfolioCalculationService.buildAllocationByTag", () => {
       ["SMH", [{ id: "t-ai", name: "AI", color: null }]],
     ]);
 
-    const result = service.buildAllocationByTag(items, tags, 0, 100, "CAD");
+    const result = service.buildAllocationByTag(items, tags, 0, "CAD");
 
     expect(result.some((r) => r.name === "All-World")).toBe(false);
     expect(result.find((r) => r.name === "AI")?.value).toBe(100);
+  });
+
+  it("reconciles to ~100% when cash is negative (margin/loan is not in the base)", () => {
+    // Regression for #842: a negative cash balance must not be folded into the
+    // denominator. Here a single tag (Equities) plus the disjoint Untagged
+    // bucket would sum to 139% of the net portfolio value (932 + 458 vs a net
+    // of 1110). The drawn slices must instead share the base 932 + 458 = 1390.
+    const items = [securityItem("AKC", 932), securityItem("XYZ", 458)];
+    const tags = new Map([
+      ["AKC", [{ id: "t-eq", name: "Equities", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTag(items, tags, -280, "CAD");
+
+    // Negative cash is not drawn as a slice.
+    expect(result.some((r) => r.type === "cash")).toBe(false);
+
+    const equities = result.find((r) => r.name === "Equities");
+    const untagged = result.find((r) => r.type === "untagged");
+    expect(equities?.percentage).toBeCloseTo((932 / 1390) * 100, 5);
+    expect(untagged?.percentage).toBeCloseTo((458 / 1390) * 100, 5);
+    // Disjoint tag + Untagged now reconcile, instead of totalling 139%.
+    expect(
+      (equities?.percentage ?? 0) + (untagged?.percentage ?? 0),
+    ).toBeCloseTo(100, 5);
+  });
+});
+
+describe("PortfolioCalculationService.buildAllocationByTagKey", () => {
+  let service: PortfolioCalculationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PortfolioCalculationService,
+        { provide: getRepositoryToken(Holding), useValue: {} },
+        { provide: getRepositoryToken(SecurityPrice), useValue: {} },
+        { provide: getRepositoryToken(InvestmentTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: ExchangeRateService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(PortfolioCalculationService);
+  });
+
+  const securityItem = (symbol: string, value: number) => ({
+    name: symbol,
+    symbol,
+    type: "security" as const,
+    value,
+    percentage: 0,
+    currencyCode: "CAD",
+  });
+
+  it("aggregates security value by the value of the given key", () => {
+    // country:usa is one tag applied to two securities; poland and germany one
+    // each. With equal values that is 50% usa, 25% poland, 25% germany.
+    const items = [
+      securityItem("A", 100),
+      securityItem("B", 100),
+      securityItem("C", 100),
+      securityItem("D", 100),
+    ];
+    const tags = new Map([
+      ["A", [{ id: "t-usa", name: "country:usa", color: null }]],
+      ["B", [{ id: "t-usa", name: "country:usa", color: null }]],
+      ["C", [{ id: "t-pl", name: "country:poland", color: null }]],
+      ["D", [{ id: "t-de", name: "country:germany", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTagKey(
+      items,
+      tags,
+      0,
+      "CAD",
+      "country",
+    );
+
+    expect(result.find((r) => r.name === "usa")?.value).toBe(200);
+    expect(result.find((r) => r.name === "usa")?.percentage).toBeCloseTo(50, 5);
+    expect(result.find((r) => r.name === "poland")?.percentage).toBeCloseTo(
+      25,
+      5,
+    );
+    expect(result.find((r) => r.name === "germany")?.percentage).toBeCloseTo(
+      25,
+      5,
+    );
+    // No cash, every security assigned -> reconciles to 100%.
+    expect(result.reduce((s, r) => s + r.percentage, 0)).toBeCloseTo(100, 5);
+  });
+
+  it("matches the key case-insensitively and ignores other keys", () => {
+    const items = [securityItem("A", 100), securityItem("B", 100)];
+    const tags = new Map([
+      [
+        "A",
+        [
+          { id: "t1", name: "Country:USA", color: null },
+          { id: "t2", name: "sector:tech", color: null },
+        ],
+      ],
+      ["B", [{ id: "t3", name: "COUNTRY:usa", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTagKey(
+      items,
+      tags,
+      0,
+      "CAD",
+      "country",
+    );
+
+    // Both securities are "usa" (case-folded), summing to 200 / 100%.
+    expect(result.find((r) => r.name === "USA")?.value).toBe(200);
+    expect(result.some((r) => r.name === "tech")).toBe(false);
+  });
+
+  it("puts securities with no value for the key into Untagged (incl. bare key:)", () => {
+    const items = [
+      securityItem("A", 100),
+      securityItem("B", 40),
+      securityItem("C", 60),
+    ];
+    const tags = new Map([
+      ["A", [{ id: "t-usa", name: "country:usa", color: null }]],
+      ["B", [{ id: "t-bare", name: "country:", color: null }]], // key, no value
+      ["C", [{ id: "t-sec", name: "sector:tech", color: null }]], // key absent
+    ]);
+
+    const result = service.buildAllocationByTagKey(
+      items,
+      tags,
+      0,
+      "CAD",
+      "country",
+    );
+
+    expect(result.find((r) => r.name === "usa")?.value).toBe(100);
+    const untagged = result.find((r) => r.type === "untagged");
+    expect(untagged?.value).toBe(100); // 40 (bare) + 60 (no country tag)
+  });
+
+  it("counts a mixed holding under each of its values (overlapping exposure)", () => {
+    const items = [securityItem("MIX", 100), securityItem("US", 100)];
+    const tags = new Map([
+      [
+        "MIX",
+        [
+          { id: "t-usa", name: "country:usa", color: null },
+          { id: "t-pl", name: "country:poland", color: null },
+        ],
+      ],
+      ["US", [{ id: "t-usa", name: "country:usa", color: null }]],
+    ]);
+
+    const result = service.buildAllocationByTagKey(
+      items,
+      tags,
+      0,
+      "CAD",
+      "country",
+    );
+
+    // MIX counts under both; usa = 100 (MIX) + 100 (US) = 200, poland = 100.
+    expect(result.find((r) => r.name === "usa")?.value).toBe(200);
+    expect(result.find((r) => r.name === "poland")?.value).toBe(100);
+    // Overlap pushes the total past 100%.
+    expect(result.reduce((s, r) => s + r.percentage, 0)).toBeGreaterThan(100);
+  });
+
+  it("keeps cash in the denominator and reconciles with negative cash excluded", () => {
+    const items = [securityItem("A", 140)];
+    const tagsPositive = new Map([
+      ["A", [{ id: "t-usa", name: "country:usa", color: null }]],
+    ]);
+
+    const withCash = service.buildAllocationByTagKey(
+      items,
+      tagsPositive,
+      60,
+      "CAD",
+      "country",
+    );
+    expect(withCash.find((r) => r.type === "cash")?.percentage).toBeCloseTo(
+      30,
+      5,
+    );
+    expect(withCash.find((r) => r.name === "usa")?.percentage).toBeCloseTo(
+      70,
+      5,
+    );
+
+    const withNegCash = service.buildAllocationByTagKey(
+      items,
+      tagsPositive,
+      -40,
+      "CAD",
+      "country",
+    );
+    expect(withNegCash.some((r) => r.type === "cash")).toBe(false);
+    expect(withNegCash.find((r) => r.name === "usa")?.percentage).toBeCloseTo(
+      100,
+      5,
+    );
+  });
+});
+
+describe("PortfolioCalculationService.buildAllocation", () => {
+  let service: PortfolioCalculationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PortfolioCalculationService,
+        { provide: getRepositoryToken(Holding), useValue: {} },
+        { provide: getRepositoryToken(SecurityPrice), useValue: {} },
+        { provide: getRepositoryToken(InvestmentTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: ExchangeRateService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(PortfolioCalculationService);
+  });
+
+  const holdingWithValue = (
+    id: string,
+    securityId: string,
+    symbol: string,
+    marketValue: number,
+  ): HoldingWithMarketValue =>
+    ({
+      id,
+      accountId: "acct-1",
+      securityId,
+      symbol,
+      name: symbol,
+      securityType: "STOCK",
+      currencyCode: "CAD",
+      quantity: 1,
+      averageCost: 0,
+      costBasis: 0,
+      costBasisAccountCurrency: 0,
+      currentPrice: marketValue,
+      marketValue,
+      gainLoss: null,
+      gainLossPercent: null,
+    }) as HoldingWithMarketValue;
+
+  const holdingRow = (id: string, securityId: string) =>
+    ({
+      id,
+      securityId,
+      security: { currencyCode: "CAD" },
+    }) as unknown as Holding;
+
+  it("measures by-security slices against the drawn total, not the net value when cash is negative", async () => {
+    // Regression for #842 (by-security parity): a negative cash balance must
+    // not shrink the denominator. Slices must share the base 932 + 458 = 1390
+    // and reconcile to ~100%, rather than being inflated against a net 1110.
+    const sortedHoldings = [
+      holdingWithValue("h1", "s1", "AKC", 932),
+      holdingWithValue("h2", "s2", "XYZ", 458),
+    ];
+    const holdings = [holdingRow("h1", "s1"), holdingRow("h2", "s2")];
+
+    const result = await service.buildAllocation(
+      sortedHoldings,
+      holdings,
+      -280,
+      "CAD",
+      new Map<string, number>(),
+    );
+
+    expect(result.some((r) => r.type === "cash")).toBe(false);
+    const securityPctTotal = result
+      .filter((r) => r.type === "security")
+      .reduce((sum, r) => sum + r.percentage, 0);
+    expect(securityPctTotal).toBeCloseTo(100, 5);
+    expect(result.find((r) => r.symbol === "AKC")?.percentage).toBeCloseTo(
+      (932 / 1390) * 100,
+      5,
+    );
+  });
+
+  it("keeps positive cash in the base so slices sum to ~100%", async () => {
+    const sortedHoldings = [holdingWithValue("h1", "s1", "AKC", 140)];
+    const holdings = [holdingRow("h1", "s1")];
+
+    const result = await service.buildAllocation(
+      sortedHoldings,
+      holdings,
+      60,
+      "CAD",
+      new Map<string, number>(),
+    );
+
+    // base = 140 + 60 = 200
+    expect(result.find((r) => r.type === "cash")?.percentage).toBeCloseTo(
+      30,
+      5,
+    );
+    expect(result.find((r) => r.symbol === "AKC")?.percentage).toBeCloseTo(
+      70,
+      5,
+    );
   });
 });

@@ -24,6 +24,16 @@
     "createButton": "Zelf aanmaken",
     "hint": "De standaardset bevat veelgebruikte inkomsten- en uitgavencategorieën met subcategorieën"
   },
+  "importDialog": {
+    "title": "Standaardcategorieën importeren",
+    "description": "Begin met een kant-en-klare set inkomsten- en uitgavencategorieën. Kies uw land om ook de belasting- en toeslagcategorieën daarvan te krijgen, en de taal waarin de namen worden aangemaakt.",
+    "countryLabel": "Land",
+    "countryHelp": "Voegt landspecifieke categorieën toe, zoals lokale belastingen en toeslagen. Kies de algemene set als uw land er niet bij staat.",
+    "genericCountry": "Algemeen (geen landspecifieke categorieën)",
+    "languageLabel": "Taal",
+    "languageHelp": "De categorieën krijgen namen in deze taal. U kunt ze later altijd hernoemen.",
+    "submit": "Categorieën importeren"
+  },
   "toasts": {
     "created": "Categorie succesvol aangemaakt",
     "updated": "Categorie succesvol bijgewerkt",

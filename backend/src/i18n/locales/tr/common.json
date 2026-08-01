@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Nakit",
     "brokerage": "Aracılık"
+  },
+  "import": {
+    "voidedTransactionNote": "Kaynakta geçersiz kılındı; orijinal tutar dışa aktarmada yer almadığı için sıfır olarak içe aktarıldı."
   }
 }

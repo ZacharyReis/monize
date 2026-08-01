@@ -25,6 +25,8 @@ import { CategoriesService } from "./categories.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { ReassignTransactionsDto } from "./dto/reassign-transactions.dto";
+import { ImportDefaultsDto } from "./dto/import-defaults.dto";
+import { DEFAULT_CATEGORY_COUNTRY_CODES } from "./country-category-additions";
 import {
   AllowDelegate,
   DelegateRequiresCapability,
@@ -94,6 +96,20 @@ export class CategoriesController {
     return this.categoriesService.getStats(req.user.id);
   }
 
+  @Get("default-countries")
+  @AllowDelegate()
+  @ApiOperation({
+    summary: "List countries with a default-category overlay",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Supported country codes retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  getDefaultCountries(): { countries: string[] } {
+    return { countries: [...DEFAULT_CATEGORY_COUNTRY_CODES] };
+  }
+
   @Post("import-defaults")
   @ApiOperation({ summary: "Import default categories for new users" })
   @ApiResponse({
@@ -105,8 +121,11 @@ export class CategoriesController {
     description: "User already has categories",
   })
   @ApiResponse({ status: 401, description: "Unauthorized" })
-  importDefaults(@Request() req) {
-    return this.categoriesService.importDefaults(req.user.id);
+  importDefaults(@Request() req, @Body() importDefaultsDto: ImportDefaultsDto) {
+    return this.categoriesService.importDefaults(
+      req.user.id,
+      importDefaultsDto,
+    );
   }
 
   @Get("income")

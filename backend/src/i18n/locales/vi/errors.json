@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Tài khoản này đã có thanh toán theo lịch được cấu hình. Hãy chỉnh sửa giao tác theo lịch hiện có.",
     "sourceNotFound": "Không tìm thấy tài khoản nguồn",
     "ambiguousBrokerage": "\"{{ query }}\" khớp với nhiều tài khoản môi giới: {{ list }}. Hãy dùng tên tài khoản chính xác.",
-    "unknownInvestmentAccount": "Tài khoản không xác định: {{ name }}. Hãy dùng tên chính xác từ danh sách tài khoản của người dùng."
+    "unknownInvestmentAccount": "Tài khoản không xác định: {{ name }}. Hãy dùng tên chính xác từ danh sách tài khoản của người dùng.",
+    "notACreditCard": "Chu kỳ sao kê chỉ khả dụng cho tài khoản thẻ tín dụng",
+    "noStatementSettlementDay": "Thẻ tín dụng này chưa được cấu hình ngày chốt sao kê"
   },
   "actionHistory": {
     "nothingToUndo": "Không có gì để hoàn tác",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Không có nhà cung cấp AI nào đang hoạt động. Vui lòng cấu hình nhà cung cấp trong Cài đặt AI.",
     "allProvidersFailed": "Tất cả nhà cung cấp AI đều thất bại. Vui lòng kiểm tra cấu hình nhà cung cấp và thử lại.",
     "noToolUseProvider": "Không có nhà cung cấp AI nào hỗ trợ sử dụng công cụ. Truy vấn bằng ngôn ngữ tự nhiên yêu cầu Anthropic, OpenAI hoặc Ollama. Vui lòng cấu hình một nhà cung cấp trong Cài đặt AI.",
+    "relayAgentOffline": "Tác nhân relay MCP của bạn chưa được kết nối. Hãy kết nối tác nhân và thử lại.",
+    "relayCompletionTimedOut": "Tác nhân relay MCP của bạn không trả lời kịp thời. Hãy đảm bảo tác nhân đang kết nối, sau đó thử lại.",
     "baseUrlInvalidBasic": "baseUrl phải là URL HTTP hoặc HTTPS hợp lệ",
     "baseUrlInvalidExternal": "baseUrl phải là URL HTTP/HTTPS hợp lệ trỏ đến máy chủ bên ngoài",
     "ollamaCloudApiKeyRequired": "apiKey là bắt buộc cho nhà cung cấp ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Một tệp đính kèm vượt quá kích thước tệp tối đa.",
     "attachmentCorrupt": "Không thể đọc một tệp đính kèm hoặc nó không phải là loại tệp như đã khai báo.",
     "attachmentsTooLarge": "Các tệp đính kèm vượt quá giới hạn tổng kích thước.",
+    "attachmentRefExpired": "Tệp đính kèm không còn khả dụng. Vui lòng tải tệp lên lại và hỏi lại.",
     "modelNoImageSupport": "Mô hình AI đã chọn không thể đọc hình ảnh hoặc PDF. Hãy xóa tệp đính kèm và hỏi bằng văn bản, hoặc chuyển sang một mô hình hỗ trợ hình ảnh trong Cài đặt AI."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Mật khẩu không đúng"
   },
   "backup": {
-    "folderPathRequired": "Phải thiết lập đường dẫn thư mục trước khi bật sao lưu tự động",
     "folderNotExist": "Thư mục không tồn tại: {{ safePath }}",
     "folderAccessError": "Không thể truy cập thư mục: {{ safePath }}",
     "pathNotDirectory": "Đường dẫn không phải là thư mục: {{ safePath }}",
-    "notConfigured": "Sao lưu tự động chưa được cấu hình. Vui lòng thiết lập đường dẫn thư mục trước.",
     "userNotFound": "Không tìm thấy người dùng {{ userId }}",
     "encryptedPasswordDecryptFailed": "Sao lưu mã hóa đã được bật nhưng không thể giải mã mật khẩu đã lưu. Hãy bật lại mã hóa trong Cài đặt bảo mật.",
     "pathTraversal": "Phát hiện duyệt đường dẫn: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Mã thông báo CSRF không hợp lệ",
     "demoModeRestricted": "Hành động này không khả dụng trong chế độ trình diễn.",
     "serviceNotReady": "Dịch vụ chưa sẵn sàng",
-    "oauthProviderNotInitialized": "Nhà cung cấp OAuth chưa được khởi tạo"
+    "oauthProviderNotInitialized": "Nhà cung cấp OAuth chưa được khởi tạo",
+    "invalidCurrencyCode": "Mã tiền tệ không hợp lệ: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Tiền tệ \"{{ code }}\" đã có trong danh sách của bạn",
     "notFound": "Không tìm thấy tiền tệ \"{{ code }}\"",
     "cannotModifySystem": "Không thể sửa đổi siêu dữ liệu tiền tệ hệ thống",
     "cannotModifyOther": "Không thể sửa đổi tiền tệ của người dùng khác",
-    "inUse": "Tiền tệ \"{{ code }}\" đang được sử dụng bởi tài khoản, chứng khoán hoặc hồ sơ khác của bạn. Hãy hủy kích hoạt thay thế."
+    "inUse": "Tiền tệ \"{{ code }}\" đang được sử dụng bởi tài khoản, chứng khoán hoặc hồ sơ khác của bạn. Hãy hủy kích hoạt thay thế.",
+    "invalidRateDate": "date phải theo định dạng YYYY-MM-DD",
+    "alreadyInListInactive": "Tiền tệ \"{{ code }}\" đã có trong danh sách của bạn nhưng hiện đang không hoạt động. Kích hoạt lại để sử dụng."
   },
   "delegation": {
     "delegatedAccessInvalid": "Quyền truy cập được ủy quyền không còn hợp lệ",
@@ -254,6 +260,7 @@
     "passwordBreached": "Mật khẩu này đã bị phát hiện trong một vụ rò rỉ dữ liệu. Vui lòng chọn mật khẩu khác."
   },
   "http": {
+    "forbidden": "Truy cập bị từ chối",
     "tooManyRequests": "Quá nhiều yêu cầu. Vui lòng đợi vài phút và thử lại.",
     "duplicateRecord": "Bản ghi với giá trị này đã tồn tại",
     "referencedRecord": "Bản ghi được tham chiếu không tồn tại hoặc không thể xóa",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate phải có định dạng YYYY-MM-DD",
     "invalidEndDate": "endDate phải có định dạng YYYY-MM-DD",
-    "invalidAccountIds": "accountIds phải là các UUID được phân cách bằng dấu phẩy"
+    "invalidAccountIds": "accountIds phải là các UUID được phân cách bằng dấu phẩy",
+    "invalidGranularity": "granularity phải là 'daily' hoặc 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP chưa được cấu hình. Hãy thiết lập các biến môi trường SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Không tìm thấy bí danh với ID {{ id }}",
     "mergeSelf": "Không thể gộp người nhận vào chính nó",
     "autoMergeDuplicatePayee": "Một người nhận xuất hiện trong nhiều hơn một nhóm gộp",
-    "autoMergeSourceNotFound": "Không tìm thấy một hoặc nhiều người nhận nguồn"
+    "autoMergeSourceNotFound": "Không tìm thấy một hoặc nhiều người nhận nguồn",
+    "autoMergeGroupConflict": "Không thể hợp nhất \"{{ name }}\": giá trị \"{{ value }}\" đã được sử dụng",
+    "autoMergeGroupFailed": "Không thể hợp nhất \"{{ name }}\""
   },
   "reports": {
     "notFound": "Không tìm thấy báo cáo với ID {{ id }}",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" khớp với nhiều chứng khoán: {{ list }}. Chạy lại và chỉ định một sàn giao dịch.",
     "lookupNoCurrency": "Không thể xác định loại tiền tệ cho \"{{ symbol }}\". Thay vào đó hãy thêm chứng khoán theo cách thủ công.",
     "noUpdateFields": "Hãy cung cấp ít nhất một trường để thay đổi.",
-    "allocationExceedsTotal": "Tổng tỷ lệ phân bổ vượt quá 100%."
+    "allocationExceedsTotal": "Tổng tỷ lệ phân bổ vượt quá 100%.",
+    "invalidTagKey": "Cần có khóa thẻ (1-100 ký tự)"
   },
   "tags": {
     "notFound": "Không tìm thấy thẻ với ID {{ id }}",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId phải là UUID hợp lệ",
     "amountFromMustBeNumber": "amountFrom phải là số",
     "amountToMustBeNumber": "amountTo phải là số",
+    "invalidGroupBy": "groupBy phải là 'category' hoặc 'payee'",
+    "limitMustBePositive": "limit phải là số dương",
+    "recurringPayeeRequired": "payeeIds là bắt buộc",
+    "recurringDatesRequired": "startDate và endDate là bắt buộc",
     "statementDateFormat": "statementDate phải có định dạng YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance phải là số",
     "categoryNotFound": "Không tìm thấy danh mục",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Một số giao tác không được tìm thấy hoặc không thuộc tài khoản đã chỉ định",
     "cannotReconcileVoidPlural": "Không thể điều hoà các giao tác bị hủy",
     "transferSameAccount": "Tài khoản nguồn và đích phải khác nhau",
-    "transferSplitFromAccountFixed": "Không thể thay đổi tài khoản nguồn của dòng chuyển khoản đã tách",
     "transferAmountNegative": "Số tiền chuyển không được âm",
     "notATransfer": "Giao tác không phải là chuyển tiền",
+    "splitTransferLegAccountLocked": "Chuyển khoản này là một phần của giao tác chia nhỏ. Hãy thay đổi tài khoản bằng cách chỉnh sửa phần chia trên giao tác nguồn.",
     "notFoundById": "Không tìm thấy giao tác với ID {{ id }}",
     "bulkUpdateNoFields": "Phải cung cấp ít nhất một trường cập nhật",
     "payeeNotFound": "Không tìm thấy người nhận",
     "cannotEditTransfer": "Không thể chỉnh sửa khoản chuyển khoản tại đây. Hãy chỉnh sửa khoản chuyển khoản từ màn hình Giao dịch.",
     "cannotEditSplit": "Không thể chỉnh sửa giao dịch chia nhỏ tại đây. Hãy chỉnh sửa phần chia nhỏ từ màn hình Giao dịch.",
-    "noUpdateFields": "Hãy cung cấp ít nhất một trường để thay đổi."
+    "noUpdateFields": "Hãy cung cấp ít nhất một trường để thay đổi.",
+    "tagKeyTooLong": "tagKey không được vượt quá 100 ký tự",
+    "invalidTagKeyOp": "tagKeyOp không hợp lệ: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue là bắt buộc cho contains / notContains",
+    "tagKeyRequired": "Cần có khóa thẻ (1-100 ký tự)",
+    "fxFieldsIncomplete": "originalAmount và originalCurrencyCode phải được cung cấp cùng nhau",
+    "fxRateRequired": "Cần một tỷ giá hối đoái dương cho giao dịch bằng ngoại tệ",
+    "fxSignMismatch": "originalAmount và amount phải cùng dấu"
   },
   "users": {
     "userNotFound": "Không tìm thấy người dùng",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Không thể xóa tài khoản quản trị viên cuối cùng. Hãy thăng cấp người dùng khác trước.",
     "oidcReauthRequiredForDataDelete": "Yêu cầu xác thực lại OIDC để xác nhận xóa dữ liệu",
     "passwordRequiredForDataDelete": "Cần mật khẩu để xác nhận xóa dữ liệu"
+  },
+  "loanScenarios": {
+    "notFound": "Không tìm thấy kịch bản khoản vay có ID {{ id }}",
+    "nameConflict": "Kịch bản có tên \"{{ name }}\" đã tồn tại cho tài khoản này",
+    "notLoanAccount": "Kịch bản khoản vay chỉ khả dụng cho tài khoản khoản vay, thế chấp và hạn mức tín dụng",
+    "budgetWindowInverted": "Ngày bắt đầu của giai đoạn ngân sách phải trùng hoặc trước ngày kết thúc"
+  },
+  "loanRateChanges": {
+    "notFound": "Không tìm thấy thay đổi lãi suất có ID {{ id }}",
+    "notLoanAccount": "Thay đổi lãi suất chỉ khả dụng cho tài khoản vay và thế chấp",
+    "duplicateDate": "Đã tồn tại một thay đổi lãi suất có hiệu lực từ {{ date }} cho tài khoản này",
+    "paymentModeConflict": "Chỉ cung cấp một trong hai: số tiền trả mới hoặc recalculatePayment, không phải cả hai",
+    "recalculateMortgageOnly": "Tính lại khoản trả chỉ khả dụng cho tài khoản thế chấp",
+    "insufficientData": "Không đủ khoản thanh toán có chi tiết lãi để phát hiện thay đổi lãi suất",
+    "frequencyMismatch": "Ngày thanh toán không khớp với tần suất thanh toán của tài khoản; lãi suất suy ra có thể kém chính xác hơn"
+  },
+  "attachments": {
+    "notFound": "Không tìm thấy tệp đính kèm",
+    "transactionNotFound": "Không tìm thấy giao tác",
+    "empty": "Tệp đã tải lên trống",
+    "fileTooLarge": "Tệp vượt quá kích thước tối đa {{ max }} byte",
+    "unsupportedType": "Loại tệp không được hỗ trợ. Các loại được phép: {{ types }}",
+    "tooMany": "Giao tác này đã có tối đa {{ max }} tệp đính kèm"
   }
 }

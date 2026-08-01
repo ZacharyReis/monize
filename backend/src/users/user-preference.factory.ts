@@ -1,6 +1,14 @@
 import { DEFAULT_LOCALE } from "../i18n/config";
 import { UserPreference } from "./entities/user-preference.entity";
 
+// A freshly materialized preferences row starts already caught up to the
+// running version, so the "What's New" digest never auto-opens for a brand-new
+// account -- a first-time user has nothing "new" to catch up on, and the popup
+// must not cover the getting-started onboarding. Read from the backend
+// package.json, matching how UpdatesService / ReleaseNotesService resolve it.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const backendPkg = require("../../package.json") as { version: string };
+
 /**
  * Build a new user's default preferences.
  *
@@ -34,6 +42,9 @@ export function buildDefaultPreferences(
   preferences.twoFactorEnabled = false;
   preferences.gettingStartedDismissed = false;
   preferences.favouriteReportIds = [];
+  preferences.showWhatsNew = true;
+  preferences.tourProgress = {};
+  preferences.lastSeenVersion = backendPkg.version;
   preferences.language = language;
   return preferences;
 }

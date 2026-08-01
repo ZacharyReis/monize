@@ -6,6 +6,7 @@ import { Account, AccountType } from "./entities/account.entity";
 import { Institution } from "../institutions/entities/institution.entity";
 import { CategoriesService } from "../categories/categories.service";
 import { ScheduledTransactionsService } from "../scheduled-transactions/scheduled-transactions.service";
+import { LoanRateChangesService } from "../loan-rate-changes/loan-rate-changes.service";
 import { CreateAccountDto } from "./dto/create-account.dto";
 
 describe("LoanMortgageAccountService", () => {
@@ -14,6 +15,7 @@ describe("LoanMortgageAccountService", () => {
   let institutionsRepository: Record<string, jest.Mock>;
   let categoriesService: Record<string, jest.Mock>;
   let scheduledTransactionsService: Record<string, jest.Mock>;
+  let loanRateChangesService: Record<string, jest.Mock>;
 
   const userId = "user-1";
 
@@ -49,6 +51,19 @@ describe("LoanMortgageAccountService", () => {
       }),
     };
 
+    loanRateChangesService = {
+      create: jest.fn().mockImplementation((_userId, _accountId, dto) =>
+        Promise.resolve({
+          id: "rate-change-1",
+          effectiveDate: dto.effectiveDate,
+          annualRate: dto.annualRate,
+          newPaymentAmount:
+            dto.newPaymentAmount ?? (dto.recalculatePayment ? 2750.55 : null),
+          source: "manual",
+        }),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LoanMortgageAccountService,
@@ -67,6 +82,10 @@ describe("LoanMortgageAccountService", () => {
         {
           provide: ScheduledTransactionsService,
           useValue: scheduledTransactionsService,
+        },
+        {
+          provide: LoanRateChangesService,
+          useValue: loanRateChangesService,
         },
       ],
     }).compile();
@@ -661,7 +680,7 @@ describe("LoanMortgageAccountService", () => {
       expect(result.effectiveDate).toBe("2025-06-01");
     });
 
-    it("should save updated account with new rate and payment", async () => {
+    it("should record a rate-history row with the recalculate default", async () => {
       const account = makeMortgageAccount();
       await service.updateMortgageRate(
         account,
@@ -670,31 +689,15 @@ describe("LoanMortgageAccountService", () => {
         new Date("2025-06-01"),
       );
 
-      expect(accountsRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          interestRate: 4.5,
-        }),
-      );
-    });
-
-    it("should update scheduled transaction with new split amounts", async () => {
-      const account = makeMortgageAccount();
-      await service.updateMortgageRate(
-        account,
+      expect(loanRateChangesService.create).toHaveBeenCalledWith(
         userId,
-        4.5,
-        new Date("2025-06-01"),
-      );
-
-      expect(scheduledTransactionsService.update).toHaveBeenCalledWith(
-        userId,
-        "sched-tx-1",
-        expect.objectContaining({
-          splits: expect.arrayContaining([
-            expect.objectContaining({ memo: "Principal" }),
-            expect.objectContaining({ memo: "Interest" }),
-          ]),
-        }),
+        "acc-mortgage",
+        {
+          effectiveDate: "2025-06-01",
+          annualRate: 4.5,
+          newPaymentAmount: null,
+          recalculatePayment: true,
+        },
       );
     });
 
@@ -706,6 +709,7 @@ describe("LoanMortgageAccountService", () => {
       await expect(
         service.updateMortgageRate(account, userId, 4.5, new Date()),
       ).rejects.toThrow(BadRequestException);
+      expect(loanRateChangesService.create).not.toHaveBeenCalled();
     });
 
     it("should throw BadRequestException for closed accounts", async () => {
@@ -714,6 +718,7 @@ describe("LoanMortgageAccountService", () => {
       await expect(
         service.updateMortgageRate(account, userId, 4.5, new Date()),
       ).rejects.toThrow(BadRequestException);
+      expect(loanRateChangesService.create).not.toHaveBeenCalled();
     });
 
     it("should use custom payment amount when provided", async () => {
@@ -729,56 +734,16 @@ describe("LoanMortgageAccountService", () => {
       );
 
       expect(result.paymentAmount).toBe(3000);
-    });
-
-    it("should handle account without scheduledTransactionId", async () => {
-      const account = makeMortgageAccount({
-        scheduledTransactionId: null,
-      });
-
-      const result = await service.updateMortgageRate(
-        account,
+      expect(loanRateChangesService.create).toHaveBeenCalledWith(
         userId,
-        4.5,
-        new Date("2025-06-01"),
+        "acc-mortgage",
+        {
+          effectiveDate: "2025-06-01",
+          annualRate: 4.5,
+          newPaymentAmount: 3000,
+          recalculatePayment: false,
+        },
       );
-
-      expect(result.newRate).toBe(4.5);
-      expect(scheduledTransactionsService.update).not.toHaveBeenCalled();
-    });
-
-    it("should not throw if scheduled transaction update fails", async () => {
-      const account = makeMortgageAccount();
-      scheduledTransactionsService.update.mockRejectedValue(
-        new Error("Update failed"),
-      );
-
-      const result = await service.updateMortgageRate(
-        account,
-        userId,
-        4.5,
-        new Date("2025-06-01"),
-      );
-
-      // Should still return result despite update failure
-      expect(result.newRate).toBe(4.5);
-    });
-
-    it("should enforce minimum 12 remaining amortization months", async () => {
-      const account = makeMortgageAccount({
-        paymentStartDate: new Date("2000-01-01"),
-        amortizationMonths: 300,
-      });
-
-      // Effective date far in the future
-      const result = await service.updateMortgageRate(
-        account,
-        userId,
-        4.5,
-        new Date("2025-12-01"),
-      );
-
-      expect(result.paymentAmount).toBeGreaterThan(0);
     });
 
     it("should handle variable rate mortgage calculation differently", async () => {

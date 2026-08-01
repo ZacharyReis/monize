@@ -24,6 +24,7 @@ describe("PortfolioController", () => {
       getTopMovers: jest.fn(),
       getInvestmentAccounts: jest.fn(),
       getIntradayValueSeries: jest.fn(),
+      getIntradayBreakdown: jest.fn(),
     };
 
     sectorWeightingService = {
@@ -302,6 +303,42 @@ describe("PortfolioController", () => {
     it("rejects invalid UUIDs in accountIds", async () => {
       await expect(
         controller.getIntradayValue(req, {
+          range: "1d",
+          accountIds: "not-a-uuid",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("getIntradayBreakdown", () => {
+    it("delegates to service with parsed account IDs", async () => {
+      portfolioService.getIntradayBreakdown.mockResolvedValue({
+        series: [],
+        points: [],
+        interval: "1m",
+        currency: "CAD",
+        range: "1d",
+        fetchedAt: "2026-05-06T12:00:00.000Z",
+        skippedSymbols: [],
+        failedSymbols: [],
+        fallbackToDaily: false,
+      });
+
+      await controller.getIntradayBreakdown(req, {
+        range: "1w",
+        accountIds: `${UUID1},${UUID2}`,
+        displayCurrency: "USD",
+      });
+
+      expect(portfolioService.getIntradayBreakdown).toHaveBeenCalledWith(
+        "user-1",
+        { range: "1w", accountIds: [UUID1, UUID2], displayCurrency: "USD" },
+      );
+    });
+
+    it("rejects invalid UUIDs in accountIds", async () => {
+      await expect(
+        controller.getIntradayBreakdown(req, {
           range: "1d",
           accountIds: "not-a-uuid",
         }),

@@ -4,6 +4,7 @@
     "subtitle": "Gerir os seus beneficiários e as suas categorias predefinidas",
     "deactivateUnused": "Desativar Não Utilizados",
     "autoAssignCategories": "Atribuir Categorias Automaticamente",
+    "maintenance": "Manutenção",
     "autoMergePayees": "Combinar beneficiários automaticamente",
     "newPayee": "+ Novo Beneficiário",
     "searchPlaceholder": "Pesquisar beneficiários...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Reativar",
-      "reactivateShort": "Re",
       "merge": "Unir",
-      "mergeShort": "U",
       "edit": "Editar",
-      "editShort": "E",
-      "delete": "Eliminar",
-      "deleteShort": "X"
+      "delete": "Eliminar"
     },
     "viewTransactionsTitle": "Ver transações com este beneficiário",
     "uncategorizedBadge": "{count, plural, one {# sem categoria} other {# sem categoria}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Selecione pelo menos um grupo para combinar",
       "applied": "Combinados {groups, plural, one {# grupo} other {# grupos}} ({payees} beneficiários combinados)",
       "backfilled": "{count, plural, one {# transação categorizada} other {# transações categorizadas}}",
-      "aliasesSkipped": "{count, plural, one {# alias foi ignorado devido a um conflito} other {# aliases foram ignorados devido a conflitos}}",
+      "aliasesSkipped": "{count, plural, one {# alias foi ignorado devido a um conflito} other {# aliases foram ignorados devido a conflitos}}: {aliases}",
       "loadFailed": "Falha ao carregar os grupos de combinação",
-      "applyFailed": "Falha ao combinar os beneficiários"
+      "applyFailed": "Falha ao combinar os beneficiários",
+      "someGroupsFailed": "{count, plural, one {# grupo não pôde ser mesclado} other {# grupos não puderam ser mesclados}}: {reason}"
     },
     "categoryMatchLabel": "Combinar apenas beneficiários da mesma categoria",
     "categoryMatchHelp": "Mantém os beneficiários separados quando as suas categorias diferem, reduzindo correspondências falsas.",

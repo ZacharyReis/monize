@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@/test/render";
+import { render, screen, fireEvent, createEvent, act } from "@/test/render";
 import { FavouriteAccounts } from "./FavouriteAccounts";
 import { accountsApi } from "@/lib/accounts";
 
@@ -280,6 +280,24 @@ describe("FavouriteAccounts", () => {
     expect(mockPush).toHaveBeenCalledWith("/investments?accountId=brok-1");
   });
 
+  it("highlights the row edge on hover, matching the Top Movers widget", () => {
+    const accounts = [
+      {
+        id: "acc-1",
+        name: "Checking",
+        currentBalance: 1500,
+        currencyCode: "CAD",
+        isFavourite: true, favouriteSortOrder: 0,
+        isClosed: false,
+      },
+    ] as any[];
+
+    render(<FavouriteAccounts accounts={accounts} isLoading={false} />);
+    const row = screen.getByText("Checking").closest("button")!;
+    expect(row.className).toContain("hover:border-blue-400");
+    expect(row.className).toContain("dark:hover:border-blue-500");
+  });
+
   describe("favourite account ordering", () => {
     const orderedAccounts = [
       {
@@ -405,6 +423,83 @@ describe("FavouriteAccounts", () => {
       fireEvent.click(screen.getByText("Alpha"));
 
       expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    // jsdom rows have a zero-height bounding rect, so a negative clientY lands
+    // in the top half (insert above) and a positive one in the bottom half.
+    const dragOverAt = (el: Element, clientY: number) => {
+      const evt = createEvent.dragOver(el);
+      Object.defineProperty(evt, "clientY", { value: clientY });
+      fireEvent(el, evt);
+    };
+
+    it("calls reorderFavourites API when dragging an account above another", async () => {
+      render(<FavouriteAccounts accounts={orderedAccounts} isLoading={false} />);
+
+      fireEvent.click(screen.getByText("Reorder"));
+
+      // Sorted display order is Alpha (acc-a), Bravo (acc-b), Charlie (acc-c);
+      // drag Charlie above Alpha to move it to the top.
+      fireEvent.dragStart(screen.getByTestId("favourite-account-row-acc-c"));
+      dragOverAt(screen.getByTestId("favourite-account-row-acc-a"), -5);
+      await act(async () => {
+        fireEvent.drop(screen.getByTestId("favourite-account-row-acc-a"));
+      });
+
+      expect(accountsApi.reorderFavourites).toHaveBeenCalledWith([
+        "acc-c",
+        "acc-a",
+        "acc-b",
+      ]);
+    });
+
+    it("dropping in the bottom half of a row inserts below it", async () => {
+      render(<FavouriteAccounts accounts={orderedAccounts} isLoading={false} />);
+
+      fireEvent.click(screen.getByText("Reorder"));
+
+      // Drag Alpha below Bravo.
+      fireEvent.dragStart(screen.getByTestId("favourite-account-row-acc-a"));
+      dragOverAt(screen.getByTestId("favourite-account-row-acc-b"), 5);
+      await act(async () => {
+        fireEvent.drop(screen.getByTestId("favourite-account-row-acc-b"));
+      });
+
+      expect(accountsApi.reorderFavourites).toHaveBeenCalledWith([
+        "acc-b",
+        "acc-a",
+        "acc-c",
+      ]);
+    });
+
+    it("dropping an account onto itself does not call the API", async () => {
+      render(<FavouriteAccounts accounts={orderedAccounts} isLoading={false} />);
+
+      fireEvent.click(screen.getByText("Reorder"));
+
+      fireEvent.dragStart(screen.getByTestId("favourite-account-row-acc-a"));
+      await act(async () => {
+        fireEvent.drop(screen.getByTestId("favourite-account-row-acc-a"));
+      });
+
+      expect(accountsApi.reorderFavourites).not.toHaveBeenCalled();
+    });
+
+    it("rows are only draggable in reorder mode", () => {
+      render(<FavouriteAccounts accounts={orderedAccounts} isLoading={false} />);
+
+      expect(screen.getByTestId("favourite-account-row-acc-a")).toHaveAttribute(
+        "draggable",
+        "false",
+      );
+
+      fireEvent.click(screen.getByText("Reorder"));
+
+      expect(screen.getByTestId("favourite-account-row-acc-a")).toHaveAttribute(
+        "draggable",
+        "true",
+      );
+      expect(screen.getByText(/Drag accounts to reorder/)).toBeInTheDocument();
     });
 
     it("hides arrows and shows Reorder button when Done is clicked", () => {

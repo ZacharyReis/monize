@@ -100,11 +100,15 @@
     "clearTitle": "Clear all fields",
     "submitCreate": "Create Currency",
     "submitUpdate": "Update Currency",
+    "inactiveNotice": "{code} is already in your list but inactive.",
+    "reactivateButton": "Reactivate {code}",
+    "reactivating": "Reactivating...",
     "toasts": {
       "lookupTooShort": "Enter a currency code or name (at least 2 characters) to lookup",
       "found": "Found: {details}",
       "notFound": "No currency found for \"{query}\"",
-      "lookupFailed": "Lookup failed - please try again"
+      "lookupFailed": "Lookup failed - please try again",
+      "reactivateFailed": "Failed to reactivate currency"
     }
   },
   "validation": {

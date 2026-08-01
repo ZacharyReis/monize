@@ -137,10 +137,18 @@ CREATE TABLE accounts (
     source_account_id UUID REFERENCES accounts(id) ON DELETE SET NULL, -- account payments come from
     principal_category_id UUID, -- category for principal portion (FK added after categories table)
     interest_category_id UUID, -- category for interest portion (FK added after categories table)
+    interest_booking_mode VARCHAR(16) NOT NULL DEFAULT 'AUTO', -- how interest is recorded for rate detection: AUTO | SPLIT | SEPARATE
+    overpayment_category_id UUID, -- category tagging standalone overpayments/extra principal (FK added after categories table)
+    overpayment_memo VARCHAR(255), -- memo text marking a payment as a standalone overpayment (case-insensitive substring match)
+    overpayment_payee_id UUID, -- payee whose payments count as standalone overpayments/extra principal (FK added after payees table)
+    -- Foreign-transaction fee: the bank's FX conversion fee (a percentage) folded
+    -- into the converted amount on foreign-entered transactions.
+    fx_fee_percent NUMERIC(8, 4), -- foreign-currency conversion fee as a percentage
     scheduled_transaction_id UUID, -- linked scheduled transaction for payments (FK added after scheduled_transactions table)
     -- Asset-specific fields
     asset_category_id UUID, -- category for tracking value changes on asset accounts (FK added after categories table)
     date_acquired DATE, -- date the asset was acquired (for net worth historical accuracy)
+    linked_loan_account_id UUID, -- asset's financing loan/mortgage (self-referential FK added below; for the equity view)
     -- Mortgage-specific fields
     is_canadian_mortgage BOOLEAN DEFAULT false, -- Canadian mortgages use semi-annual compounding for fixed rates
     is_variable_rate BOOLEAN DEFAULT false, -- Variable rate mortgages use monthly compounding
@@ -164,10 +172,13 @@ CREATE INDEX idx_accounts_user ON accounts(user_id);
 CREATE INDEX idx_accounts_type ON accounts(account_type);
 CREATE INDEX idx_accounts_account_sub_type ON accounts(account_sub_type);
 CREATE INDEX idx_accounts_linked_account_id ON accounts(linked_account_id);
+CREATE INDEX idx_accounts_linked_loan_account_id ON accounts(linked_loan_account_id);
 CREATE INDEX idx_accounts_asset_category ON accounts(asset_category_id);
 CREATE INDEX idx_accounts_term_end_date ON accounts(term_end_date) WHERE account_type = 'MORTGAGE' AND term_end_date IS NOT NULL;
 CREATE INDEX idx_accounts_interest_category ON accounts(interest_category_id);
 CREATE INDEX idx_accounts_principal_category ON accounts(principal_category_id);
+CREATE INDEX idx_accounts_overpayment_category ON accounts(overpayment_category_id);
+CREATE INDEX idx_accounts_overpayment_payee ON accounts(overpayment_payee_id);
 CREATE INDEX idx_accounts_scheduled_transaction ON accounts(scheduled_transaction_id);
 CREATE INDEX idx_accounts_source_account ON accounts(source_account_id);
 CREATE INDEX idx_accounts_institution ON accounts(institution_id);
@@ -251,12 +262,16 @@ CREATE TABLE transactions (
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL, -- category for non-split transactions
     amount NUMERIC(20, 4) NOT NULL, -- positive for income/deposits, negative for expenses
     currency_code VARCHAR(3) NOT NULL REFERENCES currencies(code),
-    exchange_rate NUMERIC(20, 10) DEFAULT 1, -- rate at transaction time
+    exchange_rate NUMERIC(20, 10) DEFAULT 1, -- rate at transaction time (account-currency units per 1 unit of original currency for foreign entry)
+    -- Foreign-currency entry: amount actually paid, stored alongside the
+    -- account-currency amount. NULL for ordinary transactions.
+    original_amount NUMERIC(20, 4), -- amount as typed in the original currency
+    original_currency_code VARCHAR(3) CONSTRAINT fk_transactions_original_currency REFERENCES currencies(code), -- currency actually paid in
     description TEXT,
     reference_number VARCHAR(100), -- check number, confirmation number, etc
     fitid VARCHAR(64), -- bank-provided FITID for OFX import dedup
-    is_cleared BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
-    is_reconciled BOOLEAN DEFAULT false, -- LEGACY: replaced by status field
+    -- is_cleared / is_reconciled intentionally absent: dropped upstream by
+    -- migration 110_transactions_drop_legacy_cleared_flags.sql (status supersedes).
     reconciled_date DATE,
     status VARCHAR(20) DEFAULT 'UNRECONCILED', -- 'UNRECONCILED', 'CLEARED', 'RECONCILED', 'VOID'
     is_split BOOLEAN DEFAULT false, -- indicates this is a split transaction
@@ -275,9 +290,7 @@ CREATE INDEX idx_transactions_payee ON transactions(payee_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
 CREATE INDEX idx_transactions_parent ON transactions(parent_transaction_id);
 CREATE INDEX idx_transactions_linked ON transactions(linked_transaction_id);
-CREATE INDEX idx_transactions_cleared ON transactions(is_cleared); -- LEGACY
-CREATE INDEX idx_transactions_reconciled ON transactions(is_reconciled); -- LEGACY
-CREATE INDEX idx_transactions_user_cleared ON transactions(user_id, is_cleared); -- LEGACY
+CREATE INDEX idx_transactions_original_currency ON transactions(original_currency_code);
 -- Trigram indexes accelerate the register/report search (ILIKE '%term%')
 CREATE INDEX idx_transactions_payee_name_trgm ON transactions USING gin (payee_name gin_trgm_ops);
 CREATE INDEX idx_transactions_description_trgm ON transactions USING gin (description gin_trgm_ops);
@@ -308,6 +321,32 @@ CREATE INDEX idx_transaction_splits_transaction ON transaction_splits(transactio
 CREATE INDEX idx_transaction_splits_category ON transaction_splits(category_id);
 CREATE INDEX idx_transaction_splits_transfer_account ON transaction_splits(transfer_account_id);
 CREATE INDEX idx_transaction_splits_linked ON transaction_splits(linked_transaction_id);
+
+-- Transaction Attachments: receipts/invoices/documents stored in Postgres by
+-- default. Metadata lives here; the bytes live in attachment_blobs (database
+-- provider) or an external store keyed by storage_key. See migration 109.
+CREATE TABLE transaction_attachments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL, -- server-sniffed MIME, not the client's claim
+    byte_size BIGINT NOT NULL,
+    sha256 CHAR(64) NOT NULL, -- hex digest of the original bytes (integrity + dedup)
+    storage_provider VARCHAR(20) NOT NULL DEFAULT 'database', -- 'database' | 'local' | 's3'
+    storage_key VARCHAR(512) NOT NULL, -- database/local: attachment id; s3: object key
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_transaction_attachments_transaction ON transaction_attachments(transaction_id);
+CREATE INDEX idx_transaction_attachments_user ON transaction_attachments(user_id);
+
+-- Attachment bytes for the built-in database storage provider. Kept in a
+-- separate table so the metadata table (and its list queries) never touch BYTEA.
+CREATE TABLE attachment_blobs (
+    attachment_id UUID PRIMARY KEY REFERENCES transaction_attachments(id) ON DELETE CASCADE,
+    data BYTEA NOT NULL
+);
 
 -- Tags
 CREATE TABLE tags (
@@ -481,12 +520,18 @@ ALTER TABLE accounts ADD CONSTRAINT fk_accounts_principal_category
     FOREIGN KEY (principal_category_id) REFERENCES categories(id) ON DELETE SET NULL;
 ALTER TABLE accounts ADD CONSTRAINT fk_accounts_interest_category
     FOREIGN KEY (interest_category_id) REFERENCES categories(id) ON DELETE SET NULL;
+ALTER TABLE accounts ADD CONSTRAINT fk_accounts_overpayment_category
+    FOREIGN KEY (overpayment_category_id) REFERENCES categories(id) ON DELETE SET NULL;
+ALTER TABLE accounts ADD CONSTRAINT fk_accounts_overpayment_payee
+    FOREIGN KEY (overpayment_payee_id) REFERENCES payees(id) ON DELETE SET NULL;
 ALTER TABLE accounts ADD CONSTRAINT fk_accounts_scheduled_transaction
     FOREIGN KEY (scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE SET NULL;
 ALTER TABLE accounts ADD CONSTRAINT fk_accounts_asset_category
     FOREIGN KEY (asset_category_id) REFERENCES categories(id) ON DELETE SET NULL;
 ALTER TABLE accounts ADD CONSTRAINT fk_accounts_institution
     FOREIGN KEY (institution_id) REFERENCES institutions(id) ON DELETE SET NULL;
+ALTER TABLE accounts ADD CONSTRAINT fk_accounts_linked_loan_account
+    FOREIGN KEY (linked_loan_account_id) REFERENCES accounts(id) ON DELETE SET NULL;
 
 -- Scheduled Transaction Overrides (for modifying individual occurrences)
 CREATE TABLE scheduled_transaction_overrides (
@@ -607,10 +652,15 @@ CREATE TABLE user_preferences (
     budget_digest_enabled BOOLEAN DEFAULT true,
     budget_digest_day VARCHAR(10) DEFAULT 'MONDAY',
     favourite_report_ids TEXT[] DEFAULT '{}',
+    dashboard_widgets TEXT[] DEFAULT '{}', -- ordered visible dashboard widget ids; empty = default layout
+    dashboard_widget_config JSONB NOT NULL DEFAULT '{}', -- per-widget settings (timeframe, accounts, chart type), keyed by widget id
     show_created_at BOOLEAN DEFAULT false,
     time_format VARCHAR(10) DEFAULT '24h',
     preferred_exchanges TEXT[] DEFAULT '{}',
     dismissed_update_version VARCHAR(50),
+    last_seen_version VARCHAR(50), -- version whose "What's New" notes the user acknowledged (Don't show this again)
+    show_whats_new BOOLEAN DEFAULT true, -- settings kill-switch for the What's New auto-popup
+    tour_progress JSONB NOT NULL DEFAULT '{}', -- guided-tour completion, keyed by opaque tour id: { status, version?, updatedAt }
     default_quote_provider VARCHAR(20) NOT NULL DEFAULT 'yahoo',
     recent_transactions_limit SMALLINT NOT NULL DEFAULT 5,
     ai_bubble_enabled BOOLEAN DEFAULT false, -- opt-in app-wide floating AI chat bubble
@@ -846,14 +896,64 @@ CREATE INDEX idx_investment_reports_user_id ON investment_reports(user_id);
 CREATE INDEX idx_investment_reports_user_favourite ON investment_reports(user_id, is_favourite);
 CREATE INDEX idx_investment_reports_user_sort ON investment_reports(user_id, sort_order);
 
--- Triggers for updated_at timestamps
+-- Row-Level Security identity helpers (see docs/future-plans/row-level-security.md).
+--
+-- app.current_user_id -- effective user (the owner when a delegate is acting).
+-- app.real_user_id    -- authenticated identity (the delegate while acting);
+--                        equals current_user_id outside delegation.
+-- app.bypass_rls      -- set only inside an explicit withSystemContext scope.
+--
+-- Fail-closed: an unset/empty GUC yields NULL, every policy predicate is false,
+-- zero rows. A non-UUID GUC value raises 22P02 rather than returning rows.
+-- STABLE lets policies call these as (SELECT app_...()) scalar subqueries, which
+-- the planner evaluates once per statement instead of once per row.
+
+CREATE OR REPLACE FUNCTION app_current_user_id() RETURNS uuid
+LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.current_user_id', true), '')::uuid
+$$;
+
+CREATE OR REPLACE FUNCTION app_real_user_id() RETURNS uuid
+LANGUAGE sql STABLE AS $$
+  SELECT NULLIF(current_setting('app.real_user_id', true), '')::uuid
+$$;
+
+-- COALESCE keeps the function from returning NULL when the GUC is unset: the
+-- OR-ed policy predicates are fail-closed either way, but a boolean function
+-- that can return NULL would silently match nothing under `NOT app_bypass_rls()`.
+CREATE OR REPLACE FUNCTION app_bypass_rls() RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(current_setting('app.bypass_rls', true) = 'on', false)
+$$;
+
+COMMENT ON FUNCTION app_current_user_id() IS
+  'RLS: effective user id from the app.current_user_id GUC (owner when a delegate acts). NULL when unset -- policies then match no rows.';
+COMMENT ON FUNCTION app_real_user_id() IS
+  'RLS: authenticated user id from the app.real_user_id GUC (the delegate while acting; equals app_current_user_id() otherwise).';
+COMMENT ON FUNCTION app_bypass_rls() IS
+  'RLS: true inside a withSystemContext scope, letting cross-user jobs (cron, seed, admin, pre-session auth) see every row.';
+
+-- Triggers for updated_at timestamps.
+--
+-- Honours the app.preserve_timestamps GUC so backup restore can write rows with
+-- their original updated_at values without ALTER TABLE ... DISABLE TRIGGER (which
+-- would require table ownership the runtime role must not have). Inert while the
+-- GUC is unset: current_setting(..., true) returns NULL, NULL = 'on' is not true,
+-- and the function stamps CURRENT_TIMESTAMP as it always has.
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF current_setting('app.preserve_timestamps', true) = 'on' THEN
+        -- Restore path: keep the updated_at value supplied by the caller.
+        RETURN NEW;
+    END IF;
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+COMMENT ON FUNCTION update_updated_at_column() IS
+  'Stamps NEW.updated_at with CURRENT_TIMESTAMP, unless the app.preserve_timestamps GUC is ''on'' (backup restore).';
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_accounts_updated_at BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -873,16 +973,9 @@ CREATE TRIGGER update_investment_reports_updated_at BEFORE UPDATE ON investment_
 -- (accounts.service.ts, transactions.service.ts, import.service.ts) via updateBalance() calls.
 -- No database trigger is used for balance tracking.
 
--- Insert default currencies
-INSERT INTO currencies (code, name, symbol, decimal_places) VALUES
-    ('USD', 'US Dollar', '$', 2),
-    ('CAD', 'Canadian Dollar', 'CA$', 2),
-    ('EUR', 'Euro', '€', 2),
-    ('GBP', 'British Pound', '£', 2),
-    ('JPY', 'Japanese Yen', '¥', 0),
-    ('CHF', 'Swiss Franc', 'CHF', 2),
-    ('AUD', 'Australian Dollar', 'A$', 2),
-    ('CNY', 'Chinese Yuan', '¥', 2);
+-- Currencies are intentionally NOT pre-seeded. A user's currency is created on
+-- demand (with a proper symbol) when they pick it at onboarding, and their
+-- default-preference currency is created lazily on first use if they skip.
 
 -- Monthly Account Balances (cached end-of-month balances for net worth report)
 CREATE TABLE monthly_account_balances (
@@ -1290,3 +1383,534 @@ CREATE TABLE monte_carlo_cash_flows (
 );
 
 CREATE INDEX idx_monte_carlo_cash_flows_scenario ON monte_carlo_cash_flows(scenario_id);
+
+-- ============================================================
+-- LOAN SCENARIOS (saved overpayment simulations)
+-- ============================================================
+
+CREATE TABLE loan_scenarios (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    recurring_extra_amount DECIMAL(20,4),
+    recurring_extra_mode VARCHAR(64),
+    recurring_extra_frequency VARCHAR(16),
+    recurring_extra_start_date DATE,
+    recurring_extra_end_date DATE,
+    target_monthly_payment DECIMAL(20,4),
+    target_monthly_payment_mode VARCHAR(64),
+    target_monthly_payment_start_date DATE,
+    target_monthly_payment_end_date DATE,
+    lump_sums JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_loan_scenarios_user ON loan_scenarios(user_id);
+CREATE INDEX idx_loan_scenarios_account ON loan_scenarios(account_id);
+CREATE UNIQUE INDEX idx_loan_scenarios_account_name
+    ON loan_scenarios(user_id, account_id, LOWER(name));
+
+-- ============================================================
+-- LOAN RATE CHANGES (interest-rate history for loans/mortgages)
+-- ============================================================
+
+-- 'initial' rows snapshot the origination rate the first time a change is
+-- recorded; 'inferred' rows are produced by detection from payment history.
+CREATE TABLE loan_rate_changes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    effective_date DATE NOT NULL,
+    annual_rate NUMERIC(8,4) NOT NULL,
+    new_payment_amount NUMERIC(20,4),
+    source VARCHAR(10) NOT NULL DEFAULT 'manual',
+    note VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_loan_rate_changes_source CHECK (source IN ('manual', 'inferred', 'initial')),
+    CONSTRAINT chk_loan_rate_changes_rate CHECK (annual_rate >= 0 AND annual_rate <= 100),
+    CONSTRAINT uq_loan_rate_changes_account_date UNIQUE (account_id, effective_date)
+);
+
+CREATE INDEX idx_loan_rate_changes_user ON loan_rate_changes(user_id);
+CREATE INDEX idx_loan_rate_changes_account_date
+    ON loan_rate_changes(account_id, effective_date);
+
+
+-- ===========================================================================
+-- Row-Level Security policies
+--
+-- Mirrored from database/migrations/112_rls_policies_direct.sql,
+-- 113_rls_policies_indirect.sql and 114_rls_policies_special.sql so a
+-- fresh db-init produces the same catalog as a migrated database.
+--
+-- These policies are INERT until ALTER TABLE ... ENABLE ROW LEVEL SECURITY
+-- ships separately (task M3 / flip B of the rollout). Nothing below changes a
+-- query result on its own.
+--
+-- Adding a table? It must land in exactly one of four buckets -- direct,
+-- indirect, bespoke owner column, or the documented exemption list at the
+-- bottom of this section. The catalog-driven integration spec fails on any
+-- table that is in none of them.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- Direct ownership (user_id column)
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+    t text;
+    direct_tables text[] := ARRAY[
+        'accounts',
+        'action_history',
+        'ai_insights',
+        'ai_provider_configs',
+        'ai_usage_logs',
+        'auto_backup_settings',
+        'budget_alerts',
+        'budgets',
+        'categories',
+        'custom_reports',
+        'import_column_mappings',
+        'institutions',
+        'investment_reports',
+        'investment_transactions',
+        'loan_rate_changes',
+        'loan_scenarios',
+        'monte_carlo_scenarios',
+        'monthly_account_balances',
+        'payee_aliases',
+        'payees',
+        'scheduled_transactions',
+        'securities',
+        'tags',
+        'transaction_attachments',
+        'transactions',
+        'user_currency_preferences'
+    ];
+BEGIN
+    FOREACH t IN ARRAY direct_tables LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_isolation', t);
+        EXECUTE format(
+            'CREATE POLICY %I ON %I
+               USING (user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()))
+               WITH CHECK (user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()))',
+            t || '_isolation', t
+        );
+    END LOOP;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Group B: keyed by the AUTHENTICATED user (4 tables)
+--
+-- These four also have a user_id column, but the id stored in it is the
+-- *authenticated* identity, not the effective one. Under delegation those
+-- differ, so the uniform Group A predicate would silently return zero rows for
+-- the acting delegate -- inside normal request scope, where nothing throws and
+-- nothing logs. Verified against the call sites rather than assumed; see the
+-- per-table notes below.
+--
+-- Adding the app_real_user_id() arm cannot widen isolation: app.real_user_id
+-- only ever holds the id the JWT layer authenticated, so the arm exposes the
+-- caller's own rows and never a third party's. Outside delegation the two GUCs
+-- are equal and the arm is redundant.
+-- ---------------------------------------------------------------------------
+
+-- refresh_tokens: user_id is ALWAYS the real authenticated user; when a
+-- delegate acts, the owner is carried separately in acting_as_user_id
+-- (see backend/src/auth/token.service.ts -- "sub is ALWAYS the real
+-- authenticated user"). POST /auth/switch-context is @AllowDelegate and both
+-- revokes and inserts delegate-keyed rows while the request context names the
+-- owner, so the real arm is load-bearing.
+--
+-- The acting_as_user_id arm covers the inverse direction: an owner deleting
+-- their account purges the delegate sessions opened against their data
+-- (users.service.ts: delete({ actingAsUserId })). Those rows have another
+-- user's user_id, so without this arm the purge would silently no-op and leave
+-- live delegate sessions pointing at deleted data.
+DROP POLICY IF EXISTS refresh_tokens_isolation ON refresh_tokens;
+CREATE POLICY refresh_tokens_isolation ON refresh_tokens
+  USING (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR acting_as_user_id = (SELECT app_current_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR acting_as_user_id = (SELECT app_current_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- trusted_devices: uniformly real-user keyed. Every authenticated route that
+-- reads or writes it (list / revoke / revoke-all trusted devices, disable 2FA,
+-- change password) passes req.user.realUserId, and those routes ARE
+-- @AllowDelegate -- so a delegate reaches their own devices while acting.
+DROP POLICY IF EXISTS trusted_devices_isolation ON trusted_devices;
+CREATE POLICY trusted_devices_isolation ON trusted_devices
+  USING (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- personal_access_tokens: the CRUD routes pass req.user.id but PatController
+-- carries no @AllowDelegate, so the delegate guard rejects acting tokens and
+-- the two ids coincide today. changePassword already revokes by realUserId.
+-- The real arm makes the policy correct under either keying, so adding
+-- @AllowDelegate later cannot turn into a silent zero-rows bug.
+DROP POLICY IF EXISTS personal_access_tokens_isolation ON personal_access_tokens;
+CREATE POLICY personal_access_tokens_isolation ON personal_access_tokens
+  USING (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- user_preferences: mostly effective-user keyed (locale, timezone, currency
+-- display -- a delegate sees the owner's), but the 2FA endpoints
+-- (confirm-setup, disable, is-enabled) are @AllowDelegate and read/write the
+-- DELEGATE's own preferences row via req.user.realUserId. Both arms required.
+DROP POLICY IF EXISTS user_preferences_isolation ON user_preferences;
+CREATE POLICY user_preferences_isolation ON user_preferences
+  USING (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (user_id = (SELECT app_current_user_id())
+      OR user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- ---------------------------------------------------------------------------
+-- Indirect ownership (resolved through a parent row)
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS transaction_splits_isolation ON transaction_splits;
+CREATE POLICY transaction_splits_isolation ON transaction_splits
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transactions t
+    WHERE t.id = transaction_splits.transaction_id
+      AND t.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transactions t
+    WHERE t.id = transaction_splits.transaction_id
+      AND t.user_id = (SELECT app_current_user_id())));
+
+-- transaction_tags -> transactions.user_id
+DROP POLICY IF EXISTS transaction_tags_isolation ON transaction_tags;
+CREATE POLICY transaction_tags_isolation ON transaction_tags
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transactions t
+    WHERE t.id = transaction_tags.transaction_id
+      AND t.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transactions t
+    WHERE t.id = transaction_tags.transaction_id
+      AND t.user_id = (SELECT app_current_user_id())));
+
+-- transaction_split_tags -> transaction_splits -> transactions.user_id (two-hop)
+DROP POLICY IF EXISTS transaction_split_tags_isolation ON transaction_split_tags;
+CREATE POLICY transaction_split_tags_isolation ON transaction_split_tags
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transaction_splits ts
+    JOIN transactions t ON t.id = ts.transaction_id
+    WHERE ts.id = transaction_split_tags.transaction_split_id
+      AND t.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transaction_splits ts
+    JOIN transactions t ON t.id = ts.transaction_id
+    WHERE ts.id = transaction_split_tags.transaction_split_id
+      AND t.user_id = (SELECT app_current_user_id())));
+
+-- attachment_blobs -> transaction_attachments.user_id
+-- (transaction_attachments is itself a direct table -- see 112.)
+DROP POLICY IF EXISTS attachment_blobs_isolation ON attachment_blobs;
+CREATE POLICY attachment_blobs_isolation ON attachment_blobs
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transaction_attachments ta
+    WHERE ta.id = attachment_blobs.attachment_id
+      AND ta.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM transaction_attachments ta
+    WHERE ta.id = attachment_blobs.attachment_id
+      AND ta.user_id = (SELECT app_current_user_id())));
+
+-- ---------------------------------------------------------------------------
+-- Scheduled transactions family
+-- ---------------------------------------------------------------------------
+
+-- scheduled_transaction_splits -> scheduled_transactions.user_id
+DROP POLICY IF EXISTS scheduled_transaction_splits_isolation ON scheduled_transaction_splits;
+CREATE POLICY scheduled_transaction_splits_isolation ON scheduled_transaction_splits
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transactions st
+    WHERE st.id = scheduled_transaction_splits.scheduled_transaction_id
+      AND st.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transactions st
+    WHERE st.id = scheduled_transaction_splits.scheduled_transaction_id
+      AND st.user_id = (SELECT app_current_user_id())));
+
+-- scheduled_transaction_split_tags -> scheduled_transaction_splits
+--   -> scheduled_transactions.user_id (two-hop)
+DROP POLICY IF EXISTS scheduled_transaction_split_tags_isolation ON scheduled_transaction_split_tags;
+CREATE POLICY scheduled_transaction_split_tags_isolation ON scheduled_transaction_split_tags
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transaction_splits sts
+    JOIN scheduled_transactions st ON st.id = sts.scheduled_transaction_id
+    WHERE sts.id = scheduled_transaction_split_tags.scheduled_transaction_split_id
+      AND st.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transaction_splits sts
+    JOIN scheduled_transactions st ON st.id = sts.scheduled_transaction_id
+    WHERE sts.id = scheduled_transaction_split_tags.scheduled_transaction_split_id
+      AND st.user_id = (SELECT app_current_user_id())));
+
+-- scheduled_transaction_overrides -> scheduled_transactions.user_id
+DROP POLICY IF EXISTS scheduled_transaction_overrides_isolation ON scheduled_transaction_overrides;
+CREATE POLICY scheduled_transaction_overrides_isolation ON scheduled_transaction_overrides
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transactions st
+    WHERE st.id = scheduled_transaction_overrides.scheduled_transaction_id
+      AND st.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM scheduled_transactions st
+    WHERE st.id = scheduled_transaction_overrides.scheduled_transaction_id
+      AND st.user_id = (SELECT app_current_user_id())));
+
+-- ---------------------------------------------------------------------------
+-- Securities family
+--
+-- securities is per-user (symbol is unique per user), so a security's price
+-- history and tags belong to exactly one user despite looking like reference
+-- data. holdings hang off the account, not the security.
+-- ---------------------------------------------------------------------------
+
+-- security_prices -> securities.user_id
+DROP POLICY IF EXISTS security_prices_isolation ON security_prices;
+CREATE POLICY security_prices_isolation ON security_prices
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM securities s
+    WHERE s.id = security_prices.security_id
+      AND s.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM securities s
+    WHERE s.id = security_prices.security_id
+      AND s.user_id = (SELECT app_current_user_id())));
+
+-- security_tags -> securities.user_id
+DROP POLICY IF EXISTS security_tags_isolation ON security_tags;
+CREATE POLICY security_tags_isolation ON security_tags
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM securities s
+    WHERE s.id = security_tags.security_id
+      AND s.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM securities s
+    WHERE s.id = security_tags.security_id
+      AND s.user_id = (SELECT app_current_user_id())));
+
+-- holdings -> accounts.user_id
+DROP POLICY IF EXISTS holdings_isolation ON holdings;
+CREATE POLICY holdings_isolation ON holdings
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM accounts a
+    WHERE a.id = holdings.account_id
+      AND a.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM accounts a
+    WHERE a.id = holdings.account_id
+      AND a.user_id = (SELECT app_current_user_id())));
+
+-- ---------------------------------------------------------------------------
+-- Budgets family
+-- ---------------------------------------------------------------------------
+
+-- budget_categories -> budgets.user_id
+DROP POLICY IF EXISTS budget_categories_isolation ON budget_categories;
+CREATE POLICY budget_categories_isolation ON budget_categories
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budgets b
+    WHERE b.id = budget_categories.budget_id
+      AND b.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budgets b
+    WHERE b.id = budget_categories.budget_id
+      AND b.user_id = (SELECT app_current_user_id())));
+
+-- budget_periods -> budgets.user_id
+DROP POLICY IF EXISTS budget_periods_isolation ON budget_periods;
+CREATE POLICY budget_periods_isolation ON budget_periods
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budgets b
+    WHERE b.id = budget_periods.budget_id
+      AND b.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budgets b
+    WHERE b.id = budget_periods.budget_id
+      AND b.user_id = (SELECT app_current_user_id())));
+
+-- budget_period_categories -> budget_periods -> budgets.user_id (two-hop)
+DROP POLICY IF EXISTS budget_period_categories_isolation ON budget_period_categories;
+CREATE POLICY budget_period_categories_isolation ON budget_period_categories
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budget_periods bp
+    JOIN budgets b ON b.id = bp.budget_id
+    WHERE bp.id = budget_period_categories.budget_period_id
+      AND b.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM budget_periods bp
+    JOIN budgets b ON b.id = bp.budget_id
+    WHERE bp.id = budget_period_categories.budget_period_id
+      AND b.user_id = (SELECT app_current_user_id())));
+
+-- ---------------------------------------------------------------------------
+-- Monte Carlo
+-- ---------------------------------------------------------------------------
+
+-- monte_carlo_cash_flows -> monte_carlo_scenarios.user_id
+DROP POLICY IF EXISTS monte_carlo_cash_flows_isolation ON monte_carlo_cash_flows;
+CREATE POLICY monte_carlo_cash_flows_isolation ON monte_carlo_cash_flows
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM monte_carlo_scenarios s
+    WHERE s.id = monte_carlo_cash_flows.scenario_id
+      AND s.user_id = (SELECT app_current_user_id())))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM monte_carlo_scenarios s
+    WHERE s.id = monte_carlo_cash_flows.scenario_id
+      AND s.user_id = (SELECT app_current_user_id())));
+
+-- ---------------------------------------------------------------------------
+-- Delegation grants
+--
+-- account_delegate_grants -> account_delegates, which has no user_id either:
+-- it is owner_user_id / delegate_user_id keyed. The parent predicate therefore
+-- mirrors the account_delegates policy in 114 -- visible to the owner through
+-- app.current_user_id and to the delegate through app.real_user_id, so a
+-- delegate can still read which of the owner's accounts they were granted
+-- while acting (current = owner, real = delegate).
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS account_delegate_grants_isolation ON account_delegate_grants;
+CREATE POLICY account_delegate_grants_isolation ON account_delegate_grants
+  USING ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM account_delegates ad
+    WHERE ad.id = account_delegate_grants.delegation_id
+      AND (ad.owner_user_id = (SELECT app_current_user_id())
+        OR ad.delegate_user_id = (SELECT app_real_user_id()))))
+  WITH CHECK ((SELECT app_bypass_rls()) OR EXISTS (
+    SELECT 1 FROM account_delegates ad
+    WHERE ad.id = account_delegate_grants.delegation_id
+      AND (ad.owner_user_id = (SELECT app_current_user_id())
+        OR ad.delegate_user_id = (SELECT app_real_user_id()))));
+
+-- ---------------------------------------------------------------------------
+-- Bespoke owner columns, and the documented exemptions
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS users_self ON users;
+CREATE POLICY users_self ON users
+  USING (id = (SELECT app_current_user_id())
+      OR id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (id = (SELECT app_current_user_id())
+      OR id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- ---------------------------------------------------------------------------
+-- account_delegates -- visible from both sides of the delegation.
+--
+-- The owner reaches it through app.current_user_id (managing who they share
+-- with). The delegate reaches it through app.real_user_id, which works both in
+-- their own session (current = real = delegate) and while acting for the owner
+-- (current = owner, real = delegate) -- the latter is what lets the delegate
+-- guard resolve its own grant row on every acting request.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS account_delegates_isolation ON account_delegates;
+CREATE POLICY account_delegates_isolation ON account_delegates
+  USING (owner_user_id = (SELECT app_current_user_id())
+      OR delegate_user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (owner_user_id = (SELECT app_current_user_id())
+      OR delegate_user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- ---------------------------------------------------------------------------
+-- delegate_account_favourites -- belongs to the delegate personally.
+--
+-- Keyed by the delegate's own identity even while they act as the owner
+-- (current = owner, real = delegate), so this is the one table scoped by
+-- app.real_user_id alone. Matching app.current_user_id as well would let an
+-- owner read the private favourites of the delegates they share with.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS delegate_account_favourites_isolation ON delegate_account_favourites;
+CREATE POLICY delegate_account_favourites_isolation ON delegate_account_favourites
+  USING (delegate_user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()))
+  WITH CHECK (delegate_user_id = (SELECT app_real_user_id())
+      OR (SELECT app_bypass_rls()));
+
+-- ---------------------------------------------------------------------------
+-- emergency_access_settings / emergency_access_contacts -- owner-keyed only.
+--
+-- The authenticated surface (emergency-access.controller.ts, class-guarded by
+-- AuthGuard('jwt') + StepUpGuard, no @AllowDelegate) is entirely owner-keyed:
+-- every service call passes req.user.id as the owner and every query filters
+-- owner_user_id. There is no "who named me as an emergency contact" lookup, so
+-- no grantee-side arm is needed (audited in task C4).
+--
+-- The grantee-facing side is the public claim flow, which identifies the
+-- grantee by emailed claim token rather than by user id and runs entirely under
+-- withSystemContext -- the bypass arm.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS emergency_access_settings_isolation ON emergency_access_settings;
+CREATE POLICY emergency_access_settings_isolation ON emergency_access_settings
+  USING (owner_user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()))
+  WITH CHECK (owner_user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()));
+
+DROP POLICY IF EXISTS emergency_access_contacts_isolation ON emergency_access_contacts;
+CREATE POLICY emergency_access_contacts_isolation ON emergency_access_contacts
+  USING (owner_user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()))
+  WITH CHECK (owner_user_id = (SELECT app_current_user_id()) OR (SELECT app_bypass_rls()));
+
+-- ---------------------------------------------------------------------------
+-- Deliberately NOT policied (and therefore never enabled in M3).
+--
+-- The catalog-driven test in T2 asserts this exact list: a new table that lands
+-- in neither a policy migration nor this exemption list fails the suite, so
+-- forgetting one is a test failure rather than a review miss.
+--
+--   currencies       Global reference data keyed by ISO 4217 code, shared
+--                    across all users. It does carry created_by_user_id, but
+--                    that column is attribution (NULL = system currency), not
+--                    ownership: any user may reference a custom code through
+--                    accounts.currency_code, and a created_by_user_id policy
+--                    would hide every system currency (the column is NULL
+--                    there) and break those foreign keys. Per-user visibility
+--                    is already expressed by user_currency_preferences, which
+--                    IS policied.
+--
+--   exchange_rates   Global reference data with no owner column at all;
+--                    written by the scheduled refresh under system context.
+--
+--   oauth_payloads   No owner column exists -- rows are keyed by opaque
+--                    id/model/grant_id/uid. Every access happens in the
+--                    pre-session OAuth flow, which runs under withSystemContext
+--                    regardless, so a policy would consist of nothing but its
+--                    bypass arm. Reviewed and confirmed in task C1: keep the
+--                    runtime role's DML grants, leave the table exempt. The
+--                    stronger option (revoke the grants and give the OAuth
+--                    module an owner DataSource) was considered and declined --
+--                    the table is a short-lived token store keyed by random id
+--                    and is never queried per end-user.
+--
+--   schema_migrations  Migration infrastructure, written only by db-migrate
+--                    running as the owner.
+-- ---------------------------------------------------------------------------
+
+-- Verification helper (run manually; not part of the migration's effect):
+--   SELECT tablename, policyname FROM pg_policies
+--    WHERE schemaname = 'public' ORDER BY tablename;
+-- Expected: 50 policies -- 26 direct + 4 real-user-keyed (112),
+--           15 indirect (113), 5 special (114).

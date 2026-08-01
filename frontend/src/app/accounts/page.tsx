@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useOnAiAction } from '@/hooks/useOnAiAction';
 import { Button } from '@/components/ui/Button';
+import { TOUR_ANCHORS, tourAnchor } from '@/lib/tours/anchors';
 
 import { AccountList } from '@/components/accounts/AccountList';
 import { AccountFormModal } from '@/components/accounts/AccountFormModal';
@@ -70,6 +72,9 @@ function AccountsContent() {
   }, [loadAccounts]);
 
   useOnUndoRedo(loadAccounts);
+  // An AI write can change account balances (e.g. a transaction created from
+  // the chat bubble), so refresh the same way as an undo/redo.
+  useOnAiAction(loadAccounts);
 
   // Refresh when another view (e.g. the import match-review queue, in this
   // window or another tab) resolves a match that changed account balances.
@@ -140,7 +145,14 @@ function AccountsContent() {
           title={t('page.title')}
           subtitle={t('page.subtitle')}
           helpUrl="https://github.com/kenlasko/monize/wiki/Accounts"
-          actions={<Button onClick={openCreate}>{t('page.newAccount')}</Button>}
+          actions={
+            <Button
+              {...tourAnchor(TOUR_ANCHORS.accountsAddButton)}
+              onClick={openCreate}
+            >
+              {t('page.newAccount')}
+            </Button>
+          }
         />
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 mb-4 sm:mb-6">

@@ -1,0 +1,1088 @@
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  deriveCurrentInstallment,
+  deriveLoanPaymentHistory,
+  fetchAllAccountTransactions,
+  fetchLoanInterestTransactions,
+} from './loan-history';
+import { transactionsApi } from '@/lib/transactions';
+import { Account } from '@/types/account';
+import { Transaction, TransactionSplit } from '@/types/transaction';
+
+vi.mock('@/lib/transactions', () => ({
+  transactionsApi: {
+    getAll: vi.fn(),
+    getAllPages: vi.fn(),
+  },
+}));
+
+const LOAN_ID = 'loan-1';
+
+function makeAccount(overrides: Partial<Account> = {}): Account {
+  return {
+    id: LOAN_ID,
+    accountType: 'LOAN',
+    name: 'Car Loan',
+    openingBalance: -10000,
+    currentBalance: -8000,
+    interestRate: 6,
+    paymentAmount: 500,
+    paymentFrequency: 'MONTHLY',
+    isCanadianMortgage: false,
+    isVariableRate: false,
+    ...overrides,
+  } as Account;
+}
+
+function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
+  return {
+    id: `tx-${Math.abs(overrides.amount ?? 0)}-${overrides.transactionDate}`,
+    accountId: LOAN_ID,
+    transactionDate: '2026-01-15',
+    amount: 450,
+    linkedTransaction: null,
+    ...overrides,
+  } as Transaction;
+}
+
+function withInterestSplit(
+  transaction: Transaction,
+  linkedId: string,
+  interestAmount: number,
+): Transaction {
+  return {
+    ...transaction,
+    linkedTransaction: {
+      id: linkedId,
+      splits: [
+        { transferAccountId: LOAN_ID, amount: -transaction.amount } as TransactionSplit,
+        { transferAccountId: null, categoryId: 'cat-interest', amount: -interestAmount } as TransactionSplit,
+      ],
+    } as Transaction,
+  };
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('deriveLoanPaymentHistory', () => {
+  it('builds a row per repayment in date order, anchored to the opening balance', () => {
+    const account = makeAccount();
+    const transactions = [
+      makeTransaction({ transactionDate: '2026-02-15', amount: 460 }),
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+    ];
+
+    const result = deriveLoanPaymentHistory(account, transactions);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].date).toBe('2026-01-15');
+    expect(result.events[1].date).toBe('2026-02-15');
+    expect(result.startingBalance).toBe(10000);
+    expect(result.events[0].balance).toBe(10000 - 450);
+    expect(result.events[1].balance).toBe(10000 - 450 - 460);
+    expect(result.cumulativePrincipal).toBe(910);
+    expect(result.currentBalance).toBe(8000);
+  });
+
+  it('counts draws in the running balance but emits no row for them', () => {
+    // A draw between two repayments raises the debt magnitude, so the second
+    // repayment's balance reflects it (10000 - 450 - 100(draw) - 460).
+    const account = makeAccount();
+    const transactions = [
+      makeTransaction({ transactionDate: '2026-02-15', amount: 460 }),
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+      makeTransaction({ transactionDate: '2026-01-20', amount: -100 }), // draw
+    ];
+
+    const result = deriveLoanPaymentHistory(account, transactions);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].balance).toBe(10000 - 450);
+    expect(result.events[1].balance).toBe(10000 - 450 + 100 - 460);
+    expect(result.cumulativePrincipal).toBe(910);
+  });
+
+  it('does not inflate a revolving line of credit opened at zero', () => {
+    // A LOC that cycled near zero: draws and repayments net out. The old
+    // positive-only reconstruction summed every repayment (2100) on top of the
+    // balance; anchoring to the true opening of 0 keeps it honest.
+    const loc = makeAccount({
+      accountType: 'LINE_OF_CREDIT',
+      openingBalance: 0,
+      currentBalance: -200,
+    });
+    const transactions = [
+      makeTransaction({ id: 'd1', transactionDate: '2026-01-01', amount: -1000 }), // draw
+      makeTransaction({ id: 'p1', transactionDate: '2026-02-01', amount: 1000 }), // repay
+      makeTransaction({ id: 'd2', transactionDate: '2026-03-01', amount: -1200 }), // draw
+      makeTransaction({ id: 'p2', transactionDate: '2026-04-01', amount: 1000 }), // repay
+    ];
+
+    const result = deriveLoanPaymentHistory(loc, transactions);
+
+    expect(result.startingBalance).toBe(0);
+    // Repayment rows only; balances track real utilization
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].balance).toBe(0); // 0 - 1000 + 1000
+    expect(result.events[1].balance).toBe(200); // ... - 1200 + 1000 => -200 magnitude
+    expect(result.currentBalance).toBe(200);
+  });
+
+  it('reads interest from the linked transaction split that is not the loan transfer', () => {
+    const account = makeAccount();
+    const tx = withInterestSplit(
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+      'parent-1',
+      50,
+    );
+
+    const result = deriveLoanPaymentHistory(account, [tx]);
+
+    expect(result.events[0].interest).toBe(50);
+    expect(result.events[0].principal).toBe(450);
+    expect(result.cumulativeInterest).toBe(50);
+  });
+
+  it('counts a shared parent transaction interest split only once', () => {
+    const account = makeAccount();
+    // Regular + extra principal transfers from the same source payment
+    const regular = withInterestSplit(
+      makeTransaction({ id: 'tx-a', transactionDate: '2026-01-15', amount: 450 }),
+      'parent-1',
+      50,
+    );
+    const extra = withInterestSplit(
+      makeTransaction({ id: 'tx-b', transactionDate: '2026-01-15', amount: 200 }),
+      'parent-1',
+      50,
+    );
+
+    const result = deriveLoanPaymentHistory(account, [regular, extra]);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.cumulativeInterest).toBe(50);
+    expect(result.cumulativePrincipal).toBe(650);
+  });
+
+  it('derives the starting balance from principal paid when openingBalance is unset', () => {
+    const account = makeAccount({ openingBalance: 0, currentBalance: -8000 });
+    const transactions = [
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+      makeTransaction({ transactionDate: '2026-02-15', amount: 550 }),
+    ];
+
+    const result = deriveLoanPaymentHistory(account, transactions);
+
+    expect(result.startingBalance).toBe(8000 + 1000);
+  });
+
+  it('floors the running balance at zero', () => {
+    const account = makeAccount({ openingBalance: -100, currentBalance: 0 });
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+    ]);
+    expect(result.events[0].balance).toBe(0);
+  });
+
+  it('returns an empty history for no transactions', () => {
+    const result = deriveLoanPaymentHistory(makeAccount(), []);
+    expect(result.events).toHaveLength(0);
+    expect(result.cumulativePrincipal).toBe(0);
+    expect(result.cumulativeInterest).toBe(0);
+  });
+
+  it('derives interest analytically when a payment records no interest split', () => {
+    // A plain transfer with no linked interest split used to read interest = 0
+    // (rata = 100% principal). It now derives interest from the running
+    // balance: 10000 * (6% / 12) = 50.
+    const account = makeAccount();
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+    ]);
+    expect(result.events[0].type).toBe('REGULAR');
+    expect(result.events[0].interest).toBeCloseTo(50, 2);
+    expect(result.events[0].principal).toBe(450);
+    expect(result.events[0].balance).toBe(10000 - 450);
+  });
+
+  it('prefers a recorded interest split over the analytic estimate', () => {
+    const account = makeAccount();
+    const tx = withInterestSplit(
+      makeTransaction({ transactionDate: '2026-01-15', amount: 450 }),
+      'parent-1',
+      42,
+    );
+    const result = deriveLoanPaymentHistory(account, [tx]);
+    expect(result.events[0].type).toBe('REGULAR');
+    expect(result.events[0].interest).toBe(42);
+  });
+
+  it('classifies overpayment-category payments as 100% principal and flags them', () => {
+    const account = makeAccount({ overpaymentCategoryId: 'cat-over' });
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({
+        transactionDate: '2026-01-15',
+        amount: 450,
+        categoryId: 'cat-over',
+      }),
+    ]);
+    expect(result.events[0].type).toBe('OVERPAYMENT');
+    expect(result.events[0].interest).toBe(0);
+    expect(result.events[0].principal).toBe(450);
+    expect(result.cumulativeInterest).toBe(0);
+  });
+
+  it('recognizes an overpayment tagged on the linked source transaction', () => {
+    const account = makeAccount({ overpaymentCategoryId: 'cat-over' });
+    const tx = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 300 }),
+      linkedTransaction: {
+        id: 'p1',
+        categoryId: 'cat-over',
+        splits: [],
+      } as unknown as Transaction,
+    };
+    const result = deriveLoanPaymentHistory(account, [tx]);
+    expect(result.events[0].type).toBe('OVERPAYMENT');
+    expect(result.events[0].interest).toBe(0);
+  });
+
+  it('classifies payments whose memo matches the overpayment memo, case-insensitively', () => {
+    const account = makeAccount({ overpaymentMemo: 'Extra principal' });
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({
+        transactionDate: '2026-01-15',
+        amount: 450,
+        description: 'JAN extra PRINCIPAL payment',
+      }),
+    ]);
+    expect(result.events[0].type).toBe('OVERPAYMENT');
+    expect(result.events[0].interest).toBe(0);
+    expect(result.events[0].principal).toBe(450);
+  });
+
+  it('recognizes an overpayment memo on the linked source transaction and its splits', () => {
+    const account = makeAccount({ overpaymentMemo: 'overpay' });
+    const tx = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 300 }),
+      linkedTransaction: {
+        id: 'p1',
+        description: null,
+        splits: [{ memo: 'monthly OVERPAY', amount: -300 } as TransactionSplit],
+      } as unknown as Transaction,
+    };
+    const result = deriveLoanPaymentHistory(account, [tx]);
+    expect(result.events[0].type).toBe('OVERPAYMENT');
+    expect(result.events[0].interest).toBe(0);
+  });
+
+  it('treats a payment as regular when its memo does not contain the overpayment memo', () => {
+    const account = makeAccount({ overpaymentMemo: 'extra principal' });
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({
+        transactionDate: '2026-01-15',
+        amount: 450,
+        description: 'Regular monthly payment',
+      }),
+    ]);
+    expect(result.events[0].type).toBe('REGULAR');
+  });
+
+  it('flags overpayments by memo even without an overpayment category set', () => {
+    const account = makeAccount({
+      overpaymentCategoryId: null,
+      overpaymentMemo: 'lump sum',
+      overpaymentPayeeId: null,
+    });
+    const result = deriveLoanPaymentHistory(account, [
+      makeTransaction({
+        transactionDate: '2026-01-15',
+        amount: 1000,
+        description: 'Annual LUMP SUM',
+      }),
+    ]);
+    expect(result.events[0].type).toBe('OVERPAYMENT');
+  });
+
+  it('flags only the extra-principal split of a split payment, not the regular sibling', () => {
+    // A single source payment splits into a regular principal transfer, its
+    // interest, and a separate extra-principal transfer tagged for overpayment.
+    // Both transfers post to the loan and share one parent; only the extra one
+    // is an overpayment.
+    const account = makeAccount({ overpaymentMemo: 'extra principal' });
+    const parent = {
+      id: 'p1',
+      description: 'Mortgage payment',
+      splits: [
+        {
+          transferAccountId: LOAN_ID,
+          amount: -800,
+          memo: 'Principal',
+          linkedTransactionId: 'loan-reg',
+        },
+        { transferAccountId: null, categoryId: 'cat-interest', amount: -200, memo: 'Interest' },
+        {
+          transferAccountId: LOAN_ID,
+          amount: -150,
+          memo: 'Extra principal',
+          linkedTransactionId: 'loan-extra',
+        },
+      ] as unknown as TransactionSplit[],
+    } as unknown as Transaction;
+    const regular = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 800 }),
+      id: 'loan-reg',
+      linkedTransaction: parent,
+    };
+    const extra = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 150 }),
+      id: 'loan-extra',
+      linkedTransaction: parent,
+    };
+
+    const result = deriveLoanPaymentHistory(account, [regular, extra]);
+
+    const regularEvent = result.events.find((e) => e.principal === 800);
+    const extraEvent = result.events.find((e) => e.principal === 150);
+    expect(regularEvent?.type).toBe('REGULAR');
+    expect(regularEvent?.interest).toBe(200);
+    expect(extraEvent?.type).toBe('OVERPAYMENT');
+    expect(extraEvent?.interest).toBe(0);
+  });
+
+  it('correlates split-payment overpayments by amount when the per-split link is absent', () => {
+    // Same shape but without linkedTransactionId on the splits (legacy data):
+    // the regular and extra transfers are still told apart by their amounts.
+    const account = makeAccount({ overpaymentMemo: 'extra' });
+    const parent = {
+      id: 'p1',
+      description: 'Mortgage payment',
+      splits: [
+        { transferAccountId: LOAN_ID, amount: -800, memo: 'Principal' },
+        { transferAccountId: LOAN_ID, amount: -150, memo: 'Extra' },
+      ] as unknown as TransactionSplit[],
+    } as unknown as Transaction;
+    const regular = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 800 }),
+      id: 'loan-reg',
+      linkedTransaction: parent,
+    };
+    const extra = {
+      ...makeTransaction({ transactionDate: '2026-01-15', amount: 150 }),
+      id: 'loan-extra',
+      linkedTransaction: parent,
+    };
+
+    const result = deriveLoanPaymentHistory(account, [regular, extra]);
+
+    expect(result.events.find((e) => e.principal === 800)?.type).toBe('REGULAR');
+    expect(result.events.find((e) => e.principal === 150)?.type).toBe('OVERPAYMENT');
+  });
+
+  it('does not derive analytic interest for revolving credit', () => {
+    const loc = makeAccount({
+      accountType: 'LINE_OF_CREDIT',
+      openingBalance: -1000,
+      currentBalance: -500,
+    });
+    const result = deriveLoanPaymentHistory(loc, [
+      makeTransaction({ transactionDate: '2026-01-15', amount: 200 }),
+    ]);
+    expect(result.events[0].interest).toBe(0);
+  });
+});
+
+describe('deriveCurrentInstallment', () => {
+  const history = (
+    events: Array<{
+      principal: number;
+      interest: number;
+      type: 'REGULAR' | 'OVERPAYMENT';
+    }>,
+  ) => ({
+    events: events.map((e, i) => ({
+      date: `2026-0${i + 1}-15`,
+      principal: e.principal,
+      interest: e.interest,
+      balance: 0,
+      cumulativePrincipal: 0,
+      cumulativeInterest: 0,
+      type: e.type,
+    })),
+    startingBalance: 0,
+    currentBalance: 0,
+    cumulativePrincipal: 0,
+    cumulativeInterest: 0,
+  });
+
+  it('uses the last regular installment when it is lower than contractual', () => {
+    const result = deriveCurrentInstallment(
+      history([
+        { principal: 800, interest: 200, type: 'REGULAR' },
+        { principal: 765, interest: 153, type: 'REGULAR' },
+      ]),
+      1279,
+    );
+    expect(result).toBe(918);
+  });
+
+  it('uses the last regular installment even when it exceeds the stored payment', () => {
+    // The stored contractual payment can be stale or principal-only, so the most
+    // recent real installment (principal + interest) is preferred.
+    const result = deriveCurrentInstallment(
+      history([{ principal: 765, interest: 700, type: 'REGULAR' }]),
+      1279,
+    );
+    expect(result).toBe(1465);
+  });
+
+  it('skips overpayment rows when finding the last regular installment', () => {
+    const result = deriveCurrentInstallment(
+      history([
+        { principal: 765, interest: 153, type: 'REGULAR' },
+        { principal: 5000, interest: 0, type: 'OVERPAYMENT' },
+      ]),
+      1279,
+    );
+    expect(result).toBe(918);
+  });
+
+  it('falls back to the contractual payment with no regular history', () => {
+    expect(deriveCurrentInstallment(history([]), 1279)).toBe(1279);
+  });
+
+  it('uses principal + interest for separately-booked interest', () => {
+    // Interest booked as a separate transaction leaves regular rows with interest
+    // derived from the rate timeline; principal + interest is then the real
+    // installment and always covers the period interest (the principal portion is
+    // positive), so it is used directly rather than the possibly principal-only
+    // stored payment.
+    const result = deriveCurrentInstallment(
+      history([
+        { principal: 300, interest: 300, type: 'REGULAR' },
+        { principal: 300, interest: 300, type: 'REGULAR' },
+      ]),
+      1279,
+    );
+    expect(result).toBe(600);
+  });
+});
+
+describe('fetchAllAccountTransactions', () => {
+  it('paginates until hasMore is false', async () => {
+    const pageOne = Array.from({ length: 200 }, (_, i) => ({ id: `tx-${i}` }));
+    const pageTwo = [{ id: 'tx-200' }];
+    vi.mocked(transactionsApi.getAll)
+      .mockResolvedValueOnce({
+        data: pageOne,
+        pagination: { hasMore: true },
+      } as Awaited<ReturnType<typeof transactionsApi.getAll>>)
+      .mockResolvedValueOnce({
+        data: pageTwo,
+        pagination: { hasMore: false },
+      } as Awaited<ReturnType<typeof transactionsApi.getAll>>);
+
+    const result = await fetchAllAccountTransactions(LOAN_ID);
+
+    expect(result).toHaveLength(201);
+    expect(transactionsApi.getAll).toHaveBeenCalledTimes(2);
+    expect(transactionsApi.getAll).toHaveBeenNthCalledWith(1, {
+      accountId: LOAN_ID,
+      limit: 200,
+      page: 1,
+    });
+    expect(transactionsApi.getAll).toHaveBeenNthCalledWith(2, {
+      accountId: LOAN_ID,
+      limit: 200,
+      page: 2,
+    });
+  });
+});
+
+describe('fetchLoanInterestTransactions', () => {
+  const account = makeAccount({
+    interestCategoryId: 'cat-interest',
+    sourceAccountId: 'src-1',
+  });
+
+  it('keeps only standalone interest expenses, dropping split-leg matches', async () => {
+    // The category filter also matches interest booked as a split leg of a
+    // payment (the backend matches splits.categoryId). A split parent carries a
+    // null top-level category; those must be dropped so sequential loans sharing
+    // one interest category and funding account do not pull each other's
+    // split-leg interest onto this loan.
+    vi.mocked(transactionsApi.getAllPages).mockResolvedValue([
+      // Genuine standalone interest expense -- kept.
+      { id: 'i-1', categoryId: 'cat-interest', isTransfer: false } as Transaction,
+      // Split parent (another loan's payment) matched via a split leg -- dropped.
+      { id: 'p-1', categoryId: null, isTransfer: false } as unknown as Transaction,
+      // A transfer that happens to share the category -- dropped.
+      { id: 't-1', categoryId: 'cat-interest', isTransfer: true } as Transaction,
+    ]);
+
+    const result = await fetchLoanInterestTransactions(account);
+
+    expect(result.map((t) => t.id)).toEqual(['i-1']);
+    expect(transactionsApi.getAllPages).toHaveBeenCalledWith({
+      categoryIds: ['cat-interest'],
+      accountIds: ['src-1'],
+    });
+  });
+
+  it('returns [] when the loan has no interest category or source account', async () => {
+    expect(await fetchLoanInterestTransactions(makeAccount())).toEqual([]);
+    expect(transactionsApi.getAllPages).not.toHaveBeenCalled();
+  });
+});
+
+describe('deriveLoanPaymentHistory interest from the rate timeline', () => {
+  it('derives uncapped interest from the effective per-date rate for separately-booked interest', () => {
+    // A principal-only loan-side payment (interest booked as a separate
+    // transaction), so there is no recorded interest split.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199715,
+      interestRate: 5.5,
+    });
+    const transactions = [
+      makeTransaction({ transactionDate: '2022-05-05', amount: 285 }),
+    ];
+    const rateChanges = [{ effectiveDate: '2022-04-05', annualRate: 5.5 }];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, rateChanges);
+    const monthly = 200000 * (5.5 / 100 / 12);
+
+    // Interest tracks balance x rate/12 (~916), NOT capped at the 285 principal.
+    expect(events[0].interest).toBeCloseTo(monthly, 0);
+    expect(events[0].interest).toBeGreaterThan(events[0].principal);
+  });
+
+  it('reprices each month from the timeline for a variable-rate loan', () => {
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199430,
+      interestRate: 5.5,
+    });
+    const transactions = [
+      makeTransaction({ transactionDate: '2021-08-05', amount: 285 }),
+      makeTransaction({ transactionDate: '2022-05-05', amount: 285 }),
+    ];
+    const rateChanges = [
+      { effectiveDate: '2021-07-05', annualRate: 1.95 },
+      { effectiveDate: '2022-04-05', annualRate: 5.5 },
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, rateChanges);
+    // First payment at 1.95%, second (later) at 5.5% -> higher interest.
+    expect(events[0].interest).toBeCloseTo(200000 * (1.95 / 100 / 12), 0);
+    expect(events[1].interest).toBeGreaterThan(events[0].interest);
+  });
+});
+
+describe('deriveLoanPaymentHistory reconstructed rate (no rate history)', () => {
+  it('uses semi-annual annualization for a Canadian fixed mortgage', () => {
+    // Canadian fixed mortgage, no recorded rate history: interest is analytic
+    // (balance x the semi-annually-compounded periodic rate). Kenlasko's
+    // periodic annualization inverts that compounding and recovers the nominal
+    // 5.5% exactly, where WMP's day-count (x365/days) would read ~5.44%.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      isCanadianMortgage: true,
+      isVariableRate: false,
+      openingBalance: -200000,
+      currentBalance: -199715,
+      interestRate: 5.5,
+    });
+    const { events } = deriveLoanPaymentHistory(account, [
+      makeTransaction({ transactionDate: '2022-05-05', amount: 285 }),
+    ]);
+    expect(events[0].annualRate).toBeCloseTo(5.5, 1);
+  });
+
+  it('uses day-count annualization for a non-Canadian loan', () => {
+    // Same shape, not Canadian: interest is balance x rate/12, and the
+    // day-count annualization over the nominal first period recovers 6%.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      isCanadianMortgage: false,
+      openingBalance: -200000,
+      currentBalance: -199000,
+      interestRate: 6,
+    });
+    const { events } = deriveLoanPaymentHistory(account, [
+      makeTransaction({ transactionDate: '2024-01-05', amount: 1000 }),
+    ]);
+    expect(events[0].annualRate).toBeCloseTo(6, 1);
+  });
+});
+
+describe('deriveLoanPaymentHistory rate column with a recorded rate history', () => {
+  it('shows the discrete timeline rate on regular rows, not the observed reconstruction', () => {
+    // With a recorded rate history the schedule's rate column must show the
+    // exact rate in effect on each date -- the clean, discrete history -- not
+    // the per-installment figure reconstructed from the interest charged, which
+    // jitters with the day count and reads as "averaged by month".
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199100,
+      interestRate: 3.25,
+    });
+    // Payments on irregular days: the observed (interest/balance/days) rate
+    // would not land on the clean 1.75 / 2.25 / 3.25 steps.
+    const transactions = [
+      makeTransaction({ transactionDate: '2022-05-13', amount: 300 }),
+      makeTransaction({ transactionDate: '2022-06-24', amount: 300 }),
+      makeTransaction({ transactionDate: '2022-08-05', amount: 300 }),
+    ];
+    const rateChanges = [
+      { effectiveDate: '2022-05-13', annualRate: 1.75 },
+      { effectiveDate: '2022-06-24', annualRate: 2.25 },
+      { effectiveDate: '2022-08-05', annualRate: 3.25 },
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, rateChanges);
+
+    expect(events[0].annualRate).toBe(1.75);
+    expect(events[1].annualRate).toBe(2.25);
+    expect(events[2].annualRate).toBe(3.25);
+  });
+
+  it('shows no rate on an overpayment row even with a recorded rate history', () => {
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -196700,
+      interestRate: 5.5,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const transactions = [
+      makeTransaction({ transactionDate: '2024-01-05', amount: 300 }),
+      makeTransaction({ transactionDate: '2024-01-20', amount: 3000, categoryId: 'cat-over' }),
+    ];
+    const rateChanges = [{ effectiveDate: '2024-01-01', annualRate: 5.5 }];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, rateChanges);
+
+    const overpayment = events.find((e) => e.type === 'OVERPAYMENT');
+    const regular = events.find((e) => e.type === 'REGULAR');
+    expect(overpayment?.annualRate).toBeNull();
+    expect(regular?.annualRate).toBe(5.5);
+  });
+});
+
+describe('deriveLoanPaymentHistory with paired separate interest expenses', () => {
+  it('uses the actual interest expense per row and shows overpayment interest', () => {
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -197206.78,
+      interestRate: 5.5,
+      overpaymentMemo: 'nadplata',
+    });
+    // Loan-account rows: a regular principal transfer, then an overpayment.
+    const transactions = [
+      makeTransaction({ transactionDate: '2024-06-05', amount: 259.13 }),
+      makeTransaction({
+        transactionDate: '2024-07-15',
+        amount: 2534.09,
+        description: 'nadplata',
+      }),
+    ];
+    // Separate interest expenses on the source account (never on the loan).
+    const interestTransactions = [
+      { transactionDate: '2024-06-05', amount: -849.93, isTransfer: false } as Transaction,
+      { transactionDate: '2024-07-15', amount: -535.91, isTransfer: false } as Transaction,
+      // A principal transfer that shares the interest category -> excluded, so
+      // it is not folded into the regular row's interest.
+      { transactionDate: '2024-06-05', amount: -259.13, isTransfer: true } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(
+      account,
+      transactions,
+      [],
+      interestTransactions,
+    );
+
+    // Regular row: exactly the expense (849.93), not analytic, not + the 259.13 transfer.
+    expect(events[0].type).toBe('REGULAR');
+    expect(events[0].interest).toBeCloseTo(849.93, 2);
+    // Overpayment row: the real interest charged alongside it (not 0).
+    expect(events[1].type).toBe('OVERPAYMENT');
+    expect(events[1].interest).toBeCloseTo(535.91, 2);
+    // Principal walk unchanged: the overpayment reduces the balance by 2534.09.
+    expect(events[1].principal).toBeCloseTo(2534.09, 2);
+  });
+
+  it('adds interest-only rows for grace-period interest with no principal', () => {
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199740.87,
+      interestRate: 5.5,
+      // Origination (grace start), before the first principal payment.
+      paymentStartDate: '2019-08-01',
+    });
+    // One principal payment; interest-only grace expenses long before it.
+    const transactions = [
+      makeTransaction({ transactionDate: '2021-07-05', amount: 259.13 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2019-08-05', amount: -388.14, isTransfer: false } as Transaction,
+      { transactionDate: '2019-09-05', amount: -286.49, isTransfer: false } as Transaction,
+      { transactionDate: '2021-07-05', amount: -335.92, isTransfer: false } as Transaction,
+    ];
+
+    const { events, cumulativeInterest } = deriveLoanPaymentHistory(
+      account,
+      transactions,
+      [],
+      interestTransactions,
+    );
+
+    // Two interest-only grace rows (principal 0, balance = opening) + the payment.
+    expect(events).toHaveLength(3);
+    expect(events[0].date).toContain('2019-08');
+    expect(events[0].principal).toBe(0);
+    expect(events[0].interest).toBeCloseTo(388.14, 2);
+    expect(events[0].balance).toBeCloseTo(200000, 2);
+    // The principal payment keeps its principal and its own (paired) interest.
+    expect(events[2].principal).toBeCloseTo(259.13, 2);
+    expect(events[2].interest).toBeCloseTo(335.92, 2);
+    // Grace interest is counted in the running total.
+    expect(cumulativeInterest).toBeCloseTo(388.14 + 286.49 + 335.92, 2);
+  });
+
+  it('does not fabricate analytic interest for a principal-only payment sharing a date (interest booked separately)', () => {
+    // Real case (2023-09-05): two principal payments land on the same day -- an
+    // overpayment (973.11, whose interest is booked separately) and the regular
+    // installment (1097.78, booked with zero interest). The day's two booked
+    // interest expenses (596.89 + 28.28 = 625.17) are the whole month's
+    // interest. The overpayment consumes the paired interest; the principal-only
+    // installment must be left at 0, not given an analytic estimate -- otherwise
+    // the month over-counts interest (previously ~+860).
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -206718.35,
+      currentBalance: -142332.03,
+      interestRate: 5.5,
+    });
+    const transactions = [
+      makeTransaction({
+        id: 'over',
+        transactionDate: '2023-09-05',
+        amount: 973.11,
+        description: 'Nadpłata 2023-09-05 (kapitał z 1 570; odsetki osobno)',
+      }),
+      makeTransaction({
+        id: 'reg',
+        transactionDate: '2023-09-05',
+        amount: 1097.78,
+        description: 'Kapitał raty 2023-09 (KAPITAL: 1097.78 ODSETKI: 0.00)',
+      }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2023-09-05', amount: -596.89, isTransfer: false, description: 'Odsetki z nadpłaty 2023-09-05' } as Transaction,
+      { transactionDate: '2023-09-05', amount: -28.28, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+    const sept = events.filter((e) => e.date.startsWith('2023-09'));
+    const septInterest = sept.reduce((s, e) => s + e.interest, 0);
+
+    // Whole-month interest equals the booked expenses, with no analytic top-up.
+    expect(septInterest).toBeCloseTo(625.17, 2);
+    // The principal-only installment row carries zero interest.
+    const regRow = sept.find((e) => Math.abs(e.principal - 1097.78) < 0.01);
+    expect(regRow).toBeDefined();
+    expect(regRow!.interest).toBe(0);
+  });
+
+  it('includes interest booked before the configured start date (interest-only grace period)', () => {
+    // Real dataset shape: the interest-only grace period starts 2019-08, but
+    // paymentStartDate was set later (2020-04, e.g. guessed at setup). Interest
+    // is scoped by category, not date, so the pre-start grace interest still
+    // shows and counts instead of being truncated at the configured start.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -206718.35,
+      currentBalance: -142332.03,
+      interestRate: 5.5,
+      paymentStartDate: '2020-04-05',
+    });
+    const transactions = [makeTransaction({ transactionDate: '2021-07-05', amount: 469.58 })];
+    const interestTransactions = [
+      { transactionDate: '2019-08-05', amount: -388.14, isTransfer: false } as Transaction,
+      { transactionDate: '2019-09-05', amount: -286.49, isTransfer: false } as Transaction,
+      { transactionDate: '2021-07-05', amount: -335.92, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    // Grace interest from 2019-08 appears, ahead of the 2020-04 start date.
+    expect(events[0].date).toContain('2019-08');
+    expect(events.some((e) => e.date.startsWith('2019-09'))).toBe(true);
+    expect(events[0].interest).toBeCloseTo(388.14, 2);
+  });
+
+  it('includes all category interest regardless of date; refinances need distinct categories', () => {
+    // Interest is scoped by the configured interest category and source account,
+    // not by date, so an active loan shows every payment in that category. The
+    // flip side, called out for reviewers: sequential refinanced mortgages that
+    // reuse ONE interest category can no longer be separated by date -- give
+    // each refinance its own interest category to keep them apart.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -300000,
+      currentBalance: -299000,
+      interestRate: 5,
+      paymentStartDate: '2022-08-01',
+    });
+    const transactions = [
+      makeTransaction({ transactionDate: '2022-08-05', amount: 500 }),
+      makeTransaction({ transactionDate: '2022-09-05', amount: 500 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2012-06-05', amount: -900, isTransfer: false } as Transaction,
+      { transactionDate: '2020-06-05', amount: -800, isTransfer: false } as Transaction,
+      { transactionDate: '2022-08-05', amount: -1250, isTransfer: false } as Transaction,
+      { transactionDate: '2022-09-05', amount: -1245, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    // All category interest is now included, including the earlier dates.
+    expect(events.some((e) => e.date.startsWith('2012'))).toBe(true);
+    expect(events.some((e) => e.date.startsWith('2020'))).toBe(true);
+    expect(events.some((e) => e.date.startsWith('2022'))).toBe(true);
+    // ...and this loan's own interest is still attributed to the right date,
+    // so a pairing regression can't slip through the date-presence checks.
+    const aug = events.find((e) => e.date.startsWith('2022-08'));
+    expect(aug?.interest).toBeCloseTo(1250, 0);
+  });
+
+  it('excludes interest booked after the final payment once the loan is paid off', () => {
+    // A paid-off loan should not absorb interest later booked in the same
+    // category (e.g. a subsequent loan). Active loans keep accruing to today.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -100000,
+      currentBalance: 0,
+      interestRate: 5,
+    });
+    const transactions = [makeTransaction({ transactionDate: '2023-01-05', amount: 100000 })];
+    const interestTransactions = [
+      { transactionDate: '2023-01-05', amount: -400, isTransfer: false } as Transaction,
+      { transactionDate: '2024-06-05', amount: -300, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    expect(events.some((e) => e.date.startsWith('2024'))).toBe(false);
+  });
+
+  it('derives the observed rate from the actual days between payments', () => {
+    // A 5.5% loan: the second payment falls 31 days after the first, and its
+    // interest is exactly 31 days of 5.5% on the balance then owed. The rate
+    // must come out at ~5.5%, not the 5.6% an assumed 1/12 month would give.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199400,
+      interestRate: 5.5,
+    });
+    const balanceBeforeSecond = 200000 - 300;
+    const secondInterest = (balanceBeforeSecond * 0.055 * 31) / 365;
+    const transactions = [
+      makeTransaction({ transactionDate: '2024-01-05', amount: 300 }),
+      makeTransaction({ transactionDate: '2024-02-05', amount: 300 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2024-01-05', amount: -900, isTransfer: false } as Transaction,
+      { transactionDate: '2024-02-05', amount: -secondInterest, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    expect(events[1].interest).toBeCloseTo(secondInterest, 2);
+    expect(events[1].annualRate).toBeCloseTo(5.5, 1);
+  });
+
+  it('caps the accrual span at one interval after a payment-holiday gap', () => {
+    // A four-month gap (payment holiday) precedes an installment whose interest
+    // is only one month's worth. Dividing that interest across the whole gap
+    // would report ~1.5%; capping the span at one interval recovers the ~6%.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -199500,
+      interestRate: 6,
+    });
+    const balanceBeforeSecond = 200000 - 250;
+    const oneMonthInterest = (balanceBeforeSecond * 0.06) / 12;
+    const transactions = [
+      makeTransaction({ transactionDate: '2022-10-05', amount: 250 }),
+      makeTransaction({ transactionDate: '2023-02-05', amount: 250 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2022-10-05', amount: -1000, isTransfer: false } as Transaction,
+      { transactionDate: '2023-02-05', amount: -oneMonthInterest, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    expect(events[1].annualRate).toBeCloseTo(6, 1);
+  });
+
+  it('does not let a zero-interest overpayment inflate the next rate', () => {
+    // A pure-principal overpayment (no interest) six days before a regular
+    // installment must not reset the accrual clock: the installment's interest
+    // still covers the whole month, so measuring from the overpayment would
+    // report an absurd rate (~25%). The gap is taken from the last interest.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -196468,
+      interestRate: 5.5,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const transactions = [
+      makeTransaction({ transactionDate: '2025-10-06', amount: 281 }),
+      makeTransaction({ transactionDate: '2025-10-30', amount: 3000, categoryId: 'cat-over' }),
+      makeTransaction({ transactionDate: '2025-11-05', amount: 251 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2025-10-06', amount: -786, isTransfer: false } as Transaction,
+      { transactionDate: '2025-11-05', amount: -796.93, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    // The overpayment carries no interest, so it has no rate.
+    expect(events[1].type).toBe('OVERPAYMENT');
+    expect(events[1].annualRate).toBeNull();
+    // The following installment's rate is sane (~5%), not the ~25% a 6-day gap
+    // would produce.
+    expect(events[2].annualRate).toBeGreaterThan(3);
+    expect(events[2].annualRate).toBeLessThan(8);
+  });
+
+  it('shows no rate on an overpayment even when it carries interest', () => {
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -194500,
+      interestRate: 6,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const balanceBeforeSecondRegular = 200000 - 250 - 5000;
+    const secondInterest = (balanceBeforeSecondRegular * 0.06 * 16) / 365;
+    const transactions = [
+      makeTransaction({ transactionDate: '2024-01-05', amount: 250 }),
+      makeTransaction({ transactionDate: '2024-01-20', amount: 5000, categoryId: 'cat-over' }),
+      makeTransaction({ transactionDate: '2024-02-05', amount: 250 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2024-01-05', amount: -1000, isTransfer: false } as Transaction,
+      { transactionDate: '2024-01-20', amount: -400, isTransfer: false } as Transaction,
+      { transactionDate: '2024-02-05', amount: -secondInterest, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    // The overpayment has interest but shows no rate...
+    expect(events[1].type).toBe('OVERPAYMENT');
+    expect(events[1].interest).toBeGreaterThan(0);
+    expect(events[1].annualRate).toBeNull();
+    // ...yet it settled interest, so the next installment measures from it (16
+    // days) and reads ~6%, not a full month.
+    expect(events[2].annualRate).toBeCloseTo(6, 0);
+  });
+
+  it('falls back to the timeline rate when the installment carries only a partial-period stub', () => {
+    // Real case: aggressive overpayments settle most of a period's interest with
+    // themselves, leaving the regular installment a tiny stub (146 on ~198k).
+    // Annualizing that stub reports an absurd ~0.9%; since it is far below a full
+    // period's expected accrual, the row must instead show the contractual 5.5%.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -197350,
+      interestRate: 5.5,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const rateChanges = [{ effectiveDate: '2022-04-05', annualRate: 5.5 }];
+    const transactions = [
+      makeTransaction({ transactionDate: '2022-08-05', amount: 1650, categoryId: 'cat-over' }),
+      makeTransaction({ transactionDate: '2022-10-05', amount: 1000 }),
+    ];
+    const interestTransactions = [
+      { transactionDate: '2022-08-05', amount: -415, isTransfer: false } as Transaction,
+      { transactionDate: '2022-10-05', amount: -146, isTransfer: false } as Transaction,
+    ];
+
+    const withTimeline = deriveLoanPaymentHistory(
+      account,
+      transactions,
+      rateChanges,
+      interestTransactions,
+    );
+    // The regular installment shows the contractual rate, not the ~0.9% stub.
+    expect(withTimeline.events[1].type).toBe('REGULAR');
+    expect(withTimeline.events[1].interest).toBeCloseTo(146, 2);
+    expect(withTimeline.events[1].annualRate).toBeCloseTo(5.5, 1);
+
+    // Without any timeline rate (no rate changes and no account rate) there is
+    // no better figure than the plain observed rate, so the stub's low rate is
+    // kept.
+    const rateless = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -197350,
+      interestRate: 0,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const noTimeline = deriveLoanPaymentHistory(rateless, transactions, [], interestTransactions);
+    expect(noTimeline.events[1].annualRate).toBeLessThan(2);
+  });
+
+  it('rates a regular installment that shares its date with an interest-bearing overpayment', () => {
+    // An overpayment and the regular installment fall on the same day. The
+    // overpayment settles interest first, so the installment has a zero-day gap
+    // to the previous interest event -- but it still covers a full period, so
+    // its rate must not be dropped. The overpayment itself still shows none.
+    const account = makeAccount({
+      accountType: 'MORTGAGE',
+      openingBalance: -200000,
+      currentBalance: -194500,
+      interestRate: 5.5,
+      overpaymentCategoryId: 'cat-over',
+    });
+    const transactions = [
+      withInterestSplit(makeTransaction({ transactionDate: '2024-01-05', amount: 250 }), 'p-1', 900),
+      makeTransaction({ transactionDate: '2024-02-05', amount: 5000, categoryId: 'cat-over' }),
+      withInterestSplit(makeTransaction({ transactionDate: '2024-02-05', amount: 250 }), 'p-3', 860),
+    ];
+    // A separate interest expense on the overpayment's date, so the overpayment
+    // carries interest and settles the accrual clock on 2024-02-05.
+    const interestTransactions = [
+      { transactionDate: '2024-02-05', amount: -625, isTransfer: false } as Transaction,
+    ];
+
+    const { events } = deriveLoanPaymentHistory(account, transactions, [], interestTransactions);
+
+    const overpayment = events.find((event) => event.type === 'OVERPAYMENT');
+    const sameDayRegular = events.find(
+      (event) => event.type === 'REGULAR' && event.date === '2024-02-05',
+    );
+    expect(overpayment?.annualRate).toBeNull();
+    expect(sameDayRegular?.annualRate).not.toBeNull();
+    expect(sameDayRegular!.annualRate!).toBeGreaterThan(3);
+    expect(sameDayRegular!.annualRate!).toBeLessThan(8);
+  });
+});

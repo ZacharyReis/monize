@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Calendrier de remboursement des dettes",
       "loan-amortization": "Tableau d'amortissement",
       "credit-utilization": "Utilisation du crédit",
+      "loan-overpayment-simulator": "Simulateur de remboursement anticipé de prêt",
       "investment-performance": "Performance des investissements",
       "dividend-income": "Plus-values, dividendes et intérêts",
       "sector-weightings": "Pondération sectorielle",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Répartition par type de titre",
       "geographic-allocation": "Répartition géographique/par bourse",
       "dividend-yield-growth": "Rendement et croissance des dividendes",
-      "security-performance": "Performance des titres individuels",
+      "security-performance": "Performance des titres",
       "currency-exposure": "Exposition aux devises",
       "monte-carlo-simulation": "Simulation de Monte-Carlo",
       "recurring-expenses": "Suivi des dépenses récurrentes",
       "spending-anomalies": "Anomalies de dépenses",
       "weekend-weekday-spending": "Dépenses week-end vs semaine",
       "monthly-comparison": "Comparaison mensuelle",
+      "foreign-currency-fees": "Frais de transaction à l'étranger",
       "uncategorized-transactions": "Transactions non catégorisées",
       "duplicate-transactions": "Détecteur de doublons",
       "upcoming-bills": "Calendrier des factures à venir",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualisez votre progression dans le remboursement des dettes avec des projections de dates de solde.",
       "loan-amortization": "Tableaux de remboursement détaillés pour vos emprunts et prêts immobiliers avec ventilation capital/intérêts.",
       "credit-utilization": "Voyez quelle part de votre crédit disponible vous utilisez sur vos cartes de crédit et lignes de crédit.",
+      "loan-overpayment-simulator": "Choisissez un prêt et simulez des versements supplémentaires pour voir combien de temps plus tôt il serait remboursé et combien d'intérêts vous économiseriez.",
       "investment-performance": "Suivez les rendements du portefeuille, les gains/pertes et la répartition des actifs dans le temps.",
       "dividend-income": "Suivez les plus-values et pertes (réalisées + latentes) ainsi que les revenus de dividendes et d'intérêts.",
       "sector-weightings": "Analysez l'exposition sectorielle du portefeuille à partir des actions et ETF individuels.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Consultez la répartition du portefeuille par type d'actif (actions, ETF, fonds communs, obligations) avec détail des positions.",
       "geographic-allocation": "Analysez l'exposition géographique du portefeuille par bourse et région pour des analyses de diversification.",
       "dividend-yield-growth": "Suivez le rendement des dividendes, les rendements par titre, la croissance d'une année à l'autre et l'analyse de la fréquence de versement.",
-      "security-performance": "Analyse approfondie de la performance d'un titre individuel avec historique des cours, transactions et rendements.",
+      "security-performance": "Analysez en détail l'historique des cours, les transactions et les rendements d'un titre, ou comparez la performance de plusieurs titres sur un même graphique.",
       "currency-exposure": "Comprenez le risque de change avec la répartition du portefeuille par devise et les détails des taux de change.",
       "monte-carlo-simulation": "Projetez les résultats futurs du portefeuille avec des milliers de chemins de rendement aléatoires et une bibliothèque de scénarios sauvegardés.",
       "recurring-expenses": "Identifiez et surveillez les abonnements, adhésions et prélèvements récurrents.",
       "spending-anomalies": "Détectez les transactions inhabituellement importantes et les pics de dépenses qui méritent attention.",
       "weekend-weekday-spending": "Analysez vos habitudes de dépenses selon le jour de la semaine pour mieux vous connaître.",
       "monthly-comparison": "Comparez n'importe quel mois au mois précédent en termes de revenus, dépenses, valeur nette et investissements.",
+      "foreign-currency-fees": "Suivez les frais de transaction à l'étranger facturés sur les comptes qui appliquent des frais de conversion.",
       "uncategorized-transactions": "Trouvez et catégorisez les transactions auxquelles il manque une catégorie.",
       "duplicate-transactions": "Identifiez les éventuels doublons qui pourraient nécessiter une vérification ou une suppression.",
       "upcoming-bills": "Calendrier visuel des transactions récurrentes et des échéances de factures à venir.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Impossible de charger les données du rapport. Veuillez réessayer.",
     "retry": "Réessayer"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Aucun compte n'a de frais de transaction à l'étranger configurés. Définissez un pourcentage de frais sur un compte pour suivre ici ses frais de transaction à l'étranger."
   },
   "accountBalances": {
     "totalAssets": "Total des actifs",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Fin : ",
     "cashFlowEventPdfStarts": "Commence : ",
     "cashFlowEventPdfEnds": "Termine : ",
-    "cashFlowDefaultName": "Flux de trésorerie",
     "cashFlowPerYear": "/ an",
     "tooltipRow90th": "90e percentile",
     "tooltipRow75th": "75e percentile",
@@ -1104,6 +1110,10 @@
     "noData": "Aucune donnée d'investissement pour cette période.",
     "tooltipPortfolio": "Portefeuille :",
     "allAccounts": "Tous les comptes",
+    "viewTotal": "Total",
+    "viewSecurities": "Par titre",
+    "seriesCash": "Liquidités",
+    "seriesOther": "Autres titres",
     "colDate": "Date",
     "colPortfolioValue": "Valeur du portefeuille",
     "breakdownTitle": "Détail actuel du portefeuille",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% du portefeuille"
   },
   "securityPerformance": {
-    "selectPrompt": "Sélectionnez un titre ci-dessus pour voir ses détails de performance.",
-    "selectSecurityPlaceholder": "Sélectionner un titre...",
+    "selectPrompt": "Sélectionnez un ou plusieurs titres ci-dessus pour voir leur performance. Choisissez-en au moins deux pour les comparer sur un même graphique.",
+    "selectSecuritiesPlaceholder": "Sélectionner des titres...",
+    "comparisonTitle": "Comparaison des performances",
+    "comparisonSubtitle": "Rendement cumulé de chaque titre sélectionné, ramené à 0 % à son premier cours disponible afin de les comparer sur une même échelle, quels que soient le cours ou la devise.",
+    "comparisonNoData": "Aucun historique de cours n'est disponible pour les titres sélectionnés.",
+    "comparisonError": "Impossible de charger l'historique des cours. Veuillez réessayer.",
     "viewPriceChart": "Graphique des cours",
     "viewTransactions": "Transactions",
     "viewDividends": "Dividendes",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Total des positions",
     "largestType": "Type principal",
     "assetTypeAllocation": "Répartition par type d'actif",
-    "typeStocks": "Actions",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "Fonds communs de placement",
-    "typeBonds": "Obligations",
-    "typeCash": "Liquidités",
     "holdingsCount": "{count, plural, one {# compte} other {# comptes}}",
     "total": "Total",
     "tooltipHoldings": "{count, plural, one {# position} other {# positions}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Le nom est obligatoire"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Sélectionner un compte de prêt",
+    "viewTransactions": "Voir les transactions",
+    "empty": "Aucun compte de prêt, d'hypothèque ou de marge de crédit trouvé."
   }
 }

@@ -4,6 +4,7 @@
     "subtitle": "Управляйте одержувачами та їхніми категоріями за замовчуванням",
     "deactivateUnused": "Деактивувати невикористані",
     "autoAssignCategories": "Автоматично призначити категорії",
+    "maintenance": "Обслуговування",
     "autoMergePayees": "Автоматично об'єднати одержувачів",
     "newPayee": "+ Новий одержувач",
     "searchPlaceholder": "Пошук одержувачів...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Реактивувати",
-      "reactivateShort": "Р",
       "merge": "Об'єднати",
-      "mergeShort": "О",
       "edit": "Редагувати",
-      "editShort": "Р",
-      "delete": "Видалити",
-      "deleteShort": "В"
+      "delete": "Видалити"
     },
     "viewTransactionsTitle": "Переглянути транзакції з цим одержувачем",
     "uncategorizedBadge": "{count, plural, one {# без категорії} other {# без категорії}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Будь ласка, виберіть принаймні одну групу для об'єднання",
       "applied": "Об'єднано {groups, plural, one {# групу} other {# груп}} ({payees} одержувачів об'єднано)",
       "backfilled": "{count, plural, one {Категоризовано # транзакцію} other {Категоризовано # транзакцій}}",
-      "aliasesSkipped": "{count, plural, one {# псевдонім пропущено через конфлікт} other {# псевдонімів пропущено через конфлікти}}",
+      "aliasesSkipped": "{count, plural, one {# псевдонім пропущено через конфлікт} other {# псевдонімів пропущено через конфлікти}}: {aliases}",
       "loadFailed": "Не вдалося завантажити групи для об'єднання",
-      "applyFailed": "Не вдалося об'єднати одержувачів"
+      "applyFailed": "Не вдалося об'єднати одержувачів",
+      "someGroupsFailed": "{count, plural, one {Не вдалося об'єднати # групу} other {Не вдалося об'єднати # груп}}: {reason}"
     },
     "categoryMatchLabel": "Об'єднувати лише одержувачів з однієї категорії",
     "categoryMatchHelp": "Тримати одержувачів окремо, якщо їхні категорії відрізняються, зменшуючи хибні збіги.",

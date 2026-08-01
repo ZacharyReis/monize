@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Woche beginnt am",
     "showCreatedAtLabel": "Erstellungsdatum in Buchungsformularen anzeigen",
     "showCreatedAtTooltip": "Zeigt in Buchungsformularen das Datum und die Uhrzeit an, zu der eine Buchung ursprünglich erstellt wurde. Dies ist unabhängig vom Buchungsdatum und kann helfen nachzuvollziehen, wann ein Eintrag tatsächlich zu Monize hinzugefügt wurde.",
+    "showWhatsNewLabel": "Neuigkeiten nach einem Update anzeigen",
+    "showWhatsNewTooltip": "Zeigt eine Zusammenfassung der Versionshinweise an, wenn Sie sich zum ersten Mal anmelden, nachdem Monize auf eine neue Version aktualisiert wurde. Sie können sie jederzeit erneut öffnen, indem Sie auf die Versionsnummer unten auf dieser Seite oder auf dem Anmeldebildschirm klicken.",
     "timeFormatLabel": "Zeitformat",
     "recentTransactionsLabel": "Zuletzt verwendete Buchungen in der Schnellausfüllung",
     "recentTransactionsHelp": "Anzahl der Einträge im Verlaufs-Popover neben dem Zahlungsempfänger-Feld in Buchungsformularen.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Farbdesign konnte nicht gespeichert werden"
     },
     "browserLocale": "Browser-Gebietsschema verwenden (automatisch erkennen)",
-    "browserTimezonePrefix": "Browser-Zeitzone verwenden (automatisch erkannt: {tz})",
     "numberFormatOptions": {
       "browser": "Browser-Gebietsschema verwenden (automatisch erkannt: {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Anleitungen und Dokumentation durchsuchen."
+    },
+    "supportBackup": {
+      "label": "Support-Backup erstellen",
+      "description": "Teilen Sie eine de-identifizierte, verschlüsselte Kopie Ihrer Daten, damit ein Maintainer einen Fehler reproduzieren kann, ohne Ihre echten Namen oder Beträge zu sehen."
     }
+  },
+  "supportBackup": {
+    "title": "Support-Backup erstellen",
+    "howItWorks": "Es entsteht eine de-identifizierte Kopie Ihres Backups: Namen werden maskiert (erste und letzte zwei Zeichen bleiben), Notizen/Beschreibungen/Kontonummern werden entfernt, und jeder Betrag wird mit einem einzigen verborgenen Faktor multipliziert, während öffentliche Werte (Wechselkurse, Kurse, Zinssätze) unangetastet bleiben. Die Datei wird immer mit dem untenstehenden Passwort verschlüsselt und lässt sich wie ein normales Backup wiederherstellen. Das schützt vor beiläufiger Einsichtnahme, nicht vor jemandem, der Sie bereits kennt — Daten, Häufigkeiten und Struktur bleiben erhalten, damit Fehler reproduzierbar sind.",
+    "sectionsLabel": "Was einschließen",
+    "sections": {
+      "investments": "Investitionen (Wertpapiere, Bestände, Kurse)",
+      "scheduled": "Geplante Transaktionen",
+      "budgets": "Budgets",
+      "reports": "Berichte & Projektionen",
+      "importMappings": "Import-Spaltenzuordnungen",
+      "autoBackup": "Auto-Backup-Einstellungen"
+    },
+    "priceHistoryLabel": "Kurshistorie der Wertpapiere einschließen",
+    "priceHistoryHint": "Standardmäßig aus: Eine vollständige Kursreihe entspricht öffentlichen Marktdaten und kann einen maskierten Ticker identifizieren. Nur aktivieren, wenn der Fehler Kurse oder Bewertungen betrifft.",
+    "accountsLabel": "Auf bestimmte Konten begrenzen",
+    "accountsHint": "Alles abgewählt lassen, um jedes Konto einzuschließen. Eine Teilauswahl zieht auch die referenzierten Konten und Zahlungsempfänger mit hinein.",
+    "dateRangeLabel": "Zeitraum (optional)",
+    "dateRangeHint": "Exportierte Historie auf diese Daten begrenzen. Anfangssalden werden angepasst, damit die gekürzte Datei weiterhin aufgeht.",
+    "dateFromLabel": "Von",
+    "dateToLabel": "Bis",
+    "multiplierLabel": "Betragsmultiplikator",
+    "multiplierHint": "Jeder private Betrag wird mit dieser Zahl multipliziert, um die echten Werte zu verbergen und dabei alles konsistent zu halten. Jede nicht-ganze Zahl größer als 1 funktioniert; „Neu generieren\" wählt eine neue.",
+    "multiplierWarning": "Geben Sie den Multiplikator an niemanden weiter — er ist der Schlüssel, der die verborgenen Beträge umkehrt.",
+    "multiplierInvalid": "Geben Sie eine nicht-ganze Zahl größer als 1 ein.",
+    "regenerate": "Neu generieren",
+    "passwordLabel": "Verschlüsselungspasswort",
+    "preview": "Vorschau",
+    "previewLabel": "Vorschau",
+    "previewBefore": "Vorher",
+    "previewAfter": "Nachher",
+    "previewEmpty": "Keine Beispielzeilen für diese Auswahl.",
+    "previewFailed": "Vorschau konnte nicht erstellt werden. Bitte erneut versuchen.",
+    "generate": "Generieren",
+    "confirmPasswordTitle": "Haben Sie das Passwort gespeichert?",
+    "confirmPasswordMessage": "Die Datei lässt sich nur mit dem oben gezeigten Verschlüsselungspasswort öffnen. Es wird nirgends gespeichert und kann später nicht wiederhergestellt werden — sichern Sie es, bevor Sie generieren.",
+    "confirmPasswordConfirm": "Gespeichert — generieren",
+    "generatedToast": "Support-Backup heruntergeladen.",
+    "generateFailed": "Support-Backup konnte nicht erstellt werden. Bitte erneut versuchen.",
+    "passwordHint": "Die Datei ist immer verschlüsselt. Geben Sie dieses Passwort über einen separaten Kanal weiter, nicht zusammen mit der Datei.",
+    "passwordInvalid": "Mindestens 8 Zeichen eingeben."
   },
   "dangerZone": {
     "heading": "Gefahrenbereich",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Automatisches Backup",
-    "description": "Sichern Sie Ihre Daten automatisch nach einem Zeitplan in einem Ordner. Da Monize in Docker läuft, müssen Sie einen Host-Ordner als Volume in den Container einbinden (z. B. -v /host/backups:/backups).",
+    "description": "Sichern Sie Ihre Daten automatisch nach einem Zeitplan in einem Ordner. Da Monize in Docker läuft, müssen Sie einen Host-Ordner als Volume in den Container einbinden (z. B. -v /host/backups:/data/backups).",
     "loadingText": "Wird geladen...",
     "enableLabel": "Automatische Backups aktivieren",
     "backupFolderLabel": "Backup-Ordner",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Durchsuchen...",
     "validateButton": "Validieren",
     "validatingButton": "Wird validiert...",

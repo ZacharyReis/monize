@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Esta cuenta ya tiene un pago planificado configurado. Edita la transacción planificada existente.",
     "sourceNotFound": "Cuenta de origen no encontrada",
     "ambiguousBrokerage": "\"{{ query }}\" coincide con varias cuentas de corretaje: {{ list }}. Use el nombre exacto de la cuenta.",
-    "unknownInvestmentAccount": "Cuenta desconocida: {{ name }}. Use un nombre exacto de la lista de cuentas del usuario."
+    "unknownInvestmentAccount": "Cuenta desconocida: {{ name }}. Use un nombre exacto de la lista de cuentas del usuario.",
+    "notACreditCard": "Los ciclos de facturación solo están disponibles para cuentas de tarjeta de crédito",
+    "noStatementSettlementDay": "Esta tarjeta de crédito no tiene configurado un día de cierre del estado de cuenta"
   },
   "actionHistory": {
     "nothingToUndo": "Nada que deshacer",
@@ -73,6 +75,8 @@
     "noActiveProviders": "No hay proveedores de AI activos configurados. Configura un proveedor en Ajustes de AI.",
     "allProvidersFailed": "Todos los proveedores de AI fallaron. Comprueba la configuración de tu proveedor e inténtalo de nuevo.",
     "noToolUseProvider": "No hay ningún proveedor de AI con soporte de herramientas configurado. Las consultas en lenguaje natural requieren Anthropic, OpenAI u Ollama. Configura uno en Ajustes de AI.",
+    "relayAgentOffline": "Tu agente de relay MCP no está conectado. Conecta tu agente e inténtalo de nuevo.",
+    "relayCompletionTimedOut": "Tu agente de relay MCP no respondió a tiempo. Asegúrate de que esté conectado e inténtalo de nuevo.",
     "baseUrlInvalidBasic": "baseUrl debe ser una URL HTTP o HTTPS válida",
     "baseUrlInvalidExternal": "baseUrl debe ser una URL HTTP/HTTPS válida que apunte a un host externo",
     "ollamaCloudApiKeyRequired": "apiKey es obligatorio para el proveedor ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Un archivo adjunto supera el tamaño máximo de archivo.",
     "attachmentCorrupt": "No se pudo leer un archivo adjunto o no es del tipo de archivo que dice ser.",
     "attachmentsTooLarge": "Los archivos adjuntos superan el límite de tamaño total.",
+    "attachmentRefExpired": "El archivo adjunto ya no está disponible. Súbelo de nuevo y vuelve a preguntar.",
     "modelNoImageSupport": "El modelo de IA seleccionado no puede leer imágenes ni PDF. Quita el archivo adjunto y pregunta por texto, o cambia a un modelo con capacidad de visión en Ajustes de IA."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Contraseña incorrecta"
   },
   "backup": {
-    "folderPathRequired": "Se debe establecer una ruta de carpeta antes de habilitar las copias de seguridad automáticas",
     "folderNotExist": "La carpeta no existe: {{ safePath }}",
     "folderAccessError": "No se puede acceder a la carpeta: {{ safePath }}",
     "pathNotDirectory": "La ruta no es un directorio: {{ safePath }}",
-    "notConfigured": "La copia de seguridad automática no está configurada. Establece una ruta de carpeta primero.",
     "userNotFound": "Usuario {{ userId }} no encontrado",
     "encryptedPasswordDecryptFailed": "Las copias de seguridad cifradas están habilitadas pero la contraseña almacenada no se pudo descifrar. Vuelve a habilitar el cifrado en Ajustes de seguridad.",
     "pathTraversal": "Se detectó path traversal: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Token CSRF no válido",
     "demoModeRestricted": "Esta acción no está disponible en modo demo.",
     "serviceNotReady": "Servicio no disponible",
-    "oauthProviderNotInitialized": "Proveedor OAuth no inicializado"
+    "oauthProviderNotInitialized": "Proveedor OAuth no inicializado",
+    "invalidCurrencyCode": "Código de moneda no válido: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "La divisa \"{{ code }}\" ya está en tu lista",
     "notFound": "Divisa \"{{ code }}\" no encontrada",
     "cannotModifySystem": "No se pueden modificar los metadatos de la divisa del sistema",
     "cannotModifyOther": "No se pueden modificar las divisas de otro usuario",
-    "inUse": "La divisa \"{{ code }}\" está en uso por tus cuentas, valores u otros registros. Desactívala en su lugar."
+    "inUse": "La divisa \"{{ code }}\" está en uso por tus cuentas, valores u otros registros. Desactívala en su lugar.",
+    "invalidRateDate": "date debe tener el formato AAAA-MM-DD",
+    "alreadyInListInactive": "La divisa \"{{ code }}\" ya está en tu lista, pero actualmente está inactiva. Reactívala para usarla."
   },
   "delegation": {
     "delegatedAccessInvalid": "El acceso delegado ya no es válido",
@@ -254,6 +260,7 @@
     "passwordBreached": "Esta contraseña se encontró en una filtración de datos. Elige una contraseña diferente."
   },
   "http": {
+    "forbidden": "Acceso denegado",
     "tooManyRequests": "Demasiadas solicitudes. Espera unos minutos e inténtalo de nuevo.",
     "duplicateRecord": "Ya existe un registro con este valor",
     "referencedRecord": "El registro referenciado no existe o no se puede eliminar",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate debe estar en formato YYYY-MM-DD",
     "invalidEndDate": "endDate debe estar en formato YYYY-MM-DD",
-    "invalidAccountIds": "accountIds debe ser una lista de UUIDs separados por comas"
+    "invalidAccountIds": "accountIds debe ser una lista de UUIDs separados por comas",
+    "invalidGranularity": "granularity debe ser 'daily' o 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP no está configurado. Establece las variables de entorno SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Alias con ID {{ id }} no encontrado",
     "mergeSelf": "No se puede fusionar un beneficiario consigo mismo",
     "autoMergeDuplicatePayee": "Un beneficiario aparece en más de un grupo de fusión",
-    "autoMergeSourceNotFound": "No se encontraron uno o más beneficiarios de origen"
+    "autoMergeSourceNotFound": "No se encontraron uno o más beneficiarios de origen",
+    "autoMergeGroupConflict": "No se pudo combinar \"{{ name }}\": el valor \"{{ value }}\" ya está en uso",
+    "autoMergeGroupFailed": "No se pudo combinar \"{{ name }}\""
   },
   "reports": {
     "notFound": "Informe con ID {{ id }} no encontrado",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" coincide con varios valores: {{ list }}. Vuelve a ejecutar la búsqueda especificando un mercado.",
     "lookupNoCurrency": "No se pudo determinar la moneda de \"{{ symbol }}\". Añade el valor manualmente en su lugar.",
     "noUpdateFields": "Proporciona al menos un campo para cambiar.",
-    "allocationExceedsTotal": "Los porcentajes de asignación suman más del 100 %."
+    "allocationExceedsTotal": "Los porcentajes de asignación suman más del 100 %.",
+    "invalidTagKey": "Se requiere una clave de etiqueta (1-100 caracteres)"
   },
   "tags": {
     "notFound": "Etiqueta con ID {{ id }} no encontrada",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId debe ser un UUID válido",
     "amountFromMustBeNumber": "amountFrom debe ser un número",
     "amountToMustBeNumber": "amountTo debe ser un número",
+    "invalidGroupBy": "groupBy debe ser 'category' o 'payee'",
+    "limitMustBePositive": "limit debe ser un número positivo",
+    "recurringPayeeRequired": "payeeIds es obligatorio",
+    "recurringDatesRequired": "startDate y endDate son obligatorios",
     "statementDateFormat": "statementDate debe estar en formato YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance debe ser un número",
     "categoryNotFound": "Categoría no encontrada",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Algunas transacciones no se encontraron o no pertenecen a la cuenta especificada",
     "cannotReconcileVoidPlural": "No se pueden conciliar transacciones anuladas",
     "transferSameAccount": "Las cuentas de origen y destino deben ser diferentes",
-    "transferSplitFromAccountFixed": "La cuenta de origen de una línea de transferencia dividida no se puede cambiar",
     "transferAmountNegative": "La cantidad de la transferencia no puede ser negativa",
     "notATransfer": "La transacción no es una transferencia",
+    "splitTransferLegAccountLocked": "Esta transferencia forma parte de una transacción desglosada. Para cambiar sus cuentas, edite el desglose en la transacción de origen.",
     "notFoundById": "Transacción con ID {{ id }} no encontrada",
     "bulkUpdateNoFields": "Se debe proporcionar al menos un campo de actualización",
     "payeeNotFound": "Beneficiario no encontrado",
     "cannotEditTransfer": "Las transferencias no se pueden editar aquí. Edita la transferencia desde la pantalla de Transacciones.",
     "cannotEditSplit": "Las transacciones divididas no se pueden editar aquí. Edita la división desde la pantalla de Transacciones.",
-    "noUpdateFields": "Proporciona al menos un campo para cambiar."
+    "noUpdateFields": "Proporciona al menos un campo para cambiar.",
+    "tagKeyTooLong": "tagKey no debe superar los 100 caracteres",
+    "invalidTagKeyOp": "tagKeyOp no válido: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue es obligatorio para contains / notContains",
+    "tagKeyRequired": "Se requiere una clave de etiqueta (1-100 caracteres)",
+    "fxFieldsIncomplete": "originalAmount y originalCurrencyCode deben proporcionarse juntos",
+    "fxRateRequired": "Se requiere un tipo de cambio positivo para una transacción en moneda extranjera",
+    "fxSignMismatch": "originalAmount y amount deben tener el mismo signo"
   },
   "users": {
     "userNotFound": "Usuario no encontrado",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "No se puede eliminar la última cuenta de administrador. Promueve a otro usuario primero.",
     "oidcReauthRequiredForDataDelete": "Se requiere reautenticación OIDC para confirmar la eliminación de datos",
     "passwordRequiredForDataDelete": "Se requiere contraseña para confirmar la eliminación de datos"
+  },
+  "loanScenarios": {
+    "notFound": "No se encontró el escenario de préstamo con ID {{ id }}",
+    "nameConflict": "Ya existe un escenario llamado \"{{ name }}\" para esta cuenta",
+    "notLoanAccount": "Los escenarios de préstamo solo están disponibles para cuentas de préstamo, hipoteca y línea de crédito",
+    "budgetWindowInverted": "La fecha de inicio del período del presupuesto debe ser igual o anterior a su fecha final"
+  },
+  "loanRateChanges": {
+    "notFound": "No se encontró el cambio de tasa con ID {{ id }}",
+    "notLoanAccount": "Los cambios de tasa solo están disponibles para cuentas de préstamo e hipoteca",
+    "duplicateDate": "Ya existe un cambio de tasa con vigencia {{ date }} para esta cuenta",
+    "paymentModeConflict": "Indica un nuevo importe de pago o recalculatePayment, pero no ambos",
+    "recalculateMortgageOnly": "El recálculo del pago solo está disponible para cuentas de hipoteca",
+    "insufficientData": "No hay suficientes pagos con detalles de intereses para detectar cambios de tasa",
+    "frequencyMismatch": "Las fechas de pago no coinciden con la frecuencia de pago de la cuenta; las tasas inferidas pueden ser menos precisas"
+  },
+  "attachments": {
+    "notFound": "Adjunto no encontrado",
+    "transactionNotFound": "Transacción no encontrada",
+    "empty": "El archivo subido está vacío",
+    "fileTooLarge": "El archivo supera el tamaño máximo de {{ max }} bytes",
+    "unsupportedType": "Tipo de archivo no admitido. Tipos permitidos: {{ types }}",
+    "tooMany": "Esta transacción ya tiene el máximo de {{ max }} adjuntos"
   }
 }

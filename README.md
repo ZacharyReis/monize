@@ -27,7 +27,7 @@ A comprehensive personal finance management application built with NestJS and Ne
 
 <div align="center">
 
-### [**Live Demo**](https://monize-demo.laskonet.com) | [**Wiki**](https://github.com/kenlasko/monize/wiki)
+### [**Live Demo**](https://demo.monize.net) | [**Wiki**](https://github.com/kenlasko/monize/wiki)
 
 </div>
 
@@ -351,6 +351,10 @@ npm run dev
 | `REMEMBER_ME_DAYS` | Duration for "Remember Me" sessions (days) | `30` |
 | `DISABLE_HTTPS_HEADERS` | Disable HSTS and COOP headers for plain HTTP | `false` |
 | `DEMO_MODE` | Enable demo mode with sample data | `false` |
+| `BACKUP_CONTAINER_DIR` | Container folder automatic backups are written to | `/data/backups` |
+| `BACKUP_HOST_DIR` | Host folder mapped to `BACKUP_CONTAINER_DIR` by docker-compose | `./monize/backups` |
+| `ATTACHMENT_CONTAINER_DIR` | Container folder local attachments are written to (was `ATTACHMENT_LOCAL_DIR`) | `/data/attachments` |
+| `ATTACHMENT_HOST_DIR` | Host folder mapped to `ATTACHMENT_CONTAINER_DIR` by docker-compose | `./monize/attachments` |
 | `SMTP_SECURE` | Use TLS for SMTP | `false` |
 
 

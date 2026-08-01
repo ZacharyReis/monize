@@ -5,6 +5,8 @@ export interface ChartTooltipEntry {
   name?: string;
   value?: number;
   color?: string;
+  /** The full data row this entry came from (Recharts populates it). */
+  payload?: Record<string, unknown>;
 }
 
 interface ChartTooltipProps {
@@ -18,6 +20,12 @@ interface ChartTooltipProps {
   formatValue?: (value: number, entry: ChartTooltipEntry) => string;
   /** Extra content rendered below the entries (e.g. a percentage line). */
   children?: ReactNode;
+  /**
+   * Extra content derived from the hovered row's raw data (the first entry's
+   * `payload`), rendered below the entries -- e.g. a per-point annotation that
+   * isn't itself a plotted series.
+   */
+  extra?: (point: Record<string, unknown>) => ReactNode;
 }
 
 /**
@@ -37,6 +45,7 @@ export function ChartTooltip({
   payload,
   formatValue = (v) => String(v),
   children,
+  extra,
 }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) {
     return null;
@@ -51,6 +60,7 @@ export function ChartTooltip({
           {entry.name}: {entry.value === undefined ? '' : formatValue(entry.value, entry)}
         </p>
       ))}
+      {extra && payload[0]?.payload && extra(payload[0].payload)}
       {children}
     </ChartTooltipPanel>
   );

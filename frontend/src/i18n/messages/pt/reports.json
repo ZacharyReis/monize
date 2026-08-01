@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Cronograma de Pagamento de Dívidas",
       "loan-amortization": "Plano de Amortização de Empréstimo",
       "credit-utilization": "Utilização de Crédito",
+      "loan-overpayment-simulator": "Simulador de amortização antecipada de empréstimo",
       "investment-performance": "Desempenho de Investimentos",
       "dividend-income": "Ganhos, Dividendos e Juros",
       "sector-weightings": "Ponderações Setoriais",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Alocação por Tipo de Título",
       "geographic-allocation": "Alocação Geográfica/por Bolsa",
       "dividend-yield-growth": "Rendimento e Crescimento de Dividendos",
-      "security-performance": "Desempenho Individual de Títulos",
+      "security-performance": "Desempenho de títulos",
       "currency-exposure": "Exposição Cambial",
       "monte-carlo-simulation": "Simulação Monte Carlo",
       "recurring-expenses": "Rastreador de Despesas Recorrentes",
       "spending-anomalies": "Anomalias de Despesas",
       "weekend-weekday-spending": "Despesas: Fim de Semana vs Dia de Semana",
       "monthly-comparison": "Comparação Mensal",
+      "foreign-currency-fees": "Comissões de transação em moeda estrangeira",
       "uncategorized-transactions": "Transações Não Categorizadas",
       "duplicate-transactions": "Localizador de Transações Duplicadas",
       "upcoming-bills": "Calendário de Faturas Futuras",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualize o seu progresso na redução de dívidas com projeções para as datas de liquidação.",
       "loan-amortization": "Planos de pagamento detalhados para créditos habitação e empréstimos com análise de capital vs juros.",
       "credit-utilization": "Veja quanto do crédito disponível está a utilizar em cartões de crédito e linhas de crédito.",
+      "loan-overpayment-simulator": "Escolha um empréstimo e simule pagamentos extra para ver quanto mais cedo seria liquidado e quantos juros pouparia.",
       "investment-performance": "Acompanhe rentabilidades do portefólio, ganhos/perdas e alocação de ativos ao longo do tempo.",
       "dividend-income": "Acompanhe ganhos e perdas de capital (realizados e não realizados) juntamente com rendimentos de dividendos e juros.",
       "sector-weightings": "Analise a exposição setorial do portefólio a partir de ações individuais e ETFs.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Veja a alocação do portefólio por tipo de ativo (ações, ETFs, fundos de investimento, obrigações) com detalhe das posições.",
       "geographic-allocation": "Analise a exposição geográfica do portefólio por bolsa e região para obter informações sobre diversificação.",
       "dividend-yield-growth": "Acompanhe o rendimento de dividendos, rendimentos por título, crescimento anual e análise da frequência de pagamentos.",
-      "security-performance": "Análise aprofundada do desempenho individual de títulos com histórico de preços, transações e rentabilidades.",
+      "security-performance": "Análise aprofundada do histórico de preços, das transações e das rentabilidades de um título, ou comparação do desempenho de vários títulos num único gráfico.",
       "currency-exposure": "Compreenda o risco cambial com a alocação do portefólio por moeda e detalhes das taxas de câmbio.",
       "monte-carlo-simulation": "Projete resultados futuros do portefólio com milhares de trajetórias de rentabilidade aleatórias e uma biblioteca de cenários guardados.",
       "recurring-expenses": "Identifique e monitorize subscrições, associações e encargos recorrentes.",
       "spending-anomalies": "Detete transações invulgarmente grandes e picos de despesas que requerem atenção.",
       "weekend-weekday-spending": "Analise os seus padrões de despesa por dia da semana para compreender os seus hábitos.",
       "monthly-comparison": "Compare qualquer mês com o mês anterior nas dimensões de receitas, despesas, valor líquido e investimentos.",
+      "foreign-currency-fees": "Acompanhe as comissões de transação estrangeira cobradas nas contas que aplicam uma comissão de conversão.",
       "uncategorized-transactions": "Encontre e categorize transações sem categoria.",
       "duplicate-transactions": "Identifique possíveis entradas duplicadas que possam necessitar de revisão ou eliminação.",
       "upcoming-bills": "Calendário visual de transações agendadas e datas de vencimento de faturas.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Falha ao carregar dados do relatório. Tente novamente.",
     "retry": "Tentar novamente"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Nenhuma conta tem uma comissão de transação estrangeira configurada. Defina uma percentagem de comissão numa conta para acompanhar aqui as suas comissões em moeda estrangeira."
   },
   "accountBalances": {
     "totalAssets": "Total de Ativos",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Fim: ",
     "cashFlowEventPdfStarts": "Início: ",
     "cashFlowEventPdfEnds": "Fim: ",
-    "cashFlowDefaultName": "Fluxo de caixa",
     "cashFlowPerYear": "/ ano",
     "tooltipRow90th": "Percentil 90.º",
     "tooltipRow75th": "Percentil 75.º",
@@ -1104,6 +1110,10 @@
     "noData": "Sem dados de investimento para este período.",
     "tooltipPortfolio": "Portefólio:",
     "allAccounts": "Todas as Contas",
+    "viewTotal": "Total",
+    "viewSecurities": "Por título",
+    "seriesCash": "Dinheiro",
+    "seriesOther": "Outros títulos",
     "colDate": "Data",
     "colPortfolioValue": "Valor do Portefólio",
     "breakdownTitle": "Composição Atual do Portefólio",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% do Portefólio"
   },
   "securityPerformance": {
-    "selectPrompt": "Selecione um título acima para ver os detalhes do seu desempenho.",
-    "selectSecurityPlaceholder": "Selecionar um título...",
+    "selectPrompt": "Selecione acima um ou mais títulos para ver o seu desempenho. Escolha dois ou mais para os comparar num único gráfico.",
+    "selectSecuritiesPlaceholder": "Selecionar títulos...",
+    "comparisonTitle": "Comparação de desempenho",
+    "comparisonSubtitle": "Rentabilidade acumulada de cada título selecionado, redefinida para 0% no seu primeiro preço disponível, para serem comparados numa só escala, independentemente do preço ou da moeda.",
+    "comparisonNoData": "Não há histórico de preços disponível para os títulos selecionados.",
+    "comparisonError": "Não foi possível carregar o histórico de preços. Tente novamente.",
     "viewPriceChart": "Gráfico de Preços",
     "viewTransactions": "Transações",
     "viewDividends": "Dividendos",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Total de Posições",
     "largestType": "Tipo Principal",
     "assetTypeAllocation": "Alocação por Tipo de Ativo",
-    "typeStocks": "Ações",
-    "typeEtfs": "ETFs",
-    "typeMutualFunds": "Fundos de Investimento",
-    "typeBonds": "Obrigações",
-    "typeCash": "Dinheiro",
     "holdingsCount": "{count, plural, one {# conta} other {# contas}}",
     "total": "Total",
     "tooltipHoldings": "{count, plural, one {# posição} other {# posições}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "O nome é obrigatório"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Selecionar conta de empréstimo",
+    "viewTransactions": "Ver transações",
+    "empty": "Nenhuma conta de empréstimo, hipoteca ou linha de crédito encontrada."
   }
 }

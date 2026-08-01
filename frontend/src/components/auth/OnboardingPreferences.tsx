@@ -7,16 +7,26 @@ import toast from 'react-hot-toast';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { userSettingsApi } from '@/lib/user-settings';
-import { exchangeRatesApi, CurrencyInfo } from '@/lib/exchange-rates';
+import { exchangeRatesApi, CurrencyLookupResult } from '@/lib/exchange-rates';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { LOCALE_COOKIE, SUPPORTED_LOCALES } from '@/i18n/config';
+import {
+  LOCALE_COOKIE,
+  SUPPORTED_LOCALES,
+  detectBrowserLocale,
+  resolveLocale,
+} from '@/i18n/config';
+import { detectBrowserCurrency, FALLBACK_CURRENCY } from '@/lib/locale-currency';
 import { getErrorMessage } from '@/lib/errors';
 import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('OnboardingPreferences');
 
 interface OnboardingPreferencesProps {
-  /** Initial language (e.g. the locale resolved for the page). */
+  /**
+   * Initial language (e.g. the locale resolved for the page, which the server
+   * already derives from the locale cookie or the Accept-Language header).
+   * Falls back to the browser's own language list when omitted.
+   */
   initialLanguage?: string;
   /**
    * Called once the user saves or skips, to continue the sign-up flow.
@@ -29,27 +39,46 @@ interface OnboardingPreferencesProps {
 }
 
 /**
- * Post-registration step prompting the user to pick their language and default
- * currency. Both are saved in a single preferences update; the user can skip to
- * keep the defaults (English / USD).
+ * Post-registration step prompting the user to confirm their language and
+ * default currency. Both selectors start from what we can detect about the
+ * user -- the language from the resolved page locale (cookie or
+ * Accept-Language) and the currency from the region in the browser's language
+ * list -- so the common case is a single "Continue" click. Both stay editable,
+ * and both are saved in one preferences update; skipping keeps the account
+ * defaults the backend already wrote at registration.
  */
 export function OnboardingPreferences({
-  initialLanguage = 'en',
+  initialLanguage,
   onComplete,
 }: OnboardingPreferencesProps) {
   const t = useTranslations('auth.register.preferences');
   const activeLocale = useLocale();
   const updatePreferencesStore = usePreferencesStore((s) => s.updatePreferences);
 
-  const [language, setLanguage] = useState(initialLanguage);
-  const [defaultCurrency, setDefaultCurrency] = useState('USD');
-  const [currencies, setCurrencies] = useState<CurrencyInfo[]>([]);
+  const [language, setLanguage] = useState(() =>
+    resolveLocale(initialLanguage ?? detectBrowserLocale()),
+  );
+  const [defaultCurrency, setDefaultCurrency] = useState(
+    () => detectBrowserCurrency() ?? FALLBACK_CURRENCY,
+  );
+  const [currencies, setCurrencies] = useState<CurrencyLookupResult[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Currencies are created on demand (the chosen one is created when saved), so
+  // the picker is populated from the full known-currency catalog rather than the
+  // installed list, which is empty on a fresh instance.
   useEffect(() => {
     exchangeRatesApi
-      .getCurrencies()
-      .then(setCurrencies)
+      .getCurrencyCatalog()
+      .then((catalog) => {
+        setCurrencies(catalog);
+        // The detected currency is a guess against a catalog we had not loaded
+        // yet; if this instance does not offer it, drop back to the default so
+        // the picker never displays a code it cannot list.
+        setDefaultCurrency((current) =>
+          catalog.some((c) => c.code === current) ? current : FALLBACK_CURRENCY,
+        );
+      })
       .catch((error) => logger.error(error));
   }, []);
 
@@ -60,7 +89,10 @@ export function OnboardingPreferences({
 
   const currencyOptions = useMemo(
     () =>
-      currencies.map((c) => ({ value: c.code, label: `${c.code} - ${c.name}` })),
+      currencies.map((c) => ({
+        value: c.code,
+        label: `${c.symbol} - ${c.name} (${c.code})`,
+      })),
     [currencies],
   );
 

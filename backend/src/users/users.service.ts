@@ -25,7 +25,9 @@ import { DeleteDataDto } from "./dto/delete-data.dto";
 import { PasswordBreachService } from "../auth/password-breach.service";
 import { ModuleRef } from "@nestjs/core";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
+import { CurrenciesService } from "../currencies/currencies.service";
 import { BackupEncryptionService } from "../backup/backup-encryption.service";
+import { DemoModeService } from "../common/demo-mode.service";
 
 @Injectable()
 export class UsersService {
@@ -45,6 +47,7 @@ export class UsersService {
     private dataSource: DataSource,
     private passwordBreachService: PasswordBreachService,
     private moduleRef: ModuleRef,
+    private demoModeService: DemoModeService,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -192,6 +195,9 @@ export class UsersService {
     if (dto.aiBubbleEnabled !== undefined) {
       preferences.aiBubbleEnabled = dto.aiBubbleEnabled;
     }
+    if (dto.showWhatsNew !== undefined) {
+      preferences.showWhatsNew = dto.showWhatsNew;
+    }
     if (dto.weekStartsOn !== undefined) {
       preferences.weekStartsOn = dto.weekStartsOn;
     }
@@ -203,6 +209,12 @@ export class UsersService {
     }
     if (dto.favouriteReportIds !== undefined) {
       preferences.favouriteReportIds = dto.favouriteReportIds;
+    }
+    if (dto.dashboardWidgets !== undefined) {
+      preferences.dashboardWidgets = dto.dashboardWidgets;
+    }
+    if (dto.dashboardWidgetConfig !== undefined) {
+      preferences.dashboardWidgetConfig = dto.dashboardWidgetConfig;
     }
     if (dto.showCreatedAt !== undefined) {
       preferences.showCreatedAt = dto.showCreatedAt;
@@ -222,7 +234,11 @@ export class UsersService {
     if (dto.forecastLookbackMonths !== undefined) {
       preferences.forecastLookbackMonths = dto.forecastLookbackMonths;
     }
-    if (dto.language !== undefined) {
+    // In demo mode the account is shared across all visitors, so the UI
+    // language must not be persisted to it -- otherwise one visitor's choice
+    // would follow the next person until the nightly reset. The locale cookie
+    // (set client-side) still applies the language for the current visit.
+    if (dto.language !== undefined && !this.demoModeService.isDemo) {
       preferences.language = dto.language;
     }
 
@@ -237,6 +253,19 @@ export class UsersService {
       dto.defaultCurrency !== undefined &&
       dto.defaultCurrency !== previousDefaultCurrency
     ) {
+      // Currencies are created on demand rather than seeded up front, so make
+      // sure the newly chosen default currency exists (with a proper symbol)
+      // before anything tries to display or convert it.
+      try {
+        const currenciesService = this.moduleRef.get(CurrenciesService, {
+          strict: false,
+        });
+        await currenciesService.ensureSystemCurrency(dto.defaultCurrency);
+      } catch (err) {
+        this.logger.warn(
+          `Could not ensure default currency ${dto.defaultCurrency} exists: ${err.message}`,
+        );
+      }
       try {
         const exchangeRateService = this.moduleRef.get(ExchangeRateService, {
           strict: false,
@@ -407,7 +436,15 @@ export class UsersService {
       return { downgraded: true };
     }
 
-    // Delete preferences first (due to FK constraint), then the user.
+    // Clear the rows that point at the user before removing it. Databases
+    // predating migration 108 can carry TypeORM-generated foreign keys with no
+    // ON DELETE CASCADE, which abort the delete outright; the sessions, tokens
+    // and preferences are worthless once the account is gone either way.
+    // Delegate sessions acting *as* this user go too -- the owner they point
+    // at is about to disappear.
+    await this.refreshTokensRepository.delete({ userId });
+    await this.refreshTokensRepository.delete({ actingAsUserId: userId });
+    await this.patRepository.delete({ userId });
     await this.preferencesRepository.delete({ userId });
     await this.usersRepository.remove(user);
     return { downgraded: false };
@@ -511,6 +548,25 @@ export class UsersService {
     );
     deleted.securityPrices = result[1] ?? 0;
 
+    // Scheduled transactions (before securities: they reference investment_security_id)
+    result = await queryRunner.query(
+      `DELETE FROM scheduled_transaction_overrides WHERE scheduled_transaction_id IN
+         (SELECT id FROM scheduled_transactions WHERE user_id = $1)`,
+      [userId],
+    );
+
+    result = await queryRunner.query(
+      `DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id IN
+         (SELECT id FROM scheduled_transactions WHERE user_id = $1)`,
+      [userId],
+    );
+
+    result = await queryRunner.query(
+      "DELETE FROM scheduled_transactions WHERE user_id = $1",
+      [userId],
+    );
+    deleted.scheduledTransactions = result[1] ?? 0;
+
     result = await queryRunner.query(
       "DELETE FROM securities WHERE user_id = $1",
       [userId],
@@ -587,25 +643,6 @@ export class UsersService {
       userId,
     ]);
     deleted.tags = result[1] ?? 0;
-
-    // Scheduled transactions
-    result = await queryRunner.query(
-      `DELETE FROM scheduled_transaction_overrides WHERE scheduled_transaction_id IN
-         (SELECT id FROM scheduled_transactions WHERE user_id = $1)`,
-      [userId],
-    );
-
-    result = await queryRunner.query(
-      `DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id IN
-         (SELECT id FROM scheduled_transactions WHERE user_id = $1)`,
-      [userId],
-    );
-
-    result = await queryRunner.query(
-      "DELETE FROM scheduled_transactions WHERE user_id = $1",
-      [userId],
-    );
-    deleted.scheduledTransactions = result[1] ?? 0;
 
     // Monthly account balances
     result = await queryRunner.query(

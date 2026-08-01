@@ -62,8 +62,8 @@ const mockAccounts: Account[] = [
     accountNumber: null, institution: null, institutionId: null, openingBalance: 5000, currentBalance: 5000,
     creditLimit: null, interestRate: null, isClosed: false, closedDate: null,
     isFavourite: false, favouriteSortOrder: 0, excludeFromNetWorth: false, paymentAmount: null, paymentFrequency: null, paymentStartDate: null,
-    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null,
-    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null,
+    sourceAccountId: null, principalCategoryId: null, interestCategoryId: null, overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
+    scheduledTransactionId: null, assetCategoryId: null, dateAcquired: null, linkedLoanAccountId: null,
     isCanadianMortgage: false, isVariableRate: false, termMonths: null, termEndDate: null,
     amortizationMonths: null, originalPrincipal: null,
     statementDueDay: null, statementSettlementDay: null,
@@ -102,6 +102,12 @@ describe('LoanFields', () => {
     formatCurrency: mockFormatCurrency,
     selectedInterestCategoryId: '',
     handleInterestCategoryChange: vi.fn(),
+    interestBookingMode: 'AUTO' as const,
+    handleInterestBookingModeChange: vi.fn(),
+    selectedOverpaymentCategoryId: '',
+    handleOverpaymentCategoryChange: vi.fn(),
+    selectedOverpaymentPayeeId: '',
+    handleOverpaymentPayeeChange: vi.fn(),
   };
 
   beforeEach(() => {

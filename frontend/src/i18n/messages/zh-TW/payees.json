@@ -4,6 +4,7 @@
     "subtitle": "管理您的收款人及其預設類別",
     "deactivateUnused": "停用未使用",
     "autoAssignCategories": "自動指定類別",
+    "maintenance": "維護",
     "autoMergePayees": "自動合併收款人",
     "newPayee": "+ 新增收款人",
     "searchPlaceholder": "搜尋收款人...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "重新啟用",
-      "reactivateShort": "啟",
       "merge": "合併",
-      "mergeShort": "合",
       "edit": "編輯",
-      "editShort": "編",
-      "delete": "刪除",
-      "deleteShort": "刪"
+      "delete": "刪除"
     },
     "viewTransactionsTitle": "檢視此收款人的交易",
     "uncategorizedBadge": "{count, plural, one {# 筆未分類} other {# 筆未分類}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "請至少選取一個群組以合併",
       "applied": "已合併 {groups, plural, one {# 個群組} other {# 個群組}}（合計 {payees} 個收款人）",
       "backfilled": "{count, plural, one {已分類 # 筆交易} other {已分類 # 筆交易}}",
-      "aliasesSkipped": "{count, plural, one {# 個別名因衝突而略過} other {# 個別名因衝突而略過}}",
+      "aliasesSkipped": "{count, plural, one {# 個別名因衝突而略過} other {# 個別名因衝突而略過}}: {aliases}",
       "loadFailed": "載入合併群組失敗",
-      "applyFailed": "合併收款人失敗"
+      "applyFailed": "合併收款人失敗",
+      "someGroupsFailed": "{count, plural, one {# 個群組無法合併} other {# 個群組無法合併}}：{reason}"
     },
     "categoryMatchLabel": "僅合併同類別的收款人",
     "categoryMatchHelp": "當類別不同時保持收款人獨立，以減少誤判。",

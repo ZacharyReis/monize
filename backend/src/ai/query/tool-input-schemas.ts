@@ -5,6 +5,7 @@ import {
   positiveIntSchema,
 } from "../../common/tool-schemas";
 import { MAX_BULK_ACTION_ROWS } from "../actions/ai-action.types";
+import { MAX_ATTACHMENTS as MAX_CHAT_ATTACHMENTS } from "./dto/ai-query.dto";
 import {
   SECURITY_EXCHANGES,
   SECURITY_TYPES,
@@ -468,6 +469,13 @@ const manageTransactionItemSchema = z
       .array(manageTransactionSplitSchema)
       .max(MAX_SPLIT_LINES)
       .optional(),
+    // Chat attachments to save on the transaction: each entry names a file on
+    // the CURRENT message by filename (string) or 1-based position (number).
+    attachments: z
+      .array(z.union([z.string().min(1).max(255), z.number().int().min(1)]))
+      .min(1)
+      .max(MAX_CHAT_ATTACHMENTS)
+      .optional(),
   })
   .passthrough();
 
@@ -486,6 +494,26 @@ export const manageTransactionsSchema = z
       // A split row carries a `splits` array instead of a single category and
       // cannot also be a transfer or name a top-level category.
       const hasSplits = item.splits !== undefined;
+      const hasAttachments = item.attachments !== undefined;
+      if (hasAttachments) {
+        if (
+          item.toAccountName !== undefined ||
+          item.fromAccountName !== undefined
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: path("attachments"),
+            message: "attachments cannot be combined with a transfer.",
+          });
+        }
+        if (value.operation === "delete") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: path("attachments"),
+            message: "attachments are not used for delete.",
+          });
+        }
+      }
       if (hasSplits) {
         if (item.splits!.length < 2) {
           ctx.addIssue({
@@ -582,13 +610,14 @@ export const manageTransactionsSchema = z
           item.payeeName !== undefined ||
           item.categoryName !== undefined ||
           item.description !== undefined ||
-          hasSplits;
+          hasSplits ||
+          hasAttachments;
         if (!hasChange) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: path("transactionId"),
             message:
-              "Provide at least one field to change (amount, date, payeeName, categoryName, description, or splits).",
+              "Provide at least one field to change (amount, date, payeeName, categoryName, description, splits, or attachments).",
           });
         }
       } else {

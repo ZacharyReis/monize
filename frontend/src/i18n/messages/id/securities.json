@@ -203,7 +203,13 @@
     "addPriceSection": "Tambah Harga",
     "editPriceSection": "Edit Harga",
     "loading": "Memuat harga...",
+    "chartTitle": "Riwayat harga",
+    "markers": {
+      "bought": "Beli {quantity} · {account}",
+      "sold": "Jual {quantity} · {account}"
+    },
     "empty": "Tidak ada riwayat harga tersedia",
+    "showingCount": "Menampilkan {shown} dari {total} harga",
     "columns": {
       "date": "Tanggal",
       "close": "Penutupan",
@@ -230,6 +236,7 @@
     "closeButton": "Tutup",
     "deleteConfirm": {
       "title": "Hapus Harga",
+      "message": "Hapus entri harga untuk {date}?",
       "confirmLabel": "Hapus"
     }
   },

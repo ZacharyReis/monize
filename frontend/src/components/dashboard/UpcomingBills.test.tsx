@@ -187,6 +187,17 @@ describe('UpcomingBills', () => {
     expect(mockPush).toHaveBeenCalledWith('/bills?postBillId=bill-7');
   });
 
+  it('highlights the row edge on hover, matching the Top Movers widget', () => {
+    const transactions = [
+      { id: 'bill-9', name: 'Hydro', amount: -60, currencyCode: 'CAD', nextDueDate: futureDateStr(1), isActive: true, autoPost: false },
+    ] as any[];
+
+    render(<UpcomingBills accounts={[]} scheduledTransactions={transactions} isLoading={false} maxItems={defaultMaxItems} />);
+    const row = screen.getByRole('button', { name: /Hydro/i });
+    expect(row.className).toContain('hover:border-blue-400');
+    expect(row.className).toContain('dark:hover:border-blue-500');
+  });
+
   it('shows payee name when available', () => {
     const dateStr = futureDateStr(1);
     const transactions = [

@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "La semaine commence le",
     "showCreatedAtLabel": "Afficher la date de création dans les formulaires de transaction",
     "showCreatedAtTooltip": "Affiche la date et l'heure à laquelle une transaction a été initialement créée dans les formulaires de transaction. Ceci est distinct de la date de transaction et peut vous aider à savoir quand une entrée a été réellement ajoutée à Monize.",
+    "showWhatsNewLabel": "Afficher les Nouveautés après une mise à jour",
+    "showWhatsNewTooltip": "Affiche un résumé des notes de version lors de votre première connexion après la mise à jour de Monize vers une nouvelle version. Vous pouvez toujours le rouvrir en cliquant sur le numéro de version en bas de cette page ou sur l'écran de connexion.",
     "timeFormatLabel": "Format d'heure",
     "recentTransactionsLabel": "Transactions récentes dans la saisie rapide",
     "recentTransactionsHelp": "Nombre d'entrées affichées dans le popover de l'historique à côté du champ Bénéficiaire dans les formulaires de transaction.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Échec de l'enregistrement du thème de couleur"
     },
     "browserLocale": "Utiliser les paramètres régionaux du navigateur (détection automatique)",
-    "browserTimezonePrefix": "Utiliser le fuseau horaire du navigateur (détecté automatiquement : {tz})",
     "numberFormatOptions": {
       "browser": "Utiliser les paramètres régionaux du navigateur (détecté automatiquement : {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Parcourez les guides et la documentation."
+    },
+    "supportBackup": {
+      "label": "Créer une sauvegarde de support",
+      "description": "Partagez une copie chiffrée et dé-identifiée de vos données afin qu'un mainteneur puisse reproduire un bug sans voir vos vrais noms ni montants."
     }
+  },
+  "supportBackup": {
+    "title": "Créer une sauvegarde de support",
+    "howItWorks": "Produit une copie dé-identifiée de votre sauvegarde : les noms sont masqués (les deux premiers et deux derniers caractères sont conservés), les notes/descriptions/numéros de compte sont supprimés, et chaque montant est multiplié par un facteur caché unique tandis que les valeurs publiques (taux de change, cours, taux d'intérêt) restent intactes. Le fichier est toujours chiffré avec le mot de passe ci-dessous et se restaure comme une sauvegarde normale. Cela protège d'une exposition fortuite, pas de quelqu'un qui vous connaît déjà — dates, fréquences et structure sont préservées pour que les bugs restent reproductibles.",
+    "sectionsLabel": "Quoi inclure",
+    "sections": {
+      "investments": "Investissements (titres, positions, cours)",
+      "scheduled": "Transactions planifiées",
+      "budgets": "Budgets",
+      "reports": "Rapports et projections",
+      "importMappings": "Correspondances de colonnes d'import",
+      "autoBackup": "Paramètres de sauvegarde automatique"
+    },
+    "priceHistoryLabel": "Inclure l'historique des cours des titres",
+    "priceHistoryHint": "Désactivé par défaut : une série complète de cours correspond aux données publiques du marché et peut identifier un symbole masqué. À activer seulement si le bug concerne les cours ou les valorisations.",
+    "accountsLabel": "Limiter à certains comptes",
+    "accountsHint": "Laissez tout décoché pour inclure chaque compte. Choisir un sous-ensemble entraîne aussi les comptes et bénéficiaires référencés.",
+    "dateRangeLabel": "Plage de dates (facultatif)",
+    "dateRangeHint": "Limitez l'historique exporté à ces dates. Les soldes d'ouverture sont ajustés pour que le fichier tronqué reste cohérent.",
+    "dateFromLabel": "Du",
+    "dateToLabel": "Au",
+    "multiplierLabel": "Multiplicateur des montants",
+    "multiplierHint": "Chaque montant privé est multiplié par ce nombre pour masquer les vraies valeurs tout en gardant la cohérence. Tout nombre non entier supérieur à 1 convient ; « Régénérer » en choisit un nouveau.",
+    "multiplierWarning": "Ne communiquez le multiplicateur à personne — c'est la clé qui inverse les montants masqués.",
+    "multiplierInvalid": "Saisissez un nombre non entier supérieur à 1.",
+    "regenerate": "Régénérer",
+    "passwordLabel": "Mot de passe de chiffrement",
+    "preview": "Aperçu",
+    "previewLabel": "Aperçu",
+    "previewBefore": "Avant",
+    "previewAfter": "Après",
+    "previewEmpty": "Aucune ligne d'exemple pour cette sélection.",
+    "previewFailed": "Impossible de générer l'aperçu. Veuillez réessayer.",
+    "generate": "Générer",
+    "confirmPasswordTitle": "Avez-vous enregistré le mot de passe ?",
+    "confirmPasswordMessage": "Le fichier ne peut être ouvert qu'avec le mot de passe de chiffrement affiché ci-dessus. Il n'est stocké nulle part et ne pourra pas être récupéré — assurez-vous de l'avoir enregistré avant de générer.",
+    "confirmPasswordConfirm": "Je l'ai enregistré — générer",
+    "generatedToast": "Sauvegarde de support téléchargée.",
+    "generateFailed": "Impossible de générer la sauvegarde de support. Veuillez réessayer.",
+    "passwordHint": "Le fichier est toujours chiffré. Transmettez ce mot de passe à l'enquêteur par un canal séparé, pas avec le fichier.",
+    "passwordInvalid": "Saisissez au moins 8 caractères."
   },
   "dangerZone": {
     "heading": "Zone dangereuse",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Sauvegarde automatique",
-    "description": "Sauvegardez automatiquement vos données dans un dossier selon un calendrier. Comme Monize fonctionne dans Docker, vous devez mapper un dossier hôte dans le conteneur en tant que volume (ex. : -v /host/backups:/backups).",
+    "description": "Sauvegardez automatiquement vos données dans un dossier selon un calendrier. Comme Monize fonctionne dans Docker, vous devez mapper un dossier hôte dans le conteneur en tant que volume (ex. : -v /host/backups:/data/backups).",
     "loadingText": "Chargement...",
     "enableLabel": "Activer les sauvegardes automatiques",
     "backupFolderLabel": "Dossier de sauvegarde",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Parcourir...",
     "validateButton": "Valider",
     "validatingButton": "Validation...",

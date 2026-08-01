@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "查看 v{version} 版本說明"
   },
+  "whatsNew": {
+    "title": "更新內容",
+    "versionLabel": "版本 {version}",
+    "expandAll": "全部展開",
+    "collapseAll": "全部收合",
+    "viewFullNotes": "查看完整版本說明",
+    "dontShowAgain": "不再顯示",
+    "showNextLogin": "下次登入時顯示",
+    "close": "關閉",
+    "unavailable": "此版本的版本說明無法使用。",
+    "englishOnly": "以下版本說明僅提供英文。Monize 本身（包括導覽教學）會依照你的語言設定。"
+  },
   "save": "儲存",
   "cancel": "取消",
   "delete": "刪除",
@@ -65,6 +77,9 @@
     "downloadAsPng": "下載 {filename} 為 PNG",
     "unableToCapture": "無法擷取圖表影像",
     "failedToDownload": "下載圖表失敗"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "下載 {filename} 為 CSV"
   },
   "chartViewToggle": {
     "pieChart": "圓餅圖",
@@ -158,10 +173,47 @@
     "length": "驗證碼必須恰好為 6 位數字",
     "digits": "驗證碼必須為 6 位數字"
   },
-  "monthsShort": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
-  "weekdaysShort": ["週日", "週一", "週二", "週三", "週四", "週五", "週六"],
-  "weekdaysMin": ["日", "一", "二", "三", "四", "五", "六"],
-  "weekdaysNarrow": ["日", "一", "二", "三", "四", "五", "六"],
+  "monthsShort": [
+    "1月",
+    "2月",
+    "3月",
+    "4月",
+    "5月",
+    "6月",
+    "7月",
+    "8月",
+    "9月",
+    "10月",
+    "11月",
+    "12月"
+  ],
+  "weekdaysShort": [
+    "週日",
+    "週一",
+    "週二",
+    "週三",
+    "週四",
+    "週五",
+    "週六"
+  ],
+  "weekdaysMin": [
+    "日",
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+  ],
+  "weekdaysNarrow": [
+    "日",
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+  ],
   "dateFormat": {
     "browserAuto": "使用瀏覽器語言設定（自動偵測為 {sample}）",
     "custom": "自訂..."

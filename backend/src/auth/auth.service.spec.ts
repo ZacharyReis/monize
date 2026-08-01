@@ -10,7 +10,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import * as otplib from "otplib";
 import * as QRCode from "qrcode";
 import { AuthService } from "./auth.service";
@@ -26,6 +26,7 @@ import { RefreshToken } from "./entities/refresh-token.entity";
 import { encrypt, derivePurposeKey } from "./crypto.util";
 import { PasswordBreachService } from "./password-breach.service";
 import { EmailService } from "../notifications/email.service";
+import { getRequestContext } from "../common/request-context";
 
 const TEST_JWT_SECRET = "test-jwt-secret-minimum-32-chars-long";
 const TEST_TOTP_KEY = derivePurposeKey(TEST_JWT_SECRET, "totp-encryption");
@@ -1503,6 +1504,51 @@ describe("AuthService", () => {
       expect(result.user.authProvider).toBe("oidc");
       expect(result.user.firstName).toBe("OIDC");
       expect(result.user.lastName).toBe("User");
+      // Drives the callback's first-run language/currency step.
+      expect(result.isNewUser).toBe(true);
+    });
+
+    it("does not flag a returning OIDC user as new", async () => {
+      const existing = {
+        id: "oidc-existing",
+        email: "oidc@example.com",
+        oidcSubject: "oidc-sub-123",
+        authProvider: "oidc",
+      };
+      usersRepository.findOne.mockResolvedValueOnce(existing);
+      usersRepository.save.mockImplementation((u) => u);
+
+      const result = await service.findOrCreateOidcUser({
+        sub: "oidc-sub-123",
+        email: "oidc@example.com",
+        email_verified: true,
+      });
+
+      expect(result.user.id).toBe("oidc-existing");
+      expect(result.isNewUser).toBe(false);
+    });
+
+    it("does not flag an account the OIDC identity merely linked to as new", async () => {
+      const existing = {
+        id: "local-existing",
+        email: "oidc@example.com",
+        passwordHash: null,
+        oidcSubject: null,
+        authProvider: "local",
+      };
+      usersRepository.findOne
+        .mockResolvedValueOnce(null) // no match by oidcSubject
+        .mockResolvedValueOnce(existing); // matched by verified email
+      usersRepository.save.mockImplementation((u) => u);
+
+      const result = await service.findOrCreateOidcUser({
+        sub: "oidc-sub-123",
+        email: "oidc@example.com",
+        email_verified: true,
+      });
+
+      expect(result.user.id).toBe("local-existing");
+      expect(result.isNewUser).toBe(false);
     });
 
     it("seeds preferences with the request locale for a new OIDC user", async () => {
@@ -1982,6 +2028,30 @@ describe("AuthService", () => {
       const savedOldToken = manager.save.mock.calls[0][0];
       expect(savedOldToken.isRevoked).toBe(true);
       expect(savedOldToken.replacedByHash).toBeTruthy();
+    });
+
+    // RLS (task C1): refresh is a public, pre-identity path (no req.user), so
+    // AuthService.refreshTokens wraps the delegated token flow in a system
+    // context. Assert the ambient context at the moment the DB is touched.
+    it("runs the token flow under a system context", async () => {
+      let ctx: ReturnType<typeof getRequestContext>;
+      const manager = setupTransactionMock();
+      manager.findOne.mockImplementation(() => {
+        ctx = getRequestContext();
+        return Promise.resolve({
+          id: "rt-1",
+          userId: "user-1",
+          tokenHash: "old-hash",
+          familyId: "family-1",
+          isRevoked: false,
+          expiresAt: new Date(Date.now() + 3600000),
+          replacedByHash: null,
+        });
+      });
+
+      await service.refreshTokens("raw-refresh-token").catch(() => undefined);
+
+      expect(ctx).toEqual({ system: true });
     });
 
     it("detects replay and revokes entire family", async () => {

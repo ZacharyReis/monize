@@ -1,0 +1,30 @@
+{
+  "title": "Biaya Transaksi Mata Uang Asing",
+  "currencyFilter": { "label": "Mata Uang", "placeholder": "Semua mata uang" },
+  "chart": {
+    "title": "Biaya Seiring Waktu",
+    "noData": "Belum ada transaksi mata uang asing",
+    "monthlyAvg": "Rata-rata Bulanan",
+    "quarterlyAvg": "Rata-rata Kuartalan",
+    "yearlyAvg": "Rata-rata Tahunan",
+    "total": "Total Biaya",
+    "transactions": "Transaksi",
+    "tooltip": "{count, plural, one {# transaksi} other {# transaksi}}",
+    "quarterLabel": "K{quarter} {year}",
+    "quarterTick": "K{quarter} {year}",
+    "granularityLabel": "Pengelompokan",
+    "granularity": { "auto": "Otomatis", "month": "Bulan", "quarter": "Kuartal", "year": "Tahun" },
+    "granularityAutoTitle": "Otomatis ({granularity})",
+    "granularityTitle": "Tampilan {label}"
+  },
+  "list": {
+    "title": "Transaksi Mata Uang Asing",
+    "editTitle": "Edit Transaksi",
+    "investmentLinked": "Transaksi ini terkait dengan investasi. Membuka editor investasi.",
+    "export": {
+      "success": "{count, plural, one {Diekspor # transaksi} other {Diekspor # transaksi}}",
+      "none": "Tidak ada transaksi untuk diekspor",
+      "failed": "Gagal mengekspor transaksi"
+    }
+  }
+}

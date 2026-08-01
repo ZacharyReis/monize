@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { ConfigService } from "@nestjs/config";
 import { Repository, LessThanOrEqual } from "typeorm";
 import { Cron } from "@nestjs/schedule";
 import { promises as fs, readdirSync, unlinkSync, copyFileSync } from "fs";
@@ -7,6 +8,7 @@ import { resolve } from "path";
 import { AutoBackupSettings } from "./entities/auto-backup-settings.entity";
 import { BackupService } from "./backup.service";
 import { User } from "../users/entities/user.entity";
+import { withSystemContext, withUserContext } from "../common/db/with-context";
 import {
   UpdateAutoBackupSettingsDto,
   AutoBackupFrequency,
@@ -14,6 +16,13 @@ import {
 import { tr } from "../i18n/translate";
 
 const BACKUP_FILE_PREFIX = "monize-backup-";
+
+/**
+ * Folder automatic backups are written to when BACKUP_CONTAINER_DIR is unset.
+ * Monize runs in a container, so this is a container path: mount a host folder
+ * there (see .env.example and the docker-compose files).
+ */
+export const DEFAULT_BACKUP_CONTAINER_DIR = "/data/backups";
 
 // File extensions: .json.gz for unencrypted, .mzbe for encrypted Monize backups.
 // Retention enforcement matches both so we can clean up legacy and encrypted
@@ -54,27 +63,59 @@ function parseYearMonthString(ym: string): Date | null {
 export class AutoBackupService {
   private readonly logger = new Logger(AutoBackupService.name);
 
+  /** Deployment-wide backup folder (BACKUP_CONTAINER_DIR), used whenever a user has not
+   *  chosen one of their own. */
+  private readonly defaultFolderPath: string;
+
   constructor(
     @InjectRepository(AutoBackupSettings)
     private readonly settingsRepo: Repository<AutoBackupSettings>,
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
     private readonly backupService: BackupService,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.defaultFolderPath = this.resolveConfiguredFolderPath(
+      config.get<string>("BACKUP_CONTAINER_DIR"),
+    );
+  }
 
-  async getSettings(userId: string): Promise<AutoBackupSettings> {
-    const existing = await this.settingsRepo.findOne({
-      where: { userId },
-    });
-    if (existing) return existing;
+  /**
+   * BACKUP_CONTAINER_DIR is operator-supplied, so it goes through the same CWE-22
+   * validation as a user-supplied path. An unusable value falls back to the
+   * built-in default with a loud log rather than taking the whole app down.
+   */
+  private resolveConfiguredFolderPath(configured: string | undefined): string {
+    const trimmed = configured?.trim();
+    if (!trimmed) return DEFAULT_BACKUP_CONTAINER_DIR;
+    try {
+      return this.validateFolderPath(trimmed);
+    } catch (error) {
+      this.logger.error(
+        `Invalid BACKUP_CONTAINER_DIR "${trimmed}": ${error.message}. Falling back to ${DEFAULT_BACKUP_CONTAINER_DIR}`,
+      );
+      return DEFAULT_BACKUP_CONTAINER_DIR;
+    }
+  }
 
-    // Return default settings (not persisted yet)
+  /**
+   * The folder a backup should be written to: the user's own choice when they
+   * have one, otherwise the deployment-wide default.
+   */
+  private resolveFolderPath(folderPath: string | null | undefined): string {
+    const trimmed = folderPath?.trim();
+    return trimmed ? trimmed : this.defaultFolderPath;
+  }
+
+  /** Settings for a user with no persisted row yet (not saved by this method). */
+  private defaultSettingsFor(userId: string): AutoBackupSettings {
     const defaults = new AutoBackupSettings();
     defaults.userId = userId;
     defaults.enabled = false;
-    defaults.folderPath = "";
+    defaults.folderPath = this.defaultFolderPath;
     defaults.frequency = "daily";
     defaults.backupTime = "02:00";
+    defaults.timezone = "UTC";
     defaults.retentionDaily = 7;
     defaults.retentionWeekly = 4;
     defaults.retentionMonthly = 6;
@@ -83,6 +124,19 @@ export class AutoBackupService {
     defaults.lastBackupError = null;
     defaults.nextBackupAt = null;
     return defaults;
+  }
+
+  async getSettings(userId: string): Promise<AutoBackupSettings> {
+    const existing = await this.settingsRepo.findOne({
+      where: { userId },
+    });
+    if (!existing) return this.defaultSettingsFor(userId);
+
+    // Report the folder backups are actually written to, so a stored row that
+    // never had one chosen shows the deployment default instead of a blank.
+    return Object.assign(new AutoBackupSettings(), existing, {
+      folderPath: this.resolveFolderPath(existing.folderPath),
+    });
   }
 
   async updateSettings(
@@ -94,7 +148,9 @@ export class AutoBackupService {
     });
 
     if (!settings) {
-      settings = this.settingsRepo.create({ userId });
+      // Seed the row with the same defaults getSettings reports, so an update
+      // that only touches one field still lands on a complete row.
+      settings = this.settingsRepo.create(this.defaultSettingsFor(userId));
     }
 
     if (dto.folderPath !== undefined) {
@@ -122,14 +178,9 @@ export class AutoBackupService {
     if (dto.enabled !== undefined) {
       settings.enabled = dto.enabled;
       if (dto.enabled) {
-        if (!settings.folderPath) {
-          throw new BadRequestException(
-            tr(
-              "errors.backup.folderPathRequired",
-              "A folder path must be set before enabling automatic backups",
-            ),
-          );
-        }
+        // Persist the resolved folder so the stored row always records where
+        // backups actually go, even when the user never picked one.
+        settings.folderPath = this.resolveFolderPath(settings.folderPath);
         await this.assertFolderWritable(settings.folderPath);
         settings.nextBackupAt = this.calculateNextBackupAt(
           settings.frequency as AutoBackupFrequency,
@@ -206,17 +257,13 @@ export class AutoBackupService {
   async runManualBackup(
     userId: string,
   ): Promise<{ message: string; filename: string }> {
-    const settings = await this.settingsRepo.findOne({
-      where: { userId },
-    });
-    if (!settings || !settings.folderPath) {
-      throw new BadRequestException(
-        tr(
-          "errors.backup.notConfigured",
-          "Auto-backup is not configured. Please set a folder path first.",
-        ),
-      );
-    }
+    // A user who has never opened the auto-backup settings still gets a working
+    // manual run: the row is seeded with defaults here and persisted by the
+    // save at the end of this method.
+    const settings =
+      (await this.settingsRepo.findOne({ where: { userId } })) ??
+      this.settingsRepo.create(this.defaultSettingsFor(userId));
+    settings.folderPath = this.resolveFolderPath(settings.folderPath);
 
     await this.assertFolderWritable(settings.folderPath);
     const timezone = settings.timezone || "UTC";
@@ -248,12 +295,15 @@ export class AutoBackupService {
   @Cron("0 * * * *")
   async handleAutoBackupCron(): Promise<void> {
     const now = new Date();
-    const dueSettings = await this.settingsRepo.find({
-      where: {
-        enabled: true,
-        nextBackupAt: LessThanOrEqual(now),
-      },
-    });
+    // RLS (task C2): cross-user fan-out over every user's due backup settings.
+    const dueSettings = await withSystemContext(() =>
+      this.settingsRepo.find({
+        where: {
+          enabled: true,
+          nextBackupAt: LessThanOrEqual(now),
+        },
+      }),
+    );
 
     if (dueSettings.length === 0) return;
 
@@ -261,12 +311,13 @@ export class AutoBackupService {
 
     for (const settings of dueSettings) {
       try {
+        settings.folderPath = this.resolveFolderPath(settings.folderPath);
         await this.assertFolderWritable(settings.folderPath);
         const timezone = settings.timezone || "UTC";
-        const filename = await this.exportToFile(
-          settings.userId,
-          settings.folderPath,
-          timezone,
+        // RLS (task C2): the export reads this user's entire dataset, and the
+        // settings write below is that user's row -- both under a user context.
+        const filename = await withUserContext(settings.userId, () =>
+          this.exportToFile(settings.userId, settings.folderPath, timezone),
         );
         this.copyToWeeklyIfNeeded(settings.folderPath, filename, timezone);
         this.copyToMonthlyIfNeeded(settings.folderPath, filename, timezone);
@@ -281,7 +332,9 @@ export class AutoBackupService {
           settings.timezone,
           now,
         );
-        await this.settingsRepo.save(settings);
+        await withUserContext(settings.userId, () =>
+          this.settingsRepo.save(settings),
+        );
 
         this.logger.log(
           `Auto-backup completed for user ${settings.userId}: ${filename}`,
@@ -299,7 +352,9 @@ export class AutoBackupService {
           settings.timezone,
           now,
         );
-        await this.settingsRepo.save(settings);
+        await withUserContext(settings.userId, () =>
+          this.settingsRepo.save(settings),
+        );
       }
     }
   }
@@ -642,11 +697,13 @@ export class AutoBackupService {
     return normalized;
   }
 
-  private async assertFolderWritable(folderPath: string): Promise<void> {
-    // Re-validate defensively: this method is also invoked with folder paths
-    // read back from the database (originally user-supplied), so CWE-22
-    // sanitization must run every time before we touch the filesystem.
-    const safePath = this.validateFolderPath(folderPath);
+  /**
+   * Ensure `safePath` is an existing directory. The configured default folder
+   * is created on first use so a deployment only has to mount the volume;
+   * user-chosen folders must already exist, since creating arbitrary paths on
+   * demand would mask typos.
+   */
+  private async assertDirectoryExists(safePath: string): Promise<void> {
     try {
       const stat = await fs.stat(safePath);
       if (!stat.isDirectory()) {
@@ -658,8 +715,19 @@ export class AutoBackupService {
           ),
         );
       }
+      return;
     } catch (error) {
-      if (error.code === "ENOENT") {
+      if (error instanceof BadRequestException) throw error;
+      if (error.code !== "ENOENT") {
+        throw new BadRequestException(
+          tr(
+            "errors.backup.folderAccessErrorDetail",
+            `Cannot access folder: ${safePath} - ${error.message}`,
+            { safePath, message: error.message },
+          ),
+        );
+      }
+      if (safePath !== this.defaultFolderPath) {
         throw new BadRequestException(
           tr(
             "errors.backup.folderNotExistVolume",
@@ -668,15 +736,31 @@ export class AutoBackupService {
           ),
         );
       }
-      if (error instanceof BadRequestException) throw error;
+    }
+
+    try {
+      await fs.mkdir(safePath, { recursive: true });
+      this.logger.log(`Created backup folder ${safePath}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create backup folder ${safePath}: ${error.message}`,
+      );
       throw new BadRequestException(
         tr(
-          "errors.backup.folderAccessErrorDetail",
-          `Cannot access folder: ${safePath} - ${error.message}`,
-          { safePath, message: error.message },
+          "errors.backup.folderNotExistVolume",
+          `Folder does not exist: ${safePath}. Ensure the path is mapped as a Docker volume.`,
+          { safePath },
         ),
       );
     }
+  }
+
+  private async assertFolderWritable(folderPath: string): Promise<void> {
+    // Re-validate defensively: this method is also invoked with folder paths
+    // read back from the database (originally user-supplied), so CWE-22
+    // sanitization must run every time before we touch the filesystem.
+    const safePath = this.validateFolderPath(folderPath);
+    await this.assertDirectoryExists(safePath);
 
     // Test write access by creating and removing a temporary file
     const testFile = this.safePath(

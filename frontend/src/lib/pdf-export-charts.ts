@@ -10,6 +10,16 @@ export interface CapturedChart {
 }
 
 /**
+ * A summary figure drawn below the chart in the rasterized output (e.g. the
+ * "Total Fees" / "Transactions" cards under the fees chart). Rendered as evenly
+ * spaced centred columns, each a small grey label above a bold value.
+ */
+export interface ChartFooterItem {
+  label: string;
+  value: string;
+}
+
+/**
  * Font applied to chart text in the rasterized output.
  *
  * On screen, Recharts text (axis ticks, labels, in-chart legends) inherits
@@ -79,9 +89,87 @@ function inlineCssVariableColors(original: SVGSVGElement, clone: SVGSVGElement):
   });
 }
 
+interface LegendEntry {
+  color: string;
+  text: string;
+}
+
+/**
+ * Reads the chart's HTML legend (Recharts renders it as a sibling div of the
+ * SVG inside .recharts-wrapper, so a bare SVG capture drops it). Colours come
+ * from the legend icon's computed style, which also resolves the CSS-variable
+ * theme colours.
+ */
+function readLegendEntries(svg: SVGSVGElement): LegendEntry[] {
+  const wrapper = svg.closest('.recharts-wrapper');
+  if (!wrapper) return [];
+  const entries: LegendEntry[] = [];
+  wrapper.querySelectorAll('.recharts-legend-item').forEach((item) => {
+    const text = item.querySelector('.recharts-legend-item-text')?.textContent?.trim();
+    if (!text) return;
+    let color = '#374151';
+    const icon = item.querySelector('path, line, rect, circle');
+    if (icon) {
+      const computed = getComputedStyle(icon);
+      if (computed.stroke && computed.stroke !== 'none') color = computed.stroke;
+      else if (computed.fill && computed.fill !== 'none') color = computed.fill;
+    }
+    entries.push({ color, text });
+  });
+  return entries;
+}
+
+/**
+ * Draws the legend entries onto the canvas below the chart image, wrapping
+ * onto multiple centred lines. Returns nothing; layout was precomputed by
+ * `layoutLegend`.
+ */
+interface LegendLayoutItem extends LegendEntry {
+  x: number;
+  line: number;
+  textWidth: number;
+}
+
+function layoutLegend(
+  ctx: CanvasRenderingContext2D,
+  entries: LegendEntry[],
+  maxWidth: number,
+  scale: number,
+): { items: LegendLayoutItem[]; lineCount: number } {
+  const iconWidth = 16 * scale;
+  const iconGap = 5 * scale;
+  const itemGap = 18 * scale;
+  const items: LegendLayoutItem[] = [];
+  let line = 0;
+  let cursor = 0;
+  const lineWidths: number[] = [0];
+
+  for (const entry of entries) {
+    const textWidth = ctx.measureText(entry.text).width;
+    const itemWidth = iconWidth + iconGap + textWidth;
+    if (cursor > 0 && cursor + itemWidth > maxWidth) {
+      lineWidths[line] = cursor - itemGap;
+      line += 1;
+      cursor = 0;
+      lineWidths.push(0);
+    }
+    items.push({ ...entry, x: cursor, line, textWidth });
+    cursor += itemWidth + itemGap;
+  }
+  lineWidths[line] = cursor - itemGap;
+
+  // Centre each line horizontally
+  for (const item of items) {
+    item.x += (maxWidth - lineWidths[item.line]) / 2;
+  }
+  return { items, lineCount: entries.length > 0 ? line + 1 : 0 };
+}
+
 /**
  * Captures a single SVG element and converts it to a PNG data URL.
  * Forces a white background regardless of dark mode for print-friendly output.
+ * The chart's HTML legend (which lives outside the SVG) is re-drawn onto the
+ * canvas below the plot, so exports match what is on screen.
  *
  * The SVG clone is rendered at (width*scale x height*scale) with a viewBox at the
  * original dimensions, so the browser's SVG renderer natively produces a high-resolution
@@ -91,6 +179,7 @@ function captureSingleSvg(
   svg: SVGSVGElement,
   container: HTMLElement,
   scale: number,
+  footer: ChartFooterItem[] = [],
 ): Promise<CapturedChart | null> {
   const dims = resolveChartDimensions(svg, container);
   if (!dims) return Promise.resolve(null);
@@ -160,25 +249,105 @@ function captureSingleSvg(
   const base64 = btoa(unescape(encodeURIComponent(svgString)));
   const dataUri = `data:image/svg+xml;base64,${base64}`;
 
+  // Read the HTML legend from the live DOM now (the clone has no legend --
+  // Recharts renders it outside the SVG).
+  const legendEntries = readLegendEntries(svg);
+
   return new Promise<CapturedChart>((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = scaledWidth;
-      canvas.height = scaledHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas 2d context'));
         return;
       }
+
+      // Lay the legend out first so the canvas can be sized to fit it; the
+      // font must be re-applied after every canvas resize (resizing resets
+      // the context state).
+      const fontSize = 12 * scale;
+      const lineHeight = Math.round(20 * scale);
+      const sideMargin = 12 * scale;
+      const legendFont = `${fontSize}px ${CHART_FONT_FAMILY}`;
+      canvas.width = scaledWidth;
+      ctx.font = legendFont;
+      const { items, lineCount } = layoutLegend(
+        ctx,
+        legendEntries,
+        scaledWidth - 2 * sideMargin,
+        scale,
+      );
+      const legendHeight = lineCount > 0 ? lineCount * lineHeight + Math.round(6 * scale) : 0;
+
+      // Summary footer geometry (mirrors the on-screen summary cards): a top
+      // divider, then a small grey label above a bold value per column.
+      const footerLabelSize = 11 * scale;
+      const footerValueSize = 15 * scale;
+      const footerPadTop = Math.round(16 * scale);
+      const footerLabelGap = Math.round(7 * scale);
+      const footerPadBottom = Math.round(12 * scale);
+      const footerHeight =
+        footer.length > 0
+          ? footerPadTop +
+            footerLabelSize +
+            footerLabelGap +
+            footerValueSize +
+            footerPadBottom
+          : 0;
+
+      canvas.height = scaledHeight + legendHeight + footerHeight;
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       // Draw at 1:1 -- the SVG was already rendered at scaled resolution
       ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+
+      ctx.font = legendFont;
+      ctx.textBaseline = 'middle';
+      for (const item of items) {
+        const y = scaledHeight + item.line * lineHeight + lineHeight / 2;
+        const x = sideMargin + item.x;
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 2.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 16 * scale, y);
+        ctx.stroke();
+        // Text in print-friendly ink; the coloured icon carries the identity
+        ctx.fillStyle = '#374151';
+        ctx.fillText(item.text, x + 16 * scale + 5 * scale, y);
+      }
+
+      if (footer.length > 0) {
+        const footerTop = scaledHeight + legendHeight;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = Math.max(1, scale);
+        ctx.beginPath();
+        ctx.moveTo(sideMargin, footerTop + Math.round(scale));
+        ctx.lineTo(scaledWidth - sideMargin, footerTop + Math.round(scale));
+        ctx.stroke();
+
+        const colWidth = scaledWidth / footer.length;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const labelY = footerTop + footerPadTop + footerLabelSize;
+        const valueY = labelY + footerLabelGap + footerValueSize;
+        footer.forEach((item, i) => {
+          const cx = colWidth * i + colWidth / 2;
+          ctx.font = `${footerLabelSize}px ${CHART_FONT_FAMILY}`;
+          ctx.fillStyle = '#6b7280';
+          ctx.fillText(item.label, cx, labelY);
+          ctx.font = `bold ${footerValueSize}px ${CHART_FONT_FAMILY}`;
+          ctx.fillStyle = '#374151';
+          ctx.fillText(item.value, cx, valueY);
+        });
+        ctx.textAlign = 'start';
+      }
+
       resolve({
         dataUrl: canvas.toDataURL('image/png'),
         width,
-        height,
+        height: height + (legendHeight + footerHeight) / scale,
       });
     };
     img.onerror = () => {
@@ -225,12 +394,21 @@ export async function captureAllChartsAsImages(
 export async function captureSvgAsImage(
   container: HTMLElement,
   scale: number = 3,
+  footer: ChartFooterItem[] = [],
 ): Promise<CapturedChart | null> {
-  const svg = container.querySelector('svg.recharts-surface') as SVGSVGElement | null;
+  // Target the main chart SVG (a direct child of .recharts-wrapper). Recharts
+  // also renders tiny svg.recharts-surface elements for legend icons, and in
+  // recharts v3 those appear BEFORE the main surface in the DOM -- so a bare
+  // `svg.recharts-surface` query grabs a 14x14 legend icon instead of the chart
+  // whenever the chart has a <Legend>, producing a near-blank export sized to
+  // the container (issue #886). Fall back to the loose selector for any
+  // container that isn't wrapped (e.g. a bare test fixture).
+  const svg = (container.querySelector('.recharts-wrapper > svg.recharts-surface') ??
+    container.querySelector('svg.recharts-surface')) as SVGSVGElement | null;
   if (!svg) return null;
 
   try {
-    return await captureSingleSvg(svg, container, scale);
+    return await captureSingleSvg(svg, container, scale, footer);
   } catch {
     return null;
   }

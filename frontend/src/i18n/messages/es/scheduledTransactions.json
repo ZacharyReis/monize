@@ -98,12 +98,15 @@
       "both": "Registrar en esta fecha dejará <b>{fromAccount}</b> en <b>{fromAmount}</b> ({fromCondition}) y <b>{toAccount}</b> en <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Desglosar esta transacción",
+    "copyAmount": "Copiar monto",
     "referenceNumberLabel": "Número de referencia (opcional)",
     "noPriceHistory": "No hay historial de precios para este valor. Ingresa el precio manualmente.",
     "postButton": "Registrar transacción",
     "toasts": {
       "posted": "Transacción registrada",
       "postFailed": "Error al registrar la transacción",
+      "amountCopied": "Monto copiado",
+      "copyFailed": "No se pudo copiar el monto",
       "quantityRequired": "La cantidad debe ser mayor que cero",
       "priceRequired": "El precio debe ser mayor que cero",
       "totalAmountRequired": "El monto total es obligatorio",

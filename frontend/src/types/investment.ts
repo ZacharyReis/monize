@@ -138,7 +138,7 @@ export interface PortfolioSummary {
 export interface AllocationItem {
   name: string;
   symbol: string | null;
-  type: 'cash' | 'security' | 'tag' | 'untagged';
+  type: 'cash' | 'security' | 'tag' | 'untagged' | 'country' | 'other';
   value: number;
   percentage: number;
   color?: string;

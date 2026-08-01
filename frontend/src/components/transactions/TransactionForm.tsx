@@ -11,6 +11,16 @@ import { Select } from '@/components/ui/Select';
 import { SplitEditor, SplitRow, createEmptySplits, toSplitRows, toCreateSplitData } from './SplitEditor';
 import { NormalTransactionFields } from './NormalTransactionFields';
 import { SplitTransactionFields } from './SplitTransactionFields';
+import { CurrencyPickerButton } from './CurrencyPickerButton';
+import { TOUR_ANCHORS, tourAnchor } from '@/lib/tours/anchors';
+import { useDisableTransactionSplit } from '@/store/tourStore';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
+import { exchangeRatesApi } from '@/lib/exchange-rates';
+import { getCurrencySymbol, roundToCents, roundToDecimals } from '@/lib/format';
+import {
+  getRememberedTransactionCurrency,
+  rememberTransactionCurrency,
+} from '@/lib/lastTransactionCurrency';
 import { TransferTransactionFields } from './TransferTransactionFields';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Modal } from '@/components/ui/Modal';
@@ -33,12 +43,15 @@ import { Category } from '@/types/category';
 import { Account } from '@/types/account';
 import { Tag } from '@/types/tag';
 import { ReactivatePayeeDialog } from '@/components/payees/ReactivatePayeeDialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { buildCategoryTree } from '@/lib/categoryUtils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
+import { AttachmentsSection } from './AttachmentsSection';
+import { attachmentsApi } from '@/lib/attachments';
 import { optionalUuid, optionalString } from '@/lib/zod-helpers';
 import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
@@ -62,6 +75,49 @@ const buildTransactionSchema = (t: (key: string) => string) => z.object({
 
 type TransactionFormData = z.infer<ReturnType<typeof buildTransactionSchema>>;
 
+/**
+ * Sign a freshly entered amount magnitude according to a category: an income
+ * category makes it positive, an expense category negative. An explicit sign
+ * toggle -- the magnitude is unchanged from `reference`, so the user just
+ * flipped the sign -- is preserved so a manual override is respected. Shared by
+ * the account-currency and foreign-currency amount inputs so both behave
+ * identically. With no category (or no reference), the value is returned as-is.
+ */
+function signAmountByCategory(
+  value: number,
+  reference: number | undefined,
+  category: Category | undefined,
+): number {
+  const referenceAbs = reference !== undefined ? Math.abs(reference) : 0;
+  const isJustSignChange = referenceAbs === Math.abs(value) && referenceAbs !== 0;
+  if (isJustSignChange || !category) return value;
+  return category.isIncome ? Math.abs(value) : -Math.abs(value);
+}
+
+/**
+ * A reconciled transaction was matched against a statement during
+ * reconciliation. Only the date and amount feed that match, so editing other
+ * fields (payee, category, notes, reference) leaves the reconciliation intact
+ * and should save without a warning. Returns true only when the submitted date
+ * or amount differs from the original, in which case the edit is gated behind a
+ * confirmation. Amounts are compared in integer cents at the same 2-decimal
+ * precision the form loads them with, so float drift never triggers a warning.
+ */
+function reconciledEditAffectsReconciliation(
+  original: Transaction,
+  data: TransactionFormData,
+): boolean {
+  const dateChanged = data.transactionDate !== original.transactionDate;
+  // Mirror the form's defaultValues normalization: transfers always load an
+  // absolute amount, everything else keeps its sign.
+  const originalAmount = original.isTransfer
+    ? Math.abs(Math.round(Number(original.amount) * 100) / 100)
+    : Math.round(Number(original.amount) * 100) / 100;
+  const amountChanged =
+    Math.round(Number(data.amount) * 100) !== Math.round(originalAmount * 100);
+  return dateChanged || amountChanged;
+}
+
 interface TransactionFormProps {
   transaction?: Transaction;
   duplicateFrom?: Transaction;
@@ -78,11 +134,14 @@ type TransactionMode = 'normal' | 'split' | 'transfer';
 
 export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, defaultCategoryId, onSuccess, onCancel, onDirtyChange, submitRef }: TransactionFormProps) {
   const t = useTranslations('transactions');
-  const { defaultCurrency } = useNumberFormat();
+  const { defaultCurrency, formatCurrency, formatNumber } = useNumberFormat();
   const showCreatedAt = usePreferencesStore((s) => s.preferences?.showCreatedAt ?? false);
   const timeFormat = usePreferencesStore((s) => s.preferences?.timeFormat ?? '24h');
   const timezonePref = usePreferencesStore((s) => s.preferences?.timezone);
   const [isLoading, setIsLoading] = useState(false);
+  // Files chosen in the New Transaction window before the transaction exists;
+  // uploaded once it has been created. Empty (and unused) when editing.
+  const [stagedAttachments, setStagedAttachments] = useState<File[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [payees, setPayees] = useState<Payee[]>([]); // Full list of active payees
@@ -117,6 +176,8 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
 
   // Transaction mode state (normal, split, or transfer)
   const [mode, setMode] = useState<TransactionMode>(getInitialMode());
+  // A tour can grey out Split; false whenever no such tour is running.
+  const splitDisabled = useDisableTransactionSplit();
 
   // Split transaction state
   const [isSplitMode, setIsSplitMode] = useState<boolean>(initSource?.isSplit || false);
@@ -174,6 +235,26 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
     initSource?.isTransfer ? (initSource.payeeName || '') : '',
   );
 
+  // Foreign-currency entry state. `entryCurrency` is the currency the user is
+  // typing the amount in ('' means the account currency -- an ordinary
+  // transaction). `foreignAmount` is that typed amount; `fxRate` is the rate
+  // (account-currency units per 1 unit of entryCurrency). On a new transaction
+  // the entry currency is seeded from the sticky remembered currency; when
+  // editing/duplicating a foreign transaction it comes from the source.
+  const [entryCurrency, setEntryCurrency] = useState<string>(
+    initSource?.originalCurrencyCode || (initSource ? '' : getRememberedTransactionCurrency()),
+  );
+  const [foreignAmount, setForeignAmount] = useState<number | undefined>(
+    initSource?.originalAmount != null ? Number(initSource.originalAmount) : undefined,
+  );
+  const [fxRate, setFxRate] = useState<number | null>(
+    initSource?.originalCurrencyCode ? Number(initSource.exchangeRate) : null,
+  );
+  // Starts true when editing an existing foreign transaction so a later date fix
+  // does not clobber the bank's stored rate.
+  const rateOverriddenRef = useRef<boolean>(!!initSource?.originalCurrencyCode);
+  const [fxRateLoading, setFxRateLoading] = useState(false);
+
   // Note: CurrencyInput components manage their own display state internally
 
   const {
@@ -220,6 +301,18 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
   const watchedAmount = watch('amount');
   const watchedCurrencyCode = watch('currencyCode');
   const watchedPayeeName = watch('payeeName');
+  const watchedDate = watch('transactionDate');
+
+  // Foreign-currency entry is active only for non-transfer transactions whose
+  // entry currency differs from the account currency. Transfers already have
+  // their own cross-currency handling, so the picker is hidden there.
+  const selectedAccount = accounts.find((a) => a.id === watchedAccountId);
+  const accountCurrency =
+    selectedAccount?.currencyCode || watchedCurrencyCode || defaultCurrency;
+  const isForeign =
+    mode !== 'transfer' &&
+    !!entryCurrency &&
+    entryCurrency.toUpperCase() !== accountCurrency.toUpperCase();
 
   // Auto-set currencyCode from the selected account, and pre-fill the
   // asset value change category when an ASSET account is selected.
@@ -436,14 +529,11 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
         setValue('categoryId', payee.defaultCategoryId, { shouldDirty: true });
         categoryWasAutoSetRef.current = false;
 
-        // Adjust amount sign based on default category type
+        // Adjust amount sign based on default category type (re-signs the
+        // foreign amount too when entering a foreign currency).
         const category = categories.find(c => c.id === payee.defaultCategoryId);
-        if (category && watchedAmount !== undefined && watchedAmount !== 0) {
-          const absAmount = Math.abs(watchedAmount);
-          const newAmount = category.isIncome ? absAmount : -absAmount;
-          if (newAmount !== watchedAmount) {
-            setValue('amount', newAmount, { shouldDirty: true });
-          }
+        if (category) {
+          resignActiveAmount(category);
         }
       }
     } else {
@@ -539,19 +629,11 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
       // as a positive number (the legs' signs are derived on save), so an
       // expense category must not flip it negative or the transfer fails the
       // "amount must be positive" check. Mirrors the mode guard in
-      // handleAmountChange.
+      // handleAmountChange. Re-signs the foreign amount when entering a foreign
+      // currency, so the behaviour matches account-currency entry.
       const category = categories.find(c => c.id === categoryId);
-      if (
-        category &&
-        mode === 'normal' &&
-        watchedAmount !== undefined &&
-        watchedAmount !== 0
-      ) {
-        const absAmount = Math.abs(watchedAmount);
-        const newAmount = category.isIncome ? absAmount : -absAmount;
-        if (newAmount !== watchedAmount) {
-          setValue('amount', newAmount, { shouldDirty: true, shouldValidate: true });
-        }
+      if (category && mode === 'normal') {
+        resignActiveAmount(category);
       }
     } else {
       // Custom value being typed - don't create yet, just track the name
@@ -561,6 +643,19 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
     }
   };
 
+  // The category whose income/expense flag drives the amount sign: the selected
+  // category in normal mode, the first split's category in split mode.
+  const activeSigningCategory = (): Category | undefined => {
+    if (mode === 'split') {
+      return splits.length > 0 && splits[0].categoryId
+        ? categories.find((c) => c.id === splits[0].categoryId)
+        : undefined;
+    }
+    return selectedCategoryId
+      ? categories.find((c) => c.id === selectedCategoryId)
+      : undefined;
+  };
+
   // Handle amount change - adjust sign based on selected category
   // Only auto-adjust when the absolute value changes, not when user explicitly changes sign
   const handleAmountChange = (value: number | undefined) => {
@@ -568,31 +663,10 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
       setValue('amount', value ?? 0, { shouldValidate: true });
       return;
     }
-
-    // Check if user is just changing the sign (same absolute value)
-    const currentAbsAmount = watchedAmount !== undefined ? Math.abs(watchedAmount) : 0;
-    const newAbsAmount = Math.abs(value);
-    const isJustSignChange = currentAbsAmount === newAbsAmount && currentAbsAmount !== 0;
-
-    // If user explicitly changed the sign, respect their choice
-    if (isJustSignChange) {
-      setValue('amount', value, { shouldValidate: true });
-      return;
-    }
-
-    // If a category is selected, adjust sign based on category type
-    if (selectedCategoryId && mode === 'normal') {
-      const category = categories.find(c => c.id === selectedCategoryId);
-      if (category) {
-        const absAmount = Math.abs(value);
-        const newAmount = category.isIncome ? absAmount : -absAmount;
-        setValue('amount', newAmount, { shouldValidate: true });
-        return;
-      }
-    }
-
-    // No category selected or not normal mode, use value as-is
-    setValue('amount', value, { shouldValidate: true });
+    const category = mode === 'normal' ? activeSigningCategory() : undefined;
+    setValue('amount', signAmountByCategory(value, watchedAmount, category), {
+      shouldValidate: true,
+    });
   };
 
   // Handle split total amount change - same pattern as handleAmountChange
@@ -602,32 +676,174 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
       setValue('amount', value ?? 0, { shouldValidate: true });
       return;
     }
+    const category =
+      splits.length > 0 && splits[0].categoryId
+        ? categories.find((c) => c.id === splits[0].categoryId)
+        : undefined;
+    setValue('amount', signAmountByCategory(value, watchedAmount, category), {
+      shouldValidate: true,
+    });
+  };
 
-    // Check if user is just changing the sign (same absolute value)
-    const currentAbsAmount = watchedAmount !== undefined ? Math.abs(watchedAmount) : 0;
-    const newAbsAmount = Math.abs(value);
-    const isJustSignChange = currentAbsAmount === newAbsAmount && currentAbsAmount !== 0;
+  // ── Foreign-currency entry helpers ──────────────────────────────────────
+  //
+  // When a foreign currency is chosen, the Amount input edits the foreign total
+  // (`foreignAmount`); the account-currency `amount` is derived from it and the
+  // fetched rate. When the account has a foreign-transaction fee configured, that
+  // fee is folded into the amount (no split is created):
+  //   base = round(foreignAmount x rate)
+  //   fee  = -round(|base| x feePercent / 100)
+  //   amount = base + fee
 
-    // If user explicitly changed the sign, respect their choice
-    if (isJustSignChange) {
-      setValue('amount', value, { shouldValidate: true });
+  // The converted account-currency base shown in the FX panel (before fee), the
+  // fee itself, and the resulting total charged to the account.
+  const convertedBase =
+    isForeign && foreignAmount !== undefined && fxRate != null
+      ? roundToCents(foreignAmount * fxRate)
+      : undefined;
+  const fxFeePercent = selectedAccount?.fxFeePercent ?? undefined;
+  const fxFeeApplies =
+    isForeign && convertedBase !== undefined && !!fxFeePercent && fxFeePercent > 0;
+  const fxFeeAmount = fxFeeApplies
+    ? -roundToCents((Math.abs(convertedBase as number) * (fxFeePercent as number)) / 100)
+    : 0;
+  const fxTotal =
+    convertedBase !== undefined
+      ? roundToCents(convertedBase + fxFeeAmount)
+      : undefined;
+
+  // Recompute the account-currency `amount` from the foreign amount and rate.
+  // The bank's foreign-transaction fee (when the account has one) is folded into
+  // the amount; no split is created. `overrideBase` forces the converted base
+  // (used when the user edits the converted-base field directly).
+  const recomputeFx = (
+    fAmount: number | undefined,
+    rate: number | null,
+    overrideBase?: number,
+  ) => {
+    if (fAmount === undefined || rate == null) return;
+    const base =
+      overrideBase !== undefined ? overrideBase : roundToCents(fAmount * rate);
+    const feePercent = selectedAccount?.fxFeePercent;
+    const fee =
+      feePercent && feePercent > 0
+        ? -roundToCents((Math.abs(base) * feePercent) / 100)
+        : 0;
+    setValue('amount', roundToCents(base + fee), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  // Amount input change while entering in a foreign currency. The foreign amount
+  // is signed by the active category exactly as the account-currency input does
+  // (income positive, expense negative, explicit sign toggle preserved), then
+  // the converted account-currency amount is derived from it.
+  const handleForeignAmountChange = (value: number | undefined) => {
+    if (value === undefined || value === 0) {
+      setForeignAmount(value);
+      recomputeFx(value, fxRate);
       return;
     }
-
-    // Infer sign from first split's category
-    if (splits.length > 0 && splits[0].categoryId) {
-      const category = categories.find(c => c.id === splits[0].categoryId);
-      if (category) {
-        const absAmount = Math.abs(value);
-        const newAmount = category.isIncome ? absAmount : -absAmount;
-        setValue('amount', newAmount, { shouldValidate: true });
-        return;
-      }
-    }
-
-    // No category on first split, use value as-is
-    setValue('amount', value, { shouldValidate: true });
+    const category = mode === 'transfer' ? undefined : activeSigningCategory();
+    const signed = signAmountByCategory(value, foreignAmount, category);
+    setForeignAmount(signed);
+    recomputeFx(signed, fxRate);
   };
+
+  // Re-sign the amount already entered when the category changes, so choosing an
+  // expense category flips it negative (income positive). Operates on the
+  // foreign amount when entering a foreign currency (and re-derives the
+  // converted amount), otherwise on the account-currency amount. Mirrors the
+  // sign adjustment the account-currency flow applies on category change.
+  const resignActiveAmount = (category: Category) => {
+    if (isForeign) {
+      if (foreignAmount === undefined || foreignAmount === 0) return;
+      const signed = category.isIncome
+        ? Math.abs(foreignAmount)
+        : -Math.abs(foreignAmount);
+      if (signed !== foreignAmount) {
+        setForeignAmount(signed);
+        recomputeFx(signed, fxRate);
+      }
+      return;
+    }
+    if (watchedAmount === undefined || watchedAmount === 0) return;
+    const signed = category.isIncome
+      ? Math.abs(watchedAmount)
+      : -Math.abs(watchedAmount);
+    if (signed !== watchedAmount) {
+      setValue('amount', signed, { shouldDirty: true, shouldValidate: true });
+    }
+  };
+
+  // User edited the converted account-currency total (fee included) directly ->
+  // back the fee out to the pre-fee base, derive the rate (10 dp) so it
+  // round-trips, mark the rate overridden, and recompute.
+  const handleConvertedTotalOverride = (total: number | undefined) => {
+    if (total === undefined || !foreignAmount) return;
+    const feePercent = selectedAccount?.fxFeePercent;
+    let base = total;
+    if (feePercent && feePercent > 0) {
+      // total = base - |base| * p; solve for base by its (matching) sign.
+      const p = feePercent / 100;
+      base = roundToCents(total >= 0 ? total / (1 - p) : total / (1 + p));
+    }
+    const newRate = roundToDecimals(base / foreignAmount, 10);
+    rateOverriddenRef.current = true;
+    setFxRate(newRate);
+    recomputeFx(foreignAmount, newRate, base);
+  };
+
+  // Currency picker selection. '' (or the account currency) resets to an
+  // ordinary account-currency transaction, clearing the FX fields.
+  const handleEntryCurrencyChange = (code: string) => {
+    rateOverriddenRef.current = false;
+    if (!code || code.toUpperCase() === accountCurrency.toUpperCase()) {
+      setEntryCurrency('');
+      setForeignAmount(undefined);
+      setFxRate(null);
+      return;
+    }
+    setEntryCurrency(code);
+    // Seed the foreign amount from whatever is currently in the amount field so
+    // the converted base has something to compute from before the user types.
+    if (foreignAmount === undefined && watchedAmount) {
+      setForeignAmount(watchedAmount);
+    }
+    // The rate-fetch effect fires on the entryCurrency change.
+  };
+
+  // Fetch the rate for (entryCurrency -> account currency) on the transaction
+  // date, debounced. Skipped while the rate is user-overridden so a date tweak
+  // does not discard the bank's stored rate.
+  useEffect(() => {
+    if (!isForeign || rateOverriddenRef.current || !watchedDate) return;
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      setFxRateLoading(true);
+      exchangeRatesApi
+        .getRateForDate(entryCurrency, accountCurrency, watchedDate)
+        .then((rate) => {
+          if (cancelled) return;
+          setFxRate(rate);
+          setFxRateLoading(false);
+          recomputeFx(foreignAmount, rate);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setFxRate(null);
+          setFxRateLoading(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+    // recomputeFx/foreignAmount are intentionally read fresh inside the callback;
+    // amount edits recompute synchronously via handleForeignAmountChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isForeign, entryCurrency, accountCurrency, watchedDate]);
 
   // Convert string to title case (capitalize first letter of each word)
   const toTitleCase = (str: string): string => {
@@ -695,7 +911,7 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
 
   // Created At override (only when editing and preference is enabled)
   const userTimezone = resolveTimezone(timezonePref);
-  const { dateFormat } = useDateFormat();
+  const { dateFormat, formatDate } = useDateFormat();
   const [createdAtValue, setCreatedAtValue] = useState(() => {
     if (!transaction?.createdAt) return '';
     return isoToDatetimeLocal(transaction.createdAt, userTimezone);
@@ -734,7 +950,31 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
     setShowTagForm(false);
   };
 
-  const onSubmit = async (data: TransactionFormData) => {
+  // Holds the validated form data while the user confirms editing a reconciled
+  // transaction; null when no such confirmation is pending.
+  const [reconciledConfirmData, setReconciledConfirmData] =
+    useState<TransactionFormData | null>(null);
+
+  // Upload any files staged in the New Transaction window to the freshly
+  // created transaction. The transaction already exists at this point, so a
+  // failed upload is reported but never rolls back the save.
+  const uploadStagedAttachments = async (newTransactionId: string) => {
+    if (stagedAttachments.length === 0) return;
+    let failed = 0;
+    for (const file of stagedAttachments) {
+      try {
+        await attachmentsApi.upload(newTransactionId, file);
+      } catch (error) {
+        failed += 1;
+        logger.error('Failed to upload staged attachment:', error);
+      }
+    }
+    if (failed > 0) {
+      toast.error(t('form.toasts.attachmentsUploadFailed', { count: failed }));
+    }
+  };
+
+  const performSubmit = async (data: TransactionFormData) => {
     setIsLoading(true);
     try {
       // Handle transfer mode
@@ -789,9 +1029,11 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           await transactionsApi.updateTransfer(transaction.id, transferData);
           toast.success(t('form.toasts.transferUpdated'));
         } else {
-          await transactionsApi.createTransfer(transferData);
+          const transfer = await transactionsApi.createTransfer(transferData);
           toast.success(t('form.toasts.transferCreated'));
           rememberTransactionDate(LAST_TRANSACTION_DATE_KEY, data.transactionDate);
+          // Attach staged files to the "from" leg (the account being edited).
+          await uploadStagedAttachments(transfer.fromTransaction.id);
         }
         onSuccess?.();
         return;
@@ -820,8 +1062,29 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
         }
       }
 
+      // Foreign-currency entry: require a rate (fetched or user-overridden) so we
+      // never persist a foreign transaction with a silent 1.0 conversion.
+      if (isForeign && (fxRate == null || foreignAmount === undefined)) {
+        toast.error(t('form.toasts.fxRateRequired'));
+        setIsLoading(false);
+        return;
+      }
+
+      // FX fields flow onto the transaction. When editing away from a foreign
+      // entry, send explicit nulls so the stored metadata is cleared.
+      const fxFields = isForeign
+        ? {
+            originalAmount: foreignAmount,
+            originalCurrencyCode: entryCurrency,
+            exchangeRate: fxRate ?? undefined,
+          }
+        : transaction?.originalCurrencyCode
+          ? { originalAmount: null, originalCurrencyCode: null }
+          : {};
+
       const payload = {
         ...data,
+        ...fxFields,
         splits: splitsData,
         tagIds: selectedTagIds.length > 0 ? selectedTagIds : [],
         // Clear categoryId for split transactions. For non-split transactions
@@ -851,9 +1114,13 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
         await transactionsApi.update(transaction.id, updatePayload);
         toast.success(t('form.toasts.transactionUpdated'));
       } else {
-        await transactionsApi.create(payload);
+        const created = await transactionsApi.create(payload);
         toast.success(t('form.toasts.transactionCreated'));
         rememberTransactionDate(LAST_TRANSACTION_DATE_KEY, data.transactionDate);
+        // Remember the entry currency so the next new transaction pre-selects it
+        // ('' when the account currency was used, which clears the stickiness).
+        rememberTransactionCurrency(isForeign ? entryCurrency : '');
+        await uploadStagedAttachments(created.id);
       }
       onSuccess?.();
     } catch (error) {
@@ -862,6 +1129,28 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Editing a reconciled transaction's date or amount silently changes a record
+  // that was matched against a statement, so confirm before saving. Edits that
+  // leave the date and amount untouched (e.g. fixing a payee or category) don't
+  // affect the reconciliation and save without a prompt. New/duplicated
+  // transactions start UNRECONCILED, so this only gates genuine edits.
+  const onSubmit = async (data: TransactionFormData) => {
+    if (
+      transaction?.status === TransactionStatus.RECONCILED &&
+      reconciledEditAffectsReconciliation(transaction, data)
+    ) {
+      setReconciledConfirmData(data);
+      return;
+    }
+    await performSubmit(data);
+  };
+
+  const handleReconciledConfirm = async () => {
+    const data = reconciledConfirmData;
+    setReconciledConfirmData(null);
+    if (data) await performSubmit(data);
   };
 
   useFormSubmitRef(submitRef, handleSubmit, onSubmit);
@@ -896,8 +1185,79 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
     </div>
   ) : undefined;
 
+  // Currency picker button, placed left of the Amount input (normal/split only).
+  const currencyPickerSlot =
+    mode !== 'transfer' ? (
+      <CurrencyPickerButton
+        value={entryCurrency}
+        accountCurrencyCode={accountCurrency}
+        onChange={handleEntryCurrencyChange}
+        disabled={isLoading}
+        anchorProps={tourAnchor(TOUR_ANCHORS.transactionCurrencyField)}
+      />
+    ) : undefined;
+
+  // While entering a foreign currency, the converted account-currency amount
+  // (fee included) sits directly beside the Amount input (same width). The rate
+  // and fee text render together on one line below, spanning both columns.
+  const convertedAmountSlot = isForeign ? (
+    // Mounts only while entering a foreign currency, so a guided tour can watch
+    // this anchor to detect that the user actually picked one (its `appear`
+    // advance) -- covering both an existing currency and the Add-currency flow.
+    <div {...tourAnchor(TOUR_ANCHORS.transactionConvertedAmount)}>
+      <CurrencyInput
+        label={t('form.fx.totalInCurrency', { currency: accountCurrency })}
+        prefix={getCurrencySymbol(accountCurrency)}
+        value={fxTotal}
+        onChange={handleConvertedTotalOverride}
+        allowSignToggle
+      />
+    </div>
+  ) : undefined;
+
+  const fxCaptionSlot = isForeign ? (
+    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {fxRate != null ? (
+        <span>
+          {t('form.fx.rateCaption', {
+            from: entryCurrency,
+            rate: formatNumber(fxRate, 4),
+            to: accountCurrency,
+            date: watchedDate ? formatDate(watchedDate) : watchedDate,
+          })}
+        </span>
+      ) : !fxRateLoading ? (
+        <span className="text-amber-600 dark:text-amber-400">
+          {t('form.fx.noRateWarning', {
+            from: entryCurrency,
+            to: accountCurrency,
+            date: watchedDate ? formatDate(watchedDate) : watchedDate,
+          })}
+        </span>
+      ) : null}
+      {fxFeeApplies && fxTotal !== undefined && (
+        <span>
+          {' '}
+          {t('form.fx.feeCaption', {
+            percent: formatNumber(
+              fxFeePercent as number,
+              // Keep the fee percent's own precision (up to 4 dp) instead of
+              // forcing trailing zeros, while still using the locale separators.
+              Math.min(4, (String(fxFeePercent).split('.')[1] || '').length),
+            ),
+            fee: formatCurrency(Math.abs(fxFeeAmount), accountCurrency),
+          })}
+        </span>
+      )}
+    </p>
+  ) : undefined;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form
+      {...tourAnchor(TOUR_ANCHORS.transactionForm)}
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-4"
+    >
       {/* Mode selector - show for new/duplicate transactions, or non-transfer edits */}
       {(!transaction || !transaction.isTransfer) && (
         <div className="flex space-x-2 pb-2 border-b dark:border-gray-700">
@@ -912,13 +1272,17 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           >
             {t('form.modeTransaction')}
           </button>
+          {/* Greyed out while a tour asks for the simple form, so the
+              walkthrough cannot be derailed into a mode it does not cover. */}
           <button
             type="button"
             onClick={() => handleModeChange('split')}
-            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
+            disabled={splitDisabled}
+            title={splitDisabled ? t('form.splitDisabledDuringTour') : undefined}
+            className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               mode === 'split'
                 ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:hover:bg-transparent'
             }`}
           >
             {t('form.modeSplit')}
@@ -968,11 +1332,17 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           handlePayeeCreate={handlePayeeCreate}
           handleCategoryChange={handleCategoryChange}
           handleCategoryCreate={handleCategoryCreate}
-          handleAmountChange={handleAmountChange}
+          handleAmountChange={isForeign ? handleForeignAmountChange : handleAmountChange}
           handleModeChange={handleModeChange}
           onQuickFill={!transaction && !duplicateFrom ? handleQuickFill : undefined}
           transaction={transaction}
           createdAtSlot={createdAtSlot}
+          currencyPickerSlot={currencyPickerSlot}
+          convertedAmountSlot={convertedAmountSlot}
+          fxCaptionSlot={fxCaptionSlot}
+          amountValue={isForeign ? foreignAmount : undefined}
+          amountCurrencyCode={isForeign ? entryCurrency : undefined}
+          amountLabel={isForeign ? t('form.fx.totalInCurrency', { currency: entryCurrency }) : undefined}
         />
       )}
 
@@ -990,10 +1360,16 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
           payees={payees}
           handlePayeeChange={handlePayeeChange}
           handlePayeeCreate={handlePayeeCreate}
-          handleAmountChange={handleSplitTotalChange}
+          handleAmountChange={isForeign ? handleForeignAmountChange : handleSplitTotalChange}
           onQuickFill={!transaction && !duplicateFrom ? handleQuickFill : undefined}
           transaction={transaction}
           createdAtSlot={createdAtSlot}
+          currencyPickerSlot={currencyPickerSlot}
+          convertedAmountSlot={convertedAmountSlot}
+          fxCaptionSlot={fxCaptionSlot}
+          amountValue={isForeign ? foreignAmount : undefined}
+          amountCurrencyCode={isForeign ? entryCurrency : undefined}
+          amountLabel={isForeign ? t('form.fx.totalInCurrency', { currency: entryCurrency }) : undefined}
         />
       )}
 
@@ -1054,6 +1430,8 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
             onTransactionAmountChange={(amount) => setValue('amount', amount, { shouldDirty: true, shouldValidate: true })}
             currencyCode={watchedCurrencyCode || defaultCurrency}
             onConvertToRegular={handleConvertToRegular}
+            displayCurrencyCode={isForeign ? entryCurrency : undefined}
+            displayRate={isForeign ? (fxRate ?? undefined) : undefined}
           />
         </div>
       )}
@@ -1125,8 +1503,22 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
         }
       />
 
-      {/* Actions */}
+      {/* Attachments. When editing, they are managed directly against the
+          saved transaction; when creating, files are staged client-side and
+          uploaded once the transaction has been created. */}
+      {transaction ? (
+        <AttachmentsSection transactionId={transaction.id} />
+      ) : (
+        <AttachmentsSection
+          stagedFiles={stagedAttachments}
+          onStagedFilesChange={setStagedAttachments}
+        />
+      )}
+
+      {/* Actions. anchorProps, not a wrapper, so a guided tour rings the
+          Cancel/Save pair rather than the full-width row around it. */}
       <FormActions
+        anchorProps={tourAnchor(TOUR_ANCHORS.transactionFormActions)}
         onCancel={onCancel}
         submitLabel={t(transaction ? 'form.submitUpdate' : 'form.submitCreate', { mode: t(mode === 'transfer' ? 'form.modeLabel.transfer' : 'form.modeLabel.transaction') })}
         isSubmitting={isLoading}
@@ -1139,6 +1531,18 @@ export function TransactionForm({ transaction, duplicateFrom, defaultAccountId, 
         onReactivate={handleReactivatePayee}
         onCancel={handleCancelReactivation}
         isReactivating={isReactivating}
+      />
+
+      {/* Warn before saving edits to a reconciled transaction */}
+      <ConfirmDialog
+        isOpen={reconciledConfirmData !== null}
+        title={t('form.reconciledConfirm.title')}
+        message={t('form.reconciledConfirm.message')}
+        confirmLabel={t('form.reconciledConfirm.confirm')}
+        variant="warning"
+        pushHistory
+        onConfirm={handleReconciledConfirm}
+        onCancel={() => setReconciledConfirmData(null)}
       />
     </form>
   );

@@ -65,11 +65,16 @@
     "cash": "Cassa",
     "untagged": "Senza etichette",
     "noTagData": "Nessuna posizione con etichetta da mostrare. Aggiungi etichette ai tuoi titoli per vedere l'esposizione per etichetta.",
-    "tagExposureNote": "Esposizione per etichetta: una posizione con più etichette viene conteggiata per intero sotto ciascuna, quindi la somma delle percentuali può superare il 100%.",
+    "noCountryData": "Nessun dato di allocazione per paese disponibile.",
+    "otherCountries": "Altri paesi",
     "groupBy": {
       "security": "Per titolo",
-      "tag": "Per etichetta"
-    }
+      "tag": "Per etichetta",
+      "country": "Per paese",
+      "tagKey": "Per chiave"
+    },
+    "noKeyData": "Nessuna posizione ha un valore per questa chiave tag. Etichetta i titoli come key:value (es. country:usa) per vedere questa ripartizione.",
+    "keySelectorLabel": "Chiave tag da aggregare"
   },
   "holdingsList": {
     "title": "Posizioni",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "Valore del portafoglio nel tempo",
+    "viewReport": "Vedi report",
+    "viewReportTitle": "Apri il report completo Valore del portafoglio",
     "updatingLabel": "Aggiornamento…",
-    "updatingAriaLabel": "Aggiornamento",
     "intradayFallbackWarningAriaLabel": "Prezzi intraday dettagliati non disponibili",
     "intradayUnavailableTitle": "Vista intraday non disponibile per questa combinazione di conti",
     "intradayUnavailableDescription": "Una o più posizioni usano un fornitore di quotazioni (MSN Money) che non espone dati intraday. Passa a un intervallo più lungo per vedere le istantanee giornaliere.",

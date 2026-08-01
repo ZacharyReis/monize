@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "汽车",
+      "sub": {
+        "accessories": "配件",
+        "carPayment": "车贷还款",
+        "cleaning": "洗车",
+        "congestionCharge": "拥堵费",
+        "fines": "罚款",
+        "fuel": "燃油",
+        "maintenance": "保养",
+        "mot": "年检",
+        "parking": "停车费",
+        "parts": "零部件",
+        "registration": "上牌登记",
+        "roadTax": "车船税",
+        "tolls": "过路费"
+      }
+    },
+    "bankFees": {
+      "name": "银行手续费",
+      "sub": {
+        "annualFee": "年费",
+        "atm": "ATM",
+        "foreignTransaction": "外币交易费",
+        "nsf": "存款不足退票费",
+        "other": "其他",
+        "overdraft": "透支费",
+        "serviceCharge": "账户服务费",
+        "unpaidItemFee": "退票费"
+      }
+    },
+    "bills": {
+      "name": "账单",
+      "sub": {
+        "electricity": "电费",
+        "internet": "网络费",
+        "mobilePhone": "手机",
+        "naturalGas": "天然气费",
+        "streamingServices": "流媒体服务",
+        "telephone": "固定电话费",
+        "television": "电视",
+        "tvLicence": "电视牌照费",
+        "wasteCollection": "垃圾清运",
+        "waterSewer": "水费及污水处理费"
+      }
+    },
+    "business": {
+      "name": "商务",
+      "sub": {
+        "airfare": "机票",
+        "carRental": "租车",
+        "diningOut": "外出就餐",
+        "fuel": "燃油",
+        "lodging": "住宿",
+        "mileage": "里程补贴",
+        "miscellaneous": "杂项",
+        "mobilePhone": "手机",
+        "officeSupplies": "办公用品",
+        "parking": "停车费",
+        "software": "软件",
+        "transit": "公共交通"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "现金取款",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "慈善捐赠",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "育儿",
+      "sub": {
+        "activities": "活动",
+        "allowance": "零花钱",
+        "babysitting": "临时托管",
+        "clothing": "服装",
+        "daycare": "日托",
+        "schoolSupplies": "学习用品",
+        "sports": "体育运动",
+        "toysGames": "玩具及游戏"
+      }
+    },
+    "clothing": {
+      "name": "服装",
+      "sub": {
+        "accessories": "配饰",
+        "clothes": "衣服",
+        "outerwear": "外套",
+        "shoes": "鞋子"
+      }
+    },
+    "education": {
+      "name": "教育",
+      "sub": {
+        "529PlanContribution": "529计划供款",
+        "books": "图书",
+        "fees": "杂费",
+        "supplies": "教材",
+        "tuition": "学费"
+      }
+    },
+    "food": {
+      "name": "餐饮",
+      "sub": {
+        "alcohol": "酒水",
+        "cannabis": "大麻",
+        "coffeeShops": "咖啡店",
+        "diningOut": "外出就餐",
+        "groceries": "食品杂货",
+        "takeout": "外卖"
+      }
+    },
+    "furnishings": {
+      "name": "家居用品",
+      "sub": {
+        "accessories": "装饰配件",
+        "appliances": "家用电器",
+        "bathroom": "浴室",
+        "bedroom": "卧室",
+        "decor": "装饰品",
+        "dishes": "餐具",
+        "kitchen": "厨房",
+        "livingRoom": "客厅",
+        "office": "书房",
+        "outdoor": "户外"
+      }
+    },
+    "gifts": {
+      "name": "礼物",
+      "sub": {
+        "anniversary": "纪念日",
+        "birthday": "生日",
+        "cards": "贺卡",
+        "flowers": "鲜花",
+        "holiday": "节日",
+        "respContribution": "教育储蓄缴款",
+        "wedding": "婚礼"
+      }
+    },
+    "governmentFees": {
+      "name": "行政规费",
+      "sub": {
+        "licencesPermits": "证照与许可",
+        "passport": "护照"
+      }
+    },
+    "healthcare": {
+      "name": "医疗保健",
+      "sub": {
+        "copay": "自付额",
+        "counselling": "心理咨询",
+        "dental": "牙科",
+        "eyecare": "眼科",
+        "fitness": "健身",
+        "healthSavingsAccount": "医疗储蓄账户",
+        "hospital": "住院",
+        "medication": "药品",
+        "physician": "门诊",
+        "physiotherapy": "理疗",
+        "supplies": "医疗用品"
+      }
+    },
+    "housing": {
+      "name": "住房",
+      "sub": {
+        "fees": "费用",
+        "garden": "园艺",
+        "groundRent": "地租",
+        "homeImprovement": "房屋装修",
+        "maintenance": "维修保养",
+        "mortgageInterest": "房贷利息",
+        "mortgagePrincipal": "房贷本金",
+        "rent": "房租",
+        "serviceCharge": "物业费",
+        "supplies": "日用品",
+        "tools": "工具"
+      }
+    },
+    "insurance": {
+      "name": "保险",
+      "sub": {
+        "automobile": "车险",
+        "disability": "伤残保险",
+        "health": "健康保险",
+        "home": "房屋",
+        "life": "人寿保险",
+        "provincialHealthPremium": "省级医疗保险费",
+        "renter": "租客",
+        "travel": "旅行保险"
+      }
+    },
+    "interestExpense": {
+      "name": "利息支出",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "投资收入",
+      "sub": {
+        "capitalGains": "资本利得",
+        "dividends": "股息",
+        "interest": "利息",
+        "respGrant": "教育储蓄补助"
+      }
+    },
+    "leisure": {
+      "name": "休闲",
+      "sub": {
+        "booksMagazines": "图书及杂志",
+        "camping": "露营",
+        "concerts": "演唱会",
+        "culturalEvents": "文化活动",
+        "electronics": "电子产品",
+        "games": "游戏",
+        "hobbies": "兴趣爱好",
+        "movies": "电影",
+        "music": "音乐",
+        "sportingEvents": "体育赛事",
+        "sportingGoods": "运动用品",
+        "sports": "体育运动"
+      }
+    },
+    "loan": {
+      "name": "贷款",
+      "sub": {
+        "loanInterest": "贷款利息",
+        "loanPrincipal": "贷款本金",
+        "studentLoanInterest": "助学贷款利息",
+        "studentLoanPrincipal": "助学贷款本金",
+        "studentLoanRepayment": "助学贷款还款"
+      }
+    },
+    "miscellaneous": {
+      "name": "杂项",
+      "sub": {
+        "other": "其他",
+        "postage": "邮费"
+      }
+    },
+    "otherIncome": {
+      "name": "其他收入",
+      "sub": {
+        "businessReimbursement": "业务报销",
+        "canadaChildBenefit": "儿童福利金（加拿大）",
+        "cashback": "返现",
+        "childBenefit": "儿童福利金",
+        "creditCardReward": "信用卡奖励",
+        "freelance": "自由职业",
+        "giftsReceived": "收到的礼金",
+        "gstHstCredit": "GST/HST退税",
+        "rentalIncome": "租金收入",
+        "stateTaxRefund": "州税退税",
+        "taxRefund": "退税"
+      }
+    },
+    "personalCare": {
+      "name": "个人护理",
+      "sub": {
+        "cosmetics": "化妆品",
+        "dryCleaning": "干洗",
+        "haircut": "理发",
+        "laundry": "洗衣",
+        "spa": "水疗",
+        "toiletries": "洗漱用品"
+      }
+    },
+    "petCare": {
+      "name": "宠物护理",
+      "sub": {
+        "food": "宠物食品",
+        "grooming": "宠物美容",
+        "supplies": "宠物用品",
+        "veterinarian": "兽医"
+      }
+    },
+    "professionalServices": {
+      "name": "专业服务",
+      "sub": {
+        "accounting": "会计",
+        "financialAdvice": "理财咨询",
+        "legal": "法律服务"
+      }
+    },
+    "retirementIncome": {
+      "name": "退休收入",
+      "sub": {
+        "401KWithdrawal": "401(k)提取",
+        "annuity": "年金",
+        "cppQppBenefits": "加拿大/魁北克养老金福利",
+        "iraWithdrawal": "IRA提取",
+        "oasBenefits": "OAS养老金",
+        "pension": "退休金",
+        "retirementAccountWithdrawal": "退休账户提取",
+        "rrifWithdrawal": "RRIF提取",
+        "rrspWithdrawal": "RRSP提取",
+        "socialSecurityBenefits": "社会保障金",
+        "statePension": "国家养老金",
+        "workplacePension": "企业年金"
+      }
+    },
+    "taxes": {
+      "name": "税费",
+      "sub": {
+        "councilTax": "市政税",
+        "cppQppContributions": "加拿大/魁北克养老金缴款",
+        "eiPremiums": "失业保险费",
+        "federalIncomeTax": "联邦所得税",
+        "gstHst": "GST/HST",
+        "incomeTax": "所得税",
+        "localIncomeTax": "地方所得税",
+        "medicareTax": "医疗保险税",
+        "nationalInsurance": "国民保险",
+        "other": "其他",
+        "propertyTax": "房产税",
+        "provincialIncomeTax": "省所得税",
+        "provincialSalesTax": "省销售税",
+        "salesTax": "销售税",
+        "socialSecurityTax": "社会保障税",
+        "stateIncomeTax": "州所得税",
+        "unionDues": "工会会费",
+        "vat": "增值税"
+      }
+    },
+    "technology": {
+      "name": "科技",
+      "sub": {
+        "hardware": "硬件",
+        "software": "软件",
+        "subscriptions": "订阅",
+        "webHosting": "网站托管"
+      }
+    },
+    "transportation": {
+      "name": "交通",
+      "sub": {
+        "bicycle": "自行车",
+        "publicTransit": "公共交通",
+        "rideshare": "网约车",
+        "taxi": "出租车"
+      }
+    },
+    "vacation": {
+      "name": "度假",
+      "sub": {
+        "activities": "活动",
+        "airfare": "机票",
+        "carRental": "租车",
+        "fuel": "燃油",
+        "lodging": "住宿",
+        "miscellaneous": "杂项",
+        "parking": "停车费"
+      }
+    },
+    "wagesSalary": {
+      "name": "工资薪金",
+      "sub": {
+        "bonus": "奖金",
+        "commission": "佣金",
+        "employerMatching": "雇主匹配缴款",
+        "grossPay": "税前工资",
+        "netPay": "税后工资",
+        "overtime": "加班费",
+        "stockOptions": "股票期权",
+        "tips": "小费",
+        "vacationPay": "带薪休假工资"
+      }
+    }
+  }
+}

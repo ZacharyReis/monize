@@ -37,8 +37,12 @@ describe("TransactionsController", () => {
       removeTransfer: jest.fn(),
       updateTransfer: jest.fn(),
       getSummary: jest.fn(),
+      getGroupedTotals: jest.fn(),
+      getTagKeyBreakdown: jest.fn(),
+      getRecurringCharges: jest.fn(),
       bulkUpdate: jest.fn(),
       getRecent: jest.fn(),
+      getFxFeeSummary: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -157,6 +161,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -187,6 +196,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -205,6 +219,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         false,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -247,6 +266,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -278,6 +302,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         true,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -323,7 +352,27 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
       );
+    });
+
+    it("passes hasAttachments through to the service", async () => {
+      mockService.findAll.mockResolvedValue({ data: [], total: 0 });
+
+      // hasAttachments is the last positional param; fill the intervening
+      // query args with undefined so we don't hand-count positions.
+      const args = [mockReq, ...Array(21).fill(undefined), true];
+      await (controller.findAll as (...a: unknown[]) => Promise<unknown>)(
+        ...args,
+      );
+
+      const calls = mockService.findAll.mock.calls as unknown[][];
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[lastCall.length - 1]).toBe(true);
     });
 
     // ── Validation tests ────────────────────────────────────────
@@ -503,6 +552,11 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         ["UNRECONCILED", "CLEARED"],
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -848,6 +902,7 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
     });
 
@@ -872,6 +927,40 @@ describe("TransactionsController", () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+      );
+    });
+
+    it("parses comma-separated tagIds for summary", async () => {
+      mockService.getSummary.mockResolvedValue({});
+
+      await controller.getSummary(
+        mockReq,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        `${uuid1},${uuid2}`,
+      );
+
+      expect(mockService.getSummary).toHaveBeenCalledWith(
+        "user-1",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        [uuid1, uuid2],
       );
     });
 
@@ -915,6 +1004,7 @@ describe("TransactionsController", () => {
         undefined,
         10.5,
         99.99,
+        undefined,
       );
     });
 
@@ -951,6 +1041,209 @@ describe("TransactionsController", () => {
           undefined,
           undefined,
           "xyz",
+        ),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  describe("getGroupedTotals()", () => {
+    it("delegates to service.getGroupedTotals with parsed parameters", async () => {
+      const expected = [
+        {
+          id: uuid1,
+          name: "Groceries",
+          currencyCode: "CAD",
+          total: -10,
+          count: 1,
+        },
+      ];
+      mockService.getGroupedTotals.mockResolvedValue(expected);
+
+      const result = await controller.getGroupedTotals(
+        mockReq,
+        "category",
+        `${uuid1},${uuid2}`,
+        "2024-01-01",
+        "2024-12-31",
+        undefined,
+        uuid3,
+        undefined,
+        "coffee",
+        "-500",
+        "0",
+        "25",
+      );
+
+      expect(result).toEqual(expected);
+      expect(mockService.getGroupedTotals).toHaveBeenCalledWith("user-1", {
+        groupBy: "category",
+        accountIds: [uuid1, uuid2],
+        startDate: "2024-01-01",
+        endDate: "2024-12-31",
+        categoryIds: undefined,
+        payeeIds: [uuid3],
+        tagIds: undefined,
+        search: "coffee",
+        amountFrom: -500,
+        amountTo: 0,
+        limit: 25,
+        includeUnreconciledBeforeStart: false,
+      });
+    });
+
+    it("passes includeUnreconciledBeforeStart through as a boolean", async () => {
+      mockService.getGroupedTotals.mockResolvedValue([]);
+
+      await controller.getGroupedTotals(
+        mockReq,
+        "category",
+        undefined,
+        "2024-06-10",
+        "2024-07-09",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "true",
+      );
+
+      expect(mockService.getGroupedTotals).toHaveBeenCalledWith(
+        "user-1",
+        expect.objectContaining({ includeUnreconciledBeforeStart: true }),
+      );
+    });
+
+    it("rejects a missing or invalid groupBy", () => {
+      expect(() => controller.getGroupedTotals(mockReq)).toThrow(
+        BadRequestException,
+      );
+      expect(() => controller.getGroupedTotals(mockReq, "month")).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("rejects an invalid date and a non-positive limit", () => {
+      expect(() =>
+        controller.getGroupedTotals(mockReq, "payee", undefined, "notadate"),
+      ).toThrow(BadRequestException);
+      expect(() =>
+        controller.getGroupedTotals(
+          mockReq,
+          "payee",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          "0",
+        ),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  describe("getTagKeyBreakdown()", () => {
+    it("delegates to service.getTagKeyBreakdown with the key and parsed filters", async () => {
+      const expected = [
+        { id: "usa", name: "usa", currencyCode: "CAD", total: 200, count: 2 },
+      ];
+      mockService.getTagKeyBreakdown.mockResolvedValue(expected);
+
+      const result = await controller.getTagKeyBreakdown(
+        mockReq,
+        "country",
+        `${uuid1},${uuid2}`,
+        "2024-01-01",
+        "2024-12-31",
+        undefined,
+        uuid3,
+        undefined,
+        "coffee",
+        "-500",
+        "0",
+        "25",
+      );
+
+      expect(result).toBe(expected);
+      expect(mockService.getTagKeyBreakdown).toHaveBeenCalledWith(
+        "user-1",
+        "country",
+        {
+          accountIds: [uuid1, uuid2],
+          startDate: "2024-01-01",
+          endDate: "2024-12-31",
+          categoryIds: undefined,
+          payeeIds: [uuid3],
+          tagIds: undefined,
+          search: "coffee",
+          amountFrom: -500,
+          amountTo: 0,
+          limit: 25,
+        },
+      );
+    });
+
+    it("rejects a missing key", () => {
+      expect(() => controller.getTagKeyBreakdown(mockReq, "  ")).toThrow(
+        BadRequestException,
+      );
+      expect(() => controller.getTagKeyBreakdown(mockReq)).toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe("getRecurringCharges()", () => {
+    it("delegates to service.getRecurringCharges with parsed payeeIds", async () => {
+      const expected = [{ payeeName: "Netflix", frequency: "monthly" }];
+      mockService.getRecurringCharges.mockResolvedValue(expected);
+
+      const result = await controller.getRecurringCharges(
+        mockReq,
+        `${uuid1},${uuid2}`,
+        "2024-01-01",
+        "2024-12-31",
+      );
+
+      expect(result).toEqual(expected);
+      expect(mockService.getRecurringCharges).toHaveBeenCalledWith(
+        "user-1",
+        "2024-01-01",
+        "2024-12-31",
+        [uuid1, uuid2],
+      );
+    });
+
+    it("rejects missing payeeIds or dates", () => {
+      expect(() =>
+        controller.getRecurringCharges(
+          mockReq,
+          undefined,
+          "2024-01-01",
+          "2024-12-31",
+        ),
+      ).toThrow(BadRequestException);
+      expect(() =>
+        controller.getRecurringCharges(mockReq, uuid1, undefined, "2024-12-31"),
+      ).toThrow(BadRequestException);
+      expect(() =>
+        controller.getRecurringCharges(mockReq, uuid1, "2024-01-01"),
+      ).toThrow(BadRequestException);
+    });
+
+    it("rejects an invalid payee UUID", () => {
+      expect(() =>
+        controller.getRecurringCharges(
+          mockReq,
+          "not-a-uuid",
+          "2024-01-01",
+          "2024-12-31",
         ),
       ).toThrow(BadRequestException);
     });
@@ -993,6 +1286,11 @@ describe("TransactionsController", () => {
         undefined,
         -100.5,
         500.25,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         undefined,
         undefined,
       );
@@ -1107,6 +1405,82 @@ describe("TransactionsController", () => {
     });
   });
 
+  describe("findAll() tag key filter", () => {
+    const callWithTagKey = (
+      tagKey?: string,
+      tagKeyOp?: string,
+      tagKeyValue?: string,
+    ) =>
+      controller.findAll(
+        mockReq,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        tagKey,
+        tagKeyOp,
+        tagKeyValue,
+      );
+
+    it("builds a hasValue filter and passes it to the service (arg 17)", async () => {
+      mockService.findAll.mockResolvedValue({ data: [], total: 0 });
+      await callWithTagKey("country", "hasValue");
+      expect(mockService.findAll.mock.calls[0][17]).toEqual({
+        key: "country",
+        op: "hasValue",
+        value: undefined,
+      });
+    });
+
+    it("builds a contains filter with the value", async () => {
+      mockService.findAll.mockResolvedValue({ data: [], total: 0 });
+      await callWithTagKey("country", "contains", "usa");
+      expect(mockService.findAll.mock.calls[0][17]).toEqual({
+        key: "country",
+        op: "contains",
+        value: "usa",
+      });
+    });
+
+    it("defaults the op to hasValue when omitted", async () => {
+      mockService.findAll.mockResolvedValue({ data: [], total: 0 });
+      await callWithTagKey("country");
+      expect(mockService.findAll.mock.calls[0][17]).toEqual({
+        key: "country",
+        op: "hasValue",
+        value: undefined,
+      });
+    });
+
+    it("passes undefined when no tagKey is given", async () => {
+      mockService.findAll.mockResolvedValue({ data: [], total: 0 });
+      await controller.findAll(mockReq);
+      expect(mockService.findAll.mock.calls[0][17]).toBeUndefined();
+    });
+
+    it("rejects an invalid op", async () => {
+      await expect(callWithTagKey("country", "bogus")).rejects.toThrow();
+    });
+
+    it("requires a value for contains / notContains", async () => {
+      await expect(callWithTagKey("country", "contains")).rejects.toThrow();
+      await expect(callWithTagKey("country", "notContains")).rejects.toThrow();
+    });
+  });
+
   describe("getMonthlyTotals() amount filters", () => {
     it("parses amountFrom and amountTo as floats for monthly totals", async () => {
       mockService.getMonthlyTotals = jest.fn().mockResolvedValue([]);
@@ -1166,6 +1540,31 @@ describe("TransactionsController", () => {
           "xyz",
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("getFxFeeSummary()", () => {
+    it("delegates to service.getFxFeeSummary with userId and accountId", async () => {
+      const expected = [
+        { month: "2026-01", currencyCode: "EUR", feeTotal: 12.5, count: 3 },
+      ];
+      mockService.getFxFeeSummary.mockResolvedValue(expected);
+
+      const result = await controller.getFxFeeSummary(mockReq, uuid1);
+
+      expect(result).toEqual(expected);
+      expect(mockService.getFxFeeSummary).toHaveBeenCalledWith("user-1", uuid1);
+    });
+
+    it("returns empty for a delegate without READ access to the account", async () => {
+      const delegateReq = {
+        user: { id: "user-1", isActing: true, delegationId: "delegation-1" },
+      };
+
+      const result = await controller.getFxFeeSummary(delegateReq, uuid1);
+
+      expect(result).toEqual([]);
+      expect(mockService.getFxFeeSummary).not.toHaveBeenCalled();
     });
   });
 });

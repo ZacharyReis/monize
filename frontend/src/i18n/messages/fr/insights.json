@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "IA non configurée",
-    "message": "Aucun fournisseur IA n'est configuré. Pour utiliser les Analyses des dépenses, veuillez {link} dans vos paramètres.",
-    "linkText": "configurer un fournisseur IA"
+    "message": "Aucun fournisseur IA n'est configuré. Pour utiliser les Analyses des dépenses, veuillez {link} dans vos paramètres."
   },
   "insightTypes": {
     "anomaly": "Anomalie",

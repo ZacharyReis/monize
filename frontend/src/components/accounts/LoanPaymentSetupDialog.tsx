@@ -401,7 +401,7 @@ export function LoanPaymentSetupDialog({
                   onChange={(e) =>
                     setInterestRate(e.target.value ? Number(e.target.value) : undefined)
                   }
-                  placeholder="e.g., 5.5"
+                  placeholder={t('loanPaymentSetup.interestRatePlaceholder')}
                 />
                 {detected?.estimatedInterestRate && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -440,6 +440,7 @@ export function LoanPaymentSetupDialog({
                   options={payeeOptions}
                   placeholder={t('loanPaymentSetup.selectOrCreatePayee')}
                   allowCustomValue={true}
+                  valueIsId
                 />
               </div>
 

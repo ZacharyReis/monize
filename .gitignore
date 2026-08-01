@@ -36,6 +36,9 @@ logs/
 # Docker
 docker-compose.override.yml
 
+# Container data mounted from the host (BACKUP_HOST_DIR, ATTACHMENT_HOST_DIR)
+/monize/
+
 # Testing
 coverage/
 .nyc_output/

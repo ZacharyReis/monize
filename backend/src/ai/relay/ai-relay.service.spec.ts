@@ -1,4 +1,8 @@
-import { AiRelayService } from "./ai-relay.service";
+import {
+  AiRelayService,
+  INACTIVITY_TIMEOUT_MS,
+  trimRelayHistory,
+} from "./ai-relay.service";
 import { RelayAttachmentStore } from "./relay-attachment.store";
 
 const USER = "user-1";
@@ -74,6 +78,20 @@ describe("AiRelayService", () => {
     expect(claimed?.history).toEqual(history);
   });
 
+  it("trims a long history before handing it to the agent", async () => {
+    // 30 short turns -> only the most recent 10 reach the agent.
+    const history = Array.from({ length: 30 }, (_, i) => ({
+      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      content: `turn ${i}`,
+    }));
+    service.enqueuePrompt(USER, "q", history);
+    const claimed = await service.waitForPrompt(USER);
+    expect(claimed?.history).toHaveLength(10);
+    // Newest kept, oldest-first order preserved.
+    expect(claimed?.history[0].content).toBe("turn 20");
+    expect(claimed?.history[9].content).toBe("turn 29");
+  });
+
   it("rejects post_response for an unknown or foreign prompt", async () => {
     service.enqueuePrompt(USER, "q", []);
     const claimed = await service.waitForPrompt(USER);
@@ -125,10 +143,35 @@ describe("AiRelayService", () => {
       expect(emit).not.toHaveBeenCalled();
     });
 
-    it("returns false when the in-flight prompt has no emit channel", async () => {
+    it("buffers the card (no live stream) when the in-flight prompt has no emit channel", async () => {
+      // A relay turn exists for the user but its stream cannot receive events;
+      // the card is buffered for pickup rather than reported as "not relay".
       service.enqueuePrompt(USER, "q", []);
       await service.waitForPrompt(USER);
+      expect(service.emitPendingAction(USER, action)).toBe(true);
+      expect(service.takeBufferedActions(USER)).toEqual([action]);
+    });
+
+    it("buffers a card emitted after the turn timed out, for pickup", () => {
+      // Simulate a claimed prompt that idle-timed-out: the agent kept composing
+      // a large call, the browser gave up, and the card lands afterwards.
+      const pending = service.enqueuePrompt(USER, "bulk edit", [], jest.fn());
+      pending.catch(() => undefined);
+      void service.waitForPrompt(USER);
+      // Past the idle window: the prompt leaves inFlight, but the user still has
+      // a relay turn (the awaitingLate marker), so a card landing now must be
+      // buffered, not dropped or reported as non-relay.
+      jest.advanceTimersByTime(180 * 1000);
+
+      expect(service.emitPendingAction(USER, action)).toBe(true);
+      expect(service.takeBufferedActions(USER)).toEqual([action]);
+      // Drained on pickup -- a second pickup is empty.
+      expect(service.takeBufferedActions(USER)).toEqual([]);
+    });
+
+    it("does not buffer a card for a user with no relay turn (direct MCP client)", () => {
       expect(service.emitPendingAction(USER, action)).toBe(false);
+      expect(service.takeBufferedActions(USER)).toEqual([]);
     });
   });
 
@@ -266,8 +309,8 @@ describe("AiRelayService", () => {
         name: "RelayTimeoutError",
         reason: "disconnected",
       });
-      // 90s of total silence after the claim.
-      jest.advanceTimersByTime(90 * 1000);
+      // 180s of total silence after the claim.
+      jest.advanceTimersByTime(180 * 1000);
       await assertion;
     });
 
@@ -276,7 +319,7 @@ describe("AiRelayService", () => {
       const pending = service.enqueuePrompt(USER, "q", [], emit);
       const claimed = await service.waitForPrompt(USER);
 
-      // Report liveness every 60s for 5 minutes -- never silent for a full 90s.
+      // Report liveness every 60s for 5 minutes -- never silent for a full 180s.
       for (let i = 0; i < 5; i++) {
         jest.advanceTimersByTime(60 * 1000);
         service.reportProgress(USER, claimed!.promptId, `step ${i}`);
@@ -319,7 +362,7 @@ describe("AiRelayService", () => {
       const assertion = expect(pending).rejects.toMatchObject({
         reason: "disconnected",
       });
-      jest.advanceTimersByTime(90 * 1000);
+      jest.advanceTimersByTime(180 * 1000);
       await assertion;
 
       // The agent recovers and posts late: not dropped, returns true (success).
@@ -339,7 +382,7 @@ describe("AiRelayService", () => {
       const pending = service.enqueuePrompt(USER, "q", []);
       const claimed = await service.waitForPrompt(USER);
       pending.catch(() => undefined);
-      jest.advanceTimersByTime(90 * 1000);
+      jest.advanceTimersByTime(180 * 1000);
 
       expect(service.postResponse(USER, claimed!.promptId, "first")).toBe(true);
       // Second post for the same prompt is a no-op success.
@@ -355,7 +398,7 @@ describe("AiRelayService", () => {
       const pending = service.enqueuePrompt(USER, "q", []);
       const claimed = await service.waitForPrompt(USER);
       pending.catch(() => undefined);
-      jest.advanceTimersByTime(90 * 1000);
+      jest.advanceTimersByTime(180 * 1000);
       service.postResponse(USER, claimed!.promptId, "secret");
 
       expect(service.takeBufferedResponse(OTHER, claimed!.promptId)).toBeNull();
@@ -365,7 +408,7 @@ describe("AiRelayService", () => {
       const pending = service.enqueuePrompt(USER, "q", []);
       const claimed = await service.waitForPrompt(USER);
       pending.catch(() => undefined);
-      jest.advanceTimersByTime(90 * 1000);
+      jest.advanceTimersByTime(180 * 1000);
       service.postResponse(USER, claimed!.promptId, "stale");
 
       // Past the 10-minute buffer TTL.
@@ -383,7 +426,7 @@ describe("AiRelayService", () => {
         promptIds.push(claimed!.promptId);
         // Advance just enough to expire this prompt's idle timer; stay under the
         // buffer TTL so earlier entries are not pruned by age, only by the cap.
-        jest.advanceTimersByTime(90 * 1000);
+        jest.advanceTimersByTime(180 * 1000);
         service.postResponse(USER, claimed!.promptId, `a${i}`);
       }
 
@@ -477,6 +520,104 @@ describe("AiRelayService", () => {
           { ...pngAttachment, mediaType: "application/pdf", kind: "pdf" },
         ]),
       ).toThrow();
+    });
+  });
+
+  describe("inactivity disconnect", () => {
+    it("signals stop after the inactivity timeout of empty polls", () => {
+      // First empty poll just starts the idle clock.
+      expect(service.shouldStopForIdle(USER)).toBe(false);
+      expect(service.getStatus(USER).idleDisconnected).toBeFalsy();
+
+      // Still within the window: keep listening.
+      jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS - 1000);
+      expect(service.shouldStopForIdle(USER)).toBe(false);
+
+      // Past the window: stop and flag the disconnect for the chat.
+      jest.advanceTimersByTime(2000);
+      expect(service.shouldStopForIdle(USER)).toBe(true);
+      expect(service.getStatus(USER).idleDisconnected).toBe(true);
+    });
+
+    it("resets the idle clock when a new prompt arrives", () => {
+      expect(service.shouldStopForIdle(USER)).toBe(false);
+      jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS + 1000);
+
+      // A new prompt is activity: it clears the clock and any disconnect flag.
+      // (Swallow the eventual timeout rejection; this test never answers it.)
+      service.enqueuePrompt(USER, "still here", []).catch(() => {});
+      expect(service.getStatus(USER).idleDisconnected).toBeFalsy();
+
+      // The clock restarts from the next empty poll, so it does not immediately stop.
+      expect(service.shouldStopForIdle(USER)).toBe(false);
+    });
+
+    it("clears the idle-disconnect flag once the agent polls again (reconnect)", async () => {
+      service.shouldStopForIdle(USER);
+      jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS + 1000);
+      expect(service.shouldStopForIdle(USER)).toBe(true);
+      expect(service.getStatus(USER).idleDisconnected).toBe(true);
+
+      // The agent reconnects and polls: the flag clears (status no longer idle).
+      const poll = service.waitForPrompt(USER);
+      expect(service.getStatus(USER).idleDisconnected).toBeFalsy();
+      jest.advanceTimersByTime(30 * 1000);
+      await poll;
+    });
+
+    it("does not trip while a conversation is active (claim resets the clock)", () => {
+      // Swallow the eventual in-flight timeout rejection; this test never answers it.
+      service.enqueuePrompt(USER, "q1", []).catch(() => {});
+      // Claiming the queued prompt counts as activity and resets the clock.
+      service.waitForPrompt(USER);
+      jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS - 1000);
+      // First empty poll after the claim only starts the clock again.
+      expect(service.shouldStopForIdle(USER)).toBe(false);
+    });
+  });
+
+  describe("trimRelayHistory", () => {
+    it("returns a short history unchanged", () => {
+      const history = [
+        { role: "user" as const, content: "hi" },
+        { role: "assistant" as const, content: "hello" },
+      ];
+      expect(trimRelayHistory(history)).toEqual(history);
+    });
+
+    it("keeps only the most recent turns, oldest first", () => {
+      const history = Array.from({ length: 25 }, (_, i) => ({
+        role: "user" as const,
+        content: `m${i}`,
+      }));
+      const trimmed = trimRelayHistory(history);
+      expect(trimmed).toHaveLength(10);
+      expect(trimmed[0].content).toBe("m15");
+      expect(trimmed[9].content).toBe("m24");
+    });
+
+    it("drops older turns once the char budget is exhausted", () => {
+      // Three 5000-char turns: only the two newest fit the 12000 budget.
+      const big = (n: number) => ({
+        role: "assistant" as const,
+        content: String(n).repeat(5000),
+      });
+      const trimmed = trimRelayHistory([big(1), big(2), big(3)]);
+      expect(trimmed).toHaveLength(2);
+      expect(trimmed[0].content[0]).toBe("2");
+      expect(trimmed[1].content[0]).toBe("3");
+    });
+
+    it("keeps but truncates a single newest turn that exceeds the budget", () => {
+      const huge = { role: "assistant" as const, content: "x".repeat(20000) };
+      const trimmed = trimRelayHistory([huge]);
+      expect(trimmed).toHaveLength(1);
+      expect(trimmed[0].content.length).toBeLessThan(20000);
+      expect(trimmed[0].content.endsWith("[truncated]")).toBe(true);
+    });
+
+    it("returns an empty array for an empty history", () => {
+      expect(trimRelayHistory([])).toEqual([]);
     });
   });
 });

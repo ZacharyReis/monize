@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Tuần bắt đầu vào",
     "showCreatedAtLabel": "Hiển thị ngày tạo trong biểu mẫu giao tác",
     "showCreatedAtTooltip": "Hiển thị ngày và giờ giao tác được tạo ban đầu trên biểu mẫu giao tác. Điều này khác với ngày giao tác và có thể giúp bạn biết khi nào mục nhập thực sự được thêm vào Monize.",
+    "showWhatsNewLabel": "Hiển thị Có gì mới sau khi nâng cấp",
+    "showWhatsNewTooltip": "Hiển thị bản tóm tắt ghi chú phát hành trong lần đầu tiên bạn đăng nhập sau khi Monize cập nhật lên phiên bản mới. Bạn luôn có thể mở lại bằng cách nhấp vào số phiên bản ở cuối trang này hoặc trên màn hình đăng nhập.",
     "timeFormatLabel": "Định dạng giờ",
     "recentTransactionsLabel": "Giao tác gần đây trong điền nhanh",
     "recentTransactionsHelp": "Số mục được hiển thị trong cửa sổ bật lên lịch sử bên cạnh trường Người nhận trên biểu mẫu giao tác.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Không thể lưu giao diện màu sắc"
     },
     "browserLocale": "Sử dụng ngôn ngữ trình duyệt (tự động phát hiện)",
-    "browserTimezonePrefix": "Sử dụng múi giờ trình duyệt (tự động phát hiện là {tz})",
     "numberFormatOptions": {
       "browser": "Sử dụng ngôn ngữ trình duyệt (tự động phát hiện: {sample})",
       "enUS": "Tiếng Anh (Mỹ) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Duyệt các hướng dẫn và tài liệu."
+    },
+    "supportBackup": {
+      "label": "Tạo bản sao lưu hỗ trợ",
+      "description": "Chia sẻ bản sao dữ liệu đã ẩn danh và mã hoá để người bảo trì có thể tái hiện lỗi mà không thấy tên hay số tiền thật của bạn."
     }
+  },
+  "supportBackup": {
+    "title": "Tạo bản sao lưu hỗ trợ",
+    "howItWorks": "Tạo một bản sao đã ẩn danh của bản sao lưu: tên bị che (giữ hai ký tự đầu và cuối), ghi chú/mô tả/số tài khoản bị xoá, và mọi số tiền được nhân với một hệ số ẩn duy nhất, trong khi các giá trị công khai (tỷ giá, giá, lãi suất) giữ nguyên. Tệp luôn được mã hoá bằng mật khẩu bên dưới và khôi phục như bản sao lưu bình thường. Điều này bảo vệ trước sự lộ lọt tình cờ, không phải trước người đã biết bạn — ngày tháng, tần suất và cấu trúc được giữ để lỗi vẫn tái hiện được.",
+    "sectionsLabel": "Bao gồm những gì",
+    "sections": {
+      "investments": "Đầu tư (chứng khoán, nắm giữ, giá)",
+      "scheduled": "Giao dịch định kỳ",
+      "budgets": "Ngân sách",
+      "reports": "Báo cáo & dự phóng",
+      "importMappings": "Ánh xạ cột nhập liệu",
+      "autoBackup": "Cài đặt sao lưu tự động"
+    },
+    "priceHistoryLabel": "Bao gồm lịch sử giá chứng khoán",
+    "priceHistoryHint": "Mặc định tắt: chuỗi giá đầy đủ trùng với dữ liệu thị trường công khai và có thể nhận diện mã đã che. Chỉ bật khi lỗi liên quan đến giá hoặc định giá.",
+    "accountsLabel": "Giới hạn ở các tài khoản cụ thể",
+    "accountsHint": "Bỏ trống tất cả để bao gồm mọi tài khoản. Chọn một phần cũng kéo theo các tài khoản và người nhận được tham chiếu.",
+    "dateRangeLabel": "Khoảng thời gian (tuỳ chọn)",
+    "dateRangeHint": "Giới hạn lịch sử xuất trong các ngày này. Số dư đầu kỳ được điều chỉnh để tệp đã cắt vẫn khớp sổ.",
+    "dateFromLabel": "Từ",
+    "dateToLabel": "Đến",
+    "multiplierLabel": "Hệ số nhân số tiền",
+    "multiplierHint": "Mọi số tiền riêng tư được nhân với số này để ẩn giá trị thật trong khi vẫn giữ tính nhất quán. Bất kỳ số không nguyên lớn hơn 1 nào cũng được; “Tạo lại” chọn số mới.",
+    "multiplierWarning": "Đừng chia sẻ hệ số nhân với bất kỳ ai — đó là chìa khoá đảo ngược các số tiền đã ẩn.",
+    "multiplierInvalid": "Nhập một số không nguyên lớn hơn 1.",
+    "regenerate": "Tạo lại",
+    "passwordLabel": "Mật khẩu mã hoá",
+    "preview": "Xem trước",
+    "previewLabel": "Xem trước",
+    "previewBefore": "Trước",
+    "previewAfter": "Sau",
+    "previewEmpty": "Không có hàng mẫu để xem trước cho lựa chọn này.",
+    "previewFailed": "Không thể tạo bản xem trước. Vui lòng thử lại.",
+    "generate": "Tạo",
+    "confirmPasswordTitle": "Bạn đã lưu mật khẩu chưa?",
+    "confirmPasswordMessage": "Tệp chỉ có thể mở bằng mật khẩu mã hoá hiển thị ở trên. Mật khẩu không được lưu ở đâu cả và không thể khôi phục sau này — hãy chắc chắn bạn đã lưu trước khi tạo.",
+    "confirmPasswordConfirm": "Đã lưu — tạo",
+    "generatedToast": "Đã tải xuống bản sao lưu hỗ trợ.",
+    "generateFailed": "Không thể tạo bản sao lưu hỗ trợ. Vui lòng thử lại.",
+    "passwordHint": "Tệp luôn được mã hoá. Hãy chuyển mật khẩu này cho người điều tra qua kênh riêng, không gửi kèm tệp.",
+    "passwordInvalid": "Nhập ít nhất 8 ký tự."
   },
   "dangerZone": {
     "heading": "Khu vực nguy hiểm",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Sao lưu tự động",
-    "description": "Tự động sao lưu dữ liệu của bạn vào một thư mục theo lịch. Vì Monize chạy trong Docker, bạn phải ánh xạ một thư mục máy chủ vào container dưới dạng volume (VD: -v /host/backups:/backups).",
+    "description": "Tự động sao lưu dữ liệu của bạn vào một thư mục theo lịch. Vì Monize chạy trong Docker, bạn phải ánh xạ một thư mục máy chủ vào container dưới dạng volume (VD: -v /host/backups:/data/backups).",
     "loadingText": "Đang tải...",
     "enableLabel": "Bật sao lưu tự động",
     "backupFolderLabel": "Thư mục sao lưu",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Duyệt...",
     "validateButton": "Xác thực",
     "validatingButton": "Đang xác thực...",

@@ -1,0 +1,19 @@
+{
+  "title": "Attachments",
+  "empty": "No attachments yet",
+  "upload": "Add attachment",
+  "download": "Download",
+  "delete": "Delete",
+  "remove": "Remove",
+  "pendingHint": "Files will be uploaded when you save the transaction.",
+  "deleteConfirmTitle": "Delete attachment?",
+  "deleteConfirmMessage": "\"{name}\" will be permanently deleted.",
+  "uploaded": "Attachment added",
+  "deleted": "Attachment deleted",
+  "loadFailed": "Failed to load attachments",
+  "uploadFailed": "Failed to upload attachment",
+  "deleteFailed": "Failed to delete attachment",
+  "tooLarge": "File is too large (maximum {max})",
+  "unsupported": "Unsupported file type. Allowed: images or PDF",
+  "tooMany": "Maximum {max} attachments per transaction"
+}

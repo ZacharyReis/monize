@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Schuldentilgungs-Zeitplan",
       "loan-amortization": "Tilgungsplan",
       "credit-utilization": "Kreditauslastung",
+      "loan-overpayment-simulator": "Kredit-Sondertilgungs-Simulator",
       "investment-performance": "Anlageperformance",
       "dividend-income": "Gewinne, Dividenden & Zinsen",
       "sector-weightings": "Sektorgewichtungen",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Wertpapiertyp-Allokation",
       "geographic-allocation": "Geografische Allokation",
       "dividend-yield-growth": "Dividendenrendite & Wachstum",
-      "security-performance": "Einzelne Wertpapierperformance",
+      "security-performance": "Wertpapierperformance",
       "currency-exposure": "Währungsrisiko",
       "monte-carlo-simulation": "Monte Carlo Simulation",
       "recurring-expenses": "Wiederkehrende Ausgaben",
       "spending-anomalies": "Ausgabenanomalien",
       "weekend-weekday-spending": "Wochenend- vs. Wochentagsausgaben",
       "monthly-comparison": "Monatsvergleich",
+      "foreign-currency-fees": "Fremdwährungs-Transaktionsgebühren",
       "uncategorized-transactions": "Nicht kategorisierte Buchungen",
       "duplicate-transactions": "Doppelte Buchungen finden",
       "upcoming-bills": "Rechnungskalender",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualisieren Sie Ihren Schuldenabbau mit Prognosen für die Tilgungsdaten.",
       "loan-amortization": "Detaillierte Zahlungspläne für Hypotheken und Darlehen mit Tilgungs-/Zinsaufschlüsselung.",
       "credit-utilization": "Sehen Sie, wie viel Ihres verfügbaren Kreditrahmens Sie auf Kreditkarten und Kreditlinien nutzen.",
+      "loan-overpayment-simulator": "Wählen Sie einen Kredit und simulieren Sie zusätzliche Zahlungen, um zu sehen, wie viel früher er getilgt wäre und wie viel Zinsen Sie sparen würden.",
       "investment-performance": "Verfolgen Sie Portfolio-Renditen, Gewinne/Verluste und Asset-Allokation.",
       "dividend-income": "Verfolgen Sie Kapitalerträge und -verluste (realisiert und unrealisiert) sowie Dividenden- und Zinseinnahmen.",
       "sector-weightings": "Analysieren Sie das Sektor-Exposure Ihres Portfolios aus Einzelaktien und ETFs.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Zeigen Sie die Portfolio-Allokation nach Anlageklasse (Aktien, ETFs, Investmentfonds, Anleihen) mit Drill-down in Positionen an.",
       "geographic-allocation": "Analysieren Sie die geografische Gewichtung Ihres Portfolios nach Börse und Region.",
       "dividend-yield-growth": "Verfolgen Sie Dividendenrendite, Renditen je Wertpapier, jährliches Wachstum und Häufigkeitsanalyse.",
-      "security-performance": "Tiefgehende Analyse einzelner Wertpapiere mit Kursverlauf, Buchungen und Renditen.",
+      "security-performance": "Detaillierte Analyse von Kursverlauf, Buchungen und Renditen eines Wertpapiers – oder Vergleich der Wertentwicklung mehrerer Wertpapiere in einem Diagramm.",
       "currency-exposure": "Verstehen Sie das Währungsrisiko mit Portfolio-Allokation nach Währung und Wechselkursdetails.",
       "monte-carlo-simulation": "Projizieren Sie künftige Portfolio-Ergebnisse mit tausenden zufälliger Renditepfade und einer gespeicherten Szenariobibliothek.",
       "recurring-expenses": "Abonnements, Mitgliedschaften und wiederkehrende Abbuchungen erkennen und überwachen.",
       "spending-anomalies": "Ungewöhnlich hohe Buchungen und Ausgabenspitzen erkennen, die Aufmerksamkeit erfordern.",
       "weekend-weekday-spending": "Analysieren Sie Ihre Ausgabenmuster nach Wochentag, um Gewohnheiten zu verstehen.",
       "monthly-comparison": "Vergleichen Sie jeden Monat mit dem Vormonat für Einnahmen, Ausgaben, Reinvermögen und Investitionen.",
+      "foreign-currency-fees": "Verfolgen Sie die Fremdwährungsgebühren, die auf Konten mit einer Umrechnungsgebühr berechnet werden.",
       "uncategorized-transactions": "Buchungen ohne Kategorie finden und kategorisieren.",
       "duplicate-transactions": "Potenzielle Doppeleinträge identifizieren, die überprüft oder gelöscht werden müssen.",
       "upcoming-bills": "Visueller Kalender terminierter Buchungen und bevorstehender Fälligkeitsdaten.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Berichtsdaten konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "retry": "Erneut versuchen"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Für kein Konto ist eine Fremdwährungsgebühr konfiguriert. Legen Sie einen Gebührensatz für ein Konto fest, um dessen Fremdwährungsgebühren hier zu verfolgen."
   },
   "accountBalances": {
     "totalAssets": "Gesamte Aktiva",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Ende: ",
     "cashFlowEventPdfStarts": "Beginnt: ",
     "cashFlowEventPdfEnds": "Endet: ",
-    "cashFlowDefaultName": "Cashflow",
     "cashFlowPerYear": "/ Jahr",
     "tooltipRow90th": "90. Perzentil",
     "tooltipRow75th": "75. Perzentil",
@@ -1104,6 +1110,10 @@
     "noData": "Keine Anlagedaten für diesen Zeitraum.",
     "tooltipPortfolio": "Portfolio:",
     "allAccounts": "Alle Konten",
+    "viewTotal": "Gesamt",
+    "viewSecurities": "Nach Wertpapier",
+    "seriesCash": "Bargeld",
+    "seriesOther": "Andere Wertpapiere",
     "colDate": "Datum",
     "colPortfolioValue": "Portfolio-Wert",
     "breakdownTitle": "Aktuelle Portfolio-Aufschlüsselung",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% des Portfolios"
   },
   "securityPerformance": {
-    "selectPrompt": "Wählen Sie oben ein Wertpapier aus, um dessen Performancedetails anzuzeigen.",
-    "selectSecurityPlaceholder": "Wertpapier auswählen...",
+    "selectPrompt": "Wählen Sie oben ein oder mehrere Wertpapiere aus, um ihre Wertentwicklung anzuzeigen. Wählen Sie zwei oder mehr, um sie in einem Diagramm zu vergleichen.",
+    "selectSecuritiesPlaceholder": "Wertpapiere auswählen...",
+    "comparisonTitle": "Wertentwicklungsvergleich",
+    "comparisonSubtitle": "Kumulierte Rendite jedes ausgewählten Wertpapiers, auf 0 % zum ersten verfügbaren Kurs normiert, sodass sie unabhängig von Kurs oder Währung auf einer Skala vergleichbar sind.",
+    "comparisonNoData": "Für die ausgewählten Wertpapiere ist kein Kursverlauf verfügbar.",
+    "comparisonError": "Kursverlauf konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
     "viewPriceChart": "Kursdiagramm",
     "viewTransactions": "Buchungen",
     "viewDividends": "Dividenden",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Positionen gesamt",
     "largestType": "Größte Klasse",
     "assetTypeAllocation": "Anlageklassen-Allokation",
-    "typeStocks": "Aktien",
-    "typeEtfs": "ETFs",
-    "typeMutualFunds": "Investmentfonds",
-    "typeBonds": "Anleihen",
-    "typeCash": "Bargeld",
     "holdingsCount": "{count, plural, one {# Konto} other {# Konten}}",
     "total": "Gesamt",
     "tooltipHoldings": "{count, plural, one {# Position} other {# Positionen}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "Name ist erforderlich"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Kreditkonto auswählen",
+    "viewTransactions": "Transaktionen anzeigen",
+    "empty": "Keine Kredit-, Hypotheken- oder Kreditlinienkonten gefunden."
   }
 }

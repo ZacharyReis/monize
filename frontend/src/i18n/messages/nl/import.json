@@ -41,7 +41,11 @@
     "importingTo": "Importeren naar:",
     "clickToSelect": "Klik om bestand(en) te selecteren",
     "processing": "Verwerken...",
-    "acceptedFormats": "QIF, OFX, QFX of CSV"
+    "acceptedFormats": "QIF, OFX, QFX of CSV",
+    "wikiNotice": {
+      "title": "Voordat u importeert",
+      "body": "Lees het wiki-gedeelte <money>Importing from Microsoft Money</money> of <quicken>Importing from Quicken</quicken> voordat u iets importeert."
+    }
   },
   "selectAccount": {
     "headingSingle": "Doelrekening selecteren",

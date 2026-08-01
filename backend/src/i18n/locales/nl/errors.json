@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Deze rekening heeft al een geplande betaling ingesteld. Bewerk de bestaande geplande transactie in plaats daarvan.",
     "sourceNotFound": "Bronrekening niet gevonden",
     "ambiguousBrokerage": "\"{{ query }}\" komt overeen met meerdere effectenrekeningen: {{ list }}. Gebruik de exacte rekeningnaam.",
-    "unknownInvestmentAccount": "Onbekende rekening: {{ name }}. Gebruik een exacte naam uit de rekeninglijst van de gebruiker."
+    "unknownInvestmentAccount": "Onbekende rekening: {{ name }}. Gebruik een exacte naam uit de rekeninglijst van de gebruiker.",
+    "notACreditCard": "Afschriftperiodes zijn alleen beschikbaar voor creditcardrekeningen",
+    "noStatementSettlementDay": "Voor deze creditcard is geen afsluitdag van het afschrift ingesteld"
   },
   "actionHistory": {
     "nothingToUndo": "Niets om ongedaan te maken",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Geen actieve AI-providers geconfigureerd. Configureer een provider in AI-instellingen.",
     "allProvidersFailed": "Alle AI-providers zijn mislukt. Controleer je providerconfiguratie en probeer het opnieuw.",
     "noToolUseProvider": "Geen AI-provider met ondersteuning voor toolgebruik geconfigureerd. Zoekopdrachten in gewone taal vereisen Anthropic, OpenAI of Ollama. Configureer er een in AI-instellingen.",
+    "relayAgentOffline": "Je MCP-relay-agent is niet verbonden. Verbind je agent en probeer het opnieuw.",
+    "relayCompletionTimedOut": "Je MCP-relay-agent heeft niet op tijd geantwoord. Zorg ervoor dat deze verbonden is en probeer het opnieuw.",
     "baseUrlInvalidBasic": "baseUrl moet een geldige HTTP- of HTTPS-URL zijn",
     "baseUrlInvalidExternal": "baseUrl moet een geldige HTTP/HTTPS-URL zijn die verwijst naar een externe host",
     "ollamaCloudApiKeyRequired": "apiKey is verplicht voor de ollama-cloud-provider",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Een bijlage overschrijdt de maximale bestandsgrootte.",
     "attachmentCorrupt": "Een bijlage kon niet worden gelezen of is niet het bestandstype dat het beweert te zijn.",
     "attachmentsTooLarge": "De bijlagen overschrijden de totale groottelimiet.",
+    "attachmentRefExpired": "Het bijgevoegde bestand is niet meer beschikbaar. Upload het opnieuw en vraag het nog een keer.",
     "modelNoImageSupport": "Het geselecteerde AI-model kan geen afbeeldingen of PDF's lezen. Verwijder de bijlage en stel je vraag in tekst, of schakel over naar een model met beeldondersteuning in AI-instellingen."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Onjuist wachtwoord"
   },
   "backup": {
-    "folderPathRequired": "Er moet een mappad worden ingesteld voordat automatische back-ups worden ingeschakeld",
     "folderNotExist": "Map bestaat niet: {{ safePath }}",
     "folderAccessError": "Kan map niet openen: {{ safePath }}",
     "pathNotDirectory": "Pad is geen map: {{ safePath }}",
-    "notConfigured": "Automatische back-up is niet geconfigureerd. Stel eerst een mappad in.",
     "userNotFound": "Gebruiker {{ userId }} niet gevonden",
     "encryptedPasswordDecryptFailed": "Versleutelde back-ups zijn ingeschakeld, maar het opgeslagen wachtwoord kon niet worden ontsleuteld. Schakel versleuteling opnieuw in via Beveiligingsinstellingen.",
     "pathTraversal": "Padtraversal gedetecteerd: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Ongeldig CSRF-token",
     "demoModeRestricted": "Deze actie is niet beschikbaar in de demomodus.",
     "serviceNotReady": "Service niet gereed",
-    "oauthProviderNotInitialized": "OAuth-provider niet geïnitialiseerd"
+    "oauthProviderNotInitialized": "OAuth-provider niet geïnitialiseerd",
+    "invalidCurrencyCode": "Ongeldige valutacode: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Valuta \"{{ code }}\" staat al in je lijst",
     "notFound": "Valuta \"{{ code }}\" niet gevonden",
     "cannotModifySystem": "Kan systeemvalutametadata niet wijzigen",
     "cannotModifyOther": "Kan de valuta van een andere gebruiker niet wijzigen",
-    "inUse": "Valuta \"{{ code }}\" is in gebruik door je rekeningen, waardepapieren of andere records. Deactiveer deze in plaats daarvan."
+    "inUse": "Valuta \"{{ code }}\" is in gebruik door je rekeningen, waardepapieren of andere records. Deactiveer deze in plaats daarvan.",
+    "invalidRateDate": "date moet de indeling JJJJ-MM-DD hebben",
+    "alreadyInListInactive": "Valuta \"{{ code }}\" staat al in je lijst, maar is momenteel inactief. Activeer deze opnieuw om te gebruiken."
   },
   "delegation": {
     "delegatedAccessInvalid": "Gedelegeerde toegang is niet meer geldig",
@@ -254,6 +260,7 @@
     "passwordBreached": "Dit wachtwoord is aangetroffen in een datalek. Kies een ander wachtwoord."
   },
   "http": {
+    "forbidden": "Toegang geweigerd",
     "tooManyRequests": "Te veel verzoeken. Wacht een paar minuten en probeer het opnieuw.",
     "duplicateRecord": "Er bestaat al een record met deze waarde",
     "referencedRecord": "Record waarnaar wordt verwezen bestaat niet of kan niet worden verwijderd",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate moet JJJJ-MM-DD zijn",
     "invalidEndDate": "endDate moet JJJJ-MM-DD zijn",
-    "invalidAccountIds": "accountIds moeten door komma's gescheiden UUID's zijn"
+    "invalidAccountIds": "accountIds moeten door komma's gescheiden UUID's zijn",
+    "invalidGranularity": "granularity moet 'daily' of 'monthly' zijn"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP is niet geconfigureerd. Stel SMTP-omgevingsvariabelen in.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Alias met ID {{ id }} niet gevonden",
     "mergeSelf": "Kan een begunstigde niet samenvoegen met zichzelf",
     "autoMergeDuplicatePayee": "Een begunstigde komt voor in meer dan één samenvoegingsgroep",
-    "autoMergeSourceNotFound": "Een of meer bronbegunstigden zijn niet gevonden"
+    "autoMergeSourceNotFound": "Een of meer bronbegunstigden zijn niet gevonden",
+    "autoMergeGroupConflict": "Kan \"{{ name }}\" niet samenvoegen: de waarde \"{{ value }}\" is al in gebruik",
+    "autoMergeGroupFailed": "Kan \"{{ name }}\" niet samenvoegen"
   },
   "reports": {
     "notFound": "Rapport met ID {{ id }} niet gevonden",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" komt overeen met meerdere effecten: {{ list }}. Voer opnieuw uit en geef een beurs op.",
     "lookupNoCurrency": "Kan de valuta voor \"{{ symbol }}\" niet bepalen. Voeg het effect in plaats daarvan handmatig toe.",
     "noUpdateFields": "Geef ten minste één veld op om te wijzigen.",
-    "allocationExceedsTotal": "De toewijzingspercentages tellen op tot meer dan 100%."
+    "allocationExceedsTotal": "De toewijzingspercentages tellen op tot meer dan 100%.",
+    "invalidTagKey": "Een tagsleutel (1-100 tekens) is vereist"
   },
   "tags": {
     "notFound": "Label met ID {{ id }} niet gevonden",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId moet een geldige UUID zijn",
     "amountFromMustBeNumber": "amountFrom moet een getal zijn",
     "amountToMustBeNumber": "amountTo moet een getal zijn",
+    "invalidGroupBy": "groupBy moet 'category' of 'payee' zijn",
+    "limitMustBePositive": "limit moet een positief getal zijn",
+    "recurringPayeeRequired": "payeeIds is verplicht",
+    "recurringDatesRequired": "startDate en endDate zijn verplicht",
     "statementDateFormat": "statementDate moet JJJJ-MM-DD zijn",
     "statementBalanceMustBeNumber": "statementBalance moet een getal zijn",
     "categoryNotFound": "Categorie niet gevonden",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Sommige transacties zijn niet gevonden of behoren niet tot de opgegeven rekening",
     "cannotReconcileVoidPlural": "Kan ongeldige transacties niet afstemmen",
     "transferSameAccount": "Bron- en doelrekeningen moeten verschillend zijn",
-    "transferSplitFromAccountFixed": "De bronrekening van een gesplitste overboekingsregel kan niet worden gewijzigd",
     "transferAmountNegative": "Overboekingsbedrag mag niet negatief zijn",
     "notATransfer": "Transactie is geen overboeking",
+    "splitTransferLegAccountLocked": "Deze overboeking maakt deel uit van een gesplitste transactie. Wijzig de rekeningen door de splitsing op de brontransactie te bewerken.",
     "notFoundById": "Transactie met ID {{ id }} niet gevonden",
     "bulkUpdateNoFields": "Er moet minimaal één bijwerkveld worden opgegeven",
     "payeeNotFound": "Begunstigde niet gevonden",
     "cannotEditTransfer": "Overboekingen kunnen hier niet worden bewerkt. Bewerk de overboeking via het scherm Transacties.",
     "cannotEditSplit": "Gesplitste transacties kunnen hier niet worden bewerkt. Bewerk de splitsing via het scherm Transacties.",
-    "noUpdateFields": "Geef ten minste één veld op om te wijzigen."
+    "noUpdateFields": "Geef ten minste één veld op om te wijzigen.",
+    "tagKeyTooLong": "tagKey mag niet langer zijn dan 100 tekens",
+    "invalidTagKeyOp": "Ongeldige tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue is vereist voor contains / notContains",
+    "tagKeyRequired": "Een tagsleutel (1-100 tekens) is vereist",
+    "fxFieldsIncomplete": "originalAmount en originalCurrencyCode moeten samen worden opgegeven",
+    "fxRateRequired": "Een positieve wisselkoers is vereist voor een transactie in vreemde valuta",
+    "fxSignMismatch": "originalAmount en amount moeten hetzelfde teken hebben"
   },
   "users": {
     "userNotFound": "Gebruiker niet gevonden",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Kan het laatste beheerdersaccount niet verwijderen. Promoveer eerst een andere gebruiker.",
     "oidcReauthRequiredForDataDelete": "OIDC-herauthenticatie is vereist om het verwijderen van gegevens te bevestigen",
     "passwordRequiredForDataDelete": "Wachtwoord is vereist om het verwijderen van gegevens te bevestigen"
+  },
+  "loanScenarios": {
+    "notFound": "Leningscenario met ID {{ id }} niet gevonden",
+    "nameConflict": "Er bestaat al een scenario met de naam \"{{ name }}\" voor deze rekening",
+    "notLoanAccount": "Leningscenario's zijn alleen beschikbaar voor lening-, hypotheek- en kredietlijnrekeningen",
+    "budgetWindowInverted": "De startdatum van de budgetperiode moet op of voor de einddatum liggen"
+  },
+  "loanRateChanges": {
+    "notFound": "Renteverandering met ID {{ id }} niet gevonden",
+    "notLoanAccount": "Renteveranderingen zijn alleen beschikbaar voor lening- en hypotheekrekeningen",
+    "duplicateDate": "Er bestaat al een renteverandering met ingangsdatum {{ date }} voor deze rekening",
+    "paymentModeConflict": "Geef een nieuw betalingsbedrag of recalculatePayment op, niet beide",
+    "recalculateMortgageOnly": "Herberekening van de betaling is alleen beschikbaar voor hypotheekrekeningen",
+    "insufficientData": "Niet genoeg betalingen met rentegegevens om renteveranderingen te detecteren",
+    "frequencyMismatch": "Betaaldatums komen niet overeen met de betalingsfrequentie van de rekening; afgeleide rentepercentages zijn mogelijk minder nauwkeurig"
+  },
+  "attachments": {
+    "notFound": "Bijlage niet gevonden",
+    "transactionNotFound": "Transactie niet gevonden",
+    "empty": "Geüpload bestand is leeg",
+    "fileTooLarge": "Bestand overschrijdt de maximale grootte van {{ max }} bytes",
+    "unsupportedType": "Niet-ondersteund bestandstype. Toegestane types: {{ types }}",
+    "tooMany": "Deze transactie heeft al het maximum van {{ max }} bijlagen"
   }
 }

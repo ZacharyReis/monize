@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Voir les notes de version de la v{version}"
   },
+  "whatsNew": {
+    "title": "Nouveautés",
+    "versionLabel": "Version {version}",
+    "expandAll": "Tout développer",
+    "collapseAll": "Tout réduire",
+    "viewFullNotes": "Voir les notes de version complètes",
+    "dontShowAgain": "Ne plus afficher",
+    "showNextLogin": "Afficher à la prochaine connexion",
+    "close": "Fermer",
+    "unavailable": "Les notes de version pour cette version ne sont pas disponibles.",
+    "englishOnly": "Les notes de version ci-dessous sont uniquement en anglais. Monize, y compris les visites guidées, suit votre préférence de langue."
+  },
   "save": "Enregistrer",
   "cancel": "Annuler",
   "delete": "Supprimer",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Télécharger {filename} en PNG",
     "unableToCapture": "Impossible de capturer l'image du graphique",
     "failedToDownload": "Échec du téléchargement du graphique"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Télécharger {filename} en CSV"
   },
   "chartViewToggle": {
     "pieChart": "Graphique circulaire",
@@ -158,10 +173,47 @@
     "length": "Le code doit comporter exactement 6 chiffres",
     "digits": "Le code doit comporter 6 chiffres"
   },
-  "monthsShort": ["jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
-  "weekdaysShort": ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
-  "weekdaysMin": ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"],
-  "weekdaysNarrow": ["D", "L", "M", "M", "J", "V", "S"],
+  "monthsShort": [
+    "jan.",
+    "fév.",
+    "mars",
+    "avr.",
+    "mai",
+    "juin",
+    "juil.",
+    "août",
+    "sept.",
+    "oct.",
+    "nov.",
+    "déc."
+  ],
+  "weekdaysShort": [
+    "Dim",
+    "Lun",
+    "Mar",
+    "Mer",
+    "Jeu",
+    "Ven",
+    "Sam"
+  ],
+  "weekdaysMin": [
+    "Di",
+    "Lu",
+    "Ma",
+    "Me",
+    "Je",
+    "Ve",
+    "Sa"
+  ],
+  "weekdaysNarrow": [
+    "D",
+    "L",
+    "M",
+    "M",
+    "J",
+    "V",
+    "S"
+  ],
   "dateFormat": {
     "browserAuto": "Utiliser les paramètres régionaux du navigateur (détecté automatiquement : {sample})",
     "custom": "Personnalisé..."

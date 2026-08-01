@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "To konto ma już skonfigurowaną zaplanowaną płatność. Zamiast tego edytuj istniejącą zaplanowaną transakcję.",
     "sourceNotFound": "Nie znaleziono konta źródłowego",
     "ambiguousBrokerage": "„{{ query }}\" pasuje do wielu kont maklerskich: {{ list }}. Użyj dokładnej nazwy konta.",
-    "unknownInvestmentAccount": "Nieznane konto: {{ name }}. Użyj dokładnej nazwy z listy kont użytkownika."
+    "unknownInvestmentAccount": "Nieznane konto: {{ name }}. Użyj dokładnej nazwy z listy kont użytkownika.",
+    "notACreditCard": "Cykle rozliczeniowe są dostępne tylko dla kont kart kredytowych",
+    "noStatementSettlementDay": "Ta karta kredytowa nie ma skonfigurowanego dnia rozliczenia wyciągu"
   },
   "actionHistory": {
     "nothingToUndo": "Nie ma nic do cofnięcia",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Nie skonfigurowano żadnych aktywnych dostawców AI. Skonfiguruj dostawcę w Ustawieniach AI.",
     "allProvidersFailed": "Wszyscy dostawcy AI zawiedli. Sprawdź konfigurację dostawcy i spróbuj ponownie.",
     "noToolUseProvider": "Nie skonfigurowano dostawcy AI z obsługą narzędzi. Zapytania w języku naturalnym wymagają Anthropic, OpenAI lub Ollama. Skonfiguruj jednego w Ustawieniach AI.",
+    "relayAgentOffline": "Twój agent przekaźnika MCP nie jest połączony. Połącz swojego agenta i spróbuj ponownie.",
+    "relayCompletionTimedOut": "Twój agent przekaźnika MCP nie odpowiedział na czas. Upewnij się, że jest połączony, i spróbuj ponownie.",
     "baseUrlInvalidBasic": "baseUrl musi być prawidłowym adresem URL HTTP lub HTTPS",
     "baseUrlInvalidExternal": "baseUrl musi być prawidłowym adresem URL HTTP/HTTPS wskazującym na host zewnętrzny",
     "ollamaCloudApiKeyRequired": "apiKey jest wymagany dla dostawcy ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Załącznik przekracza maksymalny rozmiar pliku.",
     "attachmentCorrupt": "Nie udało się odczytać załącznika lub nie jest on plikiem typu, za jaki się podaje.",
     "attachmentsTooLarge": "Załączniki przekraczają łączny limit rozmiaru.",
+    "attachmentRefExpired": "Załączony plik nie jest już dostępny. Prześlij go ponownie i zapytaj jeszcze raz.",
     "modelNoImageSupport": "Wybrany model AI nie potrafi odczytywać obrazów ani plików PDF. Usuń załącznik i zadaj pytanie tekstem albo przełącz się na model obsługujący obrazy w Ustawieniach AI."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Nieprawidłowe hasło"
   },
   "backup": {
-    "folderPathRequired": "Przed włączeniem automatycznych kopii zapasowych należy ustawić ścieżkę folderu",
     "folderNotExist": "Folder nie istnieje: {{ safePath }}",
     "folderAccessError": "Brak dostępu do folderu: {{ safePath }}",
     "pathNotDirectory": "Ścieżka nie jest katalogiem: {{ safePath }}",
-    "notConfigured": "Automatyczna kopia zapasowa nie jest skonfigurowana. Najpierw ustaw ścieżkę folderu.",
     "userNotFound": "Nie znaleziono użytkownika {{ userId }}",
     "encryptedPasswordDecryptFailed": "Szyfrowane kopie zapasowe są włączone, ale nie udało się odszyfrować zapisanego hasła. Włącz ponownie szyfrowanie w ustawieniach Bezpieczeństwa.",
     "pathTraversal": "Wykryto przejście po ścieżce: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Nieprawidłowy token CSRF",
     "demoModeRestricted": "Ta akcja nie jest dostępna w trybie demo.",
     "serviceNotReady": "Usługa nie jest gotowa",
-    "oauthProviderNotInitialized": "Dostawca OAuth nie został zainicjowany"
+    "oauthProviderNotInitialized": "Dostawca OAuth nie został zainicjowany",
+    "invalidCurrencyCode": "Nieprawidłowy kod waluty: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Waluta \"{{ code }}\" już jest na Twojej liście",
     "notFound": "Nie znaleziono waluty \"{{ code }}\"",
     "cannotModifySystem": "Nie można modyfikować metadanych waluty systemowej",
     "cannotModifyOther": "Nie można modyfikować waluty innego użytkownika",
-    "inUse": "Waluta \"{{ code }}\" jest używana przez Twoje konta, papiery wartościowe lub inne rekordy. Zamiast tego ją dezaktywuj."
+    "inUse": "Waluta \"{{ code }}\" jest używana przez Twoje konta, papiery wartościowe lub inne rekordy. Zamiast tego ją dezaktywuj.",
+    "invalidRateDate": "date musi mieć format RRRR-MM-DD",
+    "alreadyInListInactive": "Waluta \"{{ code }}\" już jest na Twojej liście, ale jest obecnie nieaktywna. Aktywuj ją ponownie, aby jej używać."
   },
   "delegation": {
     "delegatedAccessInvalid": "Dostęp delegowany nie jest już ważny",
@@ -254,6 +260,7 @@
     "passwordBreached": "To hasło zostało znalezione w wycieku danych. Wybierz inne hasło."
   },
   "http": {
+    "forbidden": "Odmowa dostępu",
     "tooManyRequests": "Zbyt wiele żądań. Odczekaj kilka minut i spróbuj ponownie.",
     "duplicateRecord": "Rekord z tą wartością już istnieje",
     "referencedRecord": "Rekord, do którego się odwołano, nie istnieje lub nie można go usunąć",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate musi mieć format YYYY-MM-DD",
     "invalidEndDate": "endDate musi mieć format YYYY-MM-DD",
-    "invalidAccountIds": "accountIds musi być listą UUID rozdzielonych przecinkami"
+    "invalidAccountIds": "accountIds musi być listą UUID rozdzielonych przecinkami",
+    "invalidGranularity": "granularity musi być 'daily' lub 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP nie jest skonfigurowany. Ustaw zmienne środowiskowe SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Nie znaleziono aliasu o ID {{ id }}",
     "mergeSelf": "Nie można scalić odbiorcy z samym sobą",
     "autoMergeDuplicatePayee": "Odbiorca występuje w więcej niż jednej grupie scalania",
-    "autoMergeSourceNotFound": "Nie znaleziono jednego lub więcej odbiorców źródłowych"
+    "autoMergeSourceNotFound": "Nie znaleziono jednego lub więcej odbiorców źródłowych",
+    "autoMergeGroupConflict": "Nie można scalić \"{{ name }}\": wartość \"{{ value }}\" jest już używana",
+    "autoMergeGroupFailed": "Nie można scalić \"{{ name }}\""
   },
   "reports": {
     "notFound": "Nie znaleziono raportu o ID {{ id }}",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" pasuje do wielu papierów wartościowych: {{ list }}. Uruchom ponownie, podając giełdę.",
     "lookupNoCurrency": "Nie można ustalić waluty dla \"{{ symbol }}\". Zamiast tego dodaj papier wartościowy ręcznie.",
     "noUpdateFields": "Podaj co najmniej jedno pole do zmiany.",
-    "allocationExceedsTotal": "Suma procentów alokacji przekracza 100%."
+    "allocationExceedsTotal": "Suma procentów alokacji przekracza 100%.",
+    "invalidTagKey": "Wymagany jest klucz tagu (1–100 znaków)"
   },
   "tags": {
     "notFound": "Nie znaleziono tagu o ID {{ id }}",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId musi być prawidłowym UUID",
     "amountFromMustBeNumber": "amountFrom musi być liczbą",
     "amountToMustBeNumber": "amountTo musi być liczbą",
+    "invalidGroupBy": "groupBy musi mieć wartość 'category' lub 'payee'",
+    "limitMustBePositive": "limit musi być liczbą dodatnią",
+    "recurringPayeeRequired": "payeeIds jest wymagane",
+    "recurringDatesRequired": "startDate i endDate są wymagane",
     "statementDateFormat": "statementDate musi mieć format YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance musi być liczbą",
     "categoryNotFound": "Nie znaleziono kategorii",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Niektórych transakcji nie znaleziono lub nie należą do wskazanego konta",
     "cannotReconcileVoidPlural": "Nie można uzgodnić anulowanych transakcji",
     "transferSameAccount": "Konto źródłowe i docelowe muszą być różne",
-    "transferSplitFromAccountFixed": "Nie można zmienić konta źródłowego pozycji podzielonego przelewu",
     "transferAmountNegative": "Kwota przelewu nie może być ujemna",
     "notATransfer": "Transakcja nie jest przelewem",
+    "splitTransferLegAccountLocked": "Ten przelew jest częścią transakcji podzielonej. Aby zmienić jego konta, edytuj podział w transakcji źródłowej.",
     "notFoundById": "Nie znaleziono transakcji o ID {{ id }}",
     "bulkUpdateNoFields": "Należy podać co najmniej jedno pole do aktualizacji",
     "payeeNotFound": "Nie znaleziono odbiorcy",
     "cannotEditTransfer": "Przelewów nie można tutaj edytować. Edytuj przelew na ekranie Transakcje.",
     "cannotEditSplit": "Transakcji podzielonych nie można tutaj edytować. Edytuj podział na ekranie Transakcje.",
-    "noUpdateFields": "Podaj co najmniej jedno pole do zmiany."
+    "noUpdateFields": "Podaj co najmniej jedno pole do zmiany.",
+    "tagKeyTooLong": "tagKey nie może przekraczać 100 znaków",
+    "invalidTagKeyOp": "Nieprawidłowy tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue jest wymagany dla contains / notContains",
+    "tagKeyRequired": "Wymagany jest klucz tagu (1–100 znaków)",
+    "fxFieldsIncomplete": "originalAmount i originalCurrencyCode muszą być podane razem",
+    "fxRateRequired": "Do transakcji w obcej walucie wymagany jest dodatni kurs wymiany",
+    "fxSignMismatch": "originalAmount i amount muszą mieć ten sam znak"
   },
   "users": {
     "userNotFound": "Nie znaleziono użytkownika",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Nie można usunąć ostatniego konta administratora. Najpierw awansuj innego użytkownika.",
     "oidcReauthRequiredForDataDelete": "Do potwierdzenia usunięcia danych wymagane jest ponowne uwierzytelnienie OIDC",
     "passwordRequiredForDataDelete": "Do potwierdzenia usunięcia danych wymagane jest hasło"
+  },
+  "loanScenarios": {
+    "notFound": "Nie znaleziono scenariusza kredytu o identyfikatorze {{ id }}",
+    "nameConflict": "Scenariusz o nazwie \"{{ name }}\" już istnieje dla tego konta",
+    "notLoanAccount": "Scenariusze kredytowe są dostępne tylko dla kont kredytów, hipotek i linii kredytowych",
+    "budgetWindowInverted": "Data początkowa okresu budżetu musi przypadać najpóźniej w dniu daty końcowej"
+  },
+  "loanRateChanges": {
+    "notFound": "Nie znaleziono zmiany oprocentowania o ID {{ id }}",
+    "notLoanAccount": "Zmiany oprocentowania są dostępne tylko dla kont pożyczek i kredytów hipotecznych",
+    "duplicateDate": "Zmiana oprocentowania obowiązująca od {{ date }} już istnieje dla tego konta",
+    "paymentModeConflict": "Podaj nową kwotę raty albo recalculatePayment, nie oba naraz",
+    "recalculateMortgageOnly": "Przeliczenie raty jest dostępne tylko dla kont kredytów hipotecznych",
+    "insufficientData": "Za mało płatności ze szczegółami odsetek, aby wykryć zmiany oprocentowania",
+    "frequencyMismatch": "Daty płatności nie odpowiadają częstotliwości płatności konta; wywnioskowane oprocentowanie może być mniej dokładne"
+  },
+  "attachments": {
+    "notFound": "Nie znaleziono załącznika",
+    "transactionNotFound": "Nie znaleziono transakcji",
+    "empty": "Przesłany plik jest pusty",
+    "fileTooLarge": "Plik przekracza maksymalny rozmiar {{ max }} bajtów",
+    "unsupportedType": "Nieobsługiwany typ pliku. Dozwolone typy: {{ types }}",
+    "tooMany": "Ta transakcja ma już maksymalną liczbę {{ max }} załączników"
   }
 }

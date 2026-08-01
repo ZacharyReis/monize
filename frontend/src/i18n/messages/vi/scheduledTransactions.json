@@ -98,12 +98,15 @@
       "both": "Ghi vào ngày này sẽ đưa <b>{fromAccount}</b> xuống <b>{fromAmount}</b> ({fromCondition}) và <b>{toAccount}</b> xuống <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Chia giao tác này",
+    "copyAmount": "Sao chép số tiền",
     "referenceNumberLabel": "Số tham chiếu (tùy chọn)",
     "noPriceHistory": "Chưa có lịch sử giá cho chứng khoán này. Nhập giá thủ công.",
     "postButton": "Đăng giao tác",
     "toasts": {
       "posted": "Giao tác đã được đăng",
       "postFailed": "Không thể đăng giao tác",
+      "amountCopied": "Đã sao chép số tiền",
+      "copyFailed": "Không sao chép được số tiền",
       "quantityRequired": "Số lượng phải lớn hơn không",
       "priceRequired": "Giá phải lớn hơn không",
       "totalAmountRequired": "Cần có tổng số tiền",

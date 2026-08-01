@@ -14,7 +14,7 @@ import * as crypto from "crypto";
 import { I18nService } from "nestjs-i18n";
 import { tr } from "../i18n/translate";
 import { emailTranslator } from "../i18n/email-translator";
-import { DEFAULT_LOCALE } from "../i18n/config";
+import { resolveUserEmailLocale } from "../i18n/resolve-user-email-locale";
 import { User } from "../users/entities/user.entity";
 import { UserPreference } from "../users/entities/user-preference.entity";
 import { RefreshToken } from "../auth/entities/refresh-token.entity";
@@ -205,7 +205,10 @@ export class AdminService {
         "http://localhost:3000",
       );
       const inviteUrl = `${frontendUrl}/reset-password?token=${inviteToken}`;
-      const lang = DEFAULT_LOCALE;
+      const lang = await resolveUserEmailLocale(
+        this.preferencesRepository,
+        saved.id,
+      );
       const t = emailTranslator(this.i18n, lang);
       this.emailService
         .sendMail(
@@ -379,7 +382,15 @@ export class AdminService {
       return { downgraded: true };
     }
 
-    // Delete preferences first (FK constraint), then the user.
+    // Clear the rows that point at the user before removing it. Databases
+    // predating migration 108 can carry TypeORM-generated foreign keys with no
+    // ON DELETE CASCADE, which abort the delete outright; the sessions, tokens
+    // and preferences are worthless once the account is gone either way.
+    // Delegate sessions acting *as* this user go too -- the owner they point
+    // at is about to disappear.
+    await this.refreshTokensRepository.delete({ userId: targetUserId });
+    await this.refreshTokensRepository.delete({ actingAsUserId: targetUserId });
+    await this.patRepository.delete({ userId: targetUserId });
     await this.preferencesRepository.delete({ userId: targetUserId });
     await this.usersRepository.remove(targetUser);
     return { downgraded: false };

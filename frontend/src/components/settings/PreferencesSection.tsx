@@ -20,6 +20,8 @@ import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { ThemeSelector } from '@/components/settings/ThemeSelector';
 import { ColorThemeSelector } from '@/components/settings/ColorThemeSelector';
 import { ColorTheme } from '@/lib/color-themes';
+import { TOUR_ANCHORS, tourAnchor } from '@/lib/tours/anchors';
+import { TourSettingsRow } from '@/components/settings/TourSettingsRow';
 
 const NUMBER_FORMAT_OPTIONS = [
   { value: 'browser', labelKey: 'numberFormatOptions.browser' },
@@ -103,6 +105,7 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
   const [defaultCurrency, setDefaultCurrency] = useState(preferences.defaultCurrency);
   const [weekStartsOn, setWeekStartsOn] = useState(preferences.weekStartsOn ?? 1);
   const [showCreatedAt, setShowCreatedAt] = useState(preferences.showCreatedAt ?? false);
+  const [showWhatsNew, setShowWhatsNew] = useState(preferences.showWhatsNew ?? true);
   const [timeFormat, setTimeFormat] = useState<'24h' | '12h'>(preferences.timeFormat ?? '24h');
   const [preferredExchanges, setPreferredExchanges] = useState<string[]>(
     preferences.preferredExchanges ?? [],
@@ -153,6 +156,7 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
         defaultCurrency,
         weekStartsOn,
         showCreatedAt,
+        showWhatsNew,
         timeFormat,
         preferredExchanges: preferredExchanges.filter(Boolean),
         defaultQuoteProvider,
@@ -327,6 +331,28 @@ export function PreferencesSection({ preferences, onPreferencesUpdated }: Prefer
             {t('recentTransactionsHelp')}
           </p>
         </div>
+
+        <div
+          {...tourAnchor(TOUR_ANCHORS.settingsWhatsNewToggle)}
+          className="flex items-center"
+        >
+          <label
+            htmlFor="showWhatsNew"
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <ToggleSwitch
+              checked={showWhatsNew}
+              onChange={setShowWhatsNew}
+              label={t('showWhatsNewLabel')}
+            />
+            <span className="text-sm text-gray-900 dark:text-gray-100">
+              {t('showWhatsNewLabel')}
+            </span>
+          </label>
+          <InfoTooltip text={t('showWhatsNewTooltip')} />
+        </div>
+
+        <TourSettingsRow />
 
         {/* Cash Flow Forecast */}
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">

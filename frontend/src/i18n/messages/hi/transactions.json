@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "कुल खर्च",
+    "income": "आय",
+    "net": "शुद्ध",
+    "transactions": "लेन-देन",
+    "averageAmount": "औसत राशि",
+    "lastTransaction": "अंतिम लेन-देन",
+    "defaultCategory": "डिफ़ॉल्ट श्रेणी",
+    "nextBill": "अगला बिल",
+    "viewBills": "बिल और जमा में देखें",
+    "topCategories": "शीर्ष श्रेणियाँ",
+    "uncategorized": "अवर्गीकृत",
+    "aliases": "उपनाम",
+    "recurring": "आवर्ती: {cadence} · {amount}",
+    "recurringTooltip": "चयनित अवधि (या दिनांक फ़िल्टर न होने पर पिछले 12 महीनों) में बार-बार हुए शुल्कों से पता चला।",
+    "cadence": {
+      "weekly": "साप्ताहिक",
+      "biweekly": "हर 2 सप्ताह",
+      "monthly": "मासिक",
+      "quarterly": "त्रैमासिक",
+      "yearly": "वार्षिक"
+    },
+    "inactive": "निष्क्रिय",
+    "noTransactions": "इस अवधि में कोई लेन-देन नहीं",
+    "editAria": "भुगतानकर्ता संपादित करें",
+    "collapseAria": "भुगतानकर्ता जानकारी छुपाएं",
+    "show": "भुगतानकर्ता जानकारी दिखाएं"
+  },
+  "categoryWidget": {
+    "totalSpent": "कुल खर्च",
+    "totalEarned": "कुल आय",
+    "income": "आय",
+    "expense": "व्यय",
+    "budgetThisMonth": "इस महीने का बजट",
+    "budgetProgress": "{budgeted} में से {spent}",
+    "transactions": "लेन-देन",
+    "averageAmount": "औसत राशि",
+    "monthlyAverage": "मासिक औसत",
+    "subcategories": "उपश्रेणियाँ",
+    "thisCategory": "यह श्रेणी",
+    "topPayees": "शीर्ष भुगतानकर्ता",
+    "noPayee": "कोई भुगतानकर्ता नहीं",
+    "nextScheduled": "अगला नियोजित",
+    "noTransactions": "इस अवधि में कोई लेन-देन नहीं",
+    "editAria": "श्रेणी संपादित करें",
+    "collapseAria": "श्रेणी जानकारी छुपाएं",
+    "show": "श्रेणी जानकारी दिखाएं"
+  },
   "accountWidget": {
     "currentBalance": "वर्तमान शेष",
     "nextPayment": "अगला भुगतान",
     "viewBills": "बिल और जमा में देखें",
+    "viewDetailsAria": "खाता विवरण देखें",
     "type": "प्रकार",
     "accountNumber": "खाता संख्या",
     "currency": "मुद्रा",
@@ -27,7 +76,8 @@
       "duplicateTitle": "लेन-देन डुप्लिकेट करें",
       "newTitle": "नया लेन-देन",
       "scheduleTitle": "आवर्ती के रूप में शेड्यूल करें",
-      "editPayeeTitle": "भुगतानकर्ता संपादित करें"
+      "editPayeeTitle": "भुगतानकर्ता संपादित करें",
+      "editCategoryTitle": "श्रेणी संपादित करें"
     },
     "loading": "लेन-देन लोड हो रहे हैं...",
     "totalCount": "{count, plural, one {# लेन-देन} other {# लेन-देन}}",
@@ -54,9 +104,13 @@
       "refNumber": "संदर्भ #",
       "tags": "टैग",
       "amount": "राशि",
+      "currency": "मुद्रा",
+      "paidAmount": "भुगतान की गई राशि",
+      "feePaid": "भुगतान किया गया शुल्क",
       "balance": "शेष",
       "status": "स्थिति",
-      "actions": "क्रियाएं"
+      "actions": "क्रियाएं",
+      "attachments": "अटैचमेंट"
     },
     "today": "आज",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "क्या आप वाकई यह लेन-देन हटाना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।",
       "success": "लेन-देन हटाया गया",
       "transferSuccess": "ट्रांसफर हटाया गया",
-      "error": "लेन-देन हटाने में विफल"
+      "error": "लेन-देन हटाने में विफल",
+      "reconciledWarning": "यह लेन-देन समाधानित है, इसलिए इसे हटाने से पूर्ण किए गए समाधान पर असर पड़ेगा।"
     },
     "status": {
       "voidError": "स्थिति को Void से बदलने के लिए लेन-देन संपादित करें",
@@ -90,7 +145,6 @@
       "cleared": "समाशोधित",
       "reconciled": "समाधानित",
       "void": "रद्द",
-      "unreconciledDense": "अ",
       "clearedDense": "स",
       "reconciledDense": "र",
       "voidDense": "र",
@@ -118,7 +172,8 @@
       "editButton": "संपादित करें",
       "deleteButton": "हटाएं"
     },
-    "itemNamePlural": "लेन-देन"
+    "itemNamePlural": "लेन-देन",
+    "attachmentsCount": "{count, plural, one {# अटैचमेंट} other {# अटैचमेंट}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "राशि से",
       "amountTo": "राशि तक",
       "status": "स्थिति",
-      "search": "खोज"
+      "search": "खोज",
+      "tagKey": "टैग कुंजी",
+      "tagKeyOp": "शर्त",
+      "tagKeyValue": "मान",
+      "currency": "मुद्रा",
+      "hasAttachments": "अटैचमेंट"
     },
     "placeholders": {
       "accounts": "सभी खाते",
@@ -176,7 +236,8 @@
       "statuses": "सभी स्थितियां",
       "amountMin": "न्यूनतम",
       "amountMax": "अधिकतम",
-      "search": "भुगतानकर्ता, श्रेणी, राशि, टैग, विवरण, संदर्भ # खोजें..."
+      "search": "भुगतानकर्ता, श्रेणी, राशि, टैग, विवरण, संदर्भ # खोजें...",
+      "tagKeyValue": "जैसे usa"
     },
     "chips": {
       "removeAccount": "{name} फ़िल्टर हटाएं",
@@ -189,7 +250,11 @@
       "dateFrom": "{date} से",
       "dateUntil": "{date} तक",
       "amountFrom": "{amount} से",
-      "amountUpTo": "{amount} तक"
+      "amountUpTo": "{amount} तक",
+      "removeCurrency": "{name} मुद्रा फ़िल्टर हटाएँ",
+      "hasAttachments": "अटैचमेंट हैं",
+      "noAttachments": "कोई अटैचमेंट नहीं",
+      "removeAttachments": "अटैचमेंट फ़िल्टर हटाएं"
     },
     "bulkUpdate": "बल्क अपडेट",
     "cancelBulk": "बल्क रद्द करें",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "अवधि चुनें...",
+      "allDates": "सभी तिथियाँ",
       "today": "आज",
       "yesterday": "कल",
       "thisWeek": "इस सप्ताह",
       "lastWeek": "पिछले सप्ताह",
+      "last30Days": "पिछले 30 दिन",
       "monthToDate": "महीने की शुरुआत से",
       "lastMonth": "पिछला महीना",
+      "last365Days": "पिछले 365 दिन",
       "yearToDate": "वर्ष की शुरुआत से",
       "lastYear": "पिछला वर्ष",
       "custom": "कस्टम"
+    },
+    "tagKeyNone": "कोई भी (कुंजी फ़िल्टर नहीं)",
+    "tagKeyOps": {
+      "hasValue": "मान मौजूद है",
+      "noValue": "कोई मान नहीं",
+      "contains": "मान में शामिल है",
+      "notContains": "मान में शामिल नहीं है"
+    },
+    "hasAttachmentsOptions": {
+      "any": "कोई भी",
+      "yes": "हाँ",
+      "no": "नहीं"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "{mode} बनाएं",
     "submitUpdate": "{mode} अपडेट करें",
+    "reconciledConfirm": {
+      "title": "समाधानित लेन-देन संपादित करें?",
+      "message": "यह लेन-देन समाधानित है। इसे बदलने से पूर्ण किए गए समाधान पर असर पड़ेगा। क्या आप फिर भी अपने परिवर्तन सहेजना चाहते हैं?",
+      "confirm": "परिवर्तन सहेजें"
+    },
     "modeLabel": {
       "transfer": "ट्रांसफर",
       "transaction": "लेन-देन"
@@ -300,6 +385,7 @@
     "transferAmountNote": "ट्रांसफर के लिए राशि सकारात्मक होनी चाहिए",
     "amountReceivedNote": "मुद्रा रूपांतरण के बाद प्राप्त राशि",
     "splitTransaction": "लेन-देन विभाजित करें",
+    "splitDisabledDuringTour": "निर्देशित टूर के दौरान उपलब्ध नहीं",
     "newTagTitle": "नया टैग",
     "toasts": {
       "transferCreated": "ट्रांसफर बनाया गया",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "भुगतानकर्ता पुनः सक्रिय करने में विफल",
       "categoryCreated": "श्रेणी \"{name}\" बनाई गई",
       "categoryCreateFailed": "श्रेणी बनाने में विफल",
-      "tagCreated": "टैग \"{name}\" बनाया गया"
+      "tagCreated": "टैग \"{name}\" बनाया गया",
+      "fxRateRequired": "विदेशी मुद्रा लेनदेन सहेजने से पहले विनिमय दर या रूपांतरित राशि दर्ज करें।",
+      "attachmentsUploadFailed": "लेन-देन सहेजा गया, लेकिन {count} अटैचमेंट अपलोड करने में विफल रहे"
     },
     "ariaHistory": "हाल के लेन-देन दिखाएं",
     "ariaHistoryForPayee": "इस भुगतानकर्ता के हाल के लेन-देन दिखाएं",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "प्रविष्टि मुद्रा",
+      "ariaLabel": "प्रविष्टि मुद्रा बदलें",
+      "title": "राशि दर्ज करें",
+      "accountCurrency": "खाता मुद्रा ({code})",
+      "addCurrency": "मुद्रा जोड़ें...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "मुद्रा जोड़ने में विफल",
+      "reactivated": "{code} पुनः सक्रिय किया गया"
+    },
+    "fx": {
+      "noRateWarning": "{date} को {from} से {to} के लिए कोई विनिमय दर नहीं मिली। रूपांतरित राशि मैन्युअल रूप से दर्ज करें।",
+      "usingLatestRateHint": "नवीनतम उपलब्ध दर का उपयोग किया जा रहा है ({date} की नहीं)।",
+      "displayToggle": {
+        "account": "खाता",
+        "original": "मूल"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "इसमें {percent}% विदेशी लेनदेन शुल्क ({fee}) शामिल है।",
+      "totalInCurrency": "{currency} में कुल"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "खाता चुनें...",
     "memoPlaceholder": "वैकल्पिक मेमो",
     "mobileMemoPlaceholder": "मेमो",
-    "tagsPlaceholder": "टैग..."
+    "tagsPlaceholder": "टैग...",
+    "currencyToggle": {
+      "title": "वह मुद्रा बदलें जिसमें विभाजित राशियाँ दिखाई और संपादित की जाती हैं",
+      "ariaAmountsIn": "{code} में विभाजित राशियाँ दिखाएँ और संपादित करें"
+    }
   },
   "recentPopover": {
     "recentForPayee": "{name} के हाल के लेन-देन",
@@ -397,15 +510,33 @@
       "current": "वर्तमान",
       "ending": "अंतिम",
       "lowest": "न्यूनतम",
-      "minBalance": "न्यूनतम शेष"
+      "minBalance": "न्यूनतम शेष",
+      "projected": "अनुमानित",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "सभी चयनित खातों का शेष शून्य है, इसलिए दिखाने के लिए कोई शेष चार्ट नहीं है।"
     },
     "monthlyTotals": {
       "title": "मासिक कुल",
       "noData": "कोई लेन-देन डेटा उपलब्ध नहीं",
       "monthlyAvg": "मासिक औसत",
+      "quarterlyAvg": "त्रैमासिक औसत",
+      "yearlyAvg": "वार्षिक औसत",
       "total": "कुल",
       "transactions": "लेन-देन",
-      "tooltip": "{count, plural, one {# लेन-देन} other {# लेन-देन}}"
+      "tooltip": "{count, plural, one {# लेन-देन} other {# लेन-देन}}",
+      "quarterLabel": "Q{quarter} {year}",
+      "quarterTick": "Q{quarter} {year}",
+      "granularityLabel": "समूहन",
+      "granularity": {
+        "auto": "ऑटो",
+        "month": "माह",
+        "quarter": "तिमाही",
+        "year": "वर्ष"
+      },
+      "granularityAutoTitle": "ऑटो ({granularity})",
+      "granularityTitle": "{label} दृश्य"
     },
     "accountBalances": {
       "title": "खाता शेष",
@@ -430,9 +561,16 @@
     "loadFailed": "लेन-देन लोड करने में विफल",
     "loadPayeeFailed": "भुगतानकर्ता विवरण लोड करने में विफल",
     "payeeUpdateFailed": "भुगतानकर्ता अपडेट करने में विफल",
+    "categoryUpdated": "श्रेणी सफलतापूर्वक अपडेट की गई",
+    "categoryUpdateFailed": "श्रेणी अपडेट करने में विफल",
     "exportFailed": "लेन-देन निर्यात करने में विफल"
   },
   "validation": {
     "dateRequired": "तिथि आवश्यक है"
+  },
+  "tagKeyBreakdown": {
+    "title": "{key} के अनुसार खर्च",
+    "other": "अन्य",
+    "noData": "इस कुंजी के लिए विभाजित करने हेतु कोई टैग किया गया खर्च नहीं है।"
   }
 }

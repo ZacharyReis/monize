@@ -14,6 +14,7 @@ import { Response } from "express";
 import { AiQueryService } from "./ai-query.service";
 import { AiQueryDto } from "./dto/ai-query.dto";
 import { tr } from "../../i18n/translate";
+import { SSE_HEADERS, sseData } from "../../common/sse.util";
 import {
   AllowDelegate,
   DelegateRequiresSection,
@@ -59,10 +60,9 @@ export class AiQueryController {
     @Body() dto: AiQueryDto,
     @Res() res: Response,
   ) {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no");
+    for (const [header, value] of Object.entries(SSE_HEADERS)) {
+      res.setHeader(header, value);
+    }
     res.flushHeaders();
 
     const streamStart = Date.now();
@@ -104,7 +104,9 @@ export class AiQueryController {
         if (abortController.signal.aborted) break;
         if (event) {
           eventCount++;
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
+          // Events carry user-controlled text (the prompt, tool output);
+          // sseData escapes markup characters before they reach the socket.
+          res.write(sseData(event));
         }
       }
     } catch (error) {
@@ -119,7 +121,7 @@ export class AiQueryController {
           "errors.ai.queryStreamFailed",
           "An unexpected error occurred while processing your query.",
         );
-        res.write(`data: ${JSON.stringify({ type: "error", message })}\n\n`);
+        res.write(sseData({ type: "error", message }));
       }
     } finally {
       clearInterval(heartbeat);

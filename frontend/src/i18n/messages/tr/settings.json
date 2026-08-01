@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Hafta başlangıcı",
     "showCreatedAtLabel": "İşlem formlarında Oluşturma Tarihini Göster",
     "showCreatedAtTooltip": "İşlem formlarında bir işlemin ilk oluşturulduğu tarih ve saati görüntüler. Bu, işlem tarihinden ayrıdır ve bir kaydın Monize'ye gerçekte ne zaman eklendiğini anlamanıza yardımcı olabilir.",
+    "showWhatsNewLabel": "Yükseltmeden sonra Yenilikler'i göster",
+    "showWhatsNewTooltip": "Monize yeni bir sürüme güncellendikten sonra ilk oturum açtığınızda sürüm notlarının bir özetini gösterir. Bu sayfanın altındaki veya oturum açma ekranındaki sürüm numarasına tıklayarak istediğiniz zaman yeniden açabilirsiniz.",
     "timeFormatLabel": "Saat Biçimi",
     "recentTransactionsLabel": "Hızlı doldurma için son işlemler",
     "recentTransactionsHelp": "İşlem formlarında Alacaklı alanı yanındaki geçmiş düğmesi açılır penceresinde gösterilen kayıt sayısı.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Renk teması kaydedilemedi"
     },
     "browserLocale": "Tarayıcı yerel ayarını kullan (otomatik algıla)",
-    "browserTimezonePrefix": "Tarayıcı saat dilimini kullan (otomatik algılandı: {tz})",
     "numberFormatOptions": {
       "browser": "Tarayıcı yerel ayarını kullan (otomatik algılama: {sample})",
       "enUS": "İngilizce (ABD) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Kılavuzlara ve belgelere göz atın."
+    },
+    "supportBackup": {
+      "label": "Destek yedeği oluştur",
+      "description": "Bir bakımcının gerçek adlarınızı veya tutarlarınızı görmeden bir hatayı yeniden üretebilmesi için verilerinizin şifrelenmiş, kimliksizleştirilmiş bir kopyasını paylaşın."
     }
+  },
+  "supportBackup": {
+    "title": "Destek yedeği oluştur",
+    "howItWorks": "Yedeğinizin kimliksizleştirilmiş bir kopyasını üretir: adlar maskelenir (ilk ve son iki karakter kalır), notlar/açıklamalar/hesap numaraları kaldırılır ve her tutar tek bir gizli çarpanla çarpılırken kamuya açık değerler (döviz kurları, fiyatlar, faiz oranları) olduğu gibi kalır. Dosya her zaman aşağıdaki parolayla şifrelenir ve normal bir yedek gibi geri yüklenir. Bu, sıradan ifşaya karşı korur; sizi zaten tanıyan birine karşı değil — hatalar yeniden üretilebilsin diye tarihler, sıklıklar ve yapı korunur.",
+    "sectionsLabel": "Neler dahil edilsin",
+    "sections": {
+      "investments": "Yatırımlar (menkul kıymetler, pozisyonlar, fiyatlar)",
+      "scheduled": "Planlı işlemler",
+      "budgets": "Bütçeler",
+      "reports": "Raporlar ve projeksiyonlar",
+      "importMappings": "İçe aktarma sütun eşlemeleri",
+      "autoBackup": "Otomatik yedek ayarları"
+    },
+    "priceHistoryLabel": "Menkul kıymet fiyat geçmişini dahil et",
+    "priceHistoryHint": "Varsayılan olarak kapalı: tam fiyat serisi halka açık piyasa verileriyle eşleşir ve maskelenmiş bir sembolü açığa çıkarabilir. Yalnızca hata fiyatlar veya değerlemelerle ilgiliyse açın.",
+    "accountsLabel": "Belirli hesaplarla sınırla",
+    "accountsHint": "Her hesabı dahil etmek için tümünü işaretsiz bırakın. Bir alt küme seçmek, başvurulan hesapları ve alacaklıları da içeri çeker.",
+    "dateRangeLabel": "Tarih aralığı (isteğe bağlı)",
+    "dateRangeHint": "Dışa aktarılan geçmişi bu tarihlerle sınırlayın. Kırpılmış dosya tutarlı kalsın diye açılış bakiyeleri ayarlanır.",
+    "dateFromLabel": "Başlangıç",
+    "dateToLabel": "Bitiş",
+    "multiplierLabel": "Tutar çarpanı",
+    "multiplierHint": "Her özel tutar, gerçek değerleri gizlemek ve tutarlılığı korumak için bu sayıyla çarpılır. 1’den büyük, tam sayı olmayan herhangi bir sayı olur; “Yeniden üret” yenisini seçer.",
+    "multiplierWarning": "Çarpanı kimseyle paylaşmayın — gizlenen tutarları geri çeviren anahtar odur.",
+    "multiplierInvalid": "1’den büyük, tam sayı olmayan bir sayı girin.",
+    "regenerate": "Yeniden üret",
+    "passwordLabel": "Şifreleme parolası",
+    "preview": "Önizleme",
+    "previewLabel": "Önizleme",
+    "previewBefore": "Önce",
+    "previewAfter": "Sonra",
+    "previewEmpty": "Bu seçim için önizlenecek örnek satır yok.",
+    "previewFailed": "Önizleme oluşturulamadı. Lütfen tekrar deneyin.",
+    "generate": "Oluştur",
+    "confirmPasswordTitle": "Parolayı kaydettiniz mi?",
+    "confirmPasswordMessage": "Dosya yalnızca yukarıda gösterilen şifreleme parolasıyla açılabilir. Hiçbir yerde saklanmaz ve sonradan kurtarılamaz — oluşturmadan önce kaydettiğinizden emin olun.",
+    "confirmPasswordConfirm": "Kaydettim — oluştur",
+    "generatedToast": "Destek yedeği indirildi.",
+    "generateFailed": "Destek yedeği oluşturulamadı. Lütfen tekrar deneyin.",
+    "passwordHint": "Dosya her zaman şifrelidir. Bu parolayı incelemeyi yapacak kişiye dosyayla birlikte değil, ayrı bir kanaldan iletin.",
+    "passwordInvalid": "En az 8 karakter girin."
   },
   "dangerZone": {
     "heading": "Tehlikeli Alan",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Otomatik Yedekleme",
-    "description": "Verilerinizi bir programa göre otomatik olarak bir klasöre yedekleyin. Monize Docker'da çalıştığından, bir ana klasörü kapsayıcıya birim olarak eşlemeniz gerekir (örn., -v /host/backups:/backups).",
+    "description": "Verilerinizi bir programa göre otomatik olarak bir klasöre yedekleyin. Monize Docker'da çalıştığından, bir ana klasörü kapsayıcıya birim olarak eşlemeniz gerekir (örn., -v /host/backups:/data/backups).",
     "loadingText": "Yükleniyor...",
     "enableLabel": "Otomatik yedeklemeyi etkinleştir",
     "backupFolderLabel": "Yedekleme Klasörü",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Göz at...",
     "validateButton": "Doğrula",
     "validatingButton": "Doğrulanıyor...",

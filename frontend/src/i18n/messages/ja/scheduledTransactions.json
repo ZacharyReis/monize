@@ -98,12 +98,15 @@
       "both": "この日付で記帳すると <b>{fromAccount}</b> が <b>{fromAmount}</b>（{fromCondition}）に、<b>{toAccount}</b> が <b>{toAmount}</b>（{toCondition}）になります。"
     },
     "splitLabel": "この取引を分割",
+    "copyAmount": "金額をコピー",
     "referenceNumberLabel": "参照番号（任意）",
     "noPriceHistory": "この証券の価格履歴がまだありません。価格を手動で入力してください。",
     "postButton": "取引を投稿",
     "toasts": {
       "posted": "取引を投稿しました",
       "postFailed": "取引の投稿に失敗しました",
+      "amountCopied": "金額をコピーしました",
+      "copyFailed": "金額のコピーに失敗しました",
       "quantityRequired": "数量はゼロより大きい必要があります",
       "priceRequired": "価格はゼロより大きい必要があります",
       "totalAmountRequired": "合計金額は必須です",

@@ -1,0 +1,30 @@
+{
+  "title": "境外交易手續費",
+  "currencyFilter": { "label": "幣別", "placeholder": "所有幣別" },
+  "chart": {
+    "title": "手續費趨勢",
+    "noData": "尚無外幣交易",
+    "monthlyAvg": "月平均",
+    "quarterlyAvg": "季平均",
+    "yearlyAvg": "年平均",
+    "total": "手續費總計",
+    "transactions": "交易",
+    "tooltip": "{count, plural, one {# 筆交易} other {# 筆交易}}",
+    "quarterLabel": "{year}年Q{quarter}",
+    "quarterTick": "{year}年Q{quarter}",
+    "granularityLabel": "分組方式",
+    "granularity": { "auto": "自動", "month": "月", "quarter": "季度", "year": "年" },
+    "granularityAutoTitle": "自動（{granularity}）",
+    "granularityTitle": "{label}檢視"
+  },
+  "list": {
+    "title": "外幣交易",
+    "editTitle": "編輯交易",
+    "investmentLinked": "此交易已連結至投資。正在開啟投資編輯器。",
+    "export": {
+      "success": "{count, plural, one {已匯出 # 筆交易} other {已匯出 # 筆交易}}",
+      "none": "無交易可匯出",
+      "failed": "匯出交易失敗"
+    }
+  }
+}

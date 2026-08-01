@@ -104,8 +104,12 @@
       "lookupTooShort": "Arama için bir para birimi kodu veya adı girin (en az 2 karakter)",
       "found": "Bulundu: {details}",
       "notFound": "\"{query}\" için para birimi bulunamadı",
-      "lookupFailed": "Arama başarısız - lütfen tekrar deneyin"
-    }
+      "lookupFailed": "Arama başarısız - lütfen tekrar deneyin",
+      "reactivateFailed": "Para birimi yeniden etkinleştirilemedi"
+    },
+    "inactiveNotice": "{code} zaten listenizde ama etkin değil.",
+    "reactivateButton": "{code} birimini yeniden etkinleştir",
+    "reactivating": "Yeniden etkinleştiriliyor..."
   },
   "validation": {
     "codeLength": "Para birimi kodu tam olarak 3 karakter olmalıdır",

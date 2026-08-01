@@ -203,7 +203,13 @@
     "addPriceSection": "Thêm giá",
     "editPriceSection": "Chỉnh sửa giá",
     "loading": "Đang tải giá...",
+    "chartTitle": "Lịch sử giá",
+    "markers": {
+      "bought": "Mua {quantity} · {account}",
+      "sold": "Bán {quantity} · {account}"
+    },
     "empty": "Không có lịch sử giá",
+    "showingCount": "Đang hiển thị {shown} trong {total} giá",
     "columns": {
       "date": "Ngày",
       "close": "Đóng cửa",
@@ -230,6 +236,7 @@
     "closeButton": "Đóng",
     "deleteConfirm": {
       "title": "Xóa giá",
+      "message": "Xóa bản ghi giá cho {date}?",
       "confirmLabel": "Xóa"
     }
   },

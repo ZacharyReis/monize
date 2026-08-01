@@ -1,0 +1,24 @@
+{
+  "defaults": {
+    "bills": {
+      "sub": {
+        "mobilePhone": "Cell Phone"
+      }
+    },
+    "business": {
+      "sub": {
+        "mobilePhone": "Cell Phone"
+      }
+    },
+    "governmentFees": {
+      "sub": {
+        "licencesPermits": "Licenses & Permits"
+      }
+    },
+    "healthcare": {
+      "sub": {
+        "counselling": "Counseling"
+      }
+    }
+  }
+}

@@ -104,7 +104,8 @@ vi.mock('@/hooks/useLocalStorage', () => ({
   useLocalStorage: (_key: string, initial: any) => [initial, vi.fn()],
 }));
 
-vi.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/utils')>()),
   parseLocalDate: (d: string) => new Date(d + 'T00:00:00'),
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
 }));
@@ -144,6 +145,12 @@ describe('InvestmentValueChart', () => {
     render(<InvestmentValueChart />);
     const title = await screen.findByText('Portfolio Value Over Time');
     expect(title).toBeInTheDocument();
+  });
+
+  it('links to the full Portfolio Value report', async () => {
+    render(<InvestmentValueChart />);
+    const link = await screen.findByRole('link', { name: /View report/i });
+    expect(link).toHaveAttribute('href', '/reports/portfolio-value');
   });
 
   it('renders summary cards after data loads', async () => {

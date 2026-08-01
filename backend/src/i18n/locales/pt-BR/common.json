@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Dinheiro",
     "brokerage": "Corretagem"
+  },
+  "import": {
+    "voidedTransactionNote": "Anulada na origem; o valor original foi omitido da exportação e importado como zero."
   }
 }

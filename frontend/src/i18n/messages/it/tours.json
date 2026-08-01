@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Avanti",
+    "back": "Indietro",
+    "done": "Fine",
+    "endTour": "Termina tour",
+    "tryIt": "Provalo — il tour continua quando lo fai",
+    "skipStep": "Salta questo passaggio",
+    "stepCounter": "{current} di {total}",
+    "skippedTitle": "Tour terminato",
+    "skippedBody": "Alcuni passaggi sono stati saltati perché la relativa schermata o il controllo non erano disponibili. Puoi rifare il tour in qualsiasi momento dalle Impostazioni.",
+    "move": "Sposta questa scheda — trascinala o spostala con i tasti freccia"
+  },
+  "offer": {
+    "heading": "Fai un tour rapido",
+    "subheading": "Brevi percorsi guidati sulle novità di questa versione. Questa finestra si sposta per la durata di un percorso e torna quando finisce.",
+    "showMe": "Mostrami",
+    "viewed": "Visto",
+    "introTitle": "Sei nuovo qui? Fai il tour introduttivo",
+    "introSubtitle": "Un rapido percorso guidato tra le funzioni di base."
+  },
+  "areas": {
+    "intro": "Per iniziare",
+    "transactions": "Transazioni",
+    "accounts": "Conti",
+    "budgets": "Budget",
+    "reports": "Report",
+    "settings": "Impostazioni"
+  },
+  "gettingStarted": {
+    "takeTour": "Fai il tour",
+    "retakeTour": "Rifai il tour"
+  },
+  "settings": {
+    "title": "Tour guidati",
+    "description": "Scopri le funzioni dell'app passo dopo passo.",
+    "showList": "Mostra i tour ({count})",
+    "hideList": "Nascondi i tour",
+    "start": "Avvia",
+    "restart": "Rivedi",
+    "statusNotViewed": "Non visualizzato",
+    "statusDismissed": "Uscito prima della fine",
+    "reset": "Azzera i progressi del tour",
+    "resetSuccess": "Progressi del tour azzerati.",
+    "resetError": "Impossibile azzerare i progressi del tour. Riprova."
+  },
+  "intro": {
+    "basics": {
+      "title": "Introduzione a Monize",
+      "steps": {
+        "welcome": {
+          "title": "Benvenuto in Monize",
+          "body": "Questo tour rapido ti mostra il cuore dell'app. Puoi uscire in qualsiasi momento premendo **Escape** o **Termina tour**."
+        },
+        "dashboard": {
+          "title": "La tua dashboard",
+          "body": "Questa è la tua dashboard. Usa il pulsante **Personalizza** in alto a destra per riorganizzare o nascondere i widget, così i riepiloghi che ti interessano di più restano sempre in cima."
+        },
+        "tools": {
+          "title": "Il menu Strumenti",
+          "body": "Il menu **Strumenti** è dove gestisci gli elementi di base delle tue finanze: beneficiari, categorie, valute, tag e altro ancora."
+        },
+        "accounts": {
+          "title": "I tuoi conti",
+          "body": "Aggiungi qui i tuoi conti bancari, carte di credito, prestiti e di investimento con il pulsante evidenziato. Ogni saldo e transazione appartiene a un conto."
+        },
+        "transactions": {
+          "title": "Transazioni",
+          "body": "Questo è il tuo registro delle transazioni: ogni pagamento e versamento dei tuoi conti si trova qui, pronto per essere cercato e filtrato."
+        },
+        "createTransaction": {
+          "title": "Registra una transazione",
+          "body": "Aggiungi entrate o uscite con **Nuova transazione**. Vai pure ad aprire il modulo."
+        },
+        "fields": {
+          "title": "Beneficiario e categoria",
+          "body": "Per ogni transazione scegli un beneficiario e assegni una categoria. Le categorie sono ciò che alimenta i tuoi budget e report; l'importo arriva al passo successivo."
+        },
+        "splits": {
+          "title": "Suddividi transazione",
+          "body": "Un acquisto che copre più categorie? Usa **Suddividi transazione** per dividere una singola transazione tra più categorie: ad esempio spesa alimentare e casa da un unico negozio."
+        },
+        "currencyField": {
+          "title": "Importo e valuta",
+          "body": "Inserisci qui l'importo della transazione. Hai pagato in un'altra valuta? Imposta la valuta accanto all'importo e inseriscilo come addebitato: Monize lo converte nella valuta del conto."
+        },
+        "closeForm": {
+          "title": "Chiudi il modulo per continuare",
+          "body": "Chiudi il modulo della transazione con **Annulla**, oppure salvala con l'altro pulsante, e il tour proseguirà."
+        },
+        "bills": {
+          "title": "Fatture & Versamenti",
+          "body": "Pianifica fatture e versamenti ricorrenti in modo che i pagamenti futuri siano previsti e nulla ti sfugga."
+        },
+        "investments": {
+          "title": "Investimenti",
+          "body": "Monitora le tue posizioni, i prezzi e i rendimenti nei tuoi conti di investimento."
+        },
+        "budgets": {
+          "title": "Pianifica con i budget",
+          "body": "I budget ti permettono di impostare obiettivi mensili per categoria e di monitorare il tuo andamento rispetto a essi."
+        },
+        "reports": {
+          "title": "Capisci le tue finanze",
+          "body": "I report trasformano le tue transazioni in grafici — spese per categoria, patrimonio netto nel tempo e altro ancora."
+        },
+        "finish": {
+          "title": "Tutto pronto",
+          "body": "Il tour finisce qui. Puoi rifarlo in qualsiasi momento dalla sezione **Tour guidati** nelle **Impostazioni**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transazioni in valuta estera",
+        "steps": {
+          "welcome": {
+            "title": "Tieni traccia delle spese in altre valute",
+            "body": "Hai comprato qualcosa all'estero? Questo tour imposta la commissione per transazioni in valuta estera di un conto, registra un acquisto nella valuta che ti è stata addebitata e mostra dove compaiono questi costi. Puoi uscire in qualsiasi momento con **Esc** o **Termina tour**."
+          },
+          "openAccountEdit": {
+            "title": "Parti dal conto",
+            "body": "Le commissioni per transazioni in valuta estera appartengono al conto. Scegli il conto con cui paghi all'estero — una carta di credito o di debito, o quello da cui paga il telefono — e seleziona **Modifica** tra le azioni della sua riga, oppure tieni premuta la riga su mobile, per aprirne le impostazioni."
+          },
+          "fxFeePercent": {
+            "title": "Imposta la commissione di conversione",
+            "body": "Inserisci qui la commissione per transazioni in valuta estera del conto in percentuale — ad esempio 2,5. Monize la incorpora nell'importo convertito di ogni acquisto estero, così la commissione viene registrata per te."
+          },
+          "closeAccountForm": {
+            "title": "Salva e chiudi",
+            "body": "Usa questi pulsanti per concludere: **Aggiorna conto** salva la commissione, **Annulla** chiude senza salvare. In entrambi i casi il tour prosegue."
+          },
+          "newTransaction": {
+            "title": "Registra un acquisto estero",
+            "body": "Ora registra un acquisto fatto con quel conto in un'altra valuta. Apri **Nuova transazione** e scegli quel conto."
+          },
+          "chooseAccount": {
+            "title": "Controlla conto e data",
+            "body": "La commissione di conversione appartiene al conto, quindi assicurati che **Conto** sia il conto su cui l'hai appena impostata — se non lo è, cambiala qui. Imposta anche la **Data** sul giorno dell'acquisto: il tasso di cambio viene cercato per quella data."
+          },
+          "enterDetails": {
+            "title": "Inserisci i dettagli",
+            "body": "Compila beneficiario e categoria come in qualsiasi altra transazione. La parte in valuta estera arriva subito dopo."
+          },
+          "entryCurrency": {
+            "title": "Scegli la valuta con cui hai pagato",
+            "body": "Aprilo e scegli la valuta che ti è stata addebitata. Nella lista c'è solo la tua valuta? Scegli **Aggiungi valuta...** in fondo per aggiungerne una: viene selezionata subito per te."
+          },
+          "enterAmount": {
+            "title": "Inserisci l'importo addebitato",
+            "body": "Digita il totale esattamente come compare sull'estratto conto. Monize cerca il **tasso di cambio** per la data della transazione, mostra accanto il totale convertito e incorpora la **commissione per transazioni in valuta estera** che hai impostato sul conto — la didascalia sotto riporta entrambi. La banca ha arrotondato diversamente? Modifica il tasso o il totale convertito per farlo quadrare al centesimo."
+          },
+          "closeTransactionForm": {
+            "title": "Chiudi il modulo",
+            "body": "Anche qui: salva la transazione con il pulsante di conferma oppure chiudila con **Annulla**, e il tour continua."
+          },
+          "openAccountDetail": {
+            "title": "Torna al conto",
+            "body": "Apri la pagina Dettagli di quel conto — scegli **Dettagli** tra le azioni della sua riga — per vedere come viene riepilogata l'attività in valuta estera."
+          },
+          "fxSection": {
+            "title": "La tua sezione valuta estera",
+            "body": "I conti con attività in valuta estera ottengono questa sezione: le commissioni pagate per valuta, un grafico nel tempo e le transazioni corrispondenti, esportabili in CSV e PNG. Compare non appena il conto ha un acquisto estero.",
+            "fallbackBody": "Questo conto non ha ancora attività in valuta estera, quindi la sezione non è nella sua pagina. Registraci un acquisto in un'altra valuta e la sezione comparirà: commissioni per valuta, un grafico nel tempo ed esportazione in CSV e PNG."
+          },
+          "report": {
+            "title": "Il report Commissioni per transazioni in valuta estera",
+            "body": "Questo report raccoglie in un unico posto gli acquisti esteri di tutti i tuoi conti e valute, così vedi quanto costano davvero le carte \"senza commissioni sull'estero\". Aprilo quando vuoi da **Report**.",
+            "fallbackBody": "Il report **Commissioni in valuta estera** raccoglie gli acquisti esteri di tutti i conti e tutte le valute in un unico posto. Ora non è visibile — una ricerca o un filtro di categoria può nasconderlo — ma lo trovi in **Report**."
+          },
+          "finish": {
+            "title": "Questa è la valuta estera in Monize",
+            "body": "Imposti la commissione una volta, inserisci gli acquisti come ti sono stati addebitati e le commissioni si tracciano da sole. Puoi rifare questo tour quando vuoi dalla sezione **Tour guidati** nelle **Impostazioni**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Riepilogo Novità",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Novità della versione",
+            "body": "Questo interruttore controlla se il riepilogo Novità compare automaticamente dopo un aggiornamento."
+          },
+          "appVersion": {
+            "title": "Rileggi le note",
+            "body": "Fai clic sull'etichetta della versione in fondo alle **Impostazioni** in qualsiasi momento per riaprire le note di rilascio."
+          },
+          "done": {
+            "title": "È tutto",
+            "body": "Puoi rivedere queste novità quando vuoi da qui, nelle Impostazioni."
+          }
+        }
+      }
+    }
+  }
+}

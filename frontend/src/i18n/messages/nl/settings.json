@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Week begint op",
     "showCreatedAtLabel": "Aanmaakdatum weergeven in transactieformulieren",
     "showCreatedAtTooltip": "Toont de datum en tijd waarop een transactie oorspronkelijk is aangemaakt op transactieformulieren. Dit staat los van de transactiedatum en kan helpen bij te houden wanneer een invoer werkelijk aan Monize is toegevoegd.",
+    "showWhatsNewLabel": "'Wat is er nieuw' tonen na een update",
+    "showWhatsNewTooltip": "Toont een samenvatting van de release-opmerkingen de eerste keer dat je je aanmeldt nadat Monize is bijgewerkt naar een nieuwe versie. Je kunt het altijd opnieuw openen door op het versienummer onder aan deze pagina of op het aanmeldscherm te klikken.",
     "timeFormatLabel": "Tijdnotatie",
     "recentTransactionsLabel": "Recente transacties in snel invullen",
     "recentTransactionsHelp": "Aantal vermeldingen dat wordt weergegeven in de popover van de geschiedenis-knop naast het veld Begunstigde op transactieformulieren.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Opslaan van kleurthema mislukt"
     },
     "browserLocale": "Browserinstelling gebruiken (automatisch detecteren)",
-    "browserTimezonePrefix": "Browsertijdzone gebruiken (automatisch gedetecteerd als {tz})",
     "numberFormatOptions": {
       "browser": "Browserinstelling gebruiken (automatisch gedetecteerd als {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Blader door handleidingen en documentatie."
+    },
+    "supportBackup": {
+      "label": "Supportback-up maken",
+      "description": "Deel een versleutelde, gede-identificeerde kopie van je gegevens zodat een beheerder een bug kan reproduceren zonder je echte namen of bedragen te zien."
     }
+  },
+  "supportBackup": {
+    "title": "Supportback-up maken",
+    "howItWorks": "Dit maakt een gede-identificeerde kopie van je back-up: namen worden gemaskeerd (eerste en laatste twee tekens blijven), notities/omschrijvingen/rekeningnummers worden verwijderd en elk bedrag wordt vermenigvuldigd met één verborgen factor, terwijl publieke waarden (wisselkoersen, koersen, rentetarieven) intact blijven. Het bestand wordt altijd versleuteld met het onderstaande wachtwoord en herstelt als een normale back-up. Dit beschermt tegen terloopse blootstelling, niet tegen iemand die je al kent — datums, frequenties en structuur blijven behouden zodat bugs reproduceerbaar zijn.",
+    "sectionsLabel": "Wat opnemen",
+    "sections": {
+      "investments": "Beleggingen (effecten, posities, koersen)",
+      "scheduled": "Geplande transacties",
+      "budgets": "Budgetten",
+      "reports": "Rapporten & projecties",
+      "importMappings": "Importkolomtoewijzingen",
+      "autoBackup": "Auto-back-upinstellingen"
+    },
+    "priceHistoryLabel": "Koershistorie van effecten opnemen",
+    "priceHistoryHint": "Standaard uit: een volledige koersreeks komt overeen met publieke marktdata en kan een gemaskeerde ticker identificeren. Alleen inschakelen als de bug over koersen of waarderingen gaat.",
+    "accountsLabel": "Beperken tot specifieke rekeningen",
+    "accountsHint": "Laat alles uitgevinkt om elke rekening op te nemen. Een subset kiezen haalt ook de gerefereerde rekeningen en begunstigden binnen.",
+    "dateRangeLabel": "Datumbereik (optioneel)",
+    "dateRangeHint": "Beperk de geëxporteerde historie tot deze datums. Beginsaldi worden aangepast zodat het ingekorte bestand blijft kloppen.",
+    "dateFromLabel": "Van",
+    "dateToLabel": "Tot",
+    "multiplierLabel": "Bedragvermenigvuldiger",
+    "multiplierHint": "Elk privébedrag wordt met dit getal vermenigvuldigd om de echte waarden te verbergen terwijl alles consistent blijft. Elk niet-geheel getal groter dan 1 werkt; „Opnieuw genereren\" kiest een nieuwe.",
+    "multiplierWarning": "Deel de vermenigvuldiger met niemand — het is de sleutel die de verborgen bedragen terugrekent.",
+    "multiplierInvalid": "Voer een niet-geheel getal groter dan 1 in.",
+    "regenerate": "Opnieuw genereren",
+    "passwordLabel": "Versleutelingswachtwoord",
+    "preview": "Voorbeeld",
+    "previewLabel": "Voorbeeld",
+    "previewBefore": "Voor",
+    "previewAfter": "Na",
+    "previewEmpty": "Geen voorbeeldrijen voor deze selectie.",
+    "previewFailed": "Kon het voorbeeld niet opbouwen. Probeer het opnieuw.",
+    "generate": "Genereren",
+    "confirmPasswordTitle": "Heb je het wachtwoord opgeslagen?",
+    "confirmPasswordMessage": "Het bestand kan alleen worden geopend met het hierboven getoonde versleutelingswachtwoord. Het wordt nergens opgeslagen en is later niet te herstellen — zorg dat je het hebt bewaard voordat je genereert.",
+    "confirmPasswordConfirm": "Opgeslagen — genereren",
+    "generatedToast": "Supportback-up gedownload.",
+    "generateFailed": "Kon de supportback-up niet genereren. Probeer het opnieuw.",
+    "passwordHint": "Het bestand is altijd versleuteld. Deel dit wachtwoord via een apart kanaal met de onderzoeker, niet samen met het bestand.",
+    "passwordInvalid": "Voer minimaal 8 tekens in."
   },
   "dangerZone": {
     "heading": "Gevarenzone",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Automatische back-up",
-    "description": "Maak automatisch een back-up van jouw gegevens naar een map op een schema. Omdat Monize in Docker draait, moet je een hostmap als volume in de container koppelen (bijv. -v /host/backups:/backups).",
+    "description": "Maak automatisch een back-up van jouw gegevens naar een map op een schema. Omdat Monize in Docker draait, moet je een hostmap als volume in de container koppelen (bijv. -v /host/backups:/data/backups).",
     "loadingText": "Laden...",
     "enableLabel": "Automatische back-ups inschakelen",
     "backupFolderLabel": "Back-upmap",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Bladeren...",
     "validateButton": "Valideren",
     "validatingButton": "Valideren...",

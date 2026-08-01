@@ -98,12 +98,15 @@
       "both": "Bu tarihte işlemek <b>{fromAccount}</b> hesabını <b>{fromAmount}</b> ({fromCondition}) ve <b>{toAccount}</b> hesabını <b>{toAmount}</b> ({toCondition}) değerine getirecek."
     },
     "splitLabel": "Bu işlemi böl",
+    "copyAmount": "Miktarı kopyala",
     "referenceNumberLabel": "Referans Numarası (isteğe bağlı)",
     "noPriceHistory": "Bu menkul kıymet için henüz fiyat geçmişi yok. Fiyatı manuel olarak girin.",
     "postButton": "İşlemi Kaydet",
     "toasts": {
       "posted": "İşlem kaydedildi",
       "postFailed": "İşlem kaydedilemedi",
+      "amountCopied": "Miktar kopyalandı",
+      "copyFailed": "Miktar kopyalanamadı",
       "quantityRequired": "Miktar sıfırdan büyük olmalıdır",
       "priceRequired": "Fiyat sıfırdan büyük olmalıdır",
       "totalAmountRequired": "Toplam tutar zorunludur",

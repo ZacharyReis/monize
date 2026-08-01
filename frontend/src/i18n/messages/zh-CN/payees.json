@@ -4,6 +4,7 @@
     "subtitle": "管理您的收款人及其默认分类",
     "deactivateUnused": "停用未使用",
     "autoAssignCategories": "自动分配分类",
+    "maintenance": "维护",
     "autoMergePayees": "自动合并收款人",
     "newPayee": "+ 新建收款人",
     "searchPlaceholder": "搜索收款人...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "重新激活",
-      "reactivateShort": "激活",
       "merge": "合并",
-      "mergeShort": "并",
       "edit": "编辑",
-      "editShort": "编",
-      "delete": "删除",
-      "deleteShort": "删"
+      "delete": "删除"
     },
     "viewTransactionsTitle": "查看此收款人的交易",
     "uncategorizedBadge": "{count, plural, one {# 笔未分类} other {# 笔未分类}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "请至少选择一个分组进行合并",
       "applied": "已合并 {groups, plural, one {# 个分组} other {# 个分组}}（合并了 {payees} 个收款人）",
       "backfilled": "{count, plural, one {已分类 # 笔交易} other {已分类 # 笔交易}}",
-      "aliasesSkipped": "{count, plural, one {# 个别名因冲突被跳过} other {# 个别名因冲突被跳过}}",
+      "aliasesSkipped": "{count, plural, one {# 个别名因冲突被跳过} other {# 个别名因冲突被跳过}}: {aliases}",
       "loadFailed": "加载合并分组失败",
-      "applyFailed": "合并收款人失败"
+      "applyFailed": "合并收款人失败",
+      "someGroupsFailed": "{count, plural, one {# 个分组无法合并} other {# 个分组无法合并}}：{reason}"
     },
     "categoryMatchLabel": "仅合并同一分类下的收款人",
     "categoryMatchHelp": "当收款人分类不同时保持分开，减少误匹配。",

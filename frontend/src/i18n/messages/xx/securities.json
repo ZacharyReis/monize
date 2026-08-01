@@ -203,7 +203,13 @@
     "addPriceSection": "[XX-Add Price-XX]",
     "editPriceSection": "[XX-Edit Price-XX]",
     "loading": "[XX-Loading prices...-XX]",
+    "chartTitle": "[XX-Price History-XX]",
+    "markers": {
+      "bought": "[XX-Bought {quantity} · {account}-XX]",
+      "sold": "[XX-Sold {quantity} · {account}-XX]"
+    },
     "empty": "[XX-No price history available-XX]",
+    "showingCount": "[XX-Showing {shown} of {total} prices-XX]",
     "columns": {
       "date": "[XX-Date-XX]",
       "close": "[XX-Close-XX]",
@@ -230,6 +236,7 @@
     "closeButton": "[XX-Close-XX]",
     "deleteConfirm": {
       "title": "[XX-Delete Price-XX]",
+      "message": "[XX-Delete price entry for {date}?-XX]",
       "confirmLabel": "[XX-Delete-XX]"
     }
   },

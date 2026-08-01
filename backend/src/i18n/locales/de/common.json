@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Bargeld",
     "brokerage": "Depot"
+  },
+  "import": {
+    "voidedTransactionNote": "In der Quelle ungültig gemacht; der ursprüngliche Betrag fehlte im Export und wurde als Null importiert."
   }
 }

@@ -38,6 +38,15 @@ interface ComboboxProps {
    * in a modal) so the list only opens on an explicit click, keypress, or type.
    */
   openOnFocus?: boolean;
+  /**
+   * The `value` prop is an opaque id (e.g. a UUID), so it must never be
+   * rendered as input text -- when it cannot be resolved to an option label
+   * yet (options still loading), the field shows `initialDisplayValue` or
+   * stays blank instead. Set this on every id-backed combobox that also sets
+   * `allowCustomValue` (whose custom values are reported via
+   * `onChange('', text)`, never through `value`).
+   */
+  valueIsId?: boolean;
   /** Accessible name for the input when there is no visible `label`. */
   'aria-label'?: string;
 }
@@ -58,6 +67,7 @@ export function Combobox({
   alwaysShowSubtitle = false,
   priorityValues,
   openOnFocus = true,
+  valueIsId = false,
   'aria-label': ariaLabel,
 }: ComboboxProps) {
   const t = useTranslations('common');
@@ -125,15 +135,18 @@ export function Combobox({
         setSelectedLabel(option.label);
         setInputValue(option.label);
         setHasInitialized(true);
-      } else if (allowCustomValue) {
-        // Display the raw value for custom values not in options list
+      } else if (initialDisplayValue && !hasInitialized) {
+        // Option not found yet (options list still loading): show the caller's
+        // display name, never the raw value -- for id-backed fields the raw
+        // value is a UUID and must not flash in the input while lists load.
+        setInputValue(initialDisplayValue);
+        setSelectedLabel(initialDisplayValue);
+      } else if (allowCustomValue && !valueIsId) {
+        // Display the raw value for custom values not in options list. An
+        // id-backed value stays blank instead until it resolves to a label.
         setSelectedLabel(value);
         setInputValue(value);
         setHasInitialized(true);
-      } else if (initialDisplayValue && !hasInitialized) {
-        // Use initial display value if option not found yet (still loading)
-        setInputValue(initialDisplayValue);
-        setSelectedLabel(initialDisplayValue);
       }
     } else if (!allowCustomValue) {
       setSelectedLabel('');
@@ -474,9 +487,13 @@ export function Combobox({
             highlightedIndex === 0 ? 'bg-green-100 dark:bg-green-900' : 'hover:bg-green-50 dark:hover:bg-green-900/50'
           )}
         >
-          <div className="flex items-center">
-            <span className="text-green-600 dark:text-green-400 mr-2">+</span>
-            <span className="font-medium text-green-700 dark:text-green-300">
+          <div className="flex items-center min-w-0">
+            <span className="text-green-600 dark:text-green-400 mr-2 flex-shrink-0">+</span>
+            {/* truncate, like every option row below: the dropdown is only as
+                wide as its input, and a long name would otherwise overflow it
+                -- worst in the transaction form, where the payee field gives up
+                width to the history button. */}
+            <span className="block truncate font-medium text-green-700 dark:text-green-300">
               {t('combobox.createOption', { value: inputValue.trim() })}
             </span>
           </div>

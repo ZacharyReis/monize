@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { UseFormRegister, UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { Input } from '@/components/ui/Input';
 import { DateInput } from '@/components/ui/DateInput';
 import { Select } from '@/components/ui/Select';
-import { Combobox } from '@/components/ui/Combobox';
-import { Account, MortgageAmortizationPreview, MortgagePaymentFrequency } from '@/types/account';
+import { Account, MortgageAmortizationPreview, MortgagePaymentFrequency, InterestBookingMode } from '@/types/account';
 import { Category } from '@/types/category';
-import { buildCategoryTree } from '@/lib/categoryUtils';
 import { accountsApi } from '@/lib/accounts';
+import { OverpaymentRecognitionFields } from './OverpaymentRecognitionFields';
 import { buildAccountDropdownOptions } from '@/lib/account-utils';
 import { createLogger } from '@/lib/logger';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -24,6 +23,7 @@ interface MortgageFieldsProps {
   paymentStartDate: string | undefined;
   isCanadianMortgage: boolean | undefined;
   isVariableRate: boolean | undefined;
+  onViewLoanDetails?: () => void;
   termMonths: number | undefined;
   amortizationMonths: number | undefined;
   mortgagePaymentFrequency: MortgagePaymentFrequency | undefined;
@@ -36,6 +36,12 @@ interface MortgageFieldsProps {
   isEditing: boolean;
   selectedInterestCategoryId: string;
   handleInterestCategoryChange: (categoryId: string) => void;
+  interestBookingMode: InterestBookingMode;
+  handleInterestBookingModeChange: (mode: InterestBookingMode) => void;
+  selectedOverpaymentCategoryId: string;
+  handleOverpaymentCategoryChange: (categoryId: string) => void;
+  selectedOverpaymentPayeeId: string;
+  handleOverpaymentPayeeChange: (payeeId: string) => void;
 }
 
 export function MortgageFields({
@@ -45,6 +51,7 @@ export function MortgageFields({
   paymentStartDate,
   isCanadianMortgage,
   isVariableRate,
+  onViewLoanDetails,
   termMonths,
   amortizationMonths,
   mortgagePaymentFrequency,
@@ -57,6 +64,12 @@ export function MortgageFields({
   isEditing,
   selectedInterestCategoryId,
   handleInterestCategoryChange,
+  interestBookingMode,
+  handleInterestBookingModeChange,
+  selectedOverpaymentCategoryId,
+  handleOverpaymentCategoryChange,
+  selectedOverpaymentPayeeId,
+  handleOverpaymentPayeeChange,
 }: MortgageFieldsProps) {
   const t = useTranslations('accounts');
   const { formatDate } = useDateFormat();
@@ -104,6 +117,18 @@ export function MortgageFields({
       setAmortRemainder(String(amortizationMonths % 12));
     }
   }, [amortizationMonths]);
+
+  // A term (and its renewal reminder) is a Canada-only concept: outside Canada a
+  // mortgage has a single repayment period, not a separate contract term. When
+  // the mortgage is not Canadian, drop any previously entered term so no renewal
+  // reminder fires -- the backend nulls termEndDate when termMonths is cleared.
+  // setValue comes from react-hook-form (not React state), so it is allowed in
+  // an effect despite the no-setState-in-effect rule.
+  useEffect(() => {
+    if (!isCanadianMortgage && termMonths) {
+      setValue('termMonths', 0, { shouldDirty: false });
+    }
+  }, [isCanadianMortgage, termMonths, setValue]);
 
   const updateTermMonths = (years: string, months: string) => {
     const y = years === '' ? 0 : parseInt(years, 10);
@@ -182,25 +207,6 @@ export function MortgageFields({
     return () => clearTimeout(timer);
   }, [calculateMortgagePreview]);
 
-  const interestCategoryOptions = useMemo(() =>
-    buildCategoryTree(categories).map(({ category }) => {
-      const parentCategory = category.parentId
-        ? categories.find(c => c.id === category.parentId)
-        : null;
-      return {
-        value: category.id,
-        label: parentCategory ? `${parentCategory.name}: ${category.name}` : category.name,
-      };
-    }),
-  [categories]);
-
-  const initialInterestCategoryName = useMemo(() => {
-    if (!selectedInterestCategoryId) return '';
-    const cat = categories.find(c => c.id === selectedInterestCategoryId);
-    if (!cat) return '';
-    const parent = cat.parentId ? categories.find(c => c.id === cat.parentId) : null;
-    return parent ? `${parent.name}: ${cat.name}` : cat.name;
-  }, [selectedInterestCategoryId, categories]);
 
   return (
     <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
@@ -241,6 +247,21 @@ export function MortgageFields({
             <span className="block text-xs text-gray-500 dark:text-gray-400">
               {t('mortgageFields.variableRateDesc')}
             </span>
+            {isEditing && onViewLoanDetails && (
+              <span className="block text-xs mt-1">
+                {t.rich('mortgageFields.variableRateLoanDetailsLink', {
+                  link: (chunks) => (
+                    <button
+                      type="button"
+                      onClick={onViewLoanDetails}
+                      className="font-medium underline text-purple-700 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-200"
+                    >
+                      {chunks}
+                    </button>
+                  ),
+                })}
+              </span>
+            )}
           </label>
         </div>
       </div>
@@ -249,34 +270,38 @@ export function MortgageFields({
       <input type="hidden" {...register('termMonths', { valueAsNumber: true })} />
       <input type="hidden" {...register('amortizationMonths', { valueAsNumber: true })} />
 
-      {/* Term Length - years + months inputs */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('mortgageFields.termLength')}
-        </label>
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label={t('mortgageFields.years')}
-            type="number"
-            min={0}
-            max={99}
-            value={termYears}
-            onChange={handleTermYearsChange}
-            error={errors.termMonths?.message as string | undefined}
-          />
-          <Input
-            label={t('mortgageFields.months')}
-            type="number"
-            min={0}
-            max={11}
-            value={termRemainder}
-            onChange={handleTermMonthsChange}
-          />
+      {/* Term Length - years + months inputs. A separate contract term (that
+          drives renewal) only exists for Canadian mortgages; elsewhere there is
+          a single repayment period, so hide this field for non-Canadian loans. */}
+      {isCanadianMortgage && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('mortgageFields.termLength')}
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={t('mortgageFields.years')}
+              type="number"
+              min={0}
+              max={99}
+              value={termYears}
+              onChange={handleTermYearsChange}
+              error={errors.termMonths?.message as string | undefined}
+            />
+            <Input
+              label={t('mortgageFields.months')}
+              type="number"
+              min={0}
+              max={11}
+              value={termRemainder}
+              onChange={handleTermMonthsChange}
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t('mortgageFields.termLengthNoTerm')}
+          </p>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {t('mortgageFields.termLengthNoTerm')}
-        </p>
-      </div>
+      )}
 
       {/* Amortization Period - years + months inputs */}
       <div>
@@ -325,31 +350,19 @@ export function MortgageFields({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label={t('mortgageFields.paymentFromAccount')}
-              options={[
-                { value: '', label: t('mortgageFields.selectAccount') },
-                ...buildAccountDropdownOptions(
-                  accounts,
-                  () => true,
-                  (a) => `${a.name} (${a.currencyCode})`,
-                ),
-              ]}
-              error={errors.sourceAccountId?.message as string | undefined}
-              {...register('sourceAccountId')}
-            />
-
-            <Combobox
-              label={t('mortgageFields.interestCategory')}
-              placeholder={t('mortgageFields.selectCategory')}
-              options={interestCategoryOptions}
-              value={selectedInterestCategoryId}
-              initialDisplayValue={initialInterestCategoryName}
-              onChange={handleInterestCategoryChange}
-              error={errors.interestCategoryId?.message as string | undefined}
-            />
-          </div>
+          <Select
+            label={t('mortgageFields.paymentFromAccount')}
+            options={[
+              { value: '', label: t('mortgageFields.selectAccount') },
+              ...buildAccountDropdownOptions(
+                accounts,
+                () => true,
+                (a) => `${a.name} (${a.currencyCode})`,
+              ),
+            ]}
+            error={errors.sourceAccountId?.message as string | undefined}
+            {...register('sourceAccountId')}
+          />
 
           {/* Mortgage Amortization Preview */}
           {mortgagePreview && (
@@ -404,6 +417,22 @@ export function MortgageFields({
           )}
         </>
       )}
+
+      {/* Payment recognition (interest category + overpayment category / payee /
+          memo). Always shown so an existing loan can be configured on edit. */}
+      <OverpaymentRecognitionFields
+        categories={categories}
+        selectedInterestCategoryId={selectedInterestCategoryId}
+        onInterestCategoryChange={handleInterestCategoryChange}
+        interestBookingMode={interestBookingMode}
+        onInterestBookingModeChange={handleInterestBookingModeChange}
+        selectedOverpaymentCategoryId={selectedOverpaymentCategoryId}
+        onOverpaymentCategoryChange={handleOverpaymentCategoryChange}
+        selectedOverpaymentPayeeId={selectedOverpaymentPayeeId}
+        onOverpaymentPayeeChange={handleOverpaymentPayeeChange}
+        register={register}
+        errors={errors}
+      />
     </div>
   );
 }

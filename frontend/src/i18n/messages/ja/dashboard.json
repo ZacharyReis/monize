@@ -8,6 +8,7 @@
     "title": "お気に入りの勘定科目",
     "empty": "お気に入りの勘定科目がまだありません。勘定科目をお気に入りに登録するとここに表示されます。",
     "reorder": "並べ替え",
+    "dragToReorder": "勘定科目をドラッグして並べ替えるか、矢印ボタンを使用してください。",
     "done": "完了",
     "moveUp": "上へ移動",
     "moveDown": "下へ移動",
@@ -87,6 +88,7 @@
       "noLosers": "今日の値下がり銘柄はありません。"
     },
     "dailyChange": "日次変動",
+    "openPriceHistory": "{symbol} の価格履歴",
     "refreshPrices": "価格を更新",
     "viewPortfolio": "ポートフォリオを見る",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "お気に入りの有価証券がまだありません。<securitiesLink>有価証券ページ</securitiesLink>を開いて追跡したい有価証券をスターしてください。",
     "noPriceYet": "価格未登録",
     "dailyChange": "日次変動",
+    "openPriceHistory": "{symbol} の価格履歴",
     "refreshPrices": "価格を更新",
     "manage": "有価証券を管理"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "カテゴリ別支出",
     "empty": "この期間の支出データがありません。",
-    "past30Days": "過去30日間",
     "total": "合計",
     "uncategorized": "未分類",
     "other": "その他"
   },
   "incomeExpenses": {
     "title": "収入 対 支出",
-    "last5Weeks": "過去5週間",
-    "weekOf": "{date} の週",
     "income": "収入",
     "expenses": "支出",
     "net": "差引"
+  },
+  "customize": {
+    "button": "カスタマイズ",
+    "title": "ダッシュボードのカスタマイズ",
+    "description": "以下のレイアウトはダッシュボードと同じ配置です。ウィジェットは左から右へ並び、大きい画面では1行に2つ表示されます。",
+    "moveEarlier": "{name}を前へ移動",
+    "moveLater": "{name}を後ろへ移動",
+    "dragToReorder": "ウィジェットをドラッグして並べ替えるか、矢印ボタンを使用してください。",
+    "hiddenWidgets": "非表示のウィジェット",
+    "hide": "{name}を非表示にする",
+    "show": "{name}を表示する",
+    "atLeastOne": "ダッシュボードに表示するウィジェットを少なくとも1つ選択してください。",
+    "reset": "デフォルトに戻す",
+    "toasts": {
+      "saveFailed": "ダッシュボードレイアウトの保存に失敗しました"
+    }
+  },
+  "favouriteReports": {
+    "title": "お気に入りのレポート",
+    "empty": "お気に入りのレポートがまだありません。レポートページでレポートをスターするとここに表示されます。",
+    "browseReports": "レポートを見る"
+  },
+  "widgets": {
+    "configure": "{name}を設定",
+    "done": "完了",
+    "configSaveFailed": "ウィジェット設定を保存できませんでした。もう一度お試しください。",
+    "timeframe": "期間",
+    "accounts": "口座",
+    "chartType": "グラフの種類",
+    "view": "表示",
+    "displayName": "表示名",
+    "description": "説明",
+    "descriptionPlaceholder": "任意の説明を追加",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "すべて"
+    }
+  },
+  "portfolioValue": {
+    "title": "ポートフォリオ価値",
+    "empty": "表示する投資履歴がまだありません。",
+    "refresh": "現在の価値を更新"
+  },
+  "spendingByPayee": {
+    "title": "支払先別支出",
+    "empty": "この期間に支出がありません。",
+    "totalLabel": "合計"
+  },
+  "monthlySpendingTrend": {
+    "title": "月次支出トレンド",
+    "empty": "この期間のデータがありません。",
+    "expenses": "支出",
+    "income": "収入"
+  },
+  "incomeBySource": {
+    "title": "収入源別収入",
+    "empty": "この期間に収入がありません。",
+    "totalLabel": "総収入"
+  },
+  "creditUtilizationAccounts": {
+    "title": "口座別使用率",
+    "empty": "限度額が設定されたクレジット口座がありません。",
+    "utilization": "使用率",
+    "used": "使用額"
+  },
+  "creditUtilizationTotal": {
+    "title": "合計使用率",
+    "empty": "限度額が設定されたクレジット口座がありません。",
+    "used": "使用額",
+    "available": "利用可能額"
+  },
+  "sectorWeightings": {
+    "title": "セクター配分",
+    "empty": "セクターデータがありません。",
+    "direct": "直接",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "有価証券タイプ配分",
+    "empty": "表示する保有銘柄がありません。",
+    "types": {
+      "STOCK": "株式",
+      "ETF": "ETF",
+      "MUTUAL_FUND": "投資信託",
+      "BOND": "債券",
+      "CASH": "現金"
+    }
+  },
+  "geographicAllocation": {
+    "title": "地域配分",
+    "empty": "表示する保有銘柄がありません。",
+    "viewRegion": "地域",
+    "viewExchange": "取引所",
+    "viewCountry": "国"
+  },
+  "recurringExpenses": {
+    "title": "上位定期費用",
+    "empty": "定期費用が見つかりません。",
+    "minOccurrences": "最小発生回数",
+    "minOccurrencesOption": "{count} 回以上",
+    "occurrences": "{count} 回",
+    "monthlyEstimate": "月次見積もり"
+  },
+  "weekendVsWeekday": {
+    "title": "週末 vs 平日の支出",
+    "empty": "この期間に支出がありません。",
+    "weekendLabel": "週末",
+    "weekdayLabel": "平日",
+    "viewOverview": "概要",
+    "viewByDay": "曜日別"
   }
 }

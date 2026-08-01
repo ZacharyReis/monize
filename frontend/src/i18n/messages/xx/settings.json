@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "[XX-Week starts on-XX]",
     "showCreatedAtLabel": "[XX-Show Create Date in transaction forms-XX]",
     "showCreatedAtTooltip": "[XX-Displays the date and time a transaction was originally created on transaction forms. This is separate from the transaction date and can help you tell when an entry was actually added to Monize.-XX]",
+    "showWhatsNewLabel": "[XX-Show What's New after an upgrade-XX]",
+    "showWhatsNewTooltip": "[XX-Shows a summary of the release notes the first time you sign in after Monize updates to a new version. You can always reopen it by clicking the version number at the bottom of this page or on the login screen.-XX]",
     "timeFormatLabel": "[XX-Time Format-XX]",
     "recentTransactionsLabel": "[XX-Recent transactions in quick-fill-XX]",
     "recentTransactionsHelp": "[XX-Number of entries shown in the history button popover next to the Payee field on transaction forms.-XX]",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "[XX-Failed to save colour theme-XX]"
     },
     "browserLocale": "[XX-Use browser locale (auto-detect)-XX]",
-    "browserTimezonePrefix": "[XX-Use browser timezone (auto-detected as {tz})-XX]",
     "numberFormatOptions": {
       "browser": "[XX-Use browser locale (auto-detected as {sample})-XX]",
       "enUS": "[XX-English (US) - 1,234.56-XX]",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "[XX-Wiki-XX]",
       "description": "[XX-Browse guides and documentation.-XX]"
+    },
+    "supportBackup": {
+      "label": "[XX-Create a support backup-XX]",
+      "description": "[XX-Share a de-identified, encrypted copy of your data so a maintainer can reproduce a bug without seeing your real names or amounts.-XX]"
     }
+  },
+  "supportBackup": {
+    "title": "[XX-Create support backup-XX]",
+    "howItWorks": "[XX-This produces a de-identified copy of your backup: names are masked (first and last two characters kept), notes/descriptions/account numbers are removed, and every amount is multiplied by a single hidden factor while public values (exchange rates, prices, interest rates) are left intact. The file is always encrypted with the password below and restores like a normal backup. This protects against casual exposure, not against someone who already knows you -- dates, frequencies and structure are preserved so bugs still reproduce.-XX]",
+    "sectionsLabel": "[XX-What to include-XX]",
+    "sections": {
+      "investments": "[XX-Investments (securities, holdings, prices)-XX]",
+      "scheduled": "[XX-Scheduled transactions-XX]",
+      "budgets": "[XX-Budgets-XX]",
+      "reports": "[XX-Reports & projections-XX]",
+      "importMappings": "[XX-Import column mappings-XX]",
+      "autoBackup": "[XX-Auto-backup settings-XX]"
+    },
+    "priceHistoryLabel": "[XX-Include security price history-XX]",
+    "priceHistoryHint": "[XX-Off by default: a full price series matches public market data and can identify a masked ticker. Turn on only when the bug concerns prices or valuations.-XX]",
+    "accountsLabel": "[XX-Limit to specific accounts-XX]",
+    "accountsHint": "[XX-Leave all unchecked to include every account. Picking a subset also pulls in the accounts and payees they reference.-XX]",
+    "dateRangeLabel": "[XX-Date range (optional)-XX]",
+    "dateRangeHint": "[XX-Limit exported history to these dates. Opening balances are adjusted so the trimmed file still reconciles.-XX]",
+    "dateFromLabel": "[XX-From-XX]",
+    "dateToLabel": "[XX-To-XX]",
+    "multiplierLabel": "[XX-Amount multiplier-XX]",
+    "multiplierHint": "[XX-Every private amount is multiplied by this number to hide the actual value while keeping everything consistent. Any non-integer greater than 1 works; Regenerate picks a new one.-XX]",
+    "multiplierWarning": "[XX-Do not share the multiplier with anyone — it is the key that reverses the hidden amounts.-XX]",
+    "multiplierInvalid": "[XX-Enter a non-integer greater than 1.-XX]",
+    "regenerate": "[XX-Regenerate-XX]",
+    "passwordLabel": "[XX-Encryption password-XX]",
+    "preview": "[XX-Preview-XX]",
+    "previewLabel": "[XX-Preview-XX]",
+    "previewBefore": "[XX-Before-XX]",
+    "previewAfter": "[XX-After-XX]",
+    "previewEmpty": "[XX-No sample rows to preview for this selection.-XX]",
+    "previewFailed": "[XX-Could not build the preview. Please try again.-XX]",
+    "generate": "[XX-Generate-XX]",
+    "confirmPasswordTitle": "[XX-Did you save the password?-XX]",
+    "confirmPasswordMessage": "[XX-The file can only be opened with the encryption password shown above. It is not stored anywhere and cannot be recovered later -- make sure you saved it before generating.-XX]",
+    "confirmPasswordConfirm": "[XX-I saved it -- generate-XX]",
+    "generatedToast": "[XX-Support backup downloaded.-XX]",
+    "generateFailed": "[XX-Could not generate the support backup. Please try again.-XX]",
+    "passwordHint": "[XX-The file is always encrypted. Share this password with the investigator through a separate channel, not alongside the file.-XX]",
+    "passwordInvalid": "[XX-Enter at least 8 characters.-XX]"
   },
   "dangerZone": {
     "heading": "[XX-Danger Zone-XX]",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "[XX-Automatic Backup-XX]",
-    "description": "[XX-Automatically back up your data to a folder on a schedule. Since Monize runs in Docker, you must map a host folder into the container as a volume (e.g., -v /host/backups:/backups).-XX]",
+    "description": "[XX-Automatically back up your data to a folder on a schedule. Since Monize runs in Docker, you must map a host folder into the container as a volume (e.g., -v /host/backups:/data/backups).-XX]",
     "loadingText": "[XX-Loading...-XX]",
     "enableLabel": "[XX-Enable automatic backups-XX]",
     "backupFolderLabel": "[XX-Backup Folder-XX]",
-    "backupFolderPlaceholder": "[XX-/backups-XX]",
+    "backupFolderPlaceholder": "[XX-/data/backups-XX]",
     "browseButton": "[XX-Browse...-XX]",
     "validateButton": "[XX-Validate-XX]",
     "validatingButton": "[XX-Validating...-XX]",

@@ -14,6 +14,9 @@ COPY backend/ .
 COPY database/schema.sql ./schema.sql
 COPY database/migrations ./migrations
 
+# Copy release notes so the What's New digest can be served without network access
+COPY docs/release-notes ./release-notes
+
 EXPOSE 3000
 
 CMD ["npm", "run", "start:dev"]
@@ -31,6 +34,9 @@ COPY backend/ .
 # Copy schema.sql and migrations (needed by production stage)
 COPY database/schema.sql ./schema.sql
 COPY database/migrations ./migrations
+
+# Copy release notes (needed by production stage for the What's New digest)
+COPY docs/release-notes ./release-notes
 
 RUN npm run build
 
@@ -81,6 +87,9 @@ RUN find ./dist -name '*.js.map' -delete
 COPY --from=builder /app/schema.sql ./schema.sql
 COPY --from=builder /app/migrations ./migrations
 
+# Copy release notes for the What's New digest
+COPY --from=builder /app/release-notes ./release-notes
+
 # Copy and prepare entrypoint script
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
@@ -89,7 +98,7 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 && \
     chmod +x ./docker-entrypoint.sh && \
     chown nestjs:nodejs ./docker-entrypoint.sh ./schema.sql && \
-    chown -R nestjs:nodejs ./migrations
+    chown -R nestjs:nodejs ./migrations ./release-notes
 
 USER nestjs
 

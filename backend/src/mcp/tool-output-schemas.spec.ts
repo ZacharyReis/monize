@@ -49,8 +49,33 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
           excludeFromNetWorth: false,
           institutionName: null,
           accountNumber: null,
+          paymentAmount: null,
+          paymentFrequency: null,
+          paymentStartDate: null,
+          amortizationMonths: null,
+          originalPrincipal: null,
           // Undeclared fields present on the real entity must be tolerated.
           userId: "u1",
+        },
+        {
+          id: "loan1",
+          name: "Car Loan",
+          type: "LOAN",
+          subType: null,
+          balance: -8000,
+          currentBalance: -8000,
+          creditLimit: null,
+          interestRate: 6,
+          currency: "USD",
+          isClosed: false,
+          excludeFromNetWorth: false,
+          institutionName: null,
+          accountNumber: null,
+          paymentAmount: 500,
+          paymentFrequency: "MONTHLY",
+          paymentStartDate: "2024-02-01",
+          amortizationMonths: 60,
+          originalPrincipal: 20000,
         },
       ],
       totalAssets: 100.5,
@@ -76,7 +101,10 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
         },
       },
       groupedBy: "category",
-      breakdown: { groupedBy: "category", groups: [] },
+      breakdown: [
+        { category: "Food", categoryId: "cat-1", total: 5, count: 1 },
+        { category: "Uncategorized", categoryId: null, total: 2, count: 1 },
+      ],
     },
   },
   {
@@ -92,7 +120,17 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
         totalInbound: 5,
         totalOutbound: 0,
         net: 5,
-        accounts: [],
+        accounts: [
+          {
+            accountId: "acc-1",
+            accountName: "Chequing",
+            currency: "USD",
+            inbound: 5,
+            outbound: 0,
+            net: 5,
+            transferCount: 1,
+          },
+        ],
       },
     },
   },
@@ -143,6 +181,16 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
     name: "manageTransactionsOutput (single created branch)",
     schema: schemas.manageTransactionsOutput,
     raw: { id: "t1", date: "2026-01-01", count: 1 },
+  },
+  {
+    name: "manageTransactionsOutput (single created with attachments)",
+    schema: schemas.manageTransactionsOutput,
+    raw: {
+      id: "t1",
+      date: "2026-01-01",
+      count: 1,
+      attachments: [{ id: "att-1", filename: "receipt.png" }],
+    },
   },
   {
     name: "manageTransactionsOutput (single deleted branch)",
@@ -451,6 +499,7 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
       cagr: null,
       holdings: [
         {
+          securityId: "sec-aapl",
           symbol: "AAPL",
           name: "Apple",
           securityType: "stock",
@@ -474,6 +523,7 @@ const cases: Array<{ name: string; schema: RawShape; raw: unknown }> = [
           totalGainLossPercent: 25,
           holdings: [
             {
+              securityId: "sec-aapl",
               symbol: "AAPL",
               name: "Apple",
               securityType: "stock",

@@ -98,12 +98,15 @@
       "both": "इस तिथि को पोस्ट करने से <b>{fromAccount}</b> <b>{fromAmount}</b> ({fromCondition}) और <b>{toAccount}</b> <b>{toAmount}</b> ({toCondition}) पर आ जाएगा।"
     },
     "splitLabel": "यह लेन-देन विभाजित करें",
+    "copyAmount": "राशि कॉपी करें",
     "referenceNumberLabel": "संदर्भ संख्या (वैकल्पिक)",
     "noPriceHistory": "इस प्रतिभूति के लिए अभी कोई मूल्य इतिहास नहीं है। मूल्य मैन्युअल रूप से दर्ज करें।",
     "postButton": "लेन-देन पोस्ट करें",
     "toasts": {
       "posted": "लेन-देन पोस्ट हो गया",
       "postFailed": "लेन-देन पोस्ट करने में विफल",
+      "amountCopied": "राशि कॉपी की गई",
+      "copyFailed": "राशि कॉपी करने में विफल",
       "quantityRequired": "मात्रा शून्य से अधिक होनी चाहिए",
       "priceRequired": "मूल्य शून्य से अधिक होना चाहिए",
       "totalAmountRequired": "कुल राशि आवश्यक है",

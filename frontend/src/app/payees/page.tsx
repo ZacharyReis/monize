@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
 import { useOnUndoRedo } from '@/hooks/useOnUndoRedo';
+import { useOnAiAction } from '@/hooks/useOnAiAction';
 import { Button } from '@/components/ui/Button';
+import { ActionMenu } from '@/components/ui/ActionMenu';
 import { Pagination } from '@/components/ui/Pagination';
 import { PayeeForm } from '@/components/payees/PayeeForm';
 import { PayeeList, type DensityLevel, type SortField, type SortDirection } from '@/components/payees/PayeeList';
@@ -83,6 +85,8 @@ function PayeesContent() {
   }, [loadData]);
 
   useOnUndoRedo(loadData);
+  // Refresh after the AI assistant creates or edits a payee from the chat.
+  useOnAiAction(loadData);
 
   const handleFormSubmit = async (data: any) => {
     try {
@@ -289,18 +293,35 @@ function PayeesContent() {
           helpUrl="https://github.com/kenlasko/monize/wiki/Categories-and-Payees"
           actions={
             <>
-              <Button variant="secondary" onClick={() => setShowAutoMerge(true)}>
-                {t('page.autoMergePayees')}
-              </Button>
-              <Button variant="secondary" onClick={() => setShowDeactivate(true)}>
-                {t('page.deactivateUnused')}
-              </Button>
-              <Button variant="secondary" onClick={() => setShowAutoAssign(true)}>
-                {t('page.autoAssignCategories')}
-              </Button>
-              <Button variant="secondary" onClick={() => setShowApplyDefaults(true)}>
-                {t('page.applyDefaultCategories')}
-              </Button>
+              {/* The four bulk operations live behind one trigger: they are
+                  occasional maintenance, while New Payee is the everyday
+                  action. Five buttons in a header wrapped in every language and
+                  stacked into five full-width bars on a phone. */}
+              <ActionMenu
+                label={t('page.maintenance')}
+                items={[
+                  {
+                    id: 'autoMerge',
+                    label: t('page.autoMergePayees'),
+                    onSelect: () => setShowAutoMerge(true),
+                  },
+                  {
+                    id: 'deactivateUnused',
+                    label: t('page.deactivateUnused'),
+                    onSelect: () => setShowDeactivate(true),
+                  },
+                  {
+                    id: 'autoAssignCategories',
+                    label: t('page.autoAssignCategories'),
+                    onSelect: () => setShowAutoAssign(true),
+                  },
+                  {
+                    id: 'applyDefaultCategories',
+                    label: t('page.applyDefaultCategories'),
+                    onSelect: () => setShowApplyDefaults(true),
+                  },
+                ]}
+              />
               <Button onClick={openCreate}>{t('page.newPayee')}</Button>
             </>
           }

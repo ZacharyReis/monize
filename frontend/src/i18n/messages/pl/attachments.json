@@ -1,0 +1,19 @@
+{
+  "title": "Załączniki",
+  "empty": "Brak załączników",
+  "upload": "Dodaj załącznik",
+  "download": "Pobierz",
+  "delete": "Usuń",
+  "remove": "Usuń",
+  "pendingHint": "Pliki zostaną przesłane po zapisaniu transakcji.",
+  "deleteConfirmTitle": "Usunąć załącznik?",
+  "deleteConfirmMessage": "„{name}” zostanie trwale usunięty.",
+  "uploaded": "Dodano załącznik",
+  "deleted": "Usunięto załącznik",
+  "loadFailed": "Nie udało się wczytać załączników",
+  "uploadFailed": "Nie udało się przesłać załącznika",
+  "deleteFailed": "Nie udało się usunąć załącznika",
+  "tooLarge": "Plik jest za duży (maksymalnie {max})",
+  "unsupported": "Nieobsługiwany typ pliku. Dozwolone: obrazy lub PDF",
+  "tooMany": "Maksymalnie {max} załączników na transakcję"
+}

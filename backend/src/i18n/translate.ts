@@ -1,4 +1,4 @@
-import { I18nContext } from "nestjs-i18n";
+import { I18nContext, I18nService } from "nestjs-i18n";
 
 /**
  * Translate a backend message key against the current request's locale.
@@ -25,6 +25,33 @@ export function tr(
   const translated = ctx.t(key, { args, defaultValue: fallback }) as string;
   // nestjs-i18n returns the key itself when it cannot resolve and no
   // defaultValue path matched; guard against leaking a raw key to the client.
+  return typeof translated === "string" && translated !== key
+    ? translated
+    : fallback;
+}
+
+/**
+ * Translate a key against an explicit locale rather than the request context.
+ *
+ * Used where the target language is known independently of the current request
+ * -- e.g. seeding a user's default categories in their stored preference
+ * language. Like {@link tr}, every call supplies the English source as
+ * `fallback`, returned whenever the catalogue lacks the key so callers never
+ * leak a raw key. Mirrors the resolution `emailTranslator` performs for email
+ * copy.
+ */
+export function translateInLocale(
+  i18n: I18nService,
+  lang: string,
+  key: string,
+  fallback: string,
+  args?: Record<string, unknown>,
+): string {
+  const translated = i18n.translate(key, {
+    lang,
+    args,
+    defaultValue: fallback,
+  }) as string;
   return typeof translated === "string" && translated !== key
     ? translated
     : fallback;

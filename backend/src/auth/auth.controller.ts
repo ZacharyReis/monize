@@ -46,8 +46,11 @@ import {
 } from "../notifications/email-templates";
 import { SwitchContextDto } from "./dto/switch-context.dto";
 import { I18nService } from "nestjs-i18n";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { UserPreference } from "../users/entities/user-preference.entity";
 import { emailTranslator } from "../i18n/email-translator";
-import { DEFAULT_LOCALE } from "../i18n/config";
+import { resolveUserEmailLocale } from "../i18n/resolve-user-email-locale";
 import { DelegationService } from "../delegation/delegation.service";
 import { AllowDelegate } from "../delegation/decorators/delegate-access.decorator";
 import { SkipCsrf } from "../common/decorators/skip-csrf.decorator";
@@ -56,6 +59,7 @@ import { DemoRestricted } from "../common/decorators/demo-restricted.decorator";
 import { DemoModeService } from "../common/demo-mode.service";
 import { generateCsrfToken, getCsrfCookieOptions } from "../common/csrf.util";
 import { encrypt, decrypt, derivePurposeKey } from "./crypto.util";
+import { withSystemContext } from "../common/db/with-context";
 import { tr } from "../i18n/translate";
 
 @ApiTags("Authentication")
@@ -78,6 +82,8 @@ export class AuthController {
     private tokenService: TokenService,
     private delegationService: DelegationService,
     private readonly i18n: I18nService,
+    @InjectRepository(UserPreference)
+    private readonly preferencesRepository: Repository<UserPreference>,
   ) {
     // Default to true if not explicitly set to 'false'
     const localAuthSetting = this.configService.get<string>(
@@ -267,6 +273,7 @@ export class AuthController {
     // the client to show its "check your email" state.
     if (result.verificationRequired) {
       await this.sendVerificationEmail(
+        result.user.id,
         result.user.email!,
         result.user.firstName ?? "",
         result.verificationToken,
@@ -289,6 +296,7 @@ export class AuthController {
    * does not reveal whether delivery succeeded (mirrors password-reset).
    */
   private async sendVerificationEmail(
+    userId: string,
     email: string,
     firstName: string,
     token: string,
@@ -298,7 +306,10 @@ export class AuthController {
       "http://localhost:3000",
     );
     const verifyUrl = `${frontendUrl}/verify-email?token=${token}`;
-    const lang = DEFAULT_LOCALE;
+    const lang = await resolveUserEmailLocale(
+      this.preferencesRepository,
+      userId,
+    );
     const t = emailTranslator(this.i18n, lang);
     const html = emailVerificationTemplate(firstName, verifyUrl, t);
 
@@ -478,12 +489,23 @@ export class AuthController {
         return;
       }
 
-      // Generate token pair
-      const { accessToken, refreshToken } =
-        await this.authService.generateTokenPair(result.user);
+      // Generate token pair. RLS: this is still the pre-session OIDC callback
+      // (no req.user), so the refresh-token write needs an ambient system
+      // context -- unlike switch-context, which issues tokens under the
+      // authenticated request scope.
+      const { accessToken, refreshToken } = await withSystemContext(() =>
+        this.authService.generateTokenPair(result.user),
+      );
 
       this.setAuthCookies(res, accessToken, refreshToken, result.user.id);
-      res.redirect(`${frontendUrl}/auth/callback?success=true`);
+      // `welcome` tells the callback page this login provisioned the account,
+      // so it shows the same language/currency step local registration ends
+      // on instead of dropping the user straight on the dashboard.
+      res.redirect(
+        `${frontendUrl}/auth/callback?success=true${
+          result.isNewUser ? "&welcome=true" : ""
+        }`,
+      );
     } catch (error) {
       // Clear OIDC cookies on error path as well
       res.clearCookie("oidc_state", clearOidcCookieOptions);
@@ -686,7 +708,10 @@ export class AuthController {
         "http://localhost:3000",
       );
       const resetUrl = `${frontendUrl}/reset-password?token=${result.token}`;
-      const lang = DEFAULT_LOCALE;
+      const lang = await resolveUserEmailLocale(
+        this.preferencesRepository,
+        result.user.id,
+      );
       const t = emailTranslator(this.i18n, lang);
       const html = passwordResetTemplate(
         result.user.firstName || "",
@@ -772,6 +797,7 @@ export class AuthController {
       );
       if (result) {
         await this.sendVerificationEmail(
+          result.user.id,
           result.user.email!,
           result.user.firstName ?? "",
           result.token,
@@ -1026,10 +1052,16 @@ export class AuthController {
   @AllowDelegate()
   @ApiOperation({ summary: "Logout current user" })
   async logout(@Request() req: ExpressRequest, @Res() res: Response) {
-    // Revoke the refresh token family in the database
+    // Revoke the refresh token family in the database. RLS: logout is a public
+    // route (no req.user), and the refresh token in the cookie is the only
+    // identity we have, so revoke under a system context. (switch-context
+    // revokes the same way but from an authenticated request scope, so it keeps
+    // its own user context there.)
     const refreshToken = req.cookies?.["refresh_token"];
     if (refreshToken) {
-      await this.authService.revokeRefreshToken(refreshToken);
+      await withSystemContext(() =>
+        this.authService.revokeRefreshToken(refreshToken),
+      );
     }
 
     this.clearAuthCookies(res);

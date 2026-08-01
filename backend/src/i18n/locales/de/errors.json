@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Dieses Konto hat bereits eine terminierte Zahlung. Bearbeiten Sie stattdessen die vorhandene terminierte Buchung.",
     "sourceNotFound": "Quellkonto nicht gefunden",
     "ambiguousBrokerage": "\"{{ query }}\" entspricht mehreren Brokerage-Konten: {{ list }}. Verwenden Sie den genauen Kontonamen.",
-    "unknownInvestmentAccount": "Unbekanntes Konto: {{ name }}. Verwenden Sie einen genauen Namen aus der Kontoliste des Benutzers."
+    "unknownInvestmentAccount": "Unbekanntes Konto: {{ name }}. Verwenden Sie einen genauen Namen aus der Kontoliste des Benutzers.",
+    "notACreditCard": "Abrechnungszeiträume sind nur für Kreditkartenkonten verfügbar",
+    "noStatementSettlementDay": "Für diese Kreditkarte ist kein Abrechnungstag konfiguriert"
   },
   "actionHistory": {
     "nothingToUndo": "Nichts rückgängig zu machen",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Keine aktiven KI-Anbieter konfiguriert. Konfigurieren Sie einen Anbieter in den KI-Einstellungen.",
     "allProvidersFailed": "Alle KI-Anbieter sind fehlgeschlagen. Überprüfen Sie Ihre Anbieterkonfiguration und versuchen Sie es erneut.",
     "noToolUseProvider": "Kein KI-Anbieter mit Tool-Unterstützung konfiguriert. Anfragen in natürlicher Sprache erfordern Anthropic, OpenAI oder Ollama. Konfigurieren Sie einen in den KI-Einstellungen.",
+    "relayAgentOffline": "Ihr MCP-Relay-Agent ist nicht verbunden. Verbinden Sie Ihren Agenten und versuchen Sie es erneut.",
+    "relayCompletionTimedOut": "Ihr MCP-Relay-Agent hat nicht rechtzeitig geantwortet. Stellen Sie sicher, dass er verbunden ist, und versuchen Sie es erneut.",
     "baseUrlInvalidBasic": "baseUrl muss eine gültige HTTP- oder HTTPS-URL sein",
     "baseUrlInvalidExternal": "baseUrl muss eine gültige HTTP/HTTPS-URL sein, die auf einen externen Host zeigt",
     "ollamaCloudApiKeyRequired": "apiKey ist für den ollama-cloud-Anbieter erforderlich",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Ein Anhang überschreitet die maximale Dateigröße.",
     "attachmentCorrupt": "Ein Anhang konnte nicht gelesen werden oder entspricht nicht dem angegebenen Dateityp.",
     "attachmentsTooLarge": "Die Anhänge überschreiten die Gesamtgrößenbeschränkung.",
+    "attachmentRefExpired": "Die angehängte Datei ist nicht mehr verfügbar. Bitte laden Sie sie erneut hoch und fragen Sie noch einmal.",
     "modelNoImageSupport": "Das ausgewählte KI-Modell kann keine Bilder oder PDFs lesen. Entfernen Sie den Anhang und fragen Sie in Textform, oder wechseln Sie in den KI-Einstellungen zu einem Modell mit Bildverarbeitung."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Falsches Passwort"
   },
   "backup": {
-    "folderPathRequired": "Ein Ordnerpfad muss festgelegt werden, bevor automatische Sicherungen aktiviert werden",
     "folderNotExist": "Ordner existiert nicht: {{ safePath }}",
     "folderAccessError": "Kein Zugriff auf Ordner: {{ safePath }}",
     "pathNotDirectory": "Pfad ist kein Verzeichnis: {{ safePath }}",
-    "notConfigured": "Automatische Sicherung ist nicht konfiguriert. Bitte legen Sie zuerst einen Ordnerpfad fest.",
     "userNotFound": "Benutzer {{ userId }} nicht gefunden",
     "encryptedPasswordDecryptFailed": "Verschlüsselte Sicherungen sind aktiviert, aber das gespeicherte Passwort konnte nicht entschlüsselt werden. Aktivieren Sie die Verschlüsselung in den Sicherheitseinstellungen erneut.",
     "pathTraversal": "Pfad-Traversal erkannt: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Ungültiger CSRF-Token",
     "demoModeRestricted": "Diese Aktion ist im Demo-Modus nicht verfügbar.",
     "serviceNotReady": "Dienst nicht bereit",
-    "oauthProviderNotInitialized": "OAuth-Anbieter nicht initialisiert"
+    "oauthProviderNotInitialized": "OAuth-Anbieter nicht initialisiert",
+    "invalidCurrencyCode": "Ungültiger Währungscode: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Währung \"{{ code }}\" ist bereits in Ihrer Liste",
     "notFound": "Währung \"{{ code }}\" nicht gefunden",
     "cannotModifySystem": "Systemwährungs-Metadaten können nicht geändert werden",
     "cannotModifyOther": "Währung eines anderen Benutzers kann nicht geändert werden",
-    "inUse": "Währung \"{{ code }}\" wird von Ihren Konten, Wertpapieren oder anderen Einträgen verwendet. Deaktivieren Sie sie stattdessen."
+    "inUse": "Währung \"{{ code }}\" wird von Ihren Konten, Wertpapieren oder anderen Einträgen verwendet. Deaktivieren Sie sie stattdessen.",
+    "invalidRateDate": "date muss im Format JJJJ-MM-TT angegeben werden",
+    "alreadyInListInactive": "Währung \"{{ code }}\" ist bereits in Ihrer Liste, aber derzeit inaktiv. Reaktivieren Sie sie, um sie zu verwenden."
   },
   "delegation": {
     "delegatedAccessInvalid": "Delegierter Zugriff ist nicht mehr gültig",
@@ -254,6 +260,7 @@
     "passwordBreached": "Dieses Passwort wurde in einem Datenleck gefunden. Bitte wählen Sie ein anderes Passwort."
   },
   "http": {
+    "forbidden": "Zugriff verweigert",
     "tooManyRequests": "Zu viele Anfragen. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
     "duplicateRecord": "Ein Eintrag mit diesem Wert existiert bereits",
     "referencedRecord": "Referenzierter Eintrag existiert nicht oder kann nicht entfernt werden",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate muss im Format YYYY-MM-DD sein",
     "invalidEndDate": "endDate muss im Format YYYY-MM-DD sein",
-    "invalidAccountIds": "accountIds muss kommagetrennte UUIDs sein"
+    "invalidAccountIds": "accountIds muss kommagetrennte UUIDs sein",
+    "invalidGranularity": "granularity muss 'daily' oder 'monthly' sein"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP ist nicht konfiguriert. Setzen Sie SMTP-Umgebungsvariablen.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Alias mit ID {{ id }} nicht gefunden",
     "mergeSelf": "Ein Zahlungsempfänger kann nicht mit sich selbst zusammengeführt werden",
     "autoMergeDuplicatePayee": "Ein Zahlungsempfänger erscheint in mehr als einer Zusammenführungsgruppe",
-    "autoMergeSourceNotFound": "Ein oder mehrere Quell-Zahlungsempfänger wurden nicht gefunden"
+    "autoMergeSourceNotFound": "Ein oder mehrere Quell-Zahlungsempfänger wurden nicht gefunden",
+    "autoMergeGroupConflict": "\"{{ name }}\" konnte nicht zusammengeführt werden: Der Wert \"{{ value }}\" wird bereits verwendet",
+    "autoMergeGroupFailed": "\"{{ name }}\" konnte nicht zusammengeführt werden"
   },
   "reports": {
     "notFound": "Bericht mit ID {{ id }} nicht gefunden",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" passt auf mehrere Wertpapiere: {{ list }}. Führen Sie die Suche erneut mit Angabe einer Börse aus.",
     "lookupNoCurrency": "Die Währung für \"{{ symbol }}\" konnte nicht ermittelt werden. Fügen Sie das Wertpapier stattdessen manuell hinzu.",
     "noUpdateFields": "Geben Sie mindestens ein zu änderndes Feld an.",
-    "allocationExceedsTotal": "Die Aufteilungsprozentsätze ergeben in Summe mehr als 100 %."
+    "allocationExceedsTotal": "Die Aufteilungsprozentsätze ergeben in Summe mehr als 100 %.",
+    "invalidTagKey": "Ein Tag-Schlüssel (1–100 Zeichen) ist erforderlich"
   },
   "tags": {
     "notFound": "Etikett mit ID {{ id }} nicht gefunden",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId muss eine gültige UUID sein",
     "amountFromMustBeNumber": "amountFrom muss eine Zahl sein",
     "amountToMustBeNumber": "amountTo muss eine Zahl sein",
+    "invalidGroupBy": "groupBy muss 'category' oder 'payee' sein",
+    "limitMustBePositive": "limit muss eine positive Zahl sein",
+    "recurringPayeeRequired": "payeeIds ist erforderlich",
+    "recurringDatesRequired": "startDate und endDate sind erforderlich",
     "statementDateFormat": "statementDate muss im Format YYYY-MM-DD sein",
     "statementBalanceMustBeNumber": "statementBalance muss eine Zahl sein",
     "categoryNotFound": "Kategorie nicht gefunden",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Einige Buchungen wurden nicht gefunden oder gehören nicht zum angegebenen Konto",
     "cannotReconcileVoidPlural": "Ungültige Buchungen können nicht abgeglichen werden",
     "transferSameAccount": "Quell- und Zielkonto müssen verschieden sein",
-    "transferSplitFromAccountFixed": "Das Quellkonto einer Split-Überweisungszeile kann nicht geändert werden",
     "transferAmountNegative": "Überweisungsbetrag darf nicht negativ sein",
     "notATransfer": "Buchung ist keine Überweisung",
+    "splitTransferLegAccountLocked": "Diese Überweisung ist Teil einer geteilten Buchung. Ändern Sie die Konten, indem Sie stattdessen den Buchungsteil in der Ursprungsbuchung bearbeiten.",
     "notFoundById": "Buchung mit ID {{ id }} nicht gefunden",
     "bulkUpdateNoFields": "Mindestens ein Aktualisierungsfeld muss angegeben werden",
     "payeeNotFound": "Zahlungsempfänger nicht gefunden",
     "cannotEditTransfer": "Umbuchungen können hier nicht bearbeitet werden. Bearbeiten Sie die Umbuchung im Transaktionsbildschirm.",
     "cannotEditSplit": "Aufgeteilte Transaktionen können hier nicht bearbeitet werden. Bearbeiten Sie die Aufteilung im Transaktionsbildschirm.",
-    "noUpdateFields": "Geben Sie mindestens ein zu änderndes Feld an."
+    "noUpdateFields": "Geben Sie mindestens ein zu änderndes Feld an.",
+    "tagKeyTooLong": "tagKey darf 100 Zeichen nicht überschreiten",
+    "invalidTagKeyOp": "Ungültiger tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue ist für contains / notContains erforderlich",
+    "tagKeyRequired": "Ein Tag-Schlüssel (1–100 Zeichen) ist erforderlich",
+    "fxFieldsIncomplete": "originalAmount und originalCurrencyCode müssen zusammen angegeben werden",
+    "fxRateRequired": "Für eine Fremdwährungstransaktion ist ein positiver Wechselkurs erforderlich",
+    "fxSignMismatch": "originalAmount und amount müssen dasselbe Vorzeichen haben"
   },
   "users": {
     "userNotFound": "Benutzer nicht gefunden",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Das letzte Administratorkonto kann nicht gelöscht werden. Befördern Sie zuerst einen anderen Benutzer.",
     "oidcReauthRequiredForDataDelete": "OIDC-Neuauthentifizierung ist zur Bestätigung der Datenlöschung erforderlich",
     "passwordRequiredForDataDelete": "Passwort ist zur Bestätigung der Datenlöschung erforderlich"
+  },
+  "loanScenarios": {
+    "notFound": "Kreditszenario mit ID {{ id }} nicht gefunden",
+    "nameConflict": "Ein Szenario namens \"{{ name }}\" existiert bereits für dieses Konto",
+    "notLoanAccount": "Kreditszenarien sind nur für Kredit-, Hypotheken- und Kreditlinienkonten verfügbar",
+    "budgetWindowInverted": "Das Startdatum des Budgetzeitraums darf nicht nach dem Enddatum liegen"
+  },
+  "loanRateChanges": {
+    "notFound": "Zinssatzänderung mit ID {{ id }} nicht gefunden",
+    "notLoanAccount": "Zinssatzänderungen sind nur für Darlehens- und Hypothekenkonten verfügbar",
+    "duplicateDate": "Eine Zinssatzänderung mit Gültigkeit {{ date }} existiert bereits für dieses Konto",
+    "paymentModeConflict": "Geben Sie entweder einen neuen Ratenbetrag oder recalculatePayment an, nicht beides",
+    "recalculateMortgageOnly": "Die Neuberechnung der Rate ist nur für Hypothekenkonten verfügbar",
+    "insufficientData": "Nicht genügend Zahlungen mit Zinsdetails, um Zinssatzänderungen zu erkennen",
+    "frequencyMismatch": "Die Zahlungsdaten stimmen nicht mit dem Zahlungsintervall des Kontos überein; abgeleitete Zinssätze sind möglicherweise weniger genau"
+  },
+  "attachments": {
+    "notFound": "Anhang nicht gefunden",
+    "transactionNotFound": "Transaktion nicht gefunden",
+    "empty": "Die hochgeladene Datei ist leer",
+    "fileTooLarge": "Die Datei überschreitet die maximale Größe von {{ max }} Bytes",
+    "unsupportedType": "Nicht unterstützter Dateityp. Erlaubte Typen: {{ types }}",
+    "tooMany": "Diese Transaktion hat bereits die maximale Anzahl von {{ max }} Anhängen"
   }
 }

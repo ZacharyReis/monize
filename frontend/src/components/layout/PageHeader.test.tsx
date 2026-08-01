@@ -73,6 +73,31 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'Add New' })).toBeInTheDocument();
   });
 
+  it('stacks actions below the title on mobile by default', () => {
+    const { container } = render(
+      <PageHeader title="My Page" actions={<button>Add New</button>} />,
+    );
+    // Default layout is a column on mobile and the actions span full width.
+    expect(container.querySelector('.flex.flex-col')).not.toBeNull();
+    const actionsContainer = container.querySelector('.flex.flex-wrap');
+    expect(actionsContainer?.className).toContain('w-full');
+  });
+
+  it('keeps actions inline on mobile when compactMobileActions is set', () => {
+    const { container } = render(
+      <PageHeader
+        title="My Page"
+        compactMobileActions
+        actions={<button>Add New</button>}
+      />,
+    );
+    // Row layout even on mobile, and the actions container is not full width.
+    expect(container.querySelector('.flex.flex-col')).toBeNull();
+    expect(container.querySelector('.flex.flex-row')).not.toBeNull();
+    const actionsContainer = container.querySelector('.flex.flex-wrap');
+    expect(actionsContainer?.className).not.toContain('w-full');
+  });
+
   it('renders help link next to title when no other actions are provided', () => {
     const { container } = render(
       <PageHeader title="My Page" helpUrl="https://example.com/help" />,

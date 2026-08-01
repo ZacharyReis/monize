@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI niet geconfigureerd",
-    "message": "Er is geen AI-provider geconfigureerd. Om Uitgaveninzichten te gebruiken, {link} in je instellingen.",
-    "linkText": "configureer een AI-provider"
+    "message": "Er is geen AI-provider geconfigureerd. Om Uitgaveninzichten te gebruiken, {link} in je instellingen."
   },
   "insightTypes": {
     "anomaly": "Afwijking",

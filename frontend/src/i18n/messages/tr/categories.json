@@ -24,6 +24,16 @@
     "createButton": "Kendinizinkini Oluşturun",
     "hint": "Varsayılan set, alt kategorilerle birlikte yaygın gelir ve gider kategorilerini içerir"
   },
+  "importDialog": {
+    "title": "Varsayılan kategorileri içe aktar",
+    "description": "Hazır bir gelir ve gider kategori setiyle başlayın. Ülkenizi seçerek o ülkeye ait vergi ve yardım kategorilerini de alın; adların hangi dilde oluşturulacağını da belirleyin.",
+    "countryLabel": "Ülke",
+    "countryHelp": "Yerel vergiler ve yardımlar gibi ülkeye özgü kategoriler ekler. Ülkeniz listede yoksa genel seti seçin.",
+    "genericCountry": "Genel (ülkeye özgü kategori yok)",
+    "languageLabel": "Dil",
+    "languageHelp": "Kategoriler bu dildeki adlarla oluşturulur. İstediğiniz zaman yeniden adlandırabilirsiniz.",
+    "submit": "Kategorileri içe aktar"
+  },
   "toasts": {
     "created": "Kategori başarıyla oluşturuldu",
     "updated": "Kategori başarıyla güncellendi",

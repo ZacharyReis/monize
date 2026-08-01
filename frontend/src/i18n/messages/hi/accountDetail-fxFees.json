@@ -1,0 +1,30 @@
+{
+  "title": "विदेशी मुद्रा लेन-देन शुल्क",
+  "currencyFilter": { "label": "मुद्राएँ", "placeholder": "सभी मुद्राएँ" },
+  "chart": {
+    "title": "समय के साथ शुल्क",
+    "noData": "अभी तक कोई विदेशी मुद्रा लेन-देन नहीं",
+    "monthlyAvg": "मासिक औसत",
+    "quarterlyAvg": "त्रैमासिक औसत",
+    "yearlyAvg": "वार्षिक औसत",
+    "total": "कुल शुल्क",
+    "transactions": "लेन-देन",
+    "tooltip": "{count, plural, one {# लेन-देन} other {# लेन-देन}}",
+    "quarterLabel": "Q{quarter} {year}",
+    "quarterTick": "Q{quarter} {year}",
+    "granularityLabel": "समूहन",
+    "granularity": { "auto": "ऑटो", "month": "माह", "quarter": "तिमाही", "year": "वर्ष" },
+    "granularityAutoTitle": "ऑटो ({granularity})",
+    "granularityTitle": "{label} दृश्य"
+  },
+  "list": {
+    "title": "विदेशी मुद्रा लेन-देन",
+    "editTitle": "लेन-देन संपादित करें",
+    "investmentLinked": "यह लेन-देन एक निवेश से जुड़ा है। निवेश संपादक खोला जा रहा है।",
+    "export": {
+      "success": "{count, plural, one {# लेन-देन निर्यात किया गया} other {# लेन-देन निर्यात किए गए}}",
+      "none": "निर्यात करने के लिए कोई लेन-देन नहीं",
+      "failed": "लेन-देन निर्यात करने में विफल"
+    }
+  }
+}

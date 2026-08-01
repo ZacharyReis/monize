@@ -12,6 +12,7 @@ import { Request } from "express";
 import { User } from "../../users/entities/user.entity";
 import { UserPreference } from "../../users/entities/user-preference.entity";
 import { requestContextStorage } from "../request-context";
+import { withUserContext } from "../db/with-context";
 import { isValidIanaTimezone } from "../date-utils";
 
 // Update last_activity_at at most once every 5 minutes per user so a busy
@@ -50,16 +51,24 @@ export class RequestContextInterceptor implements NestInterceptor {
     if (now - last < ACTIVITY_WRITE_INTERVAL_MS) return;
     this.lastActivityWrite.set(userId, now);
 
-    this.usersRepository
-      .update({ id: userId }, { lastActivityAt: new Date(now) })
-      .catch((err) => {
-        // Roll the cached timestamp back so a transient failure does not
-        // permanently silence activity tracking for this user.
-        this.lastActivityWrite.delete(userId);
-        this.logger.warn(
-          `Failed to persist last_activity_at for user ${userId}: ${err?.message ?? err}`,
-        );
-      });
+    // RLS (task C6): this fire-and-forget write runs BEFORE the interceptor
+    // enters its requestContextStorage scope (that scope needs the resolved
+    // timezone, which is not known yet). Seed a user context here so the write
+    // has ambient identity once this repository moves to tenantTx (R7). Inert
+    // at RLS_MODE=off; the update writes the same row it always did.
+    withUserContext(userId, () =>
+      this.usersRepository.update(
+        { id: userId },
+        { lastActivityAt: new Date(now) },
+      ),
+    ).catch((err) => {
+      // Roll the cached timestamp back so a transient failure does not
+      // permanently silence activity tracking for this user.
+      this.lastActivityWrite.delete(userId);
+      this.logger.warn(
+        `Failed to persist last_activity_at for user ${userId}: ${err?.message ?? err}`,
+      );
+    });
   }
 
   intercept(
@@ -71,9 +80,16 @@ export class RequestContextInterceptor implements NestInterceptor {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const userId: string | undefined = (
-      request as unknown as { user?: { id?: string } }
-    ).user?.id;
+    const user = (
+      request as unknown as {
+        user?: { id?: string; realUserId?: string };
+      }
+    ).user;
+    const userId: string | undefined = user?.id;
+    // Authenticated identity (the delegate's own id while acting); defaults to
+    // the effective user outside delegation. Seeded so tenantTx can emit
+    // app.real_user_id for delegate-keyed rows. jwt.strategy resolves it.
+    const realUserId: string | undefined = user?.realUserId ?? userId;
 
     if (userId) {
       this.touchLastActivity(userId);
@@ -89,7 +105,7 @@ export class RequestContextInterceptor implements NestInterceptor {
       switchMap(
         (timezone) =>
           new Observable<unknown>((subscriber) => {
-            requestContextStorage.run({ userId, timezone }, () => {
+            requestContextStorage.run({ userId, realUserId, timezone }, () => {
               next.handle().subscribe({
                 next: (value) => subscriber.next(value),
                 error: (err) => subscriber.error(err),
@@ -106,9 +122,15 @@ export class RequestContextInterceptor implements NestInterceptor {
     headerTz: string | undefined,
   ): Promise<string | undefined> {
     if (userId) {
-      const pref = await this.preferencesRepository.findOne({
-        where: { userId },
-      });
+      // RLS (task C6): resolveTimezone runs BEFORE the interceptor's
+      // requestContextStorage scope is entered (the scope needs this method's
+      // result), so seed a user context around its reads/writes. Inert at
+      // RLS_MODE=off -- same preference row, same fire-and-forget semantics.
+      const pref = await withUserContext(userId, () =>
+        this.preferencesRepository.findOne({
+          where: { userId },
+        }),
+      );
       const stored = pref?.timezone?.trim();
       if (stored && stored !== "browser") {
         return stored;
@@ -122,13 +144,16 @@ export class RequestContextInterceptor implements NestInterceptor {
         isValidIanaTimezone(headerTz) &&
         pref?.lastClientTimezone !== headerTz
       ) {
-        this.preferencesRepository
-          .update({ userId }, { lastClientTimezone: headerTz })
-          .catch((err) => {
-            this.logger.warn(
-              `Failed to persist last_client_timezone for user ${userId}: ${err?.message ?? err}`,
-            );
-          });
+        withUserContext(userId, () =>
+          this.preferencesRepository.update(
+            { userId },
+            { lastClientTimezone: headerTz },
+          ),
+        ).catch((err) => {
+          this.logger.warn(
+            `Failed to persist last_client_timezone for user ${userId}: ${err?.message ?? err}`,
+          );
+        });
       }
     }
     return headerTz;

@@ -3,19 +3,17 @@
 import { RefObject, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import toast from 'react-hot-toast';
-import { captureSvgAsImage } from '@/lib/pdf-export-charts';
+import { captureSvgAsImage, type ChartFooterItem } from '@/lib/pdf-export-charts';
+import { sanitizeFilename } from '@/lib/export-filename';
 
 interface ChartDownloadButtonProps {
   chartRef: RefObject<HTMLElement | null>;
   filename: string;
+  /** Summary figures drawn below the chart in the exported PNG. */
+  summary?: ChartFooterItem[];
 }
 
-function sanitizeFilename(name: string): string {
-  const cleaned = name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
-  return cleaned.toLowerCase() || 'chart';
-}
-
-export function ChartDownloadButton({ chartRef, filename }: ChartDownloadButtonProps) {
+export function ChartDownloadButton({ chartRef, filename, summary }: ChartDownloadButtonProps) {
   const t = useTranslations('common');
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -23,14 +21,14 @@ export function ChartDownloadButton({ chartRef, filename }: ChartDownloadButtonP
     if (!chartRef.current || isDownloading) return;
     setIsDownloading(true);
     try {
-      const captured = await captureSvgAsImage(chartRef.current);
+      const captured = await captureSvgAsImage(chartRef.current, 3, summary);
       if (!captured) {
         toast.error(t('chartDownload.unableToCapture'));
         return;
       }
       const link = document.createElement('a');
       link.href = captured.dataUrl;
-      link.download = `${sanitizeFilename(filename)}.png`;
+      link.download = `${sanitizeFilename(filename, 'chart')}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

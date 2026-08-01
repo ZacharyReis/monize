@@ -1,0 +1,19 @@
+{
+  "title": "Allegati",
+  "empty": "Nessun allegato per ora",
+  "upload": "Aggiungi allegato",
+  "download": "Scarica",
+  "delete": "Elimina",
+  "remove": "Rimuovi",
+  "pendingHint": "I file verranno caricati quando salvi la transazione.",
+  "deleteConfirmTitle": "Eliminare l'allegato?",
+  "deleteConfirmMessage": "\"{name}\" verrà eliminato definitivamente.",
+  "uploaded": "Allegato aggiunto",
+  "deleted": "Allegato eliminato",
+  "loadFailed": "Impossibile caricare gli allegati",
+  "uploadFailed": "Impossibile caricare l'allegato",
+  "deleteFailed": "Impossibile eliminare l'allegato",
+  "tooLarge": "Il file è troppo grande (massimo {max})",
+  "unsupported": "Tipo di file non supportato. Consentiti: immagini o PDF",
+  "tooMany": "Massimo {max} allegati per transazione"
+}

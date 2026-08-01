@@ -1,0 +1,30 @@
+{
+  "title": "Комісії за транзакції в іноземній валюті",
+  "currencyFilter": { "label": "Валюти", "placeholder": "Всі валюти" },
+  "chart": {
+    "title": "Комісії з плином часу",
+    "noData": "Ще немає транзакцій в іноземній валюті",
+    "monthlyAvg": "Місячне середнє",
+    "quarterlyAvg": "Квартальне середнє",
+    "yearlyAvg": "Річне середнє",
+    "total": "Усього комісій",
+    "transactions": "Транзакції",
+    "tooltip": "{count, plural, one {# транзакція} other {# транзакцій}}",
+    "quarterLabel": "{quarter} кв. {year}",
+    "quarterTick": "{quarter} кв. {year}",
+    "granularityLabel": "Групування",
+    "granularity": { "auto": "Авто", "month": "Місяць", "quarter": "Квартал", "year": "Рік" },
+    "granularityAutoTitle": "Авто ({granularity})",
+    "granularityTitle": "Вигляд: {label}"
+  },
+  "list": {
+    "title": "Транзакції в іноземній валюті",
+    "editTitle": "Редагувати транзакцію",
+    "investmentLinked": "Ця транзакція пов'язана з інвестицією. Відкриваємо редактор інвестиції.",
+    "export": {
+      "success": "{count, plural, one {Експортовано # транзакцію} other {Експортовано # транзакцій}}",
+      "none": "Немає транзакцій для експорту",
+      "failed": "Не вдалося експортувати транзакції"
+    }
+  }
+}

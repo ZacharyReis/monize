@@ -98,12 +98,15 @@
       "both": "Comptabiliser à cette date amènera <b>{fromAccount}</b> à <b>{fromAmount}</b> ({fromCondition}) et <b>{toAccount}</b> à <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Répartir cette transaction",
+    "copyAmount": "Copier le montant",
     "referenceNumberLabel": "Numéro de référence (facultatif)",
     "noPriceHistory": "Aucun historique des cours disponible pour ce titre. Saisissez le prix manuellement.",
     "postButton": "Enregistrer la transaction",
     "toasts": {
       "posted": "Transaction enregistrée",
       "postFailed": "Échec de l'enregistrement de la transaction",
+      "amountCopied": "Montant copié",
+      "copyFailed": "Échec de la copie du montant",
       "quantityRequired": "La quantité doit être supérieure à zéro",
       "priceRequired": "Le prix doit être supérieur à zéro",
       "totalAmountRequired": "Le montant total est requis",

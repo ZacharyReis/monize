@@ -8,7 +8,15 @@
     "title": "Asistente AI",
     "expand": "Ampliar a pantalla completa",
     "collapse": "Contraer al panel",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "movePanel": "Mover el panel: arrástralo, muévelo con las flechas o haz clic para llevarlo a la siguiente esquina",
+    "moveCornerTo": "Mover a {corner}",
+    "corner": {
+      "bottom-right": "abajo a la derecha",
+      "bottom-left": "abajo a la izquierda",
+      "top-right": "arriba a la derecha",
+      "top-left": "arriba a la izquierda"
+    }
   },
   "chat": {
     "conversationSaved": "Conversación guardada en tu navegador",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "AI no configurado",
-    "message": "No hay ningún proveedor de AI configurado. Para usar el Asistente AI, {link} en tu configuración.",
-    "linkText": "configura un proveedor de AI"
+    "message": "No hay ningún proveedor de AI configurado. Para usar el Asistente AI, {link} en tu configuración."
   },
   "suggestedQueries": {
     "heading": "Pregunta sobre tus finanzas",
@@ -70,6 +77,7 @@
     "newPayee": "(nuevo beneficiario)",
     "category": "Categoría",
     "splits": "Divisiones",
+    "attachments": "Adjuntos",
     "newCategory": "Nueva categoría",
     "currentCategory": "Categoría actual",
     "description": "Descripción",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {No se crearon transacciones de inversión} one {# transacción de inversión creada} other {# transacciones de inversión creadas}}",
     "rowsSkipped": "{count, plural, one {# fila omitida} other {# filas omitidas}}",
     "rowSkippedBadge": "Omitida",
+    "reconciledBadge": "Conciliada",
+    "reconciledWarning": "Esta transacción está conciliada. Modificarla afectará a una conciliación completada.",
     "investmentActions": {
       "BUY": "Comprar",
       "SELL": "Vender",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "Asistente desconectado",
-      "listening": "Asistente escuchando",
-      "busy": "Asistente trabajando"
+      "offline": "Agente MCP desconectado",
+      "listening": "Agente MCP escuchando",
+      "busy": "Agente MCP trabajando",
+      "idle": "Desconectado por inactividad: vuelve a conectar para continuar"
     },
     "howToConnect": "Cómo conectar",
     "hideHelp": "Ocultar",

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { CurrencyInfo, CreateCurrencyData } from '@/lib/exchange-rates';
 import { exchangeRatesApi } from '@/lib/exchange-rates';
 import { createLogger } from '@/lib/logger';
+import { getErrorCode, getErrorMessage } from '@/lib/errors';
 import { useTranslations } from 'next-intl';
 import { useFormSubmitRef } from '@/hooks/useFormSubmitRef';
 import { useFormDirtyNotify } from '@/hooks/useFormDirtyNotify';
@@ -33,12 +34,23 @@ interface CurrencyFormProps {
   onCancel: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   submitRef?: MutableRefObject<(() => void) | null>;
+  /**
+   * When provided, a create that fails because the currency already exists but
+   * is inactive is caught here: an inline note is shown and this callback is
+   * invoked (with the currency code) when the user chooses to reactivate it.
+   * Without it, the inactive error propagates to the caller like any other.
+   */
+  onReactivate?: (code: string) => Promise<void>;
 }
 
-export function CurrencyForm({ currency, onSubmit, onCancel, onDirtyChange, submitRef }: CurrencyFormProps) {
+export function CurrencyForm({ currency, onSubmit, onCancel, onDirtyChange, submitRef, onReactivate }: CurrencyFormProps) {
   const t = useTranslations('currencies');
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [hasLookupResult, setHasLookupResult] = useState(false);
+  // Set to the currency code when a create is blocked because that currency is
+  // already in the user's list but inactive; drives the reactivation note.
+  const [inactiveCode, setInactiveCode] = useState<string | null>(null);
+  const [isReactivating, setIsReactivating] = useState(false);
 
   const {
     register,
@@ -109,8 +121,38 @@ export function CurrencyForm({ currency, onSubmit, onCancel, onDirtyChange, subm
       symbol: data.symbol.trim(),
       decimalPlaces: data.decimalPlaces,
     };
-    await onSubmit(cleanedData);
+    setInactiveCode(null);
+    try {
+      await onSubmit(cleanedData);
+    } catch (error) {
+      // The currency exists but is inactive: surface the reactivation note
+      // instead of a dead-end failure.
+      if (onReactivate && getErrorCode(error) === 'CURRENCY_INACTIVE') {
+        setInactiveCode(cleanedData.code);
+        return;
+      }
+      // Other failures are reported by the caller (which toasts before
+      // rethrowing); swallow here so a rejected submit does not surface as an
+      // unhandled promise rejection.
+      logger.error('Currency save failed:', error);
+    }
   };
+
+  const handleReactivate = useCallback(async () => {
+    if (!inactiveCode || !onReactivate) return;
+    setIsReactivating(true);
+    try {
+      await onReactivate(inactiveCode);
+    } catch (error) {
+      logger.error('Currency reactivation failed:', error);
+      toast.error(getErrorMessage(error, t('form.toasts.reactivateFailed')));
+    } finally {
+      setIsReactivating(false);
+    }
+  }, [inactiveCode, onReactivate, t]);
+
+  // Editing the code invalidates a pending reactivation note.
+  const codeField = register('code');
 
   useFormDirtyNotify(isDirty, onDirtyChange);
 
@@ -123,7 +165,11 @@ export function CurrencyForm({ currency, onSubmit, onCancel, onDirtyChange, subm
         <div className="flex-1">
           <Input
             label={t('form.codeLabel')}
-            {...register('code')}
+            {...codeField}
+            onChange={(e) => {
+              setInactiveCode(null);
+              return codeField.onChange(e);
+            }}
             error={errors.code?.message}
             placeholder={t('form.codePlaceholder')}
             className="uppercase"
@@ -178,6 +224,22 @@ export function CurrencyForm({ currency, onSubmit, onCancel, onDirtyChange, subm
         min={0}
         max={4}
       />
+
+      {inactiveCode && (
+        <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            {t('form.inactiveNotice', { code: inactiveCode })}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleReactivate}
+            disabled={isReactivating}
+          >
+            {isReactivating ? t('form.reactivating') : t('form.reactivateButton', { code: inactiveCode })}
+          </Button>
+        </div>
+      )}
 
       <FormActions onCancel={onCancel} submitLabel={currency ? t('form.submitUpdate') : t('form.submitCreate')} isSubmitting={isSubmitting} />
     </form>

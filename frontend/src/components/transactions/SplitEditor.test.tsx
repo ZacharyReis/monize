@@ -2109,3 +2109,188 @@ describe('toSplitRows — investment shapes', () => {
     expect(rows[1].investment).toBeUndefined();
   });
 });
+
+describe('SplitEditor — foreign-currency toggle', () => {
+  const mockOnChange = vi.fn();
+  const mockCategories = [
+    { id: 'cat-1', name: 'Groceries', parentId: null, isIncome: false },
+  ] as any[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not render the currency toggle without a display currency and rate', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -50 }),
+      createSplitRow({ id: 'split-2', amount: -50 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Show and edit split amounts in/ })).not.toBeInTheDocument();
+  });
+
+  it('does not render the toggle when the display currency equals the account currency', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -50 }),
+      createSplitRow({ id: 'split-2', amount: -50 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+        displayCurrencyCode="CAD"
+        displayRate={1}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Show and edit split amounts in/ })).not.toBeInTheDocument();
+  });
+
+  it('renders both currency pills when a differing display currency and rate are provided', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -50 }),
+      createSplitRow({ id: 'split-2', amount: -50 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+        displayCurrencyCode="EUR"
+        displayRate={2}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Show and edit split amounts in CAD' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show and edit split amounts in EUR' })).toBeInTheDocument();
+    // Account-currency amounts are shown by default (rate 2: -50 CAD each).
+    expect(screen.getAllByDisplayValue('-50.00').length).toBeGreaterThan(0);
+  });
+
+  it('converts displayed split amounts to the foreign currency when toggled', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -50 }),
+      createSplitRow({ id: 'split-2', amount: -50 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+        displayCurrencyCode="EUR"
+        displayRate={2}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show and edit split amounts in EUR' }));
+
+    // -50 CAD / rate 2 = -25.00 EUR shown in each amount input (mobile + desktop).
+    expect(screen.getAllByDisplayValue('-25.00').length).toBeGreaterThan(0);
+    // Footer total is shown converted too: -100 CAD / 2 = -50.00 EUR.
+    expect(screen.getAllByText('$-50.00').length).toBeGreaterThan(0);
+  });
+
+  it('stores an edited foreign amount back in the account currency', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -50 }),
+      createSplitRow({ id: 'split-2', amount: -50 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+        displayCurrencyCode="EUR"
+        displayRate={2}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show and edit split amounts in EUR' }));
+
+    // Enter -30 EUR on the first split; it must be stored as -60 CAD (x rate 2).
+    const foreignInputs = screen.getAllByDisplayValue('-25.00');
+    fireEvent.change(foreignInputs[0], { target: { value: '-30' } });
+
+    expect(mockOnChange).toHaveBeenCalled();
+    const newSplits = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+    expect(newSplits[0].amount).toBe(-60);
+  });
+
+  it('keeps distribution in the account currency while showing foreign amounts', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: 0 }),
+      createSplitRow({ id: 'split-2', amount: 0 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-100}
+        currencyCode="CAD"
+        displayCurrencyCode="EUR"
+        displayRate={2}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show and edit split amounts in EUR' }));
+    fireEvent.click(screen.getByText('Distribute Evenly'));
+
+    const newSplits = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+    // Distribution stays exact in the account currency: -50 CAD each (sums to -100).
+    expect(newSplits[0].amount).toBe(-50);
+    expect(newSplits[1].amount).toBe(-50);
+  });
+
+  it('add-remaining targets the account-currency remainder even in foreign view', () => {
+    const splits: SplitRow[] = [
+      createSplitRow({ id: 'split-1', amount: -30 }),
+      createSplitRow({ id: 'split-2', amount: -10 }),
+    ];
+
+    render(
+      <SplitEditor
+        splits={splits}
+        onChange={mockOnChange}
+        categories={mockCategories}
+        transactionAmount={-50}
+        currencyCode="CAD"
+        displayCurrencyCode="EUR"
+        displayRate={2}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show and edit split amounts in EUR' }));
+
+    // Remaining is -50 - (-40) = -10 CAD; adding it to split-1 gives -40 CAD.
+    const addRemainingButtons = screen.getAllByTitle(/Add remaining to this split/);
+    fireEvent.click(addRemainingButtons[0]);
+
+    const newSplits = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+    expect(newSplits[0].amount).toBe(-40);
+  });
+});

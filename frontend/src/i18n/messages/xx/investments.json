@@ -65,10 +65,15 @@
     "cash": "[XX-Cash-XX]",
     "untagged": "[XX-Untagged-XX]",
     "noTagData": "[XX-No tagged holdings to show. Add tags to your securities to see exposure by tag.-XX]",
-    "tagExposureNote": "[XX-Exposure by tag: a holding with several tags counts in full under each, so percentages can total more than 100%.-XX]",
+    "noKeyData": "[XX-No holdings carry a value for this tag key. Tag securities as key:value (e.g. country:usa) to see this breakdown.-XX]",
+    "noCountryData": "[XX-No country allocation data available.-XX]",
+    "keySelectorLabel": "[XX-Tag key to aggregate by-XX]",
+    "otherCountries": "[XX-Other Countries-XX]",
     "groupBy": {
       "security": "[XX-By security-XX]",
-      "tag": "[XX-By tag-XX]"
+      "tag": "[XX-By tag-XX]",
+      "tagKey": "[XX-By key-XX]",
+      "country": "[XX-By country-XX]"
     }
   },
   "holdingsList": {
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "[XX-Portfolio Value Over Time-XX]",
+    "viewReport": "[XX-View report-XX]",
+    "viewReportTitle": "[XX-Open the full Portfolio Value report-XX]",
     "updatingLabel": "[XX-Updating…-XX]",
-    "updatingAriaLabel": "[XX-Updating-XX]",
     "intradayFallbackWarningAriaLabel": "[XX-Detailed intraday pricing unavailable-XX]",
     "intradayUnavailableTitle": "[XX-Intraday view unavailable for this account mix-XX]",
     "intradayUnavailableDescription": "[XX-One or more holdings use a quote provider (MSN Money) that does not expose intraday data. Switch to a longer range to see daily snapshots.-XX]",

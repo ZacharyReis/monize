@@ -238,6 +238,33 @@ describe('Combobox', () => {
     expect(screen.getByText('Apple')).toBeInTheDocument();
   });
 
+  it('offers to create a name far longer than the input, and keeps it on one line', async () => {
+    const onCreateNew = vi.fn();
+
+    render(
+      <Combobox
+        options={options}
+        onChange={onChange}
+        allowCustomValue
+        onCreateNew={onCreateNew}
+        usePortal
+      />,
+    );
+
+    const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
+    await new Promise((r) => setTimeout(r, 150));
+
+    const longName = "Drongkowski's Farm Market & Deli";
+    fireEvent.change(input, { target: { value: longName } });
+
+    const option = await screen.findByText(`Create "${longName}"`);
+    // The dropdown is only as wide as its input, so the label truncates rather
+    // than overflowing it -- the same treatment every option row below gets.
+    expect(option.className).toContain('truncate');
+    expect(option.parentElement?.className).toContain('min-w-0');
+  });
+
   it('calls onCreateNew when create option is clicked', async () => {
     const onCreateNew = vi.fn();
 
@@ -1142,6 +1169,81 @@ describe('Combobox', () => {
       );
 
       expect(screen.getByRole('textbox')).toHaveValue('LSE');
+    });
+
+    it('shows initialDisplayValue instead of the raw id while options are still loading', () => {
+      const uuid = 'a1b2c3d4-0000-0000-0000-000000000000';
+      const { rerender } = render(
+        <Combobox
+          options={[]}
+          onChange={onChange}
+          value={uuid}
+          initialDisplayValue="Groceries"
+          allowCustomValue
+        />,
+      );
+
+      // The id must never flash in the input while the options list loads
+      expect(screen.getByRole('textbox')).toHaveValue('Groceries');
+
+      rerender(
+        <Combobox
+          options={[{ value: uuid, label: 'Groceries: Weekly' }]}
+          onChange={onChange}
+          value={uuid}
+          initialDisplayValue="Groceries"
+          allowCustomValue
+        />,
+      );
+
+      expect(screen.getByRole('textbox')).toHaveValue('Groceries: Weekly');
+    });
+
+    it('valueIsId keeps the input blank for an unresolved id, then shows the label once options load', () => {
+      const uuid = 'a1b2c3d4-0000-0000-0000-000000000000';
+      const { rerender } = render(
+        <Combobox
+          options={[]}
+          onChange={onChange}
+          value={uuid}
+          allowCustomValue
+          valueIsId
+        />,
+      );
+
+      // No display name available: blank beats showing the raw id
+      expect(screen.getByRole('textbox')).toHaveValue('');
+
+      rerender(
+        <Combobox
+          options={[{ value: uuid, label: 'Groceries' }]}
+          onChange={onChange}
+          value={uuid}
+          allowCustomValue
+          valueIsId
+        />,
+      );
+
+      expect(screen.getByRole('textbox')).toHaveValue('Groceries');
+    });
+
+    it('valueIsId still allows typing and committing a custom value', () => {
+      render(
+        <Combobox
+          options={options}
+          onChange={onChange}
+          value=""
+          allowCustomValue
+          valueIsId
+        />,
+      );
+
+      const input = screen.getByRole('textbox');
+      fireEvent.change(input, { target: { value: 'My Custom Payee' } });
+      expect(input).toHaveValue('My Custom Payee');
+
+      fireEvent.mouseDown(document.body);
+      expect(onChange).toHaveBeenCalledWith('', 'My Custom Payee');
     });
   });
 

@@ -73,7 +73,7 @@ export const FINANCIAL_TOOLS: AiToolDefinition[] = [
         includeTransactions: {
           type: "boolean",
           description:
-            "When true, also include the raw individual transaction list (with IDs) in addition to the summary. Costs many more tokens; default false. Set true only when the user asks to see specific transactions or you need a transaction ID to act on it.",
+            "When true, also include the raw individual transaction list (with IDs) in addition to the summary. Costs many more tokens; default false. Set true only when the user asks to see specific transactions or you need a transaction ID to act on it. Rows entered in a foreign currency also carry read-only originalAmount, originalCurrencyCode, and exchangeRate metadata (the transaction's amount stays in the account currency); these are informational only -- creating foreign-currency transactions is not supported here.",
         },
         limit: {
           type: "integer",
@@ -454,6 +454,7 @@ export const FINANCIAL_TOOLS: AiToolDefinition[] = [
       "update: { transactionId, amount?, date?, payeeName?, categoryName?, description?, createPayeeIfMissing? } -- provide only the fields to change (at least one); a category-only change is just transactionId + categoryName. First call search_transactions to obtain the transactionId. Transfers are auto-detected and edited correctly; for a transfer, categoryName is stored on both legs and surfaces the transfer in the monthly category breakdown (without making it count as income/expense), and payeeName sets its custom label (matched to an existing payee or created if missing, like a normal transaction). " +
       "split transactions (create or update): add a 'splits' array of { categoryName, amount, memo? } (>= 2 lines, category splits only) instead of a single categoryName; the split amounts must sum to the transaction amount (e.g. a -100 expense split -60 Groceries / -40 Household). On create also give accountName, amount, date; on update give transactionId and splits (replaces the whole split set). Send split transactions one at a time (a single item), not mixed into a multi-row batch. " +
       "delete: { transactionId } -- removes the transaction (and any linked transfer legs / split children). First call search_transactions to obtain the transactionId. " +
+      "attachments (create or update): add an 'attachments' array naming files the user attached to their CURRENT chat message, each entry a filename (string) or 1-based position (number); the named files are saved as permanent attachments on the transaction when the card is approved. Only images and PDFs up to 5 MB can be saved (CSV/text chat files cannot). Use this when the user asks to save/attach a receipt or document they just sent -- on create the file lands on the new transaction, on update an attachments-only item is a valid edit. Send attachment items one at a time (a single item), never on transfers or delete. " +
       "approvalMode controls the confirmation: by default a batch of 6 or more items shows one card for the whole batch, while 1-5 items show one card per item the user approves separately. Pass 'individual' to force one card per item at any count. Ignored for a single item. Maximum 25 items per call; if the user pastes more, process the first 25 and tell them to send the rest. After calling this tool, briefly tell the user to review and approve the card(s); never claim the change was applied.",
     inputSchema: {
       type: "object",
@@ -554,6 +555,19 @@ export const FINANCIAL_TOOLS: AiToolDefinition[] = [
                     },
                   },
                   required: ["categoryName", "amount"],
+                },
+              },
+              attachments: {
+                type: "array",
+                minItems: 1,
+                maxItems: 5,
+                description:
+                  "create/update: files from the user's CURRENT chat message to save on the transaction. Each entry is a filename (string) or 1-based position (number). Images/PDF only. Single-item calls only; not valid on transfers or delete.",
+                items: {
+                  anyOf: [
+                    { type: "string", maxLength: 255 },
+                    { type: "integer", minimum: 1 },
+                  ],
                 },
               },
             },

@@ -74,6 +74,58 @@ describe('ChatInterface', () => {
     expect(screen.getByText('Ask about your finances')).toBeInTheDocument();
   });
 
+  it('auto-scrolls when a new message arrives but not when one is patched in place', async () => {
+    seedPersistedMessages([
+      { id: 'u', role: 'user', content: 'Add these' },
+      {
+        id: 'a',
+        role: 'assistant',
+        content: '',
+        pendingActions: [
+          {
+            actionId: 'act-1',
+            type: 'create_transaction',
+            preview: {},
+            descriptor: { type: 'create_transaction' },
+            signature: 's',
+            expiresAt: Date.now() + 60000,
+            status: 'pending',
+          },
+        ],
+      } as ChatMessage,
+    ]);
+    await renderChat();
+
+    // Appending a new message scrolls to the bottom.
+    (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
+    await act(async () => {
+      useAiChatStore.setState((s) => ({
+        messages: [...s.messages, { id: 'b', role: 'assistant', content: 'Done.' }],
+      }));
+    });
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+
+    // Patching an existing message in place (e.g. a card flipping to confirmed)
+    // must NOT scroll -- approving a card mid-chat should keep the view put.
+    (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
+    await act(async () => {
+      useAiChatStore.setState((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === 'a'
+            ? {
+                ...m,
+                pendingActions: m.pendingActions?.map((p) => ({
+                  ...p,
+                  status: 'confirmed' as const,
+                })),
+              }
+            : m,
+        ),
+      }));
+    });
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it('renders the input textarea', async () => {
     await renderChat();
     expect(

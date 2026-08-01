@@ -104,8 +104,12 @@
       "lookupTooShort": "Introduce un código o nombre de divisa (al menos 2 caracteres) para buscar",
       "found": "Encontrado: {details}",
       "notFound": "No se encontró ninguna divisa para \"{query}\"",
-      "lookupFailed": "Error en la búsqueda - inténtalo de nuevo"
-    }
+      "lookupFailed": "Error en la búsqueda - inténtalo de nuevo",
+      "reactivateFailed": "No se pudo reactivar la divisa"
+    },
+    "inactiveNotice": "{code} ya está en tu lista, pero está inactiva.",
+    "reactivateButton": "Reactivar {code}",
+    "reactivating": "Reactivando..."
   },
   "validation": {
     "codeLength": "El código de divisa debe tener exactamente 3 caracteres",

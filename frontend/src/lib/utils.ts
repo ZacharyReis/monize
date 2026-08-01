@@ -32,6 +32,21 @@ export function getLocalDateString(date: Date = new Date()): string {
 }
 
 /**
+ * Get a date as a YYYY-MM-DD string in the given IANA timezone.
+ * The sv-SE locale always formats as YYYY-MM-DD, so this yields the calendar
+ * date as it reads in that timezone -- which may differ from both UTC and the
+ * browser's own local date (e.g. a US/Eastern browser rendering an
+ * Australia/Sydney date). Pair with `resolveTimezone()` to honour the user's
+ * timezone preference.
+ */
+export function getDateStringInTimezone(
+  timezone: string,
+  date: Date = new Date(),
+): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: timezone });
+}
+
+/**
  * Parse a date string (YYYY-MM-DD) into a Date object without timezone conversion.
  * This prevents the date from shifting when displayed in local time.
  *
@@ -127,6 +142,56 @@ export function formatMonth(month: string, format: string = 'browser', locale?: 
     default:
       return browserFormat();
   }
+}
+
+/**
+ * date-fns-style tokens used for month markers and date labels on charts,
+ * mapped to locale-aware `Intl.DateTimeFormat` output. Charts historically
+ * formatted these with date-fns `format()`, which is English-only here (no
+ * locale was ever supplied), so month names like "Jan" never followed the
+ * user's UI language. Using Intl localizes both the month name and the
+ * locale-appropriate ordering/separators.
+ */
+export type ChartDatePattern =
+  | 'MMM' // Jan
+  | 'MMM yy' // Jan 25
+  | 'MMM yyyy' // Jan 2025
+  | 'MMMM yyyy' // January 2025
+  | 'MMM d' // Jan 5
+  | 'MMM d, yyyy' // Jan 5, 2025
+  | 'MMM d HH:mm' // Jan 5, 14:30
+  | 'HH:mm' // 14:30
+  | 'yyyy'; // 2025
+
+const CHART_DATE_OPTIONS: Record<ChartDatePattern, Intl.DateTimeFormatOptions> = {
+  MMM: { month: 'short' },
+  'MMM yy': { month: 'short', year: '2-digit' },
+  'MMM yyyy': { month: 'short', year: 'numeric' },
+  'MMMM yyyy': { month: 'long', year: 'numeric' },
+  'MMM d': { month: 'short', day: 'numeric' },
+  'MMM d, yyyy': { month: 'short', day: 'numeric', year: 'numeric' },
+  'MMM d HH:mm': { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false },
+  'HH:mm': { hour: '2-digit', minute: '2-digit', hour12: false },
+  yyyy: { year: 'numeric' },
+};
+
+/**
+ * Format a date for a chart axis tick, tooltip, or series label in the user's
+ * locale. String inputs are parsed as local dates (YYYY-MM-DD) so they do not
+ * shift across timezones; Date inputs (e.g. intraday timestamps) are formatted
+ * as given.
+ * @param date - Date object or local date string (YYYY-MM-DD)
+ * @param pattern - One of the supported chart date patterns
+ * @param locale - Optional BCP 47 locale (typically the user's UI language);
+ *                 falls back to the runtime default when omitted.
+ */
+export function formatChartDate(
+  date: Date | string,
+  pattern: ChartDatePattern,
+  locale?: string,
+): string {
+  const d = typeof date === 'string' ? parseLocalDate(date) : date;
+  return new Intl.DateTimeFormat(locale, CHART_DATE_OPTIONS[pattern]).format(d);
 }
 
 /**

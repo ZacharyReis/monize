@@ -4,7 +4,9 @@ import { CurrencyForm } from './CurrencyForm';
 import toast from 'react-hot-toast';
 
 vi.mock('@hookform/resolvers/zod', () => ({
-  zodResolver: () => async () => ({ values: {}, errors: {} }),
+  // Echo the current form values through so submit handlers receive the typed
+  // fields (validation itself is exercised elsewhere).
+  zodResolver: () => async (values: any) => ({ values, errors: {} }),
 }));
 
 const mockLookupCurrency = vi.fn().mockResolvedValue(null);
@@ -169,6 +171,79 @@ describe('CurrencyForm', () => {
     });
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Lookup failed - please try again');
+    });
+  });
+
+  describe('inactive-currency reactivation', () => {
+    const inactiveError = { response: { data: { errorCode: 'CURRENCY_INACTIVE' } } };
+
+    it('shows a reactivation note when create fails because the currency is inactive', async () => {
+      const failingSubmit = vi.fn().mockRejectedValue(inactiveError);
+      const onReactivate = vi.fn().mockResolvedValue(undefined);
+      render(
+        <CurrencyForm onSubmit={failingSubmit} onCancel={onCancel} onReactivate={onReactivate} />,
+      );
+
+      fireEvent.change(screen.getByPlaceholderText(/USD, EUR, GBP/), { target: { value: 'OLD' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Create Currency'));
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('OLD is already in your list but inactive.')).toBeInTheDocument(),
+      );
+      expect(screen.getByText('Reactivate OLD')).toBeInTheDocument();
+    });
+
+    it('calls onReactivate with the code when the reactivate button is clicked', async () => {
+      const failingSubmit = vi.fn().mockRejectedValue(inactiveError);
+      const onReactivate = vi.fn().mockResolvedValue(undefined);
+      render(
+        <CurrencyForm onSubmit={failingSubmit} onCancel={onCancel} onReactivate={onReactivate} />,
+      );
+
+      fireEvent.change(screen.getByPlaceholderText(/USD, EUR, GBP/), { target: { value: 'old' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Create Currency'));
+      });
+      await waitFor(() => expect(screen.getByText('Reactivate OLD')).toBeInTheDocument());
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Reactivate OLD'));
+      });
+      expect(onReactivate).toHaveBeenCalledWith('OLD');
+    });
+
+    it('does not show the reactivation note when onReactivate is not provided', async () => {
+      const failingSubmit = vi.fn().mockRejectedValue(inactiveError);
+      render(<CurrencyForm onSubmit={failingSubmit} onCancel={onCancel} />);
+
+      fireEvent.change(screen.getByPlaceholderText(/USD, EUR, GBP/), { target: { value: 'OLD' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Create Currency'));
+      });
+      await act(async () => {}); // flush the rejected submit handler
+
+      expect(failingSubmit).toHaveBeenCalled();
+      expect(screen.queryByText(/already in your list but inactive/)).not.toBeInTheDocument();
+    });
+
+    it('clears the reactivation note when the code is edited', async () => {
+      const failingSubmit = vi.fn().mockRejectedValue(inactiveError);
+      const onReactivate = vi.fn().mockResolvedValue(undefined);
+      render(
+        <CurrencyForm onSubmit={failingSubmit} onCancel={onCancel} onReactivate={onReactivate} />,
+      );
+
+      const codeInput = screen.getByPlaceholderText(/USD, EUR, GBP/);
+      fireEvent.change(codeInput, { target: { value: 'OLD' } });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Create Currency'));
+      });
+      await waitFor(() => expect(screen.getByText('Reactivate OLD')).toBeInTheDocument());
+
+      fireEvent.change(codeInput, { target: { value: 'OLDER' } });
+      expect(screen.queryByText('Reactivate OLD')).not.toBeInTheDocument();
     });
   });
 });

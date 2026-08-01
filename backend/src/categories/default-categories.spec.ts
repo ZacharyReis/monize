@@ -1,8 +1,14 @@
 import {
   DEFAULT_INCOME_CATEGORIES,
   DEFAULT_EXPENSE_CATEGORIES,
+  GENERIC_CATEGORY_SET,
   DefaultCategoryDefinition,
 } from "./default-categories";
+
+const ALL_CATEGORIES = [
+  ...DEFAULT_INCOME_CATEGORIES,
+  ...DEFAULT_EXPENSE_CATEGORIES,
+];
 
 describe("default-categories", () => {
   describe("DEFAULT_INCOME_CATEGORIES", () => {
@@ -25,6 +31,7 @@ describe("default-categories", () => {
       );
       expect(found).toBeDefined();
       expect(found!.subcategories).toContain("Capital Gains");
+      expect(found!.subcategories).toContain("Dividends");
       expect(found!.subcategories).toContain("Interest");
     });
 
@@ -52,6 +59,7 @@ describe("default-categories", () => {
         (c) => c.name === "Retirement Income",
       );
       expect(found).toBeDefined();
+      expect(found!.subcategories).toContain("Pension");
     });
 
     it("should have unique category names", () => {
@@ -87,7 +95,7 @@ describe("default-categories", () => {
         (c) => c.name === "Automobile",
       );
       expect(found).toBeDefined();
-      expect(found!.subcategories).toContain("Gasoline");
+      expect(found!.subcategories).toContain("Fuel");
       expect(found!.subcategories).toContain("Maintenance");
       expect(found!.subcategories).toContain("Parking");
     });
@@ -129,11 +137,13 @@ describe("default-categories", () => {
       expect(found!.subcategories).toContain("Life");
     });
 
-    it("should contain Taxes category", () => {
+    it("should contain Taxes category with country-neutral lines only", () => {
       const found = DEFAULT_EXPENSE_CATEGORIES.find((c) => c.name === "Taxes");
       expect(found).toBeDefined();
-      expect(found!.subcategories).toContain("Federal Income");
-      expect(found!.subcategories).toContain("Property");
+      expect(found!.subcategories).toContain("Income Tax");
+      expect(found!.subcategories).toContain("Property Tax");
+      expect(found!.subcategories).not.toContain("CPP/QPP Contributions");
+      expect(found!.subcategories).not.toContain("EI Premiums");
     });
 
     it("should contain Bills category", () => {
@@ -141,7 +151,7 @@ describe("default-categories", () => {
       expect(found).toBeDefined();
       expect(found!.subcategories).toContain("Electricity");
       expect(found!.subcategories).toContain("Internet");
-      expect(found!.subcategories).toContain("Cell Phone");
+      expect(found!.subcategories).toContain("Mobile Phone");
     });
 
     it("should contain Loan category", () => {
@@ -176,9 +186,9 @@ describe("default-categories", () => {
       expect(found!.subcategories).toEqual([]);
     });
 
-    it("should contain Licencing Fees category with no subcategories", () => {
+    it("should contain Cash Withdrawal without per-currency subcategories", () => {
       const found = DEFAULT_EXPENSE_CATEGORIES.find(
-        (c) => c.name === "Licencing Fees",
+        (c) => c.name === "Cash Withdrawal",
       );
       expect(found).toBeDefined();
       expect(found!.subcategories).toEqual([]);
@@ -196,10 +206,67 @@ describe("default-categories", () => {
         expect(uniqueSubs.size).toBe(category.subcategories.length);
       }
     });
+  });
 
-    it("should contain expected number of expense categories", () => {
-      // There are 25 expense categories based on the source file
-      expect(DEFAULT_EXPENSE_CATEGORIES.length).toBe(25);
+  describe("country neutrality", () => {
+    // The baseline is the catalog every user starts from, whatever country
+    // they live in: anything naming a national programme, tax, or currency
+    // belongs in country-category-additions.ts instead.
+    const COUNTRY_SPECIFIC = [
+      "RESP",
+      "RRSP",
+      "RRIF",
+      "CPP",
+      "QPP",
+      "OAS",
+      "GST",
+      "HST",
+      "PST",
+      "VAT",
+      "EI Premiums",
+      "401(k)",
+      "IRA",
+      "529",
+      "Medicare",
+      "Social Security",
+      "National Insurance",
+      "Council Tax",
+      "MOT",
+      "TV Licence",
+      "Federal",
+      "Provincial",
+      "State",
+      "Dollars",
+      "Euros",
+      "Pesos",
+    ];
+
+    it("has no country-specific names in the baseline", () => {
+      for (const category of ALL_CATEGORIES) {
+        for (const name of [category.name, ...category.subcategories]) {
+          for (const token of COUNTRY_SPECIFIC) {
+            expect(name).not.toContain(token);
+          }
+        }
+      }
+    });
+
+    it("has dropped obsolete physical-media categories", () => {
+      const obsolete = [
+        "Video Rentals",
+        "VHS",
+        "DVD",
+        "CD",
+        "LPs",
+        "Camera/Film",
+      ];
+      const allNames = ALL_CATEGORIES.flatMap((c) => [
+        c.name,
+        ...c.subcategories,
+      ]);
+      for (const name of obsolete) {
+        expect(allNames).not.toContain(name);
+      }
     });
   });
 
@@ -214,21 +281,13 @@ describe("default-categories", () => {
     });
 
     it("should have all category names be non-empty strings", () => {
-      const allCategories = [
-        ...DEFAULT_INCOME_CATEGORIES,
-        ...DEFAULT_EXPENSE_CATEGORIES,
-      ];
-      for (const category of allCategories) {
+      for (const category of ALL_CATEGORIES) {
         expect(category.name.trim()).not.toBe("");
       }
     });
 
     it("should have all subcategory names be non-empty strings", () => {
-      const allCategories = [
-        ...DEFAULT_INCOME_CATEGORIES,
-        ...DEFAULT_EXPENSE_CATEGORIES,
-      ];
-      for (const category of allCategories) {
+      for (const category of ALL_CATEGORIES) {
         for (const sub of category.subcategories) {
           expect(typeof sub).toBe("string");
           expect(sub.trim()).not.toBe("");
@@ -237,34 +296,43 @@ describe("default-categories", () => {
     });
 
     it("should export DefaultCategoryDefinition interface-compatible objects", () => {
-      // Type check: each entry should satisfy the interface
       const typeCheck = (cat: DefaultCategoryDefinition): boolean => {
         return typeof cat.name === "string" && Array.isArray(cat.subcategories);
       };
 
-      for (const cat of DEFAULT_INCOME_CATEGORIES) {
-        expect(typeCheck(cat)).toBe(true);
-      }
-      for (const cat of DEFAULT_EXPENSE_CATEGORIES) {
+      for (const cat of ALL_CATEGORIES) {
         expect(typeCheck(cat)).toBe(true);
       }
     });
 
-    it("should contain expected number of income categories", () => {
-      // There are 4 income categories based on the source file
-      expect(DEFAULT_INCOME_CATEGORIES.length).toBe(4);
+    it("keeps parents and subcategories alphabetically sorted", () => {
+      for (const branch of [
+        DEFAULT_INCOME_CATEGORIES,
+        DEFAULT_EXPENSE_CATEGORIES,
+      ]) {
+        const names = branch.map((c) => c.name);
+        expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+        for (const category of branch) {
+          expect(category.subcategories).toEqual(
+            [...category.subcategories].sort((a, b) => a.localeCompare(b)),
+          );
+        }
+      }
     });
 
     it("should have subcategories as string arrays (not objects or numbers)", () => {
-      const allCategories = [
-        ...DEFAULT_INCOME_CATEGORIES,
-        ...DEFAULT_EXPENSE_CATEGORIES,
-      ];
-      for (const category of allCategories) {
+      for (const category of ALL_CATEGORIES) {
         for (const sub of category.subcategories) {
           expect(typeof sub).toBe("string");
         }
       }
+    });
+  });
+
+  describe("GENERIC_CATEGORY_SET", () => {
+    it("exposes the baseline income and expense branches", () => {
+      expect(GENERIC_CATEGORY_SET.income).toBe(DEFAULT_INCOME_CATEGORIES);
+      expect(GENERIC_CATEGORY_SET.expense).toBe(DEFAULT_EXPENSE_CATEGORIES);
     });
   });
 });

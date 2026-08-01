@@ -238,6 +238,38 @@ export function calculateAmortization(
 }
 
 /**
+ * Calculate the installment that amortizes a balance over a fixed number of
+ * remaining periods -- the annuity `A = B*r / (1 - (1 + r)^(-n))`.
+ *
+ * This is the inverse of `calculateTotalPayments` (which solves for n given the
+ * payment): it solves for the payment given the term. A bank recomputes this
+ * for the *obniżenie raty* (lower-installment) overpayment mode, where the
+ * payoff date is held fixed and the installment shrinks after an overpayment.
+ *
+ * @param balance - Balance to amortize (positive number)
+ * @param annualRate - Annual interest rate as percentage (e.g., 5.5)
+ * @param periods - Number of remaining payment periods (must be > 0)
+ * @param frequency - Payment frequency
+ * @returns The installment; a 0% rate splits the balance evenly
+ */
+export function calculatePaymentForTerm(
+  balance: number,
+  annualRate: number,
+  periods: number,
+  frequency: PaymentFrequency,
+): number {
+  if (balance <= 0 || periods <= 0) return 0;
+
+  const periodicRate = annualRate / 100 / getPeriodsPerYear(frequency);
+  if (periodicRate === 0) {
+    return roundMoney(balance / periods);
+  }
+  return roundMoney(
+    (balance * periodicRate) / (1 - Math.pow(1 + periodicRate, -periods)),
+  );
+}
+
+/**
  * Calculate the final payment amount when loan balance is less than regular payment
  *
  * @param remainingBalance - Current loan balance

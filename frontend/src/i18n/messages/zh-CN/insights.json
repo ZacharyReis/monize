@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI 未配置",
-    "message": "未配置 AI 提供商。要使用消费洞察，请在设置中{link}。",
-    "linkText": "配置 AI 提供商"
+    "message": "未配置 AI 提供商。要使用消费洞察，请在设置中{link}。"
   },
   "insightTypes": {
     "anomaly": "异常",

@@ -4,6 +4,20 @@ import { render, screen, waitFor, fireEvent, act } from '@/test/render';
 import SecuritiesPage from './page';
 import toast from 'react-hot-toast';
 
+// Per-test query string, so the `?price=<id>` deep link can be exercised.
+const nav = vi.hoisted(() => ({ params: new URLSearchParams() }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    prefetch: vi.fn(),
+    refresh: vi.fn(),
+  }),
+  usePathname: () => '/securities',
+  useSearchParams: () => nav.params,
+}));
+
 // Mock next/image
 vi.mock('next/image', () => ({
   default: ({ priority, fill, ...props }: any) => <img alt="" {...props} />,
@@ -217,6 +231,7 @@ vi.mock('@/hooks/useLocalStorage', () => ({
 describe('SecuritiesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nav.params = new URLSearchParams();
     mockGetSecurities.mockResolvedValue([
       { id: 's1', symbol: 'AAPL', name: 'Apple Inc.', securityType: 'STOCK', exchange: 'NASDAQ', currencyCode: 'USD', isActive: true, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
       { id: 's2', symbol: 'XEQT', name: 'iShares Core Equity', securityType: 'ETF', exchange: 'TSX', currencyCode: 'CAD', isActive: true, skipPriceUpdates: false, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
@@ -782,5 +797,38 @@ describe('SecuritiesPage', () => {
     mockGetSecurities.mockResolvedValue(many);
     render(<SecuritiesPage />);
     await waitFor(() => expect(screen.getByTestId('pagination')).toBeInTheDocument());
+  });
+
+  describe('price history deep link', () => {
+    it('opens the price history the ?price= link asks for', async () => {
+      // The dashboard's Top Movers sends the user here rather than growing its
+      // own copy of this view.
+      nav.params = new URLSearchParams('price=s1');
+      render(<SecuritiesPage />);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('price-history')).toBeInTheDocument(),
+      );
+    });
+
+    it('does not reopen it once closed', async () => {
+      nav.params = new URLSearchParams('price=s1');
+      render(<SecuritiesPage />);
+      await waitFor(() =>
+        expect(screen.getByTestId('price-history')).toBeInTheDocument(),
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('price-history-close'));
+      });
+      expect(screen.queryByTestId('price-history')).not.toBeInTheDocument();
+    });
+
+    it('ignores an id that is not in the list', async () => {
+      nav.params = new URLSearchParams('price=nope');
+      render(<SecuritiesPage />);
+
+      expect(screen.queryByTestId('price-history')).not.toBeInTheDocument();
+    });
   });
 });

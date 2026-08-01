@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "現金",
     "brokerage": "証券"
+  },
+  "import": {
+    "voidedTransactionNote": "ソースで無効化されました。元の金額はエクスポートに含まれていなかったため、ゼロとしてインポートされました。"
   }
 }

@@ -29,7 +29,29 @@ const STORAGE_KEYS = {
   amountTo: 'transactions.filter.amountTo',
   tagIds: 'transactions.filter.tagIds',
   statuses: 'transactions.filter.statuses',
+  originalCurrencyCodes: 'transactions.filter.originalCurrencyCodes',
+  tagKey: 'transactions.filter.tagKey',
+  tagKeyOp: 'transactions.filter.tagKeyOp',
+  tagKeyValue: 'transactions.filter.tagKeyValue',
+  hasAttachments: 'transactions.filter.hasAttachments',
 };
+
+export type TagKeyOp = 'hasValue' | 'noValue' | 'contains' | 'notContains';
+const VALID_TAG_KEY_OPS = new Set<string>([
+  'hasValue',
+  'noValue',
+  'contains',
+  'notContains',
+]);
+function sanitizeTagKeyOp(value: string): TagKeyOp {
+  return VALID_TAG_KEY_OPS.has(value) ? (value as TagKeyOp) : 'hasValue';
+}
+
+// Attachment presence filter: '' (any), 'yes' (has attachments), 'no' (none).
+export type HasAttachmentsFilter = '' | 'yes' | 'no';
+function sanitizeHasAttachments(value: string): HasAttachmentsFilter {
+  return value === 'yes' || value === 'no' ? value : '';
+}
 
 // Mirrors the backend's targetTransactionId validation so a malformed deep-link
 // value is ignored rather than sent on to a 4xx.
@@ -91,6 +113,25 @@ function getFilterValue(key: string, urlParam: string | null, hasAnyUrlParams: b
   return localStorage.getItem(key) || '';
 }
 
+/**
+ * Signature of the single-entity deep-link params (the SINGULAR forms only:
+ * `accountId`/`categoryId`/`payeeId`). The page's own URL rewrites
+ * (`updateUrl`) emit exclusively the plural forms, so a singular param can
+ * only come from an external deep link -- a sibling page's row click or an AI
+ * chat entity link. Comparing signatures lets the soft-navigation watcher
+ * below detect a NEW deep link without re-firing on the page's own rewrites.
+ * Returns null when no singular param is present.
+ */
+function buildEntityParamSignature(
+  params: Pick<URLSearchParams, 'get'>,
+): string | null {
+  const accountId = params.get('accountId');
+  const categoryId = params.get('categoryId');
+  const payeeId = params.get('payeeId');
+  if (!accountId && !categoryId && !payeeId) return null;
+  return `a:${accountId ?? ''}|c:${categoryId ?? ''}|p:${payeeId ?? ''}`;
+}
+
 // Helper to get stored value (for non-URL params like account status)
 function getStoredValue<T>(key: string, defaultValue: T): T {
   if (typeof window === 'undefined') return defaultValue;
@@ -137,6 +178,14 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   const [filterAmountTo, setFilterAmountTo] = useState<string>('');
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [filterStatuses, setFilterStatuses] = useState<TransactionStatus[]>([]);
+  // Currencies a transaction was entered in (foreign-entry filter).
+  const [filterOriginalCurrencyCodes, setFilterOriginalCurrencyCodes] = useState<string[]>([]);
+  // KEY:VALUE tag filter (e.g. key "country", op "contains", value "usa").
+  const [filterTagKey, setFilterTagKey] = useState<string>('');
+  const [filterTagKeyOp, setFilterTagKeyOp] = useState<TagKeyOp>('hasValue');
+  const [filterTagKeyValue, setFilterTagKeyValue] = useState<string>('');
+  // Attachment presence filter ('' any, 'yes' has, 'no' none).
+  const [filterHasAttachments, setFilterHasAttachments] = useState<HasAttachmentsFilter>('');
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
@@ -151,6 +200,16 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
   const isFilterChange = useRef(false);
   // Target transaction ID for navigating to a specific transaction
   const targetTransactionIdRef = useRef<string | null>(null);
+  // The `targetTransactionId` deep link already applied, so a soft navigation
+  // to the same id (or the mount-time init) is not re-processed. Tracked
+  // separately from targetTransactionIdRef because the latter is consumed (set
+  // back to null) by each load.
+  const appliedTargetRef = useRef<string | null>(null);
+  // Same idea for single-entity deep links (`accountId`/`categoryId`/`payeeId`
+  // singular params, e.g. an AI chat entity link clicked while this page is
+  // already mounted): the signature already applied, so neither the mount-time
+  // init nor the page's own URL rewrites re-trigger the watcher.
+  const appliedEntityFilterRef = useRef<string | null>(null);
   // Debounce timer for filter-triggered loads
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -166,6 +225,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     amountFrom: string;
     amountTo: string;
     statuses: TransactionStatus[];
+    originalCurrencyCodes: string[];
+    tagKey: string;
+    tagKeyOp: TagKeyOp;
+    tagKeyValue: string;
+    hasAttachments: HasAttachmentsFilter;
   }, push: boolean = false) => {
     const params = new URLSearchParams();
     if (page > 1) params.set('page', page.toString());
@@ -179,6 +243,18 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     if (filters.amountFrom) params.set('amountFrom', filters.amountFrom);
     if (filters.amountTo) params.set('amountTo', filters.amountTo);
     if (filters.statuses.length) params.set('statuses', filters.statuses.join(','));
+    if (filters.originalCurrencyCodes.length) params.set('originalCurrencyCodes', filters.originalCurrencyCodes.join(','));
+    if (filters.tagKey) {
+      params.set('tagKey', filters.tagKey);
+      params.set('tagKeyOp', filters.tagKeyOp);
+      if (
+        (filters.tagKeyOp === 'contains' || filters.tagKeyOp === 'notContains') &&
+        filters.tagKeyValue
+      ) {
+        params.set('tagKeyValue', filters.tagKeyValue);
+      }
+    }
+    if (filters.hasAttachments) params.set('hasAttachments', filters.hasAttachments);
 
     const queryString = params.toString();
     const newUrl = queryString ? `/transactions?${queryString}` : '/transactions';
@@ -291,13 +367,16 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     count += filterPayeeIds.length;
     count += filterTagIds.length;
     count += filterStatuses.length;
+    count += filterOriginalCurrencyCodes.length;
     if (filterStartDate) count++;
     if (filterEndDate) count++;
     if (filterSearch) count++;
     if (filterAmountFrom) count++;
     if (filterAmountTo) count++;
+    if (filterTagKey) count++;
+    if (filterHasAttachments) count++;
     return count;
-  }, [filterAccountIds, filterCategoryIds, filterPayeeIds, filterTagIds, filterStatuses, filterStartDate, filterEndDate, filterSearch, filterAmountFrom, filterAmountTo]);
+  }, [filterAccountIds, filterCategoryIds, filterPayeeIds, filterTagIds, filterStatuses, filterOriginalCurrencyCodes, filterStartDate, filterEndDate, filterSearch, filterAmountFrom, filterAmountTo, filterTagKey, filterHasAttachments]);
 
   // Auto-collapse filters when there are active filters, expand when none
   useEffect(() => {
@@ -324,6 +403,9 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
       searchParams.has('amountTo') ||
       searchParams.has('tagIds') ||
       searchParams.has('statuses') ||
+      searchParams.has('originalCurrencyCodes') ||
+      searchParams.has('tagKey') ||
+      searchParams.has('hasAttachments') ||
       searchParams.has('targetTransactionId');
 
     const getAccountIds = () => {
@@ -372,6 +454,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     setFilterAmountFrom(getFilterValue(STORAGE_KEYS.amountFrom, searchParams.get('amountFrom'), hasAnyUrlParams));
     setFilterAmountTo(getFilterValue(STORAGE_KEYS.amountTo, searchParams.get('amountTo'), hasAnyUrlParams));
     setFilterStatuses(sanitizeStatuses(getFilterValues(STORAGE_KEYS.statuses, searchParams.get('statuses'), hasAnyUrlParams)));
+    setFilterOriginalCurrencyCodes(getFilterValues(STORAGE_KEYS.originalCurrencyCodes, searchParams.get('originalCurrencyCodes'), hasAnyUrlParams));
+    setFilterTagKey(getFilterValue(STORAGE_KEYS.tagKey, searchParams.get('tagKey'), hasAnyUrlParams));
+    setFilterTagKeyOp(sanitizeTagKeyOp(getFilterValue(STORAGE_KEYS.tagKeyOp, searchParams.get('tagKeyOp'), hasAnyUrlParams)));
+    setFilterTagKeyValue(getFilterValue(STORAGE_KEYS.tagKeyValue, searchParams.get('tagKeyValue'), hasAnyUrlParams));
+    setFilterHasAttachments(sanitizeHasAttachments(getFilterValue(STORAGE_KEYS.hasAttachments, searchParams.get('hasAttachments'), hasAnyUrlParams)));
     if (hasAnyUrlParams) {
       setFilterTimePeriod((initialStartDate || initialEndDate) ? 'custom' : '');
     } else {
@@ -384,9 +471,146 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     if (targetId && UUID_REGEX.test(targetId)) {
       targetTransactionIdRef.current = targetId;
       setHighlightTransactionId(targetId);
+      appliedTargetRef.current = targetId;
     }
+    // Singular entity params in the mount URL were just applied above (along
+    // with any co-present params like dates or search). Seed the applied
+    // signature so the soft-navigation watcher below does not re-apply them
+    // and wipe those co-applied filters.
+    appliedEntityFilterRef.current = buildEntityParamSignature(searchParams);
     setFiltersInitialized(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Honour a `targetTransactionId` deep link that arrives while this page is
+  // already mounted -- e.g. the AI chat bubble's "View transaction" link
+  // clicked without navigating away. A soft navigation only rewrites the query
+  // string; the mount-time init effect above does not re-run, so the highlight
+  // never fired. Watch the param here and apply it the same way a fresh page
+  // load does: drop the existing filters (so the target is not hidden by them),
+  // then flash/scroll to the row. The deferred load reads targetTransactionIdRef
+  // and lets the backend resolve which page the row is on.
+  /* eslint-disable react-hooks/set-state-in-effect -- apply deep link from URL */
+  useEffect(() => {
+    if (!filtersInitialized) return;
+    const targetId = searchParams.get('targetTransactionId');
+    if (!targetId || !UUID_REGEX.test(targetId)) {
+      // The param has been consumed/stripped (or was never a valid deep link),
+      // so allow a future identical link to re-trigger -- e.g. clicking the
+      // same "View transaction" link again to jump back to the row.
+      appliedTargetRef.current = null;
+      return;
+    }
+    if (targetId === appliedTargetRef.current) return;
+    appliedTargetRef.current = targetId;
+    // Resolve the target's page from the backend rather than resetting to 1.
+    isFilterChange.current = false;
+    // Note: filterAccountStatus (the Show Accounts toggle) is intentionally left
+    // untouched -- the cross-page deep-link path keeps it too (it is seeded from
+    // localStorage and only overridden by an explicit ?accountStatus param), so
+    // clearing it here would diverge and permanently wipe the user's preference.
+    setFilterAccountIds([]);
+    setFilterCategoryIds([]);
+    setFilterPayeeIds([]);
+    setFilterTagIds([]);
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterTimePeriod('');
+    setFilterAmountFrom('');
+    setFilterAmountTo('');
+    setFilterStatuses([]);
+    setFilterOriginalCurrencyCodes([]);
+    setFilterTagKey('');
+    setFilterTagKeyOp('hasValue');
+    setFilterTagKeyValue('');
+    setFilterHasAttachments('');
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    setSearchInput('');
+    setFilterSearch('');
+    targetTransactionIdRef.current = targetId;
+    setHighlightTransactionId(targetId);
+  }, [searchParams, filtersInitialized]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Honour a single-entity deep link (`?accountId=`/`?categoryId=`/`?payeeId=`,
+  // singular) that arrives while this page is already mounted -- e.g. an AI
+  // chat entity link clicked from the chat bubble without navigating away.
+  // Mirrors the targetTransactionId watcher above: the mount-time init effect
+  // does not re-run on a soft navigation, so without this the query string
+  // would change but the filters would not. The page's own URL rewrites only
+  // emit plural params, so a singular param is always an external deep link.
+  // `isFilterChange` is deliberately left false: the link click already pushed
+  // a history entry, and a replace-rewrite to the plural form keeps Back
+  // returning to the pre-click page instead of looping on the singular URL.
+  /* eslint-disable react-hooks/set-state-in-effect -- apply deep link from URL */
+  useEffect(() => {
+    if (!filtersInitialized) return;
+    // Never fight the targetTransactionId watcher over one URL change.
+    const targetId = searchParams.get('targetTransactionId');
+    if (targetId && UUID_REGEX.test(targetId)) return;
+    const signature = buildEntityParamSignature(searchParams);
+    if (!signature) {
+      // Params consumed (rewritten to plural) or never present: allow the
+      // same link to re-trigger later, e.g. clicking it a second time.
+      appliedEntityFilterRef.current = null;
+      return;
+    }
+    if (signature === appliedEntityFilterRef.current) return;
+    appliedEntityFilterRef.current = signature;
+
+    const accountId = searchParams.get('accountId');
+    const categoryId = searchParams.get('categoryId');
+    const payeeId = searchParams.get('payeeId');
+    const entity = accountId
+      ? { kind: 'account' as const, id: accountId }
+      : categoryId
+        ? { kind: 'category' as const, id: categoryId }
+        : { kind: 'payee' as const, id: payeeId as string };
+    // A malformed id is ignored rather than applied, matching the
+    // targetTransactionId handling (special category pseudo-ids excepted).
+    const isSpecialCategory =
+      entity.kind === 'category' &&
+      (entity.id === 'uncategorized' || entity.id === 'transfer');
+    if (!isSpecialCategory && !UUID_REGEX.test(entity.id)) return;
+
+    setFilterAccountIds(entity.kind === 'account' ? [entity.id] : []);
+    setFilterCategoryIds(entity.kind === 'category' ? [entity.id] : []);
+    setFilterPayeeIds(entity.kind === 'payee' ? [entity.id] : []);
+    // Deep links to accounts carry `accountStatus` (e.g. `all`) so a closed
+    // account is not pruned by the stored Show Accounts toggle; apply it the
+    // same way the mount-time init does. Absent the param, the toggle is left
+    // untouched (same rationale as the targetTransactionId watcher).
+    const accountStatusParam = searchParams.get('accountStatus');
+    if (
+      accountStatusParam === 'all' ||
+      accountStatusParam === 'active' ||
+      accountStatusParam === 'closed'
+    ) {
+      setFilterAccountStatus(accountStatusParam === 'all' ? '' : accountStatusParam);
+    }
+    setFilterTagIds([]);
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterTimePeriod('');
+    setFilterAmountFrom('');
+    setFilterAmountTo('');
+    setFilterStatuses([]);
+    setFilterOriginalCurrencyCodes([]);
+    setFilterTagKey('');
+    setFilterTagKeyOp('hasValue');
+    setFilterTagKeyValue('');
+    setFilterHasAttachments('');
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+    setSearchInput('');
+    setFilterSearch('');
+    setCurrentPage(1);
+  }, [searchParams, filtersInitialized]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist filter changes to localStorage
@@ -407,7 +631,12 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     localStorage.setItem(STORAGE_KEYS.amountFrom, filterAmountFrom);
     localStorage.setItem(STORAGE_KEYS.amountTo, filterAmountTo);
     localStorage.setItem(STORAGE_KEYS.statuses, JSON.stringify(filterStatuses));
-  }, [filterAccountIds, filterCategoryIds, filterPayeeIds, filterTagIds, filterStartDate, filterEndDate, filterSearch, filterTimePeriod, filterAmountFrom, filterAmountTo, filterStatuses, filtersInitialized]);
+    localStorage.setItem(STORAGE_KEYS.originalCurrencyCodes, JSON.stringify(filterOriginalCurrencyCodes));
+    localStorage.setItem(STORAGE_KEYS.tagKey, filterTagKey);
+    localStorage.setItem(STORAGE_KEYS.tagKeyOp, filterTagKeyOp);
+    localStorage.setItem(STORAGE_KEYS.tagKeyValue, filterTagKeyValue);
+    localStorage.setItem(STORAGE_KEYS.hasAttachments, filterHasAttachments);
+  }, [filterAccountIds, filterCategoryIds, filterPayeeIds, filterTagIds, filterStartDate, filterEndDate, filterSearch, filterTimePeriod, filterAmountFrom, filterAmountTo, filterStatuses, filterOriginalCurrencyCodes, filterTagKey, filterTagKeyOp, filterTagKeyValue, filterHasAttachments, filtersInitialized]);
 
   // Helper to update array filter and mark as filter change
   const handleArrayFilterChange = useCallback(<T,>(setter: (value: T) => void, value: T) => {
@@ -465,6 +694,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
       setFilterAmountFrom('');
       setFilterAmountTo('');
       setFilterStatuses([]);
+    setFilterOriginalCurrencyCodes([]);
+      setFilterTagKey('');
+      setFilterTagKeyOp('hasValue');
+      setFilterTagKeyValue('');
+      setFilterHasAttachments('');
       setSearchInput(term);
       setFilterSearch(term);
       setCurrentPage(1);
@@ -492,6 +726,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
       setFilterAmountFrom(params.get('amountFrom') || '');
       setFilterAmountTo(params.get('amountTo') || '');
       setFilterStatuses(sanitizeStatuses(params.get('statuses')?.split(',').filter(Boolean) || []));
+      setFilterOriginalCurrencyCodes(params.get('originalCurrencyCodes')?.split(',').filter(Boolean) || []);
+      setFilterTagKey(params.get('tagKey') || '');
+      setFilterTagKeyOp(sanitizeTagKeyOp(params.get('tagKeyOp') || ''));
+      setFilterTagKeyValue(params.get('tagKeyValue') || '');
+      setFilterHasAttachments(sanitizeHasAttachments(params.get('hasAttachments') || ''));
       const hasDateParams = params.has('startDate') || params.has('endDate');
       setFilterTimePeriod(hasDateParams ? 'custom' : '');
       const pageParam = params.get('page');
@@ -557,6 +796,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     setFilterAmountFrom('');
     setFilterAmountTo('');
     setFilterStatuses([]);
+    setFilterOriginalCurrencyCodes([]);
+    setFilterTagKey('');
+    setFilterTagKeyOp('hasValue');
+    setFilterTagKeyValue('');
+    setFilterHasAttachments('');
     localStorage.removeItem(STORAGE_KEYS.accountIds);
     localStorage.removeItem(STORAGE_KEYS.categoryIds);
     localStorage.removeItem(STORAGE_KEYS.payeeIds);
@@ -568,6 +812,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     localStorage.removeItem(STORAGE_KEYS.amountFrom);
     localStorage.removeItem(STORAGE_KEYS.amountTo);
     localStorage.removeItem(STORAGE_KEYS.statuses);
+    localStorage.removeItem(STORAGE_KEYS.originalCurrencyCodes);
+    localStorage.removeItem(STORAGE_KEYS.tagKey);
+    localStorage.removeItem(STORAGE_KEYS.tagKeyOp);
+    localStorage.removeItem(STORAGE_KEYS.tagKeyValue);
+    localStorage.removeItem(STORAGE_KEYS.hasAttachments);
     router.replace('/transactions', { scroll: false });
   }, [router]);
 
@@ -593,6 +842,11 @@ export function useTransactionFilters({ accounts, categories, payees, tags, week
     filterAmountTo, setFilterAmountTo,
     filterTagIds, setFilterTagIds,
     filterStatuses, setFilterStatuses,
+    filterOriginalCurrencyCodes, setFilterOriginalCurrencyCodes,
+    filterTagKey, setFilterTagKey,
+    filterTagKeyOp, setFilterTagKeyOp,
+    filterTagKeyValue, setFilterTagKeyValue,
+    filterHasAttachments, setFilterHasAttachments,
     filtersInitialized,
     filtersExpanded, setFiltersExpanded,
     activeFilterCount,

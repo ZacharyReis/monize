@@ -15,6 +15,7 @@ import {
   AllocationItem,
 } from "./portfolio.service";
 import { roundMoney } from "../common/round.util";
+import { parseTag } from "../tags/tag-key-value.util";
 import { formatDateYMD, formatDateYMDLocal } from "../common/date-utils";
 import { mapWithConcurrency } from "../common/concurrency.util";
 import { convertWithRateLookup } from "../common/currency-conversion.util";
@@ -1341,7 +1342,6 @@ export class PortfolioCalculationService {
     sortedHoldings: HoldingWithMarketValue[],
     holdings: Holding[],
     totalCashValue: number,
-    totalPortfolioValue: number,
     defaultCurrency: string,
     rateCache: Map<string, number>,
   ): Promise<AllocationItem[]> {
@@ -1356,21 +1356,6 @@ export class PortfolioCalculationService {
       "#eab308",
       "#ef4444",
     ];
-
-    if (totalCashValue > 0) {
-      allocation.push({
-        name: "Cash",
-        symbol: null,
-        type: "cash",
-        value: totalCashValue,
-        percentage:
-          totalPortfolioValue > 0
-            ? (totalCashValue / totalPortfolioValue) * 100
-            : 0,
-        color: "#6b7280",
-        currencyCode: defaultCurrency,
-      });
-    }
 
     // Consolidate holdings by security so the same security held across
     // multiple accounts appears as a single allocation slice.
@@ -1412,6 +1397,30 @@ export class PortfolioCalculationService {
       (a, b) => b.value - a.value,
     );
 
+    // Percentages are measured against the sum of the slices actually drawn
+    // (positive security values plus positive cash), not the net portfolio
+    // value. Using the net value would let a negative cash balance (margin /
+    // loan) or a short position shrink the denominator and inflate every
+    // slice past 100%; the drawn total always reconciles to ~100%.
+    const positiveCash = totalCashValue > 0 ? totalCashValue : 0;
+    const drawnTotal =
+      consolidatedItems.reduce((sum, item) => sum + item.value, 0) +
+      positiveCash;
+    const pct = (value: number) =>
+      drawnTotal > 0 ? (value / drawnTotal) * 100 : 0;
+
+    if (totalCashValue > 0) {
+      allocation.push({
+        name: "Cash",
+        symbol: null,
+        type: "cash",
+        value: totalCashValue,
+        percentage: pct(totalCashValue),
+        color: "#6b7280",
+        currencyCode: defaultCurrency,
+      });
+    }
+
     let colorIndex = 0;
     for (const item of consolidatedItems) {
       allocation.push({
@@ -1419,10 +1428,7 @@ export class PortfolioCalculationService {
         symbol: item.symbol,
         type: "security",
         value: item.value,
-        percentage:
-          totalPortfolioValue > 0
-            ? (item.value / totalPortfolioValue) * 100
-            : 0,
+        percentage: pct(item.value),
         color: colors[colorIndex % colors.length],
         currencyCode: item.currencyCode,
       });
@@ -1457,7 +1463,6 @@ export class PortfolioCalculationService {
       Array<{ id: string; name: string; color: string | null }>
     >,
     totalCashValue: number,
-    totalPortfolioValue: number,
     defaultCurrency: string,
   ): AllocationItem[] {
     const palette = [
@@ -1477,9 +1482,14 @@ export class PortfolioCalculationService {
       { name: string; color: string | null; value: number }
     >();
     let untaggedValue = 0;
+    // Sum of every security slice that lands on the chart (tagged or not).
+    // This, plus positive cash, is the denominator so tag and Untagged slices
+    // share one base and reconcile to ~100%.
+    let includedSecuritiesValue = 0;
 
     for (const item of securityItems) {
       if (item.type !== "security" || item.value <= 0) continue;
+      includedSecuritiesValue += item.value;
       const tags = item.symbol ? (tagsBySymbol.get(item.symbol) ?? []) : [];
       if (tags.length === 0) {
         untaggedValue += item.value;
@@ -1499,8 +1509,10 @@ export class PortfolioCalculationService {
       }
     }
 
+    const positiveCash = totalCashValue > 0 ? totalCashValue : 0;
+    const drawnTotal = includedSecuritiesValue + positiveCash;
     const pct = (value: number) =>
-      totalPortfolioValue > 0 ? (value / totalPortfolioValue) * 100 : 0;
+      drawnTotal > 0 ? (value / drawnTotal) * 100 : 0;
 
     const allocation: AllocationItem[] = [];
 
@@ -1540,6 +1552,143 @@ export class PortfolioCalculationService {
         type: "untagged",
         value: untaggedValue,
         percentage: pct(untaggedValue),
+        color: "#9ca3af",
+        currencyCode: defaultCurrency,
+      });
+    }
+
+    return allocation;
+  }
+
+  /**
+   * Portfolio allocation aggregated by the VALUE of a single KEY:VALUE tag key.
+   *
+   * Given a key such as `country`, every security's value is attributed to the
+   * value(s) of its `country:*` tags (`country:usa` -> the "usa" slice), so a
+   * `country` chart reads e.g. "50% usa, 25% poland, 25% germany". A security
+   * that carries no value for the key (no `country:*` tag, or only a bare
+   * `country:` with an empty value) falls into an "Untagged" slice; cash is a
+   * "Cash" slice. Every slice shares one denominator -- the drawn security
+   * values plus positive cash -- so percentages reconcile to ~100%.
+   *
+   * Multi-value handling mirrors {@link buildAllocationByTag}'s overlapping
+   * exposure: a security tagged both `country:usa` and `country:poland` (a
+   * mixed fund) counts its full value under each, so slices can sum past 100%.
+   * Weighted splitting per value is a deliberate follow-up.
+   */
+  buildAllocationByTagKey(
+    securityItems: AllocationItem[],
+    tagsBySymbol: Map<
+      string,
+      Array<{ id: string; name: string; color: string | null }>
+    >,
+    totalCashValue: number,
+    defaultCurrency: string,
+    key: string,
+  ): AllocationItem[] {
+    const palette = [
+      "#3b82f6",
+      "#22c55e",
+      "#f97316",
+      "#8b5cf6",
+      "#ec4899",
+      "#14b8a6",
+      "#eab308",
+      "#ef4444",
+    ];
+    const normalizedKey = key.trim().toLowerCase();
+
+    // valueKey (case-folded) -> { display value, colour, accumulated value }
+    const valueBuckets = new Map<
+      string,
+      { name: string; color: string | null; value: number }
+    >();
+    let unassignedValue = 0;
+    let includedSecuritiesValue = 0;
+
+    for (const item of securityItems) {
+      if (item.type !== "security" || item.value <= 0) continue;
+      includedSecuritiesValue += item.value;
+      const tags = item.symbol ? (tagsBySymbol.get(item.symbol) ?? []) : [];
+
+      // Distinct concrete values this security carries under the key.
+      const matched = new Map<
+        string,
+        { display: string; color: string | null }
+      >();
+      for (const tag of tags) {
+        const parsed = parseTag(tag.name);
+        if (parsed.key === null || parsed.key.toLowerCase() !== normalizedKey) {
+          continue;
+        }
+        if (parsed.value === null) continue; // bare `key:` -> no concrete value
+        const valueKey = parsed.value.toLowerCase();
+        if (!matched.has(valueKey)) {
+          matched.set(valueKey, { display: parsed.value, color: tag.color });
+        }
+      }
+
+      if (matched.size === 0) {
+        unassignedValue += item.value;
+        continue;
+      }
+      for (const [valueKey, meta] of matched) {
+        const existing = valueBuckets.get(valueKey);
+        if (existing) {
+          existing.value += item.value;
+        } else {
+          valueBuckets.set(valueKey, {
+            name: meta.display,
+            color: meta.color,
+            value: item.value,
+          });
+        }
+      }
+    }
+
+    const positiveCash = totalCashValue > 0 ? totalCashValue : 0;
+    const drawnTotal = includedSecuritiesValue + positiveCash;
+    const pct = (value: number) =>
+      drawnTotal > 0 ? (value / drawnTotal) * 100 : 0;
+
+    const allocation: AllocationItem[] = [];
+
+    if (totalCashValue > 0) {
+      allocation.push({
+        name: "Cash",
+        symbol: null,
+        type: "cash",
+        value: totalCashValue,
+        percentage: pct(totalCashValue),
+        color: "#6b7280",
+        currencyCode: defaultCurrency,
+      });
+    }
+
+    const sortedValues = [...valueBuckets.values()].sort(
+      (a, b) => b.value - a.value,
+    );
+    let colorIndex = 0;
+    for (const bucket of sortedValues) {
+      allocation.push({
+        name: bucket.name,
+        symbol: null,
+        type: "tag",
+        value: bucket.value,
+        percentage: pct(bucket.value),
+        color: bucket.color || palette[colorIndex % palette.length],
+        currencyCode: defaultCurrency,
+      });
+      colorIndex++;
+    }
+
+    if (unassignedValue > 0) {
+      allocation.push({
+        name: "Untagged",
+        symbol: null,
+        type: "untagged",
+        value: unassignedValue,
+        percentage: pct(unassignedValue),
         color: "#9ca3af",
         currencyCode: defaultCurrency,
       });

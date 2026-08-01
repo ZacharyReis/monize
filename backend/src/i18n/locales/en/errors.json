@@ -1,4 +1,12 @@
 {
+  "attachments": {
+    "notFound": "Attachment not found",
+    "transactionNotFound": "Transaction not found",
+    "empty": "Uploaded file is empty",
+    "fileTooLarge": "File exceeds the maximum size of {{ max }} bytes",
+    "unsupportedType": "Unsupported file type. Allowed types: {{ types }}",
+    "tooMany": "This transaction already has the maximum of {{ max }} attachments"
+  },
   "accounts": {
     "accountWithIdNotFound": "Account with ID {{ id }} not found",
     "notInvestmentPair": "This account is not part of an investment account pair",
@@ -32,7 +40,9 @@
     "alreadyHasScheduledPayment": "This account already has a scheduled payment configured. Edit the existing scheduled transaction instead.",
     "sourceNotFound": "Source account not found",
     "ambiguousBrokerage": "\"{{ query }}\" matches multiple brokerage accounts: {{ list }}. Use the exact account name.",
-    "unknownInvestmentAccount": "Unknown account: {{ name }}. Use an exact name from the user's account list."
+    "unknownInvestmentAccount": "Unknown account: {{ name }}. Use an exact name from the user's account list.",
+    "notACreditCard": "Statement cycles are only available for credit card accounts",
+    "noStatementSettlementDay": "This credit card has no statement settlement day configured"
   },
   "actionHistory": {
     "nothingToUndo": "Nothing to undo",
@@ -73,6 +83,8 @@
     "noActiveProviders": "No active AI providers configured. Please configure a provider in AI Settings.",
     "allProvidersFailed": "All AI providers failed. Please check your provider configuration and try again.",
     "noToolUseProvider": "No AI provider with tool use support configured. Natural language queries require Anthropic, OpenAI, or Ollama. Please configure one in AI Settings.",
+    "relayAgentOffline": "Your MCP relay agent is not connected. Connect your agent and try again.",
+    "relayCompletionTimedOut": "Your MCP relay agent did not answer in time. Make sure it is connected, then try again.",
     "baseUrlInvalidBasic": "baseUrl must be a valid HTTP or HTTPS URL",
     "baseUrlInvalidExternal": "baseUrl must be a valid HTTP/HTTPS URL pointing to an external host",
     "ollamaCloudApiKeyRequired": "apiKey is required for ollama-cloud provider",
@@ -90,6 +102,7 @@
     "attachmentTooLarge": "An attachment exceeds the maximum file size.",
     "attachmentCorrupt": "An attachment could not be read or is not the file type it claims to be.",
     "attachmentsTooLarge": "The attachments exceed the total size limit.",
+    "attachmentRefExpired": "The attached file is no longer available. Please re-upload it and ask again.",
     "modelNoImageSupport": "The selected AI model can't read images or PDFs. Remove the attachment and ask in text, or switch to a vision-capable model in AI Settings."
   },
   "auth": {
@@ -145,11 +158,9 @@
     "incorrectPassword": "Incorrect password"
   },
   "backup": {
-    "folderPathRequired": "A folder path must be set before enabling automatic backups",
     "folderNotExist": "Folder does not exist: {{ safePath }}",
     "folderAccessError": "Cannot access folder: {{ safePath }}",
     "pathNotDirectory": "Path is not a directory: {{ safePath }}",
-    "notConfigured": "Auto-backup is not configured. Please set a folder path first.",
     "userNotFound": "User {{ userId }} not found",
     "encryptedPasswordDecryptFailed": "Encrypted backups are enabled but the stored password could not be decrypted. Re-enable encryption in Security settings.",
     "pathTraversal": "Path traversal detected: {{ filename }}",
@@ -215,14 +226,17 @@
     "csrfInvalid": "Invalid CSRF token",
     "demoModeRestricted": "This action is not available in demo mode.",
     "serviceNotReady": "Service not ready",
-    "oauthProviderNotInitialized": "OAuth provider not initialized"
+    "oauthProviderNotInitialized": "OAuth provider not initialized",
+    "invalidCurrencyCode": "Invalid currency code: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Currency \"{{ code }}\" is already in your list",
+    "alreadyInListInactive": "Currency \"{{ code }}\" is already in your list but currently inactive. Reactivate it to use it.",
     "notFound": "Currency \"{{ code }}\" not found",
     "cannotModifySystem": "Cannot modify system currency metadata",
     "cannotModifyOther": "Cannot modify another user's currency",
-    "inUse": "Currency \"{{ code }}\" is in use by your accounts, securities, or other records. Deactivate it instead."
+    "inUse": "Currency \"{{ code }}\" is in use by your accounts, securities, or other records. Deactivate it instead.",
+    "invalidRateDate": "date must be in YYYY-MM-DD format"
   },
   "delegation": {
     "delegatedAccessInvalid": "Delegated access is no longer valid",
@@ -254,6 +268,7 @@
     "passwordBreached": "This password has been found in a data breach. Please choose a different password."
   },
   "http": {
+    "forbidden": "Access denied",
     "tooManyRequests": "Too many requests. Please wait a few minutes and try again.",
     "duplicateRecord": "A record with this value already exists",
     "referencedRecord": "Referenced record does not exist or cannot be removed",
@@ -279,7 +294,8 @@
   "netWorth": {
     "invalidStartDate": "startDate must be YYYY-MM-DD",
     "invalidEndDate": "endDate must be YYYY-MM-DD",
-    "invalidAccountIds": "accountIds must be comma-separated UUIDs"
+    "invalidAccountIds": "accountIds must be comma-separated UUIDs",
+    "invalidGranularity": "granularity must be 'daily' or 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP is not configured. Set SMTP environment variables.",
@@ -302,7 +318,9 @@
     "aliasNotFound": "Alias with ID {{ id }} not found",
     "mergeSelf": "Cannot merge a payee into itself",
     "autoMergeDuplicatePayee": "A payee appears in more than one merge group",
-    "autoMergeSourceNotFound": "One or more source payees were not found"
+    "autoMergeSourceNotFound": "One or more source payees were not found",
+    "autoMergeGroupConflict": "Could not merge \"{{ name }}\": the value \"{{ value }}\" is already in use",
+    "autoMergeGroupFailed": "Could not merge \"{{ name }}\""
   },
   "reports": {
     "notFound": "Report with ID {{ id }} not found",
@@ -333,6 +351,7 @@
     "splitRatioRequired": "Split ratio (quantity) must be greater than zero",
     "ambiguousSecurity": "\"{{ query }}\" matches multiple securities: {{ list }}. Use the exact ticker symbol.",
     "allocationExceedsTotal": "Allocation percentages add up to more than 100%.",
+    "invalidTagKey": "A tag key (1-100 characters) is required",
     "securityNotFoundByQuery": "No security matches \"{{ query }}\". Add the security first or check the ticker symbol.",
     "cannotHoldSecurities": "{{ label }} cannot hold securities",
     "sourceDestMustDiffer": "Source and destination accounts must be different",
@@ -396,6 +415,14 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId must be a valid UUID",
     "amountFromMustBeNumber": "amountFrom must be a number",
     "amountToMustBeNumber": "amountTo must be a number",
+    "tagKeyTooLong": "tagKey must not exceed 100 characters",
+    "invalidTagKeyOp": "Invalid tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue is required for contains / notContains",
+    "tagKeyRequired": "A tag key (1-100 characters) is required",
+    "invalidGroupBy": "groupBy must be 'category' or 'payee'",
+    "limitMustBePositive": "limit must be a positive number",
+    "recurringPayeeRequired": "payeeIds is required",
+    "recurringDatesRequired": "startDate and endDate are required",
     "statementDateFormat": "statementDate must be YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance must be a number",
     "categoryNotFound": "Category not found",
@@ -420,12 +447,15 @@
     "bulkReconcileNotFound": "Some transactions were not found or do not belong to the specified account",
     "cannotReconcileVoidPlural": "Cannot reconcile void transactions",
     "transferSameAccount": "Source and destination accounts must be different",
-    "transferSplitFromAccountFixed": "The source account of a split transfer line cannot be changed",
     "transferAmountNegative": "Transfer amount must not be negative",
     "notATransfer": "Transaction is not a transfer",
+    "splitTransferLegAccountLocked": "This transfer is part of a split transaction. Change its accounts by editing the split on the source transaction instead.",
     "notFoundById": "Transaction with ID {{ id }} not found",
     "bulkUpdateNoFields": "At least one update field must be provided",
-    "payeeNotFound": "Payee not found"
+    "payeeNotFound": "Payee not found",
+    "fxFieldsIncomplete": "originalAmount and originalCurrencyCode must be provided together",
+    "fxRateRequired": "A positive exchange rate is required for a foreign-currency transaction",
+    "fxSignMismatch": "originalAmount and amount must have the same sign"
   },
   "users": {
     "userNotFound": "User not found",
@@ -441,5 +471,20 @@
     "deleteLastAdmin": "Cannot delete the last admin account. Promote another user first.",
     "oidcReauthRequiredForDataDelete": "OIDC re-authentication is required to confirm data deletion",
     "passwordRequiredForDataDelete": "Password is required to confirm data deletion"
+  },
+  "loanScenarios": {
+    "notFound": "Loan scenario with ID {{ id }} not found",
+    "nameConflict": "A scenario named \"{{ name }}\" already exists for this account",
+    "notLoanAccount": "Loan scenarios are only available for loan, mortgage, and line of credit accounts",
+    "budgetWindowInverted": "The budget window's starting date must be on or before its until date"
+  },
+  "loanRateChanges": {
+    "notFound": "Rate change with ID {{ id }} not found",
+    "notLoanAccount": "Rate changes are only available for loan and mortgage accounts",
+    "duplicateDate": "A rate change effective {{ date }} already exists for this account",
+    "paymentModeConflict": "Provide either a new payment amount or recalculatePayment, not both",
+    "recalculateMortgageOnly": "Payment recalculation is only available for mortgage accounts",
+    "insufficientData": "Not enough payments with interest details to detect rate changes",
+    "frequencyMismatch": "Payment dates do not match the account's payment frequency; inferred rates may be less accurate"
   }
 }

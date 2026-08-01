@@ -1,0 +1,19 @@
+{
+  "title": "Pièces jointes",
+  "empty": "Aucune pièce jointe pour le moment",
+  "upload": "Ajouter une pièce jointe",
+  "download": "Télécharger",
+  "delete": "Supprimer",
+  "remove": "Retirer",
+  "pendingHint": "Les fichiers seront téléversés lors de l'enregistrement de la transaction.",
+  "deleteConfirmTitle": "Supprimer la pièce jointe ?",
+  "deleteConfirmMessage": "\"{name}\" sera définitivement supprimé.",
+  "uploaded": "Pièce jointe ajoutée",
+  "deleted": "Pièce jointe supprimée",
+  "loadFailed": "Échec du chargement des pièces jointes",
+  "uploadFailed": "Échec du téléversement de la pièce jointe",
+  "deleteFailed": "Échec de la suppression de la pièce jointe",
+  "tooLarge": "Le fichier est trop volumineux (maximum {max})",
+  "unsupported": "Type de fichier non pris en charge. Autorisés : images ou PDF",
+  "tooMany": "Maximum {max} pièces jointes par transaction"
+}

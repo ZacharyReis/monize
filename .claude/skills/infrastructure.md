@@ -52,7 +52,7 @@ Migrations run via `db-init.js` at container startup. Always update `schema.sql`
 
 ### Seeding
 - `backend/src/database/` contains seeding logic
-- Default categories (130+) imported on first use via `/categories/import-defaults`
+- Default categories (200+) imported on first use via `/categories/import-defaults`; the generic catalog lives in `backend/src/categories/default-categories.ts`, per-country additions (CA/GB/US) in `country-category-additions.ts`
 - Demo data available for development
 
 ## Environment Configuration

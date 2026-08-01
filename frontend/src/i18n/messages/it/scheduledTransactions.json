@@ -98,12 +98,15 @@
       "both": "Registrando in questa data, <b>{fromAccount}</b> arriverà a <b>{fromAmount}</b> ({fromCondition}) e <b>{toAccount}</b> a <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Suddividi questa transazione",
+    "copyAmount": "Copia importo",
     "referenceNumberLabel": "Numero di riferimento (opzionale)",
     "noPriceHistory": "Nessuno storico delle quotazioni per questo titolo. Inserisci il prezzo manualmente.",
     "postButton": "Registra transazione",
     "toasts": {
       "posted": "Transazione registrata",
       "postFailed": "Registrazione della transazione non riuscita",
+      "amountCopied": "Importo copiato",
+      "copyFailed": "Impossibile copiare l'importo",
       "quantityRequired": "La quantità deve essere maggiore di zero",
       "priceRequired": "Il prezzo deve essere maggiore di zero",
       "totalAmountRequired": "L'importo totale è obbligatorio",

@@ -238,8 +238,25 @@ vi.mock('@/lib/tags', () => ({
   },
 }));
 
+const mockGetRateForDate = vi.fn();
+const mockGetCurrencies = vi.fn();
+vi.mock('@/lib/exchange-rates', () => ({
+  exchangeRatesApi: {
+    getRateForDate: (...args: any[]) => mockGetRateForDate(...args),
+    getCurrencies: (...args: any[]) => mockGetCurrencies(...args),
+    createCurrency: vi.fn(),
+  },
+  CurrencyInfo: {},
+  CreateCurrencyData: {},
+}));
+
 vi.mock('@/hooks/useNumberFormat', () => ({
-  useNumberFormat: () => ({ defaultCurrency: 'CAD' }),
+  useNumberFormat: () => ({
+    defaultCurrency: 'CAD',
+    formatCurrency: (amount: number, currency: string) =>
+      `${currency} ${(Math.round(amount * 100) / 100).toFixed(2)}`,
+    formatNumber: (value: number, decimals: number = 2) => value.toFixed(decimals),
+  }),
 }));
 
 vi.mock('@/lib/format', () => ({
@@ -345,6 +362,8 @@ function createExistingTransaction(overrides = {}) {
     amount: -50.0,
     currencyCode: 'CAD',
     exchangeRate: 1,
+    originalAmount: null,
+    originalCurrencyCode: null,
     description: 'Weekly groceries',
     referenceNumber: 'REF-001',
     status: TransactionStatus.UNRECONCILED,
@@ -381,6 +400,8 @@ function createTransferTransaction() {
       amount: 200,
       currencyCode: 'CAD',
       exchangeRate: 1,
+      originalAmount: null,
+      originalCurrencyCode: null,
       description: null,
       referenceNumber: null,
       status: TransactionStatus.UNRECONCILED,
@@ -426,6 +447,11 @@ describe('TransactionForm', () => {
     mockPayeesGetAll.mockResolvedValue(mockPayees);
     mockCategoriesGetAll.mockResolvedValue(mockCategories);
     mockGetRecent.mockResolvedValue([]);
+    mockGetRateForDate.mockResolvedValue(1.5);
+    mockGetCurrencies.mockResolvedValue([
+      { code: 'CAD', name: 'Canadian Dollar', symbol: 'CA$', decimalPlaces: 2, isActive: true },
+      { code: 'EUR', name: 'Euro', symbol: '€', decimalPlaces: 2, isActive: true },
+    ]);
   });
 
   // =========================================================================
@@ -792,6 +818,109 @@ describe('TransactionForm', () => {
         );
       });
 
+      expect(mockOnSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms before saving a reconciled transaction when the date changes', async () => {
+      const existingTransaction = createExistingTransaction({
+        status: TransactionStatus.RECONCILED,
+        isReconciled: true,
+      });
+
+      render(
+        <TransactionForm
+          transaction={existingTransaction}
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Update Transaction/i })).toBeInTheDocument();
+      });
+
+      // Changing the date affects the reconciliation, so the save is gated.
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2024-02-20' } });
+      fireEvent.click(screen.getByRole('button', { name: /Update Transaction/i }));
+
+      // The edit is gated behind a confirmation; nothing is saved yet.
+      await waitFor(() => {
+        expect(screen.getByText('Edit reconciled transaction?')).toBeInTheDocument();
+      });
+      expect(mockUpdate).not.toHaveBeenCalled();
+
+      // Approving the warning saves the edit.
+      fireEvent.click(screen.getByRole('button', { name: /Save changes/i }));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          existingTransaction.id,
+          expect.any(Object)
+        );
+      });
+      expect(mockOnSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms before saving a reconciled transaction when the amount changes', async () => {
+      const existingTransaction = createExistingTransaction({
+        status: TransactionStatus.RECONCILED,
+        isReconciled: true,
+      });
+
+      render(
+        <TransactionForm
+          transaction={existingTransaction}
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Update Transaction/i })).toBeInTheDocument();
+      });
+
+      // Changing the amount affects the reconciliation, so the save is gated.
+      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75.00' } });
+      fireEvent.click(screen.getByRole('button', { name: /Update Transaction/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit reconciled transaction?')).toBeInTheDocument();
+      });
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('saves a reconciled transaction without confirmation when date and amount are unchanged', async () => {
+      const existingTransaction = createExistingTransaction({
+        status: TransactionStatus.RECONCILED,
+        isReconciled: true,
+      });
+
+      render(
+        <TransactionForm
+          transaction={existingTransaction}
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Update Transaction/i })).toBeInTheDocument();
+      });
+
+      // Editing a different field (here, nothing date/amount related) leaves the
+      // reconciliation intact, so the save proceeds without a warning.
+      fireEvent.change(screen.getByLabelText('Reference Number'), {
+        target: { value: 'REF-EDITED' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Update Transaction/i }));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          existingTransaction.id,
+          expect.any(Object)
+        );
+      });
+      expect(screen.queryByText('Edit reconciled transaction?')).not.toBeInTheDocument();
       expect(mockOnSuccess).toHaveBeenCalledTimes(1);
     });
 
@@ -2357,6 +2486,8 @@ describe('TransactionForm', () => {
           amount: -200,
           currencyCode: 'CAD',
           exchangeRate: 1,
+          originalAmount: null,
+          originalCurrencyCode: null,
           description: null,
           referenceNumber: null,
           status: TransactionStatus.UNRECONCILED,
@@ -3438,6 +3569,166 @@ describe('TransactionForm', () => {
 
       fireEvent.click(screen.getByText('Cancel Split'));
       await waitFor(() => expect(screen.queryByTestId('split-editor')).not.toBeInTheDocument());
+    });
+  });
+
+  describe('foreign-currency entry', () => {
+    it('fetches the rate and shows the converted-amount panel after picking a foreign currency', async () => {
+      render(
+        <TransactionForm
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+          defaultAccountId="acc-1"
+        />,
+      );
+      await waitFor(() => expect(mockAccountsGetAll).toHaveBeenCalled());
+
+      // Open the entry-currency picker and choose EUR.
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Change entry currency'));
+      });
+      await waitFor(() => expect(screen.getByText(/Euro \(EUR\)/)).toBeInTheDocument());
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Euro \(EUR\)/));
+      });
+
+      // The rate is fetched for EUR -> account currency (CAD), and the FX panel
+      // with the converted account-currency amount appears.
+      await waitFor(() =>
+        expect(mockGetRateForDate).toHaveBeenCalledWith(
+          'EUR',
+          'CAD',
+          expect.any(String),
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByText('Total in CAD')).toBeInTheDocument(),
+      );
+      // The primary amount field is relabelled to the entry currency.
+      expect(screen.getByText('Total in EUR')).toBeInTheDocument();
+      // The rate caption renders the rate through the number formatter (4 dp)
+      // and the date through the user's date formatter.
+      await waitFor(() =>
+        expect(screen.getByText(/1 EUR = 1\.5000 CAD/)).toBeInTheDocument(),
+      );
+    });
+
+    it('folds the bank fee into the amount without creating a split', async () => {
+      // acc-1 configured with a 2.5% foreign-transaction fee.
+      const feeAccount = { ...mockAccounts[0], fxFeePercent: 2.5 };
+      mockAccountsGetAll.mockResolvedValue([feeAccount, ...mockAccounts.slice(1)]);
+
+      render(
+        <TransactionForm
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+          defaultAccountId="acc-1"
+        />,
+      );
+      await waitFor(() => expect(mockAccountsGetAll).toHaveBeenCalled());
+
+      // Pick EUR, then type a foreign amount into the Amount field.
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Change entry currency'));
+      });
+      await waitFor(() => expect(screen.getByText(/Euro \(EUR\)/)).toBeInTheDocument());
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Euro \(EUR\)/));
+      });
+      await waitFor(() => expect(mockGetRateForDate).toHaveBeenCalled());
+
+      const amountInput = screen.getAllByPlaceholderText('0.00')[0];
+      await act(async () => {
+        fireEvent.change(amountInput, { target: { value: '100' } });
+        fireEvent.blur(amountInput);
+      });
+
+      // The fee is shown as a caption, and NO split editor was created.
+      await waitFor(() =>
+        expect(screen.getByText(/foreign transaction fee/i)).toBeInTheDocument(),
+      );
+      expect(screen.queryByTestId('split-editor')).not.toBeInTheDocument();
+    });
+
+    it('signs the foreign amount by the selected expense category, like account-currency entry', async () => {
+      render(
+        <TransactionForm
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+          defaultAccountId="acc-1"
+        />,
+      );
+      await waitFor(() => expect(screen.getByTestId('combobox-Category')).toBeInTheDocument());
+
+      // Choose the expense category "Groceries" (cat-1, isIncome=false) first.
+      fireEvent.change(screen.getByTestId('combobox-input-Category'), { target: { value: 'Groceries' } });
+
+      // Pick EUR and type a positive foreign amount.
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Change entry currency'));
+      });
+      await waitFor(() => expect(screen.getByText(/Euro \(EUR\)/)).toBeInTheDocument());
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Euro \(EUR\)/));
+      });
+      await waitFor(() => expect(mockGetRateForDate).toHaveBeenCalled());
+
+      const amountInput = screen.getAllByPlaceholderText('0.00')[0];
+      await act(async () => {
+        fireEvent.change(amountInput, { target: { value: '100' } });
+        fireEvent.blur(amountInput);
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Create Transaction/i }));
+      });
+      await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+      const payload = mockCreate.mock.calls[0][0];
+      // Expense category negates the foreign amount, and the converted
+      // account-currency amount follows (rate 1.5): -100 EUR -> -150 CAD.
+      expect(payload.originalAmount).toBe(-100);
+      expect(payload.originalCurrencyCode).toBe('EUR');
+      expect(payload.amount).toBe(-150);
+    });
+
+    it('re-signs the foreign amount when an expense category is chosen after entry', async () => {
+      render(
+        <TransactionForm
+          onSuccess={mockOnSuccess}
+          onCancel={mockOnCancel}
+          defaultAccountId="acc-1"
+        />,
+      );
+      await waitFor(() => expect(screen.getByTestId('combobox-Category')).toBeInTheDocument());
+
+      // Pick EUR and enter the amount BEFORE choosing a category.
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Change entry currency'));
+      });
+      await waitFor(() => expect(screen.getByText(/Euro \(EUR\)/)).toBeInTheDocument());
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Euro \(EUR\)/));
+      });
+      await waitFor(() => expect(mockGetRateForDate).toHaveBeenCalled());
+
+      const amountInput = screen.getAllByPlaceholderText('0.00')[0];
+      await act(async () => {
+        fireEvent.change(amountInput, { target: { value: '100' } });
+        fireEvent.blur(amountInput);
+      });
+
+      // Now choose the expense category -> the foreign amount flips negative.
+      await act(async () => {
+        fireEvent.change(screen.getByTestId('combobox-input-Category'), { target: { value: 'Groceries' } });
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Create Transaction/i }));
+      });
+      await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+      const payload = mockCreate.mock.calls[0][0];
+      expect(payload.originalAmount).toBe(-100);
+      expect(payload.amount).toBe(-150);
     });
   });
 });

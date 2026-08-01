@@ -24,6 +24,16 @@
     "createButton": "Buat Sendiri",
     "hint": "Set bawaan mencakup kategori pendapatan dan pengeluaran umum beserta subkategori"
   },
+  "importDialog": {
+    "title": "Impor kategori bawaan",
+    "description": "Mulai dengan set kategori pemasukan dan pengeluaran yang sudah siap. Pilih negara Anda untuk mendapatkan kategori pajak dan tunjangannya, serta bahasa yang digunakan untuk nama kategori.",
+    "countryLabel": "Negara",
+    "countryHelp": "Menambahkan kategori khusus negara seperti pajak dan tunjangan setempat. Pilih set umum jika negara Anda tidak tercantum.",
+    "genericCountry": "Umum (tanpa kategori khusus negara)",
+    "languageLabel": "Bahasa",
+    "languageHelp": "Kategori dibuat dengan nama dalam bahasa ini. Anda dapat mengubah namanya kapan saja.",
+    "submit": "Impor kategori"
+  },
   "toasts": {
     "created": "Kategori berhasil dibuat",
     "updated": "Kategori berhasil diperbarui",

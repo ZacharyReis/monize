@@ -111,11 +111,21 @@ export function FavouriteSecurities({ securities, isLoading, onRefresh, isRefres
             return isForeign ? `${formatted} ${sec.currencyCode}` : formatted;
           };
           return (
-            <div
+            <button
               key={sec.securityId}
-              className="flex items-center justify-between p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700"
+              type="button"
+              onClick={() => router.push(`/securities?price=${sec.securityId}`)}
+              title={t('favouriteSecurities.openPriceHistory', { symbol: sec.symbol })}
+              className="flex w-full items-center justify-between p-2 sm:p-3 rounded-lg border border-gray-200 dark:border-gray-700 text-left transition-colors hover:border-blue-400 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:border-blue-500 dark:hover:bg-gray-700/50"
             >
               <div className="min-w-0">
+                {/* The row's content is its accessible name -- symbol, name,
+                    price and change -- so the action is added as screen-reader
+                    text rather than an aria-label that would replace all of
+                    it. */}
+                <span className="sr-only">
+                  {t('favouriteSecurities.openPriceHistory', { symbol: sec.symbol })}
+                </span>
                 <div className="font-medium text-gray-900 dark:text-gray-100">{sec.symbol}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{sec.name}</div>
               </div>
@@ -141,7 +151,7 @@ export function FavouriteSecurities({ securities, isLoading, onRefresh, isRefres
                   <div className="text-sm text-gray-400 dark:text-gray-500">{t('favouriteSecurities.noPriceYet')}</div>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

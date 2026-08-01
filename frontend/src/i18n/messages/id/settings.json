@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Minggu dimulai pada",
     "showCreatedAtLabel": "Tampilkan Tanggal Dibuat di formulir transaksi",
     "showCreatedAtTooltip": "Menampilkan tanggal dan waktu transaksi pertama kali dibuat pada formulir transaksi. Ini terpisah dari tanggal transaksi dan dapat membantu Anda mengetahui kapan entri sebenarnya ditambahkan ke Monize.",
+    "showWhatsNewLabel": "Tampilkan Yang Baru setelah pembaruan",
+    "showWhatsNewTooltip": "Menampilkan ringkasan catatan rilis saat pertama kali Anda masuk setelah Monize diperbarui ke versi baru. Anda selalu dapat membukanya kembali dengan mengeklik nomor versi di bagian bawah halaman ini atau di layar masuk.",
     "timeFormatLabel": "Format Waktu",
     "recentTransactionsLabel": "Transaksi terbaru dalam isi-cepat",
     "recentTransactionsHelp": "Jumlah entri yang ditampilkan di popover tombol riwayat di samping kolom Penerima pada formulir transaksi.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Gagal menyimpan tema warna"
     },
     "browserLocale": "Gunakan lokal browser (deteksi otomatis)",
-    "browserTimezonePrefix": "Gunakan zona waktu browser (terdeteksi otomatis sebagai {tz})",
     "numberFormatOptions": {
       "browser": "Gunakan lokal browser (deteksi otomatis: {sample})",
       "enUS": "Inggris (AS) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Jelajahi panduan dan dokumentasi."
+    },
+    "supportBackup": {
+      "label": "Buat cadangan dukungan",
+      "description": "Bagikan salinan data yang terenkripsi dan dide-identifikasi agar pengelola dapat mereproduksi bug tanpa melihat nama atau jumlah asli Anda."
     }
+  },
+  "supportBackup": {
+    "title": "Buat cadangan dukungan",
+    "howItWorks": "Menghasilkan salinan cadangan yang dide-identifikasi: nama disamarkan (dua karakter pertama dan terakhir dipertahankan), catatan/deskripsi/nomor rekening dihapus, dan setiap jumlah dikalikan satu faktor tersembunyi, sementara nilai publik (kurs, harga, suku bunga) tetap utuh. Berkas selalu dienkripsi dengan kata sandi di bawah dan dipulihkan seperti cadangan biasa. Ini melindungi dari paparan tak sengaja, bukan dari orang yang sudah mengenal Anda — tanggal, frekuensi, dan struktur dipertahankan agar bug tetap dapat direproduksi.",
+    "sectionsLabel": "Apa yang disertakan",
+    "sections": {
+      "investments": "Investasi (sekuritas, kepemilikan, harga)",
+      "scheduled": "Transaksi terjadwal",
+      "budgets": "Anggaran",
+      "reports": "Laporan & proyeksi",
+      "importMappings": "Pemetaan kolom impor",
+      "autoBackup": "Pengaturan cadangan otomatis"
+    },
+    "priceHistoryLabel": "Sertakan riwayat harga sekuritas",
+    "priceHistoryHint": "Nonaktif secara bawaan: deret harga lengkap cocok dengan data pasar publik dan dapat mengidentifikasi ticker yang disamarkan. Aktifkan hanya jika bug menyangkut harga atau valuasi.",
+    "accountsLabel": "Batasi ke akun tertentu",
+    "accountsHint": "Biarkan semua tak dicentang untuk menyertakan semua akun. Memilih sebagian juga menarik akun dan penerima yang dirujuk.",
+    "dateRangeLabel": "Rentang tanggal (opsional)",
+    "dateRangeHint": "Batasi riwayat yang diekspor ke tanggal ini. Saldo awal disesuaikan agar berkas yang dipangkas tetap seimbang.",
+    "dateFromLabel": "Dari",
+    "dateToLabel": "Sampai",
+    "multiplierLabel": "Pengali jumlah",
+    "multiplierHint": "Setiap jumlah privat dikalikan dengan angka ini untuk menyembunyikan nilai sebenarnya sambil menjaga konsistensi. Angka non-bulat apa pun yang lebih besar dari 1 bisa; “Buat ulang” memilih yang baru.",
+    "multiplierWarning": "Jangan bagikan pengali kepada siapa pun — inilah kunci yang membalik jumlah tersembunyi.",
+    "multiplierInvalid": "Masukkan angka non-bulat yang lebih besar dari 1.",
+    "regenerate": "Buat ulang",
+    "passwordLabel": "Kata sandi enkripsi",
+    "preview": "Pratinjau",
+    "previewLabel": "Pratinjau",
+    "previewBefore": "Sebelum",
+    "previewAfter": "Sesudah",
+    "previewEmpty": "Tidak ada baris contoh untuk pilihan ini.",
+    "previewFailed": "Tidak dapat membuat pratinjau. Silakan coba lagi.",
+    "generate": "Buat",
+    "confirmPasswordTitle": "Sudah menyimpan kata sandinya?",
+    "confirmPasswordMessage": "Berkas hanya dapat dibuka dengan kata sandi enkripsi yang ditampilkan di atas. Kata sandi tidak disimpan di mana pun dan tidak dapat dipulihkan — pastikan Anda menyimpannya sebelum membuat.",
+    "confirmPasswordConfirm": "Sudah — buat",
+    "generatedToast": "Cadangan dukungan diunduh.",
+    "generateFailed": "Tidak dapat membuat cadangan dukungan. Silakan coba lagi.",
+    "passwordHint": "Berkas selalu terenkripsi. Bagikan kata sandi ini kepada penyelidik melalui saluran terpisah, bukan bersama berkasnya.",
+    "passwordInvalid": "Masukkan minimal 8 karakter."
   },
   "dangerZone": {
     "heading": "Zona Berbahaya",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Pencadangan Otomatis",
-    "description": "Cadangkan data Anda secara otomatis ke folder sesuai jadwal. Karena Monize berjalan di Docker, Anda harus memetakan folder host ke dalam kontainer sebagai volume (misalnya, -v /host/backups:/backups).",
+    "description": "Cadangkan data Anda secara otomatis ke folder sesuai jadwal. Karena Monize berjalan di Docker, Anda harus memetakan folder host ke dalam kontainer sebagai volume (misalnya, -v /host/backups:/data/backups).",
     "loadingText": "Memuat...",
     "enableLabel": "Aktifkan pencadangan otomatis",
     "backupFolderLabel": "Folder Cadangan",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Jelajahi...",
     "validateButton": "Validasi",
     "validatingButton": "Memvalidasi...",

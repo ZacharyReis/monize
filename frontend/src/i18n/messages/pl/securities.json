@@ -203,7 +203,13 @@
     "addPriceSection": "Dodaj cenę",
     "editPriceSection": "Edytuj cenę",
     "loading": "Wczytywanie cen...",
+    "chartTitle": "Historia ceny",
+    "markers": {
+      "bought": "Kupno {quantity} · {account}",
+      "sold": "Sprzedaż {quantity} · {account}"
+    },
     "empty": "Brak dostępnej historii cen",
+    "showingCount": "Wyświetlono {shown} z {total} cen",
     "columns": {
       "date": "Data",
       "close": "Zamknij",
@@ -230,6 +236,7 @@
     "closeButton": "Zamknij",
     "deleteConfirm": {
       "title": "Usuń cenę",
+      "message": "Usunąć wpis ceny z {date}?",
       "confirmLabel": "Usuń"
     }
   },

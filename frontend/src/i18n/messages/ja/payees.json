@@ -4,6 +4,7 @@
     "subtitle": "支払先とデフォルトカテゴリを管理する",
     "deactivateUnused": "未使用を無効化",
     "autoAssignCategories": "カテゴリを自動割り当て",
+    "maintenance": "メンテナンス",
     "autoMergePayees": "支払先を自動マージ",
     "newPayee": "+ 新規支払先",
     "searchPlaceholder": "支払先を検索...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "再有効化",
-      "reactivateShort": "再",
       "merge": "マージ",
-      "mergeShort": "M",
       "edit": "編集",
-      "editShort": "E",
-      "delete": "削除",
-      "deleteShort": "X"
+      "delete": "削除"
     },
     "viewTransactionsTitle": "この支払先の取引を確認",
     "uncategorizedBadge": "{count, plural, one {# 件未分類} other {# 件未分類}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "マージするグループを少なくとも1件選択してください",
       "applied": "{groups, plural, one {# 件のグループ} other {# 件のグループ}} をマージしました（{payees} 件の支払先が統合されました）",
       "backfilled": "{count, plural, one {# 件の取引を分類しました} other {# 件の取引を分類しました}}",
-      "aliasesSkipped": "{count, plural, one {# 件のエイリアスが競合のためスキップされました} other {# 件のエイリアスが競合のためスキップされました}}",
+      "aliasesSkipped": "{count, plural, one {# 件のエイリアスが競合のためスキップされました} other {# 件のエイリアスが競合のためスキップされました}}: {aliases}",
       "loadFailed": "マージグループの読み込みに失敗しました",
-      "applyFailed": "支払先のマージに失敗しました"
+      "applyFailed": "支払先のマージに失敗しました",
+      "someGroupsFailed": "{count, plural, one {# 件のグループを統合できませんでした} other {# 件のグループを統合できませんでした}}: {reason}"
     },
     "categoryMatchLabel": "同じカテゴリの支払先のみをマージ",
     "categoryMatchHelp": "カテゴリが異なる場合は支払先を分けておき、誤った一致を減らします。",

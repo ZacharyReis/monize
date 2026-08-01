@@ -1,0 +1,30 @@
+{
+  "title": "Transactiekosten in vreemde valuta",
+  "currencyFilter": { "label": "Valuta's", "placeholder": "Alle valuta's" },
+  "chart": {
+    "title": "Kosten in de tijd",
+    "noData": "Nog geen transacties in vreemde valuta",
+    "monthlyAvg": "Maandgemiddelde",
+    "quarterlyAvg": "Kwartaalgemiddelde",
+    "yearlyAvg": "Jaargemiddelde",
+    "total": "Totale kosten",
+    "transactions": "Transacties",
+    "tooltip": "{count, plural, one {# transactie} other {# transacties}}",
+    "quarterLabel": "K{quarter} {year}",
+    "quarterTick": "K{quarter} {year}",
+    "granularityLabel": "Groepering",
+    "granularity": { "auto": "Auto", "month": "Maand", "quarter": "Kwartaal", "year": "Jaar" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "Weergave per {label}"
+  },
+  "list": {
+    "title": "Transacties in vreemde valuta",
+    "editTitle": "Transactie bewerken",
+    "investmentLinked": "Deze transactie is gekoppeld aan een belegging. De beleggingseditor wordt geopend.",
+    "export": {
+      "success": "{count, plural, one {# transactie geëxporteerd} other {# transacties geëxporteerd}}",
+      "none": "Geen transacties om te exporteren",
+      "failed": "Exporteren van transacties mislukt"
+    }
+  }
+}

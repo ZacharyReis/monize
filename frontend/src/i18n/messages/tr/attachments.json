@@ -1,0 +1,19 @@
+{
+  "title": "Ekler",
+  "empty": "Henüz ek yok",
+  "upload": "Ek ekle",
+  "download": "İndir",
+  "delete": "Sil",
+  "remove": "Kaldır",
+  "pendingHint": "Dosyalar, işlemi kaydettiğinizde yüklenecektir.",
+  "deleteConfirmTitle": "Ek silinsin mi?",
+  "deleteConfirmMessage": "\"{name}\" kalıcı olarak silinecek.",
+  "uploaded": "Ek eklendi",
+  "deleted": "Ek silindi",
+  "loadFailed": "Ekler yüklenemedi",
+  "uploadFailed": "Ek yüklenemedi",
+  "deleteFailed": "Ek silinemedi",
+  "tooLarge": "Dosya çok büyük (en fazla {max})",
+  "unsupported": "Desteklenmeyen dosya türü. İzin verilenler: görseller veya PDF",
+  "tooMany": "İşlem başına en fazla {max} ek"
+}

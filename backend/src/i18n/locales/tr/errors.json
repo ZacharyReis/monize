@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Bu hesapta zaten yapılandırılmış bir zamanlanmış ödeme var. Bunun yerine mevcut zamanlanmış işlemi düzenleyin.",
     "sourceNotFound": "Kaynak hesap bulunamadı",
     "ambiguousBrokerage": "\"{{ query }}\" birden fazla aracı kurum hesabıyla eşleşiyor: {{ list }}. Tam hesap adını kullanın.",
-    "unknownInvestmentAccount": "Bilinmeyen hesap: {{ name }}. Kullanıcının hesap listesinden tam bir ad kullanın."
+    "unknownInvestmentAccount": "Bilinmeyen hesap: {{ name }}. Kullanıcının hesap listesinden tam bir ad kullanın.",
+    "notACreditCard": "Ekstre dönemleri yalnızca kredi kartı hesapları için kullanılabilir",
+    "noStatementSettlementDay": "Bu kredi kartı için yapılandırılmış bir ekstre kesim günü yok"
   },
   "actionHistory": {
     "nothingToUndo": "Geri alınacak işlem yok",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Yapılandırılmış etkin yapay zeka sağlayıcısı yok. Lütfen Yapay Zeka Ayarları'nda bir sağlayıcı yapılandırın.",
     "allProvidersFailed": "Tüm yapay zeka sağlayıcıları başarısız oldu. Lütfen sağlayıcı yapılandırmanızı kontrol edip tekrar deneyin.",
     "noToolUseProvider": "Araç kullanım desteğine sahip yapay zeka sağlayıcısı yapılandırılmamış. Doğal dil sorguları Anthropic, OpenAI veya Ollama gerektirir. Lütfen Yapay Zeka Ayarları'nda birini yapılandırın.",
+    "relayAgentOffline": "MCP relay aracınız bağlı değil. Aracınızı bağlayın ve tekrar deneyin.",
+    "relayCompletionTimedOut": "MCP relay aracınız zamanında yanıt vermedi. Bağlı olduğundan emin olun ve tekrar deneyin.",
     "baseUrlInvalidBasic": "baseUrl geçerli bir HTTP veya HTTPS URL'si olmalıdır",
     "baseUrlInvalidExternal": "baseUrl harici bir ana bilgisayara işaret eden geçerli bir HTTP/HTTPS URL'si olmalıdır",
     "ollamaCloudApiKeyRequired": "ollama-cloud sağlayıcısı için apiKey gereklidir",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Bir ek, en büyük dosya boyutunu aşıyor.",
     "attachmentCorrupt": "Bir ek okunamadı veya iddia ettiği dosya türünde değil.",
     "attachmentsTooLarge": "Ekler toplam boyut sınırını aşıyor.",
+    "attachmentRefExpired": "Eklenen dosya artık kullanılamıyor. Lütfen dosyayı yeniden yükleyip tekrar sorun.",
     "modelNoImageSupport": "Seçilen yapay zeka modeli görselleri veya PDF'leri okuyamaz. Eki kaldırıp metinle sorun ya da Yapay Zeka Ayarları'nda görsel destekli bir modele geçin."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Yanlış şifre"
   },
   "backup": {
-    "folderPathRequired": "Otomatik yedeklemeyi etkinleştirmeden önce bir klasör yolu belirtilmelidir",
     "folderNotExist": "Klasör mevcut değil: {{ safePath }}",
     "folderAccessError": "Klasöre erişilemiyor: {{ safePath }}",
     "pathNotDirectory": "Yol bir dizin değil: {{ safePath }}",
-    "notConfigured": "Otomatik yedekleme yapılandırılmamış. Lütfen önce bir klasör yolu belirleyin.",
     "userNotFound": "{{ userId }} kullanıcısı bulunamadı",
     "encryptedPasswordDecryptFailed": "Şifreli yedeklemeler etkin ancak saklanan şifre çözülemedi. Güvenlik ayarlarında şifrelemeyi yeniden etkinleştirin.",
     "pathTraversal": "Yol geçişi tespit edildi: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Geçersiz CSRF kodu",
     "demoModeRestricted": "Bu işlem demo modunda kullanılamaz.",
     "serviceNotReady": "Servis hazır değil",
-    "oauthProviderNotInitialized": "OAuth sağlayıcısı başlatılmadı"
+    "oauthProviderNotInitialized": "OAuth sağlayıcısı başlatılmadı",
+    "invalidCurrencyCode": "Geçersiz para birimi kodu: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "\"{{ code }}\" para birimi zaten listenizde mevcut",
     "notFound": "\"{{ code }}\" para birimi bulunamadı",
     "cannotModifySystem": "Sistem para birimi meta verileri değiştirilemez",
     "cannotModifyOther": "Başka bir kullanıcının para birimi değiştirilemez",
-    "inUse": "\"{{ code }}\" para birimi hesaplarınız, menkul kıymetleriniz veya diğer kayıtlarınız tarafından kullanılıyor. Bunun yerine devre dışı bırakın."
+    "inUse": "\"{{ code }}\" para birimi hesaplarınız, menkul kıymetleriniz veya diğer kayıtlarınız tarafından kullanılıyor. Bunun yerine devre dışı bırakın.",
+    "invalidRateDate": "date, YYYY-AA-GG biçiminde olmalıdır",
+    "alreadyInListInactive": "\"{{ code }}\" para birimi zaten listenizde mevcut ancak şu anda etkin değil. Kullanmak için yeniden etkinleştirin."
   },
   "delegation": {
     "delegatedAccessInvalid": "Delege erişimi artık geçerli değil",
@@ -254,6 +260,7 @@
     "passwordBreached": "Bu şifre bir veri ihlalinde bulundu. Lütfen farklı bir şifre seçin."
   },
   "http": {
+    "forbidden": "Erişim reddedildi",
     "tooManyRequests": "Çok fazla istek. Lütfen birkaç dakika bekleyip tekrar deneyin.",
     "duplicateRecord": "Bu değere sahip bir kayıt zaten mevcut",
     "referencedRecord": "Başvurulan kayıt mevcut değil veya kaldırılamıyor",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate YYYY-AA-GG biçiminde olmalıdır",
     "invalidEndDate": "endDate YYYY-AA-GG biçiminde olmalıdır",
-    "invalidAccountIds": "accountIds virgülle ayrılmış UUID'ler olmalıdır"
+    "invalidAccountIds": "accountIds virgülle ayrılmış UUID'ler olmalıdır",
+    "invalidGranularity": "granularity 'daily' veya 'monthly' olmalıdır"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP yapılandırılmamış. SMTP ortam değişkenlerini ayarlayın.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "{{ id }} kimliğine sahip takma ad bulunamadı",
     "mergeSelf": "Bir alacaklı kendisiyle birleştirilemez",
     "autoMergeDuplicatePayee": "Bir alacaklı birden fazla birleştirme grubunda görünüyor",
-    "autoMergeSourceNotFound": "Bir veya daha fazla kaynak alacaklı bulunamadı"
+    "autoMergeSourceNotFound": "Bir veya daha fazla kaynak alacaklı bulunamadı",
+    "autoMergeGroupConflict": "\"{{ name }}\" birleştirilemedi: \"{{ value }}\" değeri zaten kullanımda",
+    "autoMergeGroupFailed": "\"{{ name }}\" birleştirilemedi"
   },
   "reports": {
     "notFound": "{{ id }} kimliğine sahip rapor bulunamadı",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" birden fazla menkul kıymetle eşleşiyor: {{ list }}. Bir borsa belirterek yeniden çalıştırın.",
     "lookupNoCurrency": "\"{{ symbol }}\" için para birimi belirlenemedi. Bunun yerine menkul kıymeti elle ekleyin.",
     "noUpdateFields": "Değiştirmek için en az bir alan girin.",
-    "allocationExceedsTotal": "Tahsis yüzdeleri toplamı %100'ü aşıyor."
+    "allocationExceedsTotal": "Tahsis yüzdeleri toplamı %100'ü aşıyor.",
+    "invalidTagKey": "Bir etiket anahtarı (1-100 karakter) gereklidir"
   },
   "tags": {
     "notFound": "{{ id }} kimliğine sahip etiket bulunamadı",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId geçerli bir UUID olmalıdır",
     "amountFromMustBeNumber": "amountFrom bir sayı olmalıdır",
     "amountToMustBeNumber": "amountTo bir sayı olmalıdır",
+    "invalidGroupBy": "groupBy 'category' veya 'payee' olmalıdır",
+    "limitMustBePositive": "limit pozitif bir sayı olmalıdır",
+    "recurringPayeeRequired": "payeeIds zorunludur",
+    "recurringDatesRequired": "startDate ve endDate zorunludur",
     "statementDateFormat": "statementDate YYYY-AA-GG biçiminde olmalıdır",
     "statementBalanceMustBeNumber": "statementBalance bir sayı olmalıdır",
     "categoryNotFound": "Kategori bulunamadı",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Bazı işlemler bulunamadı veya belirtilen hesaba ait değil",
     "cannotReconcileVoidPlural": "Geçersiz işlemler için mutabakat sağlanamaz",
     "transferSameAccount": "Kaynak ve hedef hesaplar farklı olmalıdır",
-    "transferSplitFromAccountFixed": "Bölünmüş transfer satırının kaynak hesabı değiştirilemez",
     "transferAmountNegative": "Transfer tutarı negatif olmamalıdır",
     "notATransfer": "İşlem bir transfer değil",
+    "splitTransferLegAccountLocked": "Bu transfer, bölünmüş bir işlemin parçasıdır. Hesaplarını değiştirmek için kaynak işlemdeki bölümü düzenleyin.",
     "notFoundById": "{{ id }} kimliğine sahip işlem bulunamadı",
     "bulkUpdateNoFields": "En az bir güncelleme alanı sağlanmalıdır",
     "payeeNotFound": "Alacaklı bulunamadı",
     "cannotEditTransfer": "Transferler burada düzenlenemez. Transferi İşlemler ekranından düzenleyin.",
     "cannotEditSplit": "Bölünmüş işlemler burada düzenlenemez. Bölmeyi İşlemler ekranından düzenleyin.",
-    "noUpdateFields": "Değiştirmek için en az bir alan girin."
+    "noUpdateFields": "Değiştirmek için en az bir alan girin.",
+    "tagKeyTooLong": "tagKey 100 karakteri aşmamalıdır",
+    "invalidTagKeyOp": "Geçersiz tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "contains / notContains için tagKeyValue gereklidir",
+    "tagKeyRequired": "Bir etiket anahtarı (1-100 karakter) gereklidir",
+    "fxFieldsIncomplete": "originalAmount ve originalCurrencyCode birlikte sağlanmalıdır",
+    "fxRateRequired": "Yabancı para birimi işlemi için pozitif bir döviz kuru gereklidir",
+    "fxSignMismatch": "originalAmount ve amount aynı işarete sahip olmalıdır"
   },
   "users": {
     "userNotFound": "Kullanıcı bulunamadı",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Son yönetici hesabı silinemez. Önce başka bir kullanıcıyı yönetici yapın.",
     "oidcReauthRequiredForDataDelete": "Veri silmeyi onaylamak için OIDC yeniden kimlik doğrulaması gerekli",
     "passwordRequiredForDataDelete": "Veri silmeyi onaylamak için şifre gereklidir"
+  },
+  "loanScenarios": {
+    "notFound": "{{ id }} kimlikli kredi senaryosu bulunamadı",
+    "nameConflict": "Bu hesap için \"{{ name }}\" adlı bir senaryo zaten var",
+    "notLoanAccount": "Kredi senaryoları yalnızca kredi, ipotek ve kredi limiti hesapları için kullanılabilir",
+    "budgetWindowInverted": "Bütçe döneminin başlangıç tarihi bitiş tarihinden sonra olamaz"
+  },
+  "loanRateChanges": {
+    "notFound": "{{ id }} kimliğine sahip faiz değişikliği bulunamadı",
+    "notLoanAccount": "Faiz değişiklikleri yalnızca kredi ve ipotek hesapları için kullanılabilir",
+    "duplicateDate": "Bu hesap için {{ date }} tarihinde geçerli olan bir faiz değişikliği zaten mevcut",
+    "paymentModeConflict": "Yeni bir taksit tutarı veya recalculatePayment değerinden yalnızca birini girin, ikisini birden değil",
+    "recalculateMortgageOnly": "Taksit yeniden hesaplaması yalnızca ipotek hesapları için kullanılabilir",
+    "insufficientData": "Faiz değişikliklerini algılamak için faiz ayrıntıları olan yeterli ödeme yok",
+    "frequencyMismatch": "Ödeme tarihleri hesabın ödeme sıklığıyla eşleşmiyor; çıkarsanan oranlar daha az doğru olabilir"
+  },
+  "attachments": {
+    "notFound": "Ek bulunamadı",
+    "transactionNotFound": "İşlem bulunamadı",
+    "empty": "Yüklenen dosya boş",
+    "fileTooLarge": "Dosya, {{ max }} baytlık maksimum boyutu aşıyor",
+    "unsupportedType": "Desteklenmeyen dosya türü. İzin verilen türler: {{ types }}",
+    "tooMany": "Bu işlemde zaten en fazla {{ max }} ek var"
   }
 }

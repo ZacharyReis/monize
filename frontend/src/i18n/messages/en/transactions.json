@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Total Spent",
+    "income": "Income",
+    "net": "Net",
+    "transactions": "Transactions",
+    "averageAmount": "Average Amount",
+    "lastTransaction": "Last Transaction",
+    "defaultCategory": "Default Category",
+    "nextBill": "Next Bill",
+    "viewBills": "View in Bills & Deposits",
+    "topCategories": "Top Categories",
+    "uncategorized": "Uncategorized",
+    "aliases": "Aliases",
+    "recurring": "Recurring: {cadence} · {amount}",
+    "recurringTooltip": "Detected from repeated charges over the selected period (or the last 12 months when no date filter is set).",
+    "cadence": {
+      "weekly": "Weekly",
+      "biweekly": "Every 2 Weeks",
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly"
+    },
+    "inactive": "Inactive",
+    "noTransactions": "No transactions in this period",
+    "editAria": "Edit payee",
+    "collapseAria": "Hide payee info",
+    "show": "Show payee info"
+  },
+  "categoryWidget": {
+    "totalSpent": "Total Spent",
+    "totalEarned": "Total Earned",
+    "income": "Income",
+    "expense": "Expense",
+    "budgetThisMonth": "This Month's Budget",
+    "budgetProgress": "{spent} of {budgeted}",
+    "transactions": "Transactions",
+    "averageAmount": "Average Amount",
+    "monthlyAverage": "Monthly Average",
+    "subcategories": "Subcategories",
+    "thisCategory": "This category",
+    "topPayees": "Top Payees",
+    "noPayee": "No payee",
+    "nextScheduled": "Next Scheduled",
+    "noTransactions": "No transactions in this period",
+    "editAria": "Edit category",
+    "collapseAria": "Hide category info",
+    "show": "Show category info"
+  },
   "accountWidget": {
     "currentBalance": "Current Balance",
     "nextPayment": "Next Payment",
     "viewBills": "View in Bills & Deposits",
+    "viewDetailsAria": "View account details",
     "type": "Type",
     "accountNumber": "Account Number",
     "currency": "Currency",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Duplicate Transaction",
       "newTitle": "New Transaction",
       "scheduleTitle": "Schedule as Recurring",
-      "editPayeeTitle": "Edit Payee"
+      "editPayeeTitle": "Edit Payee",
+      "editCategoryTitle": "Edit Category"
     },
     "loading": "Loading transactions...",
     "totalCount": "{count, plural, one {# transaction} other {# transactions}}",
@@ -54,10 +104,15 @@
       "refNumber": "Ref #",
       "tags": "Tags",
       "amount": "Amount",
+      "currency": "Currency",
+      "paidAmount": "Paid Amount",
+      "feePaid": "Fee Paid",
       "balance": "Balance",
+      "attachments": "Attachments",
       "status": "Status",
       "actions": "Actions"
     },
+    "attachmentsCount": "{count, plural, one {# attachment} other {# attachments}}",
     "today": "Today",
     "export": {
       "button": "Export",
@@ -80,7 +135,8 @@
       "transactionMessage": "Are you sure you want to delete this transaction? This action cannot be undone.",
       "success": "Transaction deleted",
       "transferSuccess": "Transfer deleted",
-      "error": "Failed to delete transaction"
+      "error": "Failed to delete transaction",
+      "reconciledWarning": "This transaction is reconciled, so deleting it will affect a completed reconciliation."
     },
     "status": {
       "voidError": "Edit the transaction to change its status from Void",
@@ -90,7 +146,6 @@
       "cleared": "Cleared",
       "reconciled": "Reconciled",
       "void": "Void",
-      "unreconciledDense": "U",
       "clearedDense": "C",
       "reconciledDense": "R",
       "voidDense": "V",
@@ -166,7 +221,17 @@
       "amountFrom": "Amount From",
       "amountTo": "Amount To",
       "status": "Status",
-      "search": "Search"
+      "search": "Search",
+      "tagKey": "Tag key",
+      "tagKeyOp": "Condition",
+      "tagKeyValue": "Value",
+      "currency": "Currency",
+      "hasAttachments": "Attachments"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Any",
+      "yes": "Yes",
+      "no": "No"
     },
     "placeholders": {
       "accounts": "All accounts",
@@ -176,7 +241,15 @@
       "statuses": "All statuses",
       "amountMin": "Min",
       "amountMax": "Max",
-      "search": "Search payee, category, amount, tag, description, reference #..."
+      "search": "Search payee, category, amount, tag, description, reference #...",
+      "tagKeyValue": "e.g. usa"
+    },
+    "tagKeyNone": "Any (no key filter)",
+    "tagKeyOps": {
+      "hasValue": "Has a value",
+      "noValue": "Has no value",
+      "contains": "Value contains",
+      "notContains": "Value does not contain"
     },
     "chips": {
       "removeAccount": "Remove {name} filter",
@@ -189,7 +262,11 @@
       "dateFrom": "From {date}",
       "dateUntil": "Until {date}",
       "amountFrom": "From {amount}",
-      "amountUpTo": "Up to {amount}"
+      "amountUpTo": "Up to {amount}",
+      "removeCurrency": "Remove {name} currency filter",
+      "hasAttachments": "Has attachments",
+      "noAttachments": "No attachments",
+      "removeAttachments": "Remove attachments filter"
     },
     "bulkUpdate": "Bulk Update",
     "cancelBulk": "Cancel Bulk",
@@ -201,12 +278,15 @@
     },
     "periods": {
       "select": "Select period...",
+      "allDates": "All Dates",
       "today": "Today",
       "yesterday": "Yesterday",
       "thisWeek": "This Week",
       "lastWeek": "Last Week",
+      "last30Days": "Last 30 Days",
       "monthToDate": "Month to Date",
       "lastMonth": "Last Month",
+      "last365Days": "Last 365 Days",
       "yearToDate": "Year to Date",
       "lastYear": "Last Year",
       "custom": "Custom"
@@ -298,6 +378,11 @@
     },
     "submitCreate": "Create {mode}",
     "submitUpdate": "Update {mode}",
+    "reconciledConfirm": {
+      "title": "Edit reconciled transaction?",
+      "message": "This transaction is reconciled. Changing its date or amount will affect a completed reconciliation. Do you want to save your changes anyway?",
+      "confirm": "Save changes"
+    },
     "modeLabel": {
       "transfer": "Transfer",
       "transaction": "Transaction"
@@ -306,12 +391,14 @@
     "transferCategoryNote": "Optional. The transfer still won't count as income or expense, but this category lets it appear in the monthly category breakdown (e.g. monthly investment contributions).",
     "amountReceivedNote": "Amount received after currency conversion",
     "splitTransaction": "Split Transaction",
+    "splitDisabledDuringTour": "Not available during the guided tour",
     "newTagTitle": "New Tag",
     "toasts": {
       "transferCreated": "Transfer created",
       "transferUpdated": "Transfer updated",
       "transactionCreated": "Transaction created",
       "transactionUpdated": "Transaction updated",
+      "attachmentsUploadFailed": "Transaction saved, but {count} attachment(s) failed to upload",
       "saveFailed": "Failed to save transaction",
       "loadFailed": "Failed to load form data",
       "splitsNotEqual": "Splits total ({splitTotal}) must equal transaction amount ({txAmount})",
@@ -324,11 +411,33 @@
       "payeeReactivateFailed": "Failed to reactivate payee",
       "categoryCreated": "Category \"{name}\" created",
       "categoryCreateFailed": "Failed to create category",
-      "tagCreated": "Tag \"{name}\" created"
+      "tagCreated": "Tag \"{name}\" created",
+      "fxRateRequired": "Enter an exchange rate or the converted amount before saving a foreign-currency transaction."
     },
     "ariaHistory": "Show recent transactions",
     "ariaHistoryForPayee": "Show recent transactions for this payee",
-    "historyTitle": "Quick fill from a recent transaction"
+    "historyTitle": "Quick fill from a recent transaction",
+    "currencyPicker": {
+      "label": "Entry currency",
+      "ariaLabel": "Change entry currency",
+      "title": "Enter amount in",
+      "accountCurrency": "Account currency ({code})",
+      "addCurrency": "Add currency...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Failed to add currency",
+      "reactivated": "Reactivated {code}"
+    },
+    "fx": {
+      "totalInCurrency": "Total in {currency}",
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "noRateWarning": "No exchange rate found for {from} to {to} on {date}. Enter the converted amount manually.",
+      "usingLatestRateHint": "Using the latest available rate (not dated {date}).",
+      "displayToggle": {
+        "account": "Account",
+        "original": "Original"
+      },
+      "feeCaption": "Includes a {percent}% foreign transaction fee ({fee})."
+    }
   },
   "splitEditor": {
     "header": "Split Details",
@@ -351,6 +460,10 @@
     "remaining": "Remaining: {symbol}{amount}",
     "needAmount": "Need {symbol}{amount} (remaining: {symbol}{remaining})",
     "setTotal": "Set total to {symbol}{amount}",
+    "currencyToggle": {
+      "title": "Switch the currency the split amounts are shown and edited in",
+      "ariaAmountsIn": "Show and edit split amounts in {code}"
+    },
     "splitLabel": "Split {number}",
     "columns": {
       "type": "Type",
@@ -397,15 +510,33 @@
       "current": "Current",
       "ending": "Ending",
       "lowest": "Lowest",
-      "minBalance": "Min Balance"
+      "minBalance": "Min Balance",
+      "projected": "Projected",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "All selected accounts have a zero balance, so there's no balance chart to show."
     },
     "monthlyTotals": {
       "title": "Monthly Totals",
       "noData": "No transaction data available",
       "monthlyAvg": "Monthly Avg",
+      "quarterlyAvg": "Quarterly Avg",
+      "yearlyAvg": "Yearly Avg",
       "total": "Total",
       "transactions": "Transactions",
-      "tooltip": "{count, plural, one {# transaction} other {# transactions}}"
+      "tooltip": "{count, plural, one {# transaction} other {# transactions}}",
+      "quarterLabel": "Q{quarter} {year}",
+      "quarterTick": "Q{quarter} {year}",
+      "granularityLabel": "Bucket size",
+      "granularity": {
+        "auto": "Auto",
+        "month": "Month",
+        "quarter": "Quarter",
+        "year": "Year"
+      },
+      "granularityAutoTitle": "Auto ({granularity})",
+      "granularityTitle": "{label} view"
     },
     "accountBalances": {
       "title": "Account Balances",
@@ -430,9 +561,16 @@
     "loadFailed": "Failed to load transactions",
     "loadPayeeFailed": "Failed to load payee details",
     "payeeUpdateFailed": "Failed to update payee",
+    "categoryUpdated": "Category updated successfully",
+    "categoryUpdateFailed": "Failed to update category",
     "exportFailed": "Failed to export transactions"
   },
   "validation": {
     "dateRequired": "Date is required"
+  },
+  "tagKeyBreakdown": {
+    "title": "Spending by {key}",
+    "other": "Other",
+    "noData": "No tagged spending to break down for this key."
   }
 }

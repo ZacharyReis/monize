@@ -13,7 +13,11 @@ import {
   IsIn,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { AccountType } from "../entities/account.entity";
+import {
+  AccountType,
+  INTEREST_BOOKING_MODES,
+  InterestBookingMode,
+} from "../entities/account.entity";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
 import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
 
@@ -225,6 +229,53 @@ export class CreateAccountDto {
   @IsOptional()
   @IsUUID()
   interestCategoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "How interest is recorded, for rate detection: AUTO (default), SPLIT (categorized split leg of the payment), or SEPARATE (standalone expense in the interest category)",
+    enum: INTEREST_BOOKING_MODES,
+  })
+  @IsOptional()
+  @IsIn(INTEREST_BOOKING_MODES)
+  interestBookingMode?: InterestBookingMode;
+
+  @ApiPropertyOptional({
+    description:
+      "Category ID used to tag standalone overpayments (extra principal) so the loan schedule can flag them",
+  })
+  @IsOptional()
+  @IsUUID()
+  overpaymentCategoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Memo text that marks a payment as a standalone overpayment (case-insensitive substring match); usable with or without the overpayment category",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  @SanitizeHtml()
+  overpaymentMemo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Payee ID whose payments count as standalone overpayments (extra principal); usable with or without the overpayment category / memo",
+  })
+  @IsOptional()
+  @IsUUID()
+  overpaymentPayeeId?: string;
+
+  // Foreign-transaction fee
+  @ApiPropertyOptional({
+    example: 2.5,
+    description:
+      "Foreign-currency conversion fee as a percentage (0-100), folded into the converted amount on foreign-entered transactions.",
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(100)
+  fxFeePercent?: number;
 
   // Asset-specific fields
   @ApiPropertyOptional({

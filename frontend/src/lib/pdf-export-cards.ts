@@ -4,6 +4,7 @@
  */
 
 import type jsPDF from 'jspdf';
+import { PDF_FONT } from './pdf-fonts';
 
 export interface PdfSummaryCard {
   label: string;
@@ -79,14 +80,14 @@ export function addSummaryCardsToPdf(
 
     // Label
     doc.setFontSize(LABEL_FONT_SIZE);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(PDF_FONT, 'normal');
     doc.setTextColor(...LABEL_COLOR);
     doc.text(card.label, x + CARD_PADDING, startY + 6);
 
     // Value
     const valueColor = hexToRgb(card.color || DEFAULT_VALUE_COLOR);
     doc.setFontSize(VALUE_FONT_SIZE);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(PDF_FONT, 'bold');
     doc.setTextColor(...valueColor);
     doc.text(card.value, x + CARD_PADDING, startY + 14);
 

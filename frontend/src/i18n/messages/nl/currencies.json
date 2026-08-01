@@ -104,8 +104,12 @@
       "lookupTooShort": "Voer een valutacode of naam in (minimaal 2 tekens) om op te zoeken",
       "found": "Gevonden: {details}",
       "notFound": "Geen valuta gevonden voor \"{query}\"",
-      "lookupFailed": "Opzoeken mislukt - probeer het opnieuw"
-    }
+      "lookupFailed": "Opzoeken mislukt - probeer het opnieuw",
+      "reactivateFailed": "Kan valuta niet opnieuw activeren"
+    },
+    "inactiveNotice": "{code} staat al in je lijst, maar is inactief.",
+    "reactivateButton": "{code} opnieuw activeren",
+    "reactivating": "Bezig met opnieuw activeren..."
   },
   "validation": {
     "codeLength": "Valutacode moet precies 3 tekens zijn",

@@ -1,0 +1,19 @@
+{
+  "title": "Lampiran",
+  "empty": "Belum ada lampiran",
+  "upload": "Tambah lampiran",
+  "download": "Unduh",
+  "delete": "Hapus",
+  "remove": "Hapus",
+  "pendingHint": "File akan diunggah saat Anda menyimpan transaksi.",
+  "deleteConfirmTitle": "Hapus lampiran?",
+  "deleteConfirmMessage": "\"{name}\" akan dihapus secara permanen.",
+  "uploaded": "Lampiran ditambahkan",
+  "deleted": "Lampiran dihapus",
+  "loadFailed": "Gagal memuat lampiran",
+  "uploadFailed": "Gagal mengunggah lampiran",
+  "deleteFailed": "Gagal menghapus lampiran",
+  "tooLarge": "File terlalu besar (maksimum {max})",
+  "unsupported": "Jenis file tidak didukung. Diizinkan: gambar atau PDF",
+  "tooMany": "Maksimum {max} lampiran per transaksi"
+}

@@ -98,12 +98,15 @@
       "both": "Zaksięgowanie w tej dacie sprowadzi <b>{fromAccount}</b> do <b>{fromAmount}</b> ({fromCondition}) oraz <b>{toAccount}</b> do <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Podziel tę transakcję",
+    "copyAmount": "Kopiuj kwotę",
     "referenceNumberLabel": "Numer referencyjny (opcjonalnie)",
     "noPriceHistory": "Brak historii cen dla tego papieru. Wprowadź cenę ręcznie.",
     "postButton": "Zaksięguj transakcję",
     "toasts": {
       "posted": "Transakcja zaksięgowana",
       "postFailed": "Nie udało się zaksięgować transakcji",
+      "amountCopied": "Kwota skopiowana",
+      "copyFailed": "Nie udało się skopiować kwoty",
       "quantityRequired": "Ilość musi być większa od zera",
       "priceRequired": "Cena musi być większa od zera",
       "totalAmountRequired": "Kwota łączna jest wymagana",

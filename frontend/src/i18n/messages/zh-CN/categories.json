@@ -24,6 +24,16 @@
     "createButton": "创建自定义分类",
     "hint": "默认集包含常见的收入和支出分类及子分类"
   },
+  "importDialog": {
+    "title": "导入默认分类",
+    "description": "从现成的收入和支出分类开始。选择您所在的国家/地区以获得当地的税费和补助分类，并选择创建分类名称所用的语言。",
+    "countryLabel": "国家/地区",
+    "countryHelp": "添加当地税费、补助等特定于国家/地区的分类。若列表中没有您的国家/地区，请选择通用分类集。",
+    "genericCountry": "通用（无特定国家/地区分类）",
+    "languageLabel": "语言",
+    "languageHelp": "分类将以该语言的名称创建，之后可随时重命名。",
+    "submit": "导入分类"
+  },
   "toasts": {
     "created": "分类创建成功",
     "updated": "分类更新成功",

@@ -24,6 +24,16 @@
     "createButton": "Utworz własne",
     "hint": "Domyslny zestaw zawiera typowe kategorie przychodow i wydatkow wraz z podkategoriami"
   },
+  "importDialog": {
+    "title": "Importuj kategorie domyślne",
+    "description": "Zacznij od gotowego zestawu kategorii przychodów i wydatków. Wybierz kraj, aby otrzymać także jego kategorie podatkowe i świadczenia, oraz język, w którym zostaną utworzone nazwy.",
+    "countryLabel": "Kraj",
+    "countryHelp": "Dodaje kategorie właściwe dla kraju, np. podatki lokalne i świadczenia. Wybierz zestaw ogólny, jeśli Twojego kraju nie ma na liście.",
+    "genericCountry": "Ogólny (bez kategorii krajowych)",
+    "languageLabel": "Język",
+    "languageHelp": "Kategorie zostaną utworzone z nazwami w tym języku. Możesz je w każdej chwili zmienić.",
+    "submit": "Importuj kategorie"
+  },
   "toasts": {
     "created": "Kategoria utworzona pomyslnie",
     "updated": "Kategoria zaktualizowana pomyslnie",

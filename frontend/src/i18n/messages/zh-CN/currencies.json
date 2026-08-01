@@ -104,8 +104,12 @@
       "lookupTooShort": "请输入货币代码或名称（至少 2 个字符）进行查询",
       "found": "已找到：{details}",
       "notFound": "未找到 \"{query}\" 对应的货币",
-      "lookupFailed": "查询失败，请重试"
-    }
+      "lookupFailed": "查询失败，请重试",
+      "reactivateFailed": "重新启用货币失败"
+    },
+    "inactiveNotice": "{code} 已在您的列表中，但处于未启用状态。",
+    "reactivateButton": "重新启用 {code}",
+    "reactivating": "正在重新启用..."
   },
   "validation": {
     "codeLength": "货币代码必须恰好为 3 个字符",

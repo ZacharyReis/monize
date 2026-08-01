@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Toplam Harcama",
+    "income": "Gelir",
+    "net": "Net",
+    "transactions": "İşlemler",
+    "averageAmount": "Ortalama Tutar",
+    "lastTransaction": "Son İşlem",
+    "defaultCategory": "Varsayılan Kategori",
+    "nextBill": "Sonraki Fatura",
+    "viewBills": "Faturalar ve Mevduatlarda Görüntüle",
+    "topCategories": "En Çok Kullanılan Kategoriler",
+    "uncategorized": "Kategorisiz",
+    "aliases": "Takma Adlar",
+    "recurring": "Yinelenen: {cadence} · {amount}",
+    "recurringTooltip": "Seçilen dönemdeki (veya tarih filtresi yoksa son 12 aydaki) tekrarlanan ödemelerden tespit edildi.",
+    "cadence": {
+      "weekly": "Haftalık",
+      "biweekly": "Her 2 Haftada Bir",
+      "monthly": "Aylık",
+      "quarterly": "Üç Aylık",
+      "yearly": "Yıllık"
+    },
+    "inactive": "Pasif",
+    "noTransactions": "Bu dönemde işlem yok",
+    "editAria": "Alacaklıyı düzenle",
+    "collapseAria": "Alacaklı bilgisini gizle",
+    "show": "Alacaklı bilgisini göster"
+  },
+  "categoryWidget": {
+    "totalSpent": "Toplam Harcama",
+    "totalEarned": "Toplam Kazanç",
+    "income": "Gelir",
+    "expense": "Gider",
+    "budgetThisMonth": "Bu Ayın Bütçesi",
+    "budgetProgress": "{spent} / {budgeted}",
+    "transactions": "İşlemler",
+    "averageAmount": "Ortalama Tutar",
+    "monthlyAverage": "Aylık Ortalama",
+    "subcategories": "Alt Kategoriler",
+    "thisCategory": "Bu kategori",
+    "topPayees": "En Çok Kullanılan Alacaklılar",
+    "noPayee": "Alacaklı yok",
+    "nextScheduled": "Sonraki Planlanan",
+    "noTransactions": "Bu dönemde işlem yok",
+    "editAria": "Kategoriyi düzenle",
+    "collapseAria": "Kategori bilgisini gizle",
+    "show": "Kategori bilgisini göster"
+  },
   "accountWidget": {
     "currentBalance": "Mevcut Bakiye",
     "nextPayment": "Sonraki Ödeme",
     "viewBills": "Faturalar ve Mevduatlarda Görüntüle",
+    "viewDetailsAria": "Hesap ayrıntılarını görüntüle",
     "type": "Tür",
     "accountNumber": "Hesap Numarası",
     "currency": "Para Birimi",
@@ -27,7 +76,8 @@
       "duplicateTitle": "İşlemi Çoğalt",
       "newTitle": "Yeni İşlem",
       "scheduleTitle": "Tekrarlayan Olarak Zamanla",
-      "editPayeeTitle": "Alacaklıyı Düzenle"
+      "editPayeeTitle": "Alacaklıyı Düzenle",
+      "editCategoryTitle": "Kategoriyi Düzenle"
     },
     "loading": "İşlemler yükleniyor...",
     "totalCount": "{count, plural, one {# işlem} other {# işlem}}",
@@ -54,9 +104,13 @@
       "refNumber": "Ref #",
       "tags": "Etiketler",
       "amount": "Miktar",
+      "currency": "Para birimi",
+      "paidAmount": "Ödenen Tutar",
+      "feePaid": "Ödenen Ücret",
       "balance": "Bakiye",
       "status": "Durum",
-      "actions": "İşlemler"
+      "actions": "İşlemler",
+      "attachments": "Ekler"
     },
     "today": "Bugün",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
       "success": "İşlem silindi",
       "transferSuccess": "Transfer silindi",
-      "error": "İşlem silinemedi"
+      "error": "İşlem silinemedi",
+      "reconciledWarning": "Bu işlemde mutabakat sağlandı; bu nedenle silmek, tamamlanmış bir mutabakatı etkiler."
     },
     "status": {
       "voidError": "Durumunu Geçersiz'den değiştirmek için işlemi düzenleyin",
@@ -90,7 +145,6 @@
       "cleared": "Temizlendi",
       "reconciled": "Mutabakat Sağlandı",
       "void": "Geçersiz",
-      "unreconciledDense": "M",
       "clearedDense": "T",
       "reconciledDense": "R",
       "voidDense": "G",
@@ -118,7 +172,8 @@
       "editButton": "Düzenle",
       "deleteButton": "Sil"
     },
-    "itemNamePlural": "işlemler"
+    "itemNamePlural": "işlemler",
+    "attachmentsCount": "{count, plural, other {# ek}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Tutardan",
       "amountTo": "Tutara",
       "status": "Durum",
-      "search": "Ara"
+      "search": "Ara",
+      "tagKey": "Etiket anahtarı",
+      "tagKeyOp": "Koşul",
+      "tagKeyValue": "Değer",
+      "currency": "Para birimi",
+      "hasAttachments": "Ekler"
     },
     "placeholders": {
       "accounts": "Tüm hesaplar",
@@ -176,7 +236,8 @@
       "statuses": "Tüm durumlar",
       "amountMin": "Min",
       "amountMax": "Maks",
-      "search": "Alacaklı, kategori, tutar, etiket, açıklama, referans # ara..."
+      "search": "Alacaklı, kategori, tutar, etiket, açıklama, referans # ara...",
+      "tagKeyValue": "örn. usa"
     },
     "chips": {
       "removeAccount": "{name} filtresini kaldır",
@@ -189,7 +250,11 @@
       "dateFrom": "{date} tarihinden",
       "dateUntil": "{date} tarihine kadar",
       "amountFrom": "{amount} tutarından",
-      "amountUpTo": "{amount} tutarına kadar"
+      "amountUpTo": "{amount} tutarına kadar",
+      "removeCurrency": "{name} para birimi filtresini kaldır",
+      "hasAttachments": "Ekleri var",
+      "noAttachments": "Ek yok",
+      "removeAttachments": "Ek filtresini kaldır"
     },
     "bulkUpdate": "Toplu Güncelle",
     "cancelBulk": "Toplu İptal",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Dönem seçin...",
+      "allDates": "Tüm Tarihler",
       "today": "Bugün",
       "yesterday": "Dün",
       "thisWeek": "Bu Hafta",
       "lastWeek": "Geçen Hafta",
+      "last30Days": "Son 30 Gün",
       "monthToDate": "Aybaşından Bugüne",
       "lastMonth": "Geçen Ay",
+      "last365Days": "Son 365 Gün",
       "yearToDate": "Yılbaşından Bugüne",
       "lastYear": "Geçen Yıl",
       "custom": "Özel"
+    },
+    "tagKeyNone": "Herhangi (anahtar filtresi yok)",
+    "tagKeyOps": {
+      "hasValue": "Değeri var",
+      "noValue": "Değeri yok",
+      "contains": "Değer içerir",
+      "notContains": "Değer içermez"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Herhangi biri",
+      "yes": "Evet",
+      "no": "Hayır"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "{mode} Oluştur",
     "submitUpdate": "{mode} Güncelle",
+    "reconciledConfirm": {
+      "title": "Mutabakatlı işlem düzenlensin mi?",
+      "message": "Bu işlemde mutabakat sağlandı. Değiştirmek, tamamlanmış bir mutabakatı etkiler. Yine de değişiklikleri kaydetmek istiyor musunuz?",
+      "confirm": "Değişiklikleri kaydet"
+    },
     "modeLabel": {
       "transfer": "Transfer",
       "transaction": "İşlem"
@@ -300,6 +385,7 @@
     "transferAmountNote": "Transferler için tutar pozitif olmalıdır",
     "amountReceivedNote": "Para birimi dönüşümünden sonra alınan tutar",
     "splitTransaction": "İşlemi Böl",
+    "splitDisabledDuringTour": "Rehberli tur sırasında kullanılamaz",
     "newTagTitle": "Yeni Etiket",
     "toasts": {
       "transferCreated": "Transfer oluşturuldu",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Alacaklı yeniden etkinleştirilemedi",
       "categoryCreated": "\"{name}\" kategorisi oluşturuldu",
       "categoryCreateFailed": "Kategori oluşturulamadı",
-      "tagCreated": "\"{name}\" etiketi oluşturuldu"
+      "tagCreated": "\"{name}\" etiketi oluşturuldu",
+      "fxRateRequired": "Yabancı para birimi işlemini kaydetmeden önce bir döviz kuru veya dönüştürülen tutarı girin.",
+      "attachmentsUploadFailed": "İşlem kaydedildi, ancak {count} ek yüklenemedi"
     },
     "ariaHistory": "Son işlemleri göster",
     "ariaHistoryForPayee": "Bu alacaklının son işlemlerini göster",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Giriş para birimi",
+      "ariaLabel": "Giriş para birimini değiştir",
+      "title": "Tutarı şu birimde girin",
+      "accountCurrency": "Hesap para birimi ({code})",
+      "addCurrency": "Para birimi ekle...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Para birimi eklenemedi",
+      "reactivated": "{code} yeniden etkinleştirildi"
+    },
+    "fx": {
+      "noRateWarning": "{date} tarihinde {from} biriminden {to} birimine döviz kuru bulunamadı. Dönüştürülen tutarı elle girin.",
+      "usingLatestRateHint": "Mevcut en son kur kullanılıyor ({date} tarihli değil).",
+      "displayToggle": {
+        "account": "Hesap",
+        "original": "Orijinal"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "%{percent} yurt dışı işlem ücreti ({fee}) içerir.",
+      "totalInCurrency": "{currency} cinsinden toplam"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Hesap seçin...",
     "memoPlaceholder": "İsteğe bağlı not",
     "mobileMemoPlaceholder": "Not",
-    "tagsPlaceholder": "Etiketler..."
+    "tagsPlaceholder": "Etiketler...",
+    "currencyToggle": {
+      "title": "Bölünmüş tutarların gösterildiği ve düzenlendiği para birimini değiştirin",
+      "ariaAmountsIn": "Bölünmüş tutarları {code} cinsinden göster ve düzenle"
+    }
   },
   "recentPopover": {
     "recentForPayee": "{name} için son işlemler",
@@ -397,15 +510,33 @@
       "current": "Mevcut",
       "ending": "Bitiş",
       "lowest": "En Düşük",
-      "minBalance": "Min Bakiye"
+      "minBalance": "Min Bakiye",
+      "projected": "Öngörülen",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "Seçili tüm hesapların bakiyesi sıfır olduğundan gösterilecek bakiye grafiği yok."
     },
     "monthlyTotals": {
       "title": "Aylık Toplamlar",
       "noData": "İşlem verisi mevcut değil",
       "monthlyAvg": "Aylık Ort.",
+      "quarterlyAvg": "Üç Aylık Ort.",
+      "yearlyAvg": "Yıllık Ort.",
       "total": "Toplam",
       "transactions": "İşlemler",
-      "tooltip": "{count, plural, one {# işlem} other {# işlem}}"
+      "tooltip": "{count, plural, one {# işlem} other {# işlem}}",
+      "quarterLabel": "Ç{quarter} {year}",
+      "quarterTick": "Ç{quarter} {year}",
+      "granularityLabel": "Gruplama",
+      "granularity": {
+        "auto": "Otomatik",
+        "month": "Ay",
+        "quarter": "Çeyrek",
+        "year": "Yıl"
+      },
+      "granularityAutoTitle": "Otomatik ({granularity})",
+      "granularityTitle": "{label} görünümü"
     },
     "accountBalances": {
       "title": "Hesap Bakiyeleri",
@@ -430,9 +561,16 @@
     "loadFailed": "İşlemler yüklenemedi",
     "loadPayeeFailed": "Alacaklı ayrıntıları yüklenemedi",
     "payeeUpdateFailed": "Alacaklı güncellenemedi",
+    "categoryUpdated": "Kategori başarıyla güncellendi",
+    "categoryUpdateFailed": "Kategori güncellenemedi",
     "exportFailed": "İşlemler dışa aktarılamadı"
   },
   "validation": {
     "dateRequired": "Tarih zorunludur"
+  },
+  "tagKeyBreakdown": {
+    "title": "{key} bazında harcama",
+    "other": "Diğer",
+    "noData": "Bu anahtar için ayrıştırılacak etiketli harcama yok."
   }
 }

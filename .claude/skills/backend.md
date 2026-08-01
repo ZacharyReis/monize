@@ -151,7 +151,8 @@ POST   /transactions/:id/clear    POST /transactions/:id/reconcile
 GET    /reconcile/:accountId       - Reconciliation data
 POST   /reconcile/:accountId       - Bulk reconcile
 GET    /categories/tree            - Hierarchical structure
-POST   /categories/import-defaults - Bootstrap defaults
+POST   /categories/import-defaults - Bootstrap defaults (optional country + language)
+GET    /categories/default-countries - Countries with a default-category overlay
 ```
 
 ## Security Architecture

@@ -4,6 +4,7 @@
     "subtitle": "Verwalten Sie Ihre Zahlungsempfänger und deren Standardkategorien",
     "deactivateUnused": "Ungenutzte deaktivieren",
     "autoAssignCategories": "Kategorien automatisch zuweisen",
+    "maintenance": "Wartung",
     "autoMergePayees": "Zahlungsempfänger automatisch zusammenführen",
     "newPayee": "+ Neuer Zahlungsempfänger",
     "searchPlaceholder": "Zahlungsempfänger suchen...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Reaktivieren",
-      "reactivateShort": "Re",
       "merge": "Zusammenführen",
-      "mergeShort": "Z",
       "edit": "Bearbeiten",
-      "editShort": "B",
-      "delete": "Löschen",
-      "deleteShort": "X"
+      "delete": "Löschen"
     },
     "viewTransactionsTitle": "Buchungen mit diesem Zahlungsempfänger anzeigen",
     "uncategorizedBadge": "{count, plural, one {# ohne Kategorie} other {# ohne Kategorie}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Bitte wählen Sie mindestens eine Gruppe zum Zusammenführen aus",
       "applied": "{groups, plural, one {# Gruppe} other {# Gruppen}} zusammengeführt ({payees} Zahlungsempfänger kombiniert)",
       "backfilled": "{count, plural, one {# Transaktion kategorisiert} other {# Transaktionen kategorisiert}}",
-      "aliasesSkipped": "{count, plural, one {# Alias wurde wegen eines Konflikts übersprungen} other {# Aliase wurden wegen Konflikten übersprungen}}",
+      "aliasesSkipped": "{count, plural, one {# Alias wurde wegen eines Konflikts übersprungen} other {# Aliase wurden wegen Konflikten übersprungen}}: {aliases}",
       "loadFailed": "Zusammenführungsgruppen konnten nicht geladen werden",
-      "applyFailed": "Zahlungsempfänger konnten nicht zusammengeführt werden"
+      "applyFailed": "Zahlungsempfänger konnten nicht zusammengeführt werden",
+      "someGroupsFailed": "{count, plural, one {# Gruppe konnte nicht zusammengeführt werden} other {# Gruppen konnten nicht zusammengeführt werden}}: {reason}"
     },
     "categoryMatchLabel": "Nur Zahlungsempfänger derselben Kategorie zusammenführen",
     "categoryMatchHelp": "Hält Zahlungsempfänger getrennt, wenn sich ihre Kategorien unterscheiden, und reduziert so Fehltreffer.",

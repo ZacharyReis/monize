@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import {
   AreaChart,
   Area,
@@ -11,12 +12,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { format } from 'date-fns';
 import { chartColors } from '@/lib/chart-colors';
 import { netWorthApi } from '@/lib/net-worth';
 import { investmentsApi } from '@/lib/investments';
-import { parseLocalDate } from '@/lib/utils';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useChartDateFormat } from '@/hooks/useChartDateFormat';
 import { gainLossColor } from '@/lib/format';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useDateRange } from '@/hooks/useDateRange';
@@ -57,6 +57,7 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
   const t = useTranslations('investments');
   const tc = useTranslations('common');
   const { formatCurrency, formatCurrencyCompact, formatCurrencyAxis, formatCurrencyFlag, formatSignedPercent } = useNumberFormat();
+  const formatChartDate = useChartDateFormat();
   const { defaultCurrency } = useExchangeRates();
   const isMobile = useIsMobile();
   const [chartPoints, setChartPoints] = useState<Array<{ name: string; Value: number }>>([]);
@@ -136,10 +137,10 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
     (iso: string, range: string) => {
       const d = new Date(iso);
       return range === '1d'
-        ? format(d, 'HH:mm')
-        : format(d, 'MMM d HH:mm');
+        ? formatChartDate(d, 'HH:mm')
+        : formatChartDate(d, 'MMM d HH:mm');
     },
-    [],
+    [formatChartDate],
   );
 
   const loadDailyOrMonthly = useCallback(
@@ -157,7 +158,7 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
         if (loadSeqRef.current !== seq) return;
         setChartPoints(
           data.map((d) => ({
-            name: format(parseLocalDate(d.date), 'MMM d, yyyy'),
+            name: formatChartDate(d.date, 'MMM d, yyyy'),
             Value: d.value,
           })),
         );
@@ -166,13 +167,13 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
         if (loadSeqRef.current !== seq) return;
         setChartPoints(
           data.map((d) => ({
-            name: format(parseLocalDate(d.month), 'MMM yyyy'),
+            name: formatChartDate(d.month, 'MMM yyyy'),
             Value: d.value,
           })),
         );
       }
     },
-    [resolvedRange, accountIds, foreignCurrency, useDaily, isIntraday],
+    [resolvedRange, accountIds, foreignCurrency, useDaily, isIntraday, formatChartDate],
   );
 
   const loadData = useCallback(
@@ -388,7 +389,8 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6">
       {/* Header with title and date range buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
           {t('investmentValueChart.title')}{titleSuffix ? ` (${titleSuffix})` : ''}
           {/* Background-load indicator: chart stays on screen during a refetch
@@ -438,6 +440,19 @@ export function InvestmentValueChart({ accountIds, displayCurrency, titleSuffix 
             </span>
           )}
         </h3>
+        {/* Deep-link to the full Portfolio Value report for the richer view
+            (per-security breakdown, table, PDF/CSV export). */}
+        <Link
+          href="/reports/portfolio-value"
+          title={t('investmentValueChart.viewReportTitle')}
+          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          {t('investmentValueChart.viewReport')}
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </Link>
+        </div>
         <DateRangeSelector
           ranges={['1d', '1w', 'mtd', '1m', '3m', 'ytd', '1y', '2y', '5y', 'all']}
           value={dateRange}

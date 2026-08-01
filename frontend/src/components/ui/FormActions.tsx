@@ -10,6 +10,12 @@ interface FormActionsProps {
   isSubmitting?: boolean;
   submitDisabled?: boolean;
   className?: string;
+  /**
+   * Attributes (a `data-tour-id`) for the button pair itself. The row is
+   * full-width, so anchoring a guided tour on it would ring the whole width of
+   * the form; this wraps just the buttons, and only when asked.
+   */
+  anchorProps?: Record<string, string>;
 }
 
 /**
@@ -21,11 +27,12 @@ export function FormActions({
   isSubmitting = false,
   submitDisabled = false,
   className,
+  anchorProps,
 }: FormActionsProps) {
   const t = useTranslations('common');
   const resolvedSubmitLabel = submitLabel ?? t('formActions.save');
-  return (
-    <div className={cn('flex justify-end space-x-3 pt-4', className)}>
+  const buttons = (
+    <>
       {onCancel && (
         <Button
           type="button"
@@ -39,6 +46,17 @@ export function FormActions({
       <Button type="submit" isLoading={isSubmitting} disabled={submitDisabled || isSubmitting}>
         {resolvedSubmitLabel}
       </Button>
+    </>
+  );
+  return (
+    <div className={cn('flex justify-end space-x-3 pt-4', className)}>
+      {anchorProps ? (
+        <div className="flex space-x-3" {...anchorProps}>
+          {buttons}
+        </div>
+      ) : (
+        buttons
+      )}
     </div>
   );
 }

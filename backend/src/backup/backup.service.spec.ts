@@ -1577,6 +1577,51 @@ describe("BackupService", () => {
       expect(currencyInsert[1]).toContain(userId);
     });
 
+    it("auto-creates a missing referenced currency with its real symbol, not the code", async () => {
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      // USD is missing from the target instance (no bulk seed) and is not part
+      // of a user backup, so it lands in the auto-create path.
+      mockQueryRunner.query.mockImplementation((sql: string) => {
+        if (
+          typeof sql === "string" &&
+          sql.includes("SELECT code FROM currencies")
+        ) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([]);
+      });
+
+      const backupWithSystemCurrency = {
+        ...validBackupData,
+        currencies: [],
+        accounts: [
+          {
+            id: "acc-1",
+            user_id: userId,
+            name: "USD Account",
+            currency_code: "USD",
+          },
+        ],
+      };
+
+      await service.restoreData(
+        userId,
+        makeInput({ password: "test", data: backupWithSystemCurrency }),
+      );
+
+      const autoCreate = mockQueryRunner.query.mock.calls.find(
+        (call: unknown[]) =>
+          typeof call[0] === "string" &&
+          call[0].includes('INSERT INTO "currencies"') &&
+          Array.isArray(call[1]) &&
+          call[1][0] === "USD",
+      );
+      expect(autoCreate).toBeDefined();
+      // params: [code, name, symbol, decimalPlaces, userId]
+      expect(autoCreate![1]).toEqual(["USD", "US Dollar", "$", 2, userId]);
+    });
+
     it("should stringify JSONB values (arrays/objects) for PostgreSQL parameters", async () => {
       mockUserRepo.findOne.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -1748,7 +1793,10 @@ describe("BackupService", () => {
       expect(enableIdx).toBeGreaterThan(updateIdx);
     });
 
-    it("rejects OIDC users whose ID token does not match the user's oidcSubject", async () => {
+    it("accepts the session-confirmed sentinel for OIDC users (soft re-auth)", async () => {
+      // OIDC restore mirrors account deletion: the live JWT session is the
+      // re-authentication, so any present confirmation token is accepted -- the
+      // frontend sends a non-JWT sentinel it cannot cryptographically sign.
       const oidcModule = {
         ...mockUser,
         authProvider: "oidc",
@@ -1756,17 +1804,13 @@ describe("BackupService", () => {
         oidcSubject: "sub-1",
       };
       mockUserRepo.findOne.mockResolvedValue(oidcModule);
-      // Re-resolve OidcService from the testing module and flip verify to false.
-      const oidc = (
-        service as unknown as {
-          oidcService: { verifyIdTokenClaims: jest.Mock };
-        }
-      ).oidcService;
-      oidc.verifyIdTokenClaims = jest.fn().mockReturnValue(false);
 
-      await expect(
-        service.restoreData(userId, makeInput({ oidcIdToken: "bad-token" })),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await service.restoreData(
+        userId,
+        makeInput({ oidcIdToken: "oidc-session-confirmed" }),
+      );
+
+      expect(result.message).toBe("Backup restored successfully");
     });
 
     it("rejects backup files that decompress to a non-object", async () => {

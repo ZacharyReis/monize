@@ -48,6 +48,34 @@ describe("GlobalExceptionFilter", () => {
     );
   });
 
+  it("forwards a machine-readable errorCode from an object response", () => {
+    const exception = new ConflictException({
+      message: "Currency is inactive",
+      errorCode: "CURRENCY_INACTIVE",
+      currencyCode: "CAD",
+    });
+
+    filter.catch(exception, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: HttpStatus.CONFLICT,
+        message: "Currency is inactive",
+        errorCode: "CURRENCY_INACTIVE",
+      }),
+    );
+  });
+
+  it("omits errorCode when the object response has none", () => {
+    const exception = new ConflictException("Plain conflict");
+
+    filter.catch(exception, mockHost);
+
+    const jsonCall = mockResponse.json.mock.calls[0][0];
+    expect(jsonCall).not.toHaveProperty("errorCode");
+  });
+
   it("returns structured response for NotFoundException", () => {
     const exception = new NotFoundException("Resource not found");
 
@@ -248,6 +276,89 @@ describe("GlobalExceptionFilter", () => {
       expect(serialized).not.toContain("uq_accounts_name");
       expect(serialized).not.toContain("constraint");
       expect(serialized).not.toContain("DETAIL");
+    });
+
+    describe("Row-Level Security mapping", () => {
+      const originalMode = process.env.RLS_MODE;
+      afterEach(() => {
+        if (originalMode === undefined) {
+          delete process.env.RLS_MODE;
+        } else {
+          process.env.RLS_MODE = originalMode;
+        }
+      });
+
+      it("maps a WITH CHECK policy violation (42501) to 403 when enforcing", () => {
+        process.env.RLS_MODE = "enforce";
+        const exception = createQueryFailedError(
+          "42501",
+          'new row violates row-level security policy for table "accounts"',
+        );
+
+        filter.catch(exception, mockHost);
+
+        expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+        const jsonCall = mockResponse.json.mock.calls[0][0];
+        expect(jsonCall.message).toBe("Access denied");
+        expect(JSON.stringify(jsonCall)).not.toContain("accounts");
+      });
+
+      it("maps the identity-GUC uuid cast error (22P02) to 403 when enforcing", () => {
+        process.env.RLS_MODE = "shadow";
+        const exception = createQueryFailedError(
+          "22P02",
+          'invalid input syntax for type uuid: "garbage"',
+        );
+
+        filter.catch(exception, mockHost);
+
+        expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+        expect(mockResponse.json.mock.calls[0][0].message).toBe(
+          "Access denied",
+        );
+      });
+
+      it("leaves the RLS errors as 500 at RLS_MODE=off (behavior unchanged)", () => {
+        process.env.RLS_MODE = "off";
+        const exception = createQueryFailedError(
+          "42501",
+          'new row violates row-level security policy for table "accounts"',
+        );
+
+        filter.catch(exception, mockHost);
+
+        expect(mockResponse.status).toHaveBeenCalledWith(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      });
+
+      it("does not map a plain permission-denied 42501 (no RLS text)", () => {
+        process.env.RLS_MODE = "enforce";
+        const exception = createQueryFailedError(
+          "42501",
+          'permission denied for table "accounts"',
+        );
+
+        filter.catch(exception, mockHost);
+
+        expect(mockResponse.status).toHaveBeenCalledWith(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      });
+
+      it("does not map a non-uuid 22P02", () => {
+        process.env.RLS_MODE = "enforce";
+        const exception = createQueryFailedError(
+          "22P02",
+          'invalid input syntax for type integer: "abc"',
+        );
+
+        filter.catch(exception, mockHost);
+
+        expect(mockResponse.status).toHaveBeenCalledWith(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      });
     });
   });
 });

@@ -24,6 +24,16 @@
     "createButton": "[XX-Create Your Own-XX]",
     "hint": "[XX-The default set includes common income and expense categories with subcategories-XX]"
   },
+  "importDialog": {
+    "title": "[XX-Import default categories-XX]",
+    "description": "[XX-Start from a ready-made set of income and expense categories. Pick your country to also get its tax and benefit categories, and the language the names are created in.-XX]",
+    "countryLabel": "[XX-Country-XX]",
+    "countryHelp": "[XX-Adds country-specific categories such as local taxes and benefits. Choose the generic set if your country is not listed.-XX]",
+    "genericCountry": "[XX-Generic (no country-specific categories)-XX]",
+    "languageLabel": "[XX-Language-XX]",
+    "languageHelp": "[XX-The categories are created with names in this language. You can rename them at any time.-XX]",
+    "submit": "[XX-Import Categories-XX]"
+  },
   "toasts": {
     "created": "[XX-Category created successfully-XX]",
     "updated": "[XX-Category updated successfully-XX]",

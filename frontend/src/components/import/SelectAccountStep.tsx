@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { ParsedQifResponse } from '@/lib/import';
-import { Account } from '@/types/account';
+import { Account, AccountType } from '@/types/account';
 import { formatAccountType, isInvestmentBrokerageAccount, buildAccountDropdownOptions } from '@/lib/account-utils';
 import { ImportFileData, ImportStep } from '@/app/import/import-utils';
 
@@ -72,7 +72,7 @@ export function SelectAccountStep({
     return buildAccountDropdownOptions(
       accounts,
       (a) => isInvestment ? isInvestmentBrokerageAccount(a) : !isInvestmentBrokerageAccount(a),
-      (a) => `${a.name} (${formatAccountType(a.accountType)})`,
+      (a) => `${a.name} (${formatAccountType(a.accountType, tc)})`,
     );
   };
 
@@ -99,7 +99,8 @@ export function SelectAccountStep({
               <strong>{t('selectAccount.dateRangeLabel')}</strong> {parsedData.dateRange.start} to {parsedData.dateRange.end}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              <strong>{t('selectAccount.detectedTypeLabel')}</strong> {parsedData.accountType}
+              <strong>{t('selectAccount.detectedTypeLabel')}</strong>{' '}
+              {formatAccountType(parsedData.accountType as AccountType, tc)}
             </p>
           </div>
 

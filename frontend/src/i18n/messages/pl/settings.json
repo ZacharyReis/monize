@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "Tydzień zaczyna się od",
     "showCreatedAtLabel": "Pokaż datę utworzenia w formularzach transakcji",
     "showCreatedAtTooltip": "Wyświetla datę i godzinę pierwotnego utworzenia transakcji w formularzach. Jest to odrębne od daty transakcji i pomaga ustalić, kiedy wpis faktycznie dodano do Monize.",
+    "showWhatsNewLabel": "Pokaż „Co nowego” po aktualizacji",
+    "showWhatsNewTooltip": "Wyświetla podsumowanie informacji o wydaniu przy pierwszym logowaniu po zaktualizowaniu Monize do nowej wersji. Zawsze możesz otworzyć je ponownie, klikając numer wersji na dole tej strony lub na ekranie logowania.",
     "timeFormatLabel": "Format czasu",
     "recentTransactionsLabel": "Ostatnie transakcje w szybkim uzupełnianiu",
     "recentTransactionsHelp": "Liczba wpisów wyświetlanych w okienku przycisku historii obok pola Odbiorca w formularzach transakcji.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Nie udało się zapisać motywu kolorystycznego"
     },
     "browserLocale": "Użyj ustawień regionalnych przeglądarki (automatycznie)",
-    "browserTimezonePrefix": "Użyj strefy czasowej przeglądarki (wykryto {tz})",
     "numberFormatOptions": {
       "browser": "Użyj ustawień regionalnych przeglądarki (wykryto {sample})",
       "enUS": "Angielski (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Przeglądaj przewodniki i dokumentację."
+    },
+    "supportBackup": {
+      "label": "Utwórz kopię dla wsparcia",
+      "description": "Udostępnij zdeidentyfikowaną, zaszyfrowaną kopię swoich danych, aby opiekun projektu mógł odtworzyć błąd bez wglądu w Twoje prawdziwe nazwy i kwoty."
     }
+  },
+  "supportBackup": {
+    "title": "Utwórz kopię dla wsparcia",
+    "howItWorks": "Powstaje zdeidentyfikowana kopia Twojego backupu: nazwy są maskowane (zostają pierwsze i ostatnie dwa znaki), notatki/opisy/numery kont są usuwane, a każda kwota jest mnożona przez jeden ukryty współczynnik, podczas gdy wartości publiczne (kursy walut, ceny, oprocentowanie) pozostają nietknięte. Plik jest zawsze szyfrowany poniższym hasłem i przywraca się jak zwykły backup. Chroni to przed przypadkową ekspozycją, ale nie przed kimś, kto już Cię zna — daty, częstotliwości i struktura są zachowane, aby błędy dało się odtworzyć.",
+    "sectionsLabel": "Co dołączyć",
+    "sections": {
+      "investments": "Inwestycje (papiery, pozycje, ceny)",
+      "scheduled": "Transakcje planowane",
+      "budgets": "Budżety",
+      "reports": "Raporty i projekcje",
+      "importMappings": "Mapowania kolumn importu",
+      "autoBackup": "Ustawienia auto-backupu"
+    },
+    "priceHistoryLabel": "Dołącz historię cen papierów",
+    "priceHistoryHint": "Domyślnie wyłączone: pełna seria cen pokrywa się z publicznymi notowaniami i może zidentyfikować zamaskowany ticker. Włącz tylko, gdy błąd dotyczy cen lub wycen.",
+    "accountsLabel": "Ogranicz do wybranych kont",
+    "accountsHint": "Pozostaw wszystkie odznaczone, aby dołączyć każde konto. Wybór podzbioru dociąga też konta i odbiorców, do których się odwołuje.",
+    "dateRangeLabel": "Zakres dat (opcjonalny)",
+    "dateRangeHint": "Ogranicz eksportowaną historię do tych dat. Salda otwarcia zostaną skorygowane, aby przycięty plik nadal się bilansował.",
+    "dateFromLabel": "Od",
+    "dateToLabel": "Do",
+    "multiplierLabel": "Mnożnik kwot",
+    "multiplierHint": "Każda prywatna kwota jest mnożona przez tę liczbę, aby ukryć rzeczywiste wartości przy zachowaniu spójności. Zadziała dowolna liczba niecałkowita większa od 1; „Wygeneruj ponownie\" losuje nową.",
+    "multiplierWarning": "Nie udostępniaj nikomu mnożnika — to on odwraca ukryte kwoty.",
+    "multiplierInvalid": "Podaj liczbę niecałkowitą większą od 1.",
+    "regenerate": "Wygeneruj ponownie",
+    "passwordLabel": "Hasło szyfrowania",
+    "preview": "Podgląd",
+    "previewLabel": "Podgląd",
+    "previewBefore": "Przed",
+    "previewAfter": "Po",
+    "previewEmpty": "Brak przykładowych wierszy do podglądu dla tego wyboru.",
+    "previewFailed": "Nie udało się zbudować podglądu. Spróbuj ponownie.",
+    "generate": "Generuj",
+    "confirmPasswordTitle": "Czy hasło zostało zapisane?",
+    "confirmPasswordMessage": "Plik można otworzyć wyłącznie hasłem szyfrowania pokazanym powyżej. Nie jest ono nigdzie przechowywane i nie da się go później odzyskać — upewnij się, że je zapisałeś, zanim wygenerujesz plik.",
+    "confirmPasswordConfirm": "Zapisałem — generuj",
+    "generatedToast": "Kopia dla wsparcia została pobrana.",
+    "generateFailed": "Nie udało się wygenerować kopii dla wsparcia. Spróbuj ponownie.",
+    "passwordHint": "Plik jest zawsze szyfrowany. Przekaż to hasło osobie diagnozującej osobnym kanałem, nie razem z plikiem.",
+    "passwordInvalid": "Wpisz co najmniej 8 znaków."
   },
   "dangerZone": {
     "heading": "Strefa zagrożenia",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Automatyczna kopia zapasowa",
-    "description": "Automatycznie twórz kopie zapasowe danych do folderu według harmonogramu. Ponieważ Monize działa w Dockerze, musisz zamapować folder hosta do kontenera jako wolumin (np. -v /host/backups:/backups).",
+    "description": "Automatycznie twórz kopie zapasowe danych do folderu według harmonogramu. Ponieważ Monize działa w Dockerze, musisz zamapować folder hosta do kontenera jako wolumin (np. -v /host/backups:/data/backups).",
     "loadingText": "Wczytywanie...",
     "enableLabel": "Włącz automatyczne kopie zapasowe",
     "backupFolderLabel": "Folder kopii zapasowych",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Przeglądaj...",
     "validateButton": "Sprawdź",
     "validatingButton": "Sprawdzanie...",

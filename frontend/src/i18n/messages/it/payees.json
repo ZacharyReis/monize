@@ -4,6 +4,7 @@
     "subtitle": "Gestisci i beneficiari e le loro categorie predefinite",
     "deactivateUnused": "Disattiva inutilizzati",
     "autoAssignCategories": "Assegna categorie automaticamente",
+    "maintenance": "Manutenzione",
     "autoMergePayees": "Unisci beneficiari automaticamente",
     "newPayee": "+ Nuovo beneficiario",
     "searchPlaceholder": "Cerca beneficiari...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Riattiva",
-      "reactivateShort": "Re",
       "merge": "Unisci",
-      "mergeShort": "U",
       "edit": "Modifica",
-      "editShort": "M",
-      "delete": "Elimina",
-      "deleteShort": "X"
+      "delete": "Elimina"
     },
     "viewTransactionsTitle": "Visualizza le transazioni con questo beneficiario",
     "uncategorizedBadge": "{count, plural, one {# senza categoria} other {# senza categoria}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Seleziona almeno un gruppo da unire",
       "applied": "Uniti {groups, plural, one {# gruppo} other {# gruppi}} ({payees} beneficiari combinati)",
       "backfilled": "{count, plural, one {# transazione categorizzata} other {# transazioni categorizzate}}",
-      "aliasesSkipped": "{count, plural, one {# alias è stato saltato a causa di un conflitto} other {# alias sono stati saltati a causa di conflitti}}",
+      "aliasesSkipped": "{count, plural, one {# alias è stato saltato a causa di un conflitto} other {# alias sono stati saltati a causa di conflitti}}: {aliases}",
       "loadFailed": "Impossibile caricare i gruppi di unione",
-      "applyFailed": "Impossibile unire i beneficiari"
+      "applyFailed": "Impossibile unire i beneficiari",
+      "someGroupsFailed": "{count, plural, one {Impossibile unire # gruppo} other {Impossibile unire # gruppi}}: {reason}"
     },
     "categoryMatchLabel": "Unisci solo beneficiari della stessa categoria",
     "categoryMatchHelp": "Mantiene separati i beneficiari quando le categorie differiscono, riducendo le corrispondenze errate.",

@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Volgende",
+    "back": "Terug",
+    "done": "Klaar",
+    "endTour": "Rondleiding beëindigen",
+    "tryIt": "Probeer het — de rondleiding gaat verder zodra u dit doet",
+    "skipStep": "Deze stap overslaan",
+    "stepCounter": "{current} van {total}",
+    "skippedTitle": "Rondleiding voltooid",
+    "skippedBody": "Sommige stappen zijn overgeslagen omdat het bijbehorende scherm of element niet beschikbaar was. U kunt de rondleiding altijd opnieuw starten via Instellingen.",
+    "move": "Deze kaart verplaatsen — sleep hem of verplaats hem met de pijltoetsen"
+  },
+  "offer": {
+    "heading": "Volg een korte rondleiding",
+    "subheading": "Korte introducties van wat er nieuw is in deze release. Dit venster stapt tijdens een rondleiding opzij en komt terug als die klaar is.",
+    "showMe": "Laat zien",
+    "viewed": "Bekeken",
+    "introTitle": "Nieuw hier? Volg de introductierondleiding",
+    "introSubtitle": "Een korte introductie van de basisfuncties."
+  },
+  "areas": {
+    "intro": "Aan de slag",
+    "transactions": "Transacties",
+    "accounts": "Rekeningen",
+    "budgets": "Budget",
+    "reports": "Rapporten",
+    "settings": "Instellingen"
+  },
+  "gettingStarted": {
+    "takeTour": "Start de rondleiding",
+    "retakeTour": "Rondleiding opnieuw volgen"
+  },
+  "settings": {
+    "title": "Begeleide rondleidingen",
+    "description": "Doorloop de functies van de app stap voor stap.",
+    "showList": "Rondleidingen tonen ({count})",
+    "hideList": "Rondleidingen verbergen",
+    "start": "Starten",
+    "restart": "Opnieuw doen",
+    "statusNotViewed": "Niet bekeken",
+    "statusDismissed": "Voortijdig gestopt",
+    "reset": "Voortgang van rondleiding resetten",
+    "resetSuccess": "Voortgang van rondleiding gereset.",
+    "resetError": "Kan de voortgang van de rondleiding niet resetten. Probeer het opnieuw."
+  },
+  "intro": {
+    "basics": {
+      "title": "Introductie tot Monize",
+      "steps": {
+        "welcome": {
+          "title": "Welkom bij Monize",
+          "body": "Deze korte rondleiding laat u de kern van de app zien. U kunt op elk moment stoppen door op **Escape** te drukken of op **Rondleiding beëindigen** te klikken."
+        },
+        "dashboard": {
+          "title": "Uw dashboard",
+          "body": "Dit is uw dashboard. Gebruik de knop **Aanpassen** rechtsboven om widgets te herschikken of te verbergen, zodat de overzichten die voor u belangrijk zijn bovenaan staan."
+        },
+        "tools": {
+          "title": "Het menu Hulpmiddelen",
+          "body": "In het menu **Hulpmiddelen** beheert u de bouwstenen van uw financiën — begunstigden, categorieën, valuta, labels en meer."
+        },
+        "accounts": {
+          "title": "Uw rekeningen",
+          "body": "Voeg hier uw bank-, creditcard-, lening- en beleggingsrekeningen toe met de gemarkeerde knop. Elk saldo en elke transactie hoort bij een rekening."
+        },
+        "transactions": {
+          "title": "Transacties",
+          "body": "Dit is uw transactieoverzicht — elke betaling en storting voor uw rekeningen staat hier, klaar om te doorzoeken en te filteren."
+        },
+        "createTransaction": {
+          "title": "Een transactie registreren",
+          "body": "Klik op **Nieuwe transactie** om inkomsten of uitgaven toe te voegen. Open gerust het formulier."
+        },
+        "fields": {
+          "title": "Begunstigde en categorie",
+          "body": "Voor elke transactie kiest u een begunstigde en wijst u een categorie toe. Categorieën vormen de basis voor uw budgetten en rapporten; het bedrag volgt in de volgende stap."
+        },
+        "splits": {
+          "title": "Een transactie splitsen",
+          "body": "Eén aankoop die meerdere categorieën omvat? Gebruik **Splitsen** om één transactie over meerdere categorieën te verdelen — bijvoorbeeld boodschappen en huishoudelijke artikelen van dezelfde winkel."
+        },
+        "currencyField": {
+          "title": "Bedrag en valuta",
+          "body": "Voer hier het bedrag van de transactie in. In een andere valuta betaald? Stel naast het bedrag de valuta in en voer het in zoals het in rekening is gebracht — Monize rekent dit om naar de valuta van de rekening."
+        },
+        "closeForm": {
+          "title": "Sluit het formulier om verder te gaan",
+          "body": "Sluit het transactieformulier met **Annuleren**, of sla de transactie op met de andere knop, en de rondleiding gaat verder."
+        },
+        "bills": {
+          "title": "Facturen & stortingen",
+          "body": "Plan terugkerende facturen en stortingen zodat aankomende betalingen worden voorspeld en niets over het hoofd wordt gezien."
+        },
+        "investments": {
+          "title": "Beleggingen",
+          "body": "Houd uw posities, koersen en rendementen bij op al uw beleggingsrekeningen."
+        },
+        "budgets": {
+          "title": "Plannen met budgetten",
+          "body": "Met budgetten stelt u maandelijkse doelen per categorie in en houdt u bij hoe u ervoor staat."
+        },
+        "reports": {
+          "title": "Inzicht in uw geld",
+          "body": "Rapporten zetten uw transacties om in grafieken — uitgaven per categorie, nettovermogen in de tijd, en meer."
+        },
+        "finish": {
+          "title": "U bent helemaal klaar",
+          "body": "Dat was de rondleiding. U kunt deze op elk moment opnieuw volgen via het gedeelte **Begeleide rondleidingen** in **Instellingen**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transacties in vreemde valuta",
+        "steps": {
+          "welcome": {
+            "title": "Houd uitgaven in andere valuta bij",
+            "body": "Iets in het buitenland gekocht? Deze rondleiding stelt de transactiekosten voor vreemde valuta van een rekening in, legt een aankoop vast in de valuta die in rekening werd gebracht en laat zien waar die kosten opduiken. U kunt altijd stoppen met **Esc** of **Rondleiding beëindigen**."
+          },
+          "openAccountEdit": {
+            "title": "Begin bij de rekening",
+            "body": "Transactiekosten voor vreemde valuta horen bij de rekening. Kies de rekening waarmee u in het buitenland betaalt — een creditcard, een debetkaart of de rekening achter uw telefoonbetalingen — en kies **Bewerken** bij de acties van die rij; houd op mobiel de rij lang ingedrukt om de instellingen te openen."
+          },
+          "fxFeePercent": {
+            "title": "Stel de omrekenkosten in",
+            "body": "Voer hier de transactiekosten voor vreemde valuta van de rekening in als percentage — bijvoorbeeld 2,5. Monize verwerkt ze in het omgerekende bedrag van elke buitenlandse aankoop, zodat de kosten automatisch worden vastgelegd."
+          },
+          "closeAccountForm": {
+            "title": "Opslaan en sluiten",
+            "body": "Rond af met deze knoppen: **Rekening bijwerken** slaat de kosten op, **Annuleren** sluit zonder op te slaan. Hoe dan ook gaat de rondleiding verder."
+          },
+          "newTransaction": {
+            "title": "Leg een buitenlandse aankoop vast",
+            "body": "Leg nu een aankoop vast die u met die rekening in een andere valuta deed. Open **Nieuwe transactie** en kies die rekening."
+          },
+          "chooseAccount": {
+            "title": "Controleer rekening en datum",
+            "body": "De omrekenkosten horen bij de rekening, dus zorg dat **Rekening** de rekening is waarvoor u ze net hebt ingesteld — wijzig dit hier als dat niet zo is. Zet ook de **Datum** op de dag van de aankoop: de wisselkoers wordt voor die datum opgezocht."
+          },
+          "enterDetails": {
+            "title": "Vul de gegevens in",
+            "body": "Vul begunstigde en categorie in zoals bij elke andere transactie. Het deel over vreemde valuta volgt hierna."
+          },
+          "entryCurrency": {
+            "title": "Kies de valuta waarin u betaalde",
+            "body": "Open dit en kies de valuta die in rekening werd gebracht. Staat alleen uw eigen valuta in de lijst? Kies onderaan **Valuta toevoegen...** om er een toe te voegen — die wordt meteen voor u geselecteerd."
+          },
+          "enterAmount": {
+            "title": "Voer het in rekening gebrachte bedrag in",
+            "body": "Typ het totaal precies zoals het op uw afschrift staat. Monize zoekt de **wisselkoers** op voor de datum van de transactie, toont het omgerekende totaal ernaast en verwerkt de **transactiekosten voor vreemde valuta** die u op de rekening hebt ingesteld — het bijschrift eronder benoemt beide. Rondde uw bank anders af? Pas de koers of het omgerekende totaal aan tot op de cent."
+          },
+          "closeTransactionForm": {
+            "title": "Sluit het formulier",
+            "body": "Hier hetzelfde: sla de transactie op met de verzendknop of sluit hem met **Annuleren**, en de rondleiding gaat verder."
+          },
+          "openAccountDetail": {
+            "title": "Terug naar de rekening",
+            "body": "Open de detailpagina van die rekening — kies **Details** bij de acties van die rij — om te zien hoe de activiteit in vreemde valuta wordt samengevat."
+          },
+          "fxSection": {
+            "title": "Uw sectie vreemde valuta",
+            "body": "Rekeningen met activiteit in vreemde valuta krijgen deze sectie: de betaalde kosten per valuta, een grafiek in de tijd en de bijbehorende transacties, exporteerbaar naar CSV en PNG. Hij verschijnt zodra de rekening een buitenlandse aankoop heeft.",
+            "fallbackBody": "Deze rekening heeft nog geen activiteit in vreemde valuta, dus de sectie staat niet op de pagina. Leg er een aankoop in een andere valuta vast en de sectie verschijnt: kosten per valuta, een grafiek in de tijd en export naar CSV en PNG."
+          },
+          "report": {
+            "title": "Het rapport Transactiekosten in vreemde valuta",
+            "body": "Dit rapport brengt buitenlandse aankopen van al uw rekeningen en valuta op één plek samen, zodat u ziet wat kaarten \"zonder buitenlandkosten\" werkelijk kosten. Open het wanneer u wilt via **Rapporten**.",
+            "fallbackBody": "Het rapport **Kosten vreemde valuta** brengt buitenlandse aankopen van al uw rekeningen en valuta's samen. Het is nu niet in beeld — een zoekopdracht of een categoriefilter kan het verbergen — maar u vindt het bij **Rapporten**."
+          },
+          "finish": {
+            "title": "Dit was vreemde valuta in Monize",
+            "body": "Stel de kosten één keer in, voer aankopen in zoals ze in rekening zijn gebracht, en de kosten houden zichzelf bij. U kunt deze rondleiding altijd opnieuw doen via **Begeleide rondleidingen** in **Instellingen**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Wat is er nieuw-overzicht",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Hoogtepunten van de release",
+            "body": "Deze schakelaar bepaalt of het Wat is er nieuw-overzicht automatisch verschijnt na een update."
+          },
+          "appVersion": {
+            "title": "De notities opnieuw lezen",
+            "body": "Klik op het versienummer onderaan **Instellingen** om de release-opmerkingen opnieuw te openen."
+          },
+          "done": {
+            "title": "Dat is alles",
+            "body": "U kunt deze hoogtepunten altijd opnieuw bekijken vanaf hier in Instellingen."
+          }
+        }
+      }
+    }
+  }
+}

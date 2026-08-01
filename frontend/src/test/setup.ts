@@ -52,16 +52,20 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Mock react-hot-toast
-vi.mock('react-hot-toast', () => ({
-  default: {
+// Mock react-hot-toast. The default export is callable (toast(msg, opts)) with
+// success/error/loading/dismiss attached, mirroring the real module.
+vi.mock('react-hot-toast', () => {
+  const toast = Object.assign(vi.fn(), {
     success: vi.fn(),
     error: vi.fn(),
     loading: vi.fn(),
     dismiss: vi.fn(),
-  },
-  Toaster: () => null,
-}));
+  });
+  return {
+    default: toast,
+    Toaster: () => null,
+  };
+});
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -91,6 +95,16 @@ window.scrollTo = vi.fn() as any;
 
 // Mock scrollIntoView (not implemented in jsdom); used by dropdown/combobox lists
 Element.prototype.scrollIntoView = vi.fn() as any;
+
+// Stub ResizeObserver (not implemented in jsdom); used by the tour overlay's
+// live-rect tracking. A no-op observer is enough: tests drive rects directly.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as any;
+}
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {

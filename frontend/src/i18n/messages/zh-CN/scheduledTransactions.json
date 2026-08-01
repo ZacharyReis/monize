@@ -98,12 +98,15 @@
       "both": "在此日期记账会使 <b>{fromAccount}</b> 变为 <b>{fromAmount}</b>（{fromCondition}）、<b>{toAccount}</b> 变为 <b>{toAmount}</b>（{toCondition}）。"
     },
     "splitLabel": "拆分此交易",
+    "copyAmount": "复制金额",
     "referenceNumberLabel": "参考编号（可选）",
     "noPriceHistory": "此证券暂无价格历史。请手动输入价格。",
     "postButton": "过账交易",
     "toasts": {
       "posted": "交易已过账",
       "postFailed": "过账交易失败",
+      "amountCopied": "已复制金额",
+      "copyFailed": "复制金额失败",
       "quantityRequired": "数量必须大于零",
       "priceRequired": "价格必须大于零",
       "totalAmountRequired": "总金额为必填项",

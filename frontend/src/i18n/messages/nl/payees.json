@@ -4,6 +4,7 @@
     "subtitle": "Beheer je begunstigden en hun standaardcategorieën",
     "deactivateUnused": "Ongebruikte deactiveren",
     "autoAssignCategories": "Categorieën automatisch toewijzen",
+    "maintenance": "Onderhoud",
     "autoMergePayees": "Begunstigden automatisch samenvoegen",
     "newPayee": "+ Nieuwe begunstigde",
     "searchPlaceholder": "Begunstigden zoeken...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Heractiveren",
-      "reactivateShort": "He",
       "merge": "Samenvoegen",
-      "mergeShort": "S",
       "edit": "Bewerken",
-      "editShort": "B",
-      "delete": "Verwijderen",
-      "deleteShort": "X"
+      "delete": "Verwijderen"
     },
     "viewTransactionsTitle": "Transacties met deze begunstigde bekijken",
     "uncategorizedBadge": "{count, plural, one {# zonder categorie} other {# zonder categorie}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Selecteer ten minste één groep om samen te voegen",
       "applied": "{groups, plural, one {# groep} other {# groepen}} samengevoegd ({payees} begunstigden gecombineerd)",
       "backfilled": "{count, plural, one {# transactie gecategoriseerd} other {# transacties gecategoriseerd}}",
-      "aliasesSkipped": "{count, plural, one {# alias is overgeslagen vanwege een conflict} other {# aliassen zijn overgeslagen vanwege conflicten}}",
+      "aliasesSkipped": "{count, plural, one {# alias is overgeslagen vanwege een conflict} other {# aliassen zijn overgeslagen vanwege conflicten}}: {aliases}",
       "loadFailed": "Samenvoegingsgroepen konden niet worden geladen",
-      "applyFailed": "Begunstigden konden niet worden samengevoegd"
+      "applyFailed": "Begunstigden konden niet worden samengevoegd",
+      "someGroupsFailed": "{count, plural, one {# groep kon niet worden samengevoegd} other {# groepen konden niet worden samengevoegd}}: {reason}"
     },
     "categoryMatchLabel": "Alleen begunstigden in dezelfde categorie samenvoegen",
     "categoryMatchHelp": "Houdt begunstigden gescheiden als hun categorieën verschillen, waardoor onjuiste overeenkomsten afnemen.",

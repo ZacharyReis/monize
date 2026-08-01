@@ -8,7 +8,15 @@
     "title": "[XX-AI Assistant-XX]",
     "expand": "[XX-Expand to full screen-XX]",
     "collapse": "[XX-Collapse to panel-XX]",
-    "close": "[XX-Close-XX]"
+    "close": "[XX-Close-XX]",
+    "movePanel": "[XX-Move the panel: drag it, nudge it with the arrow keys, or click to snap it to the next corner-XX]",
+    "moveCornerTo": "[XX-Move to {corner}-XX]",
+    "corner": {
+      "bottom-right": "[XX-bottom right-XX]",
+      "bottom-left": "[XX-bottom left-XX]",
+      "top-right": "[XX-top right-XX]",
+      "top-left": "[XX-top left-XX]"
+    }
   },
   "chat": {
     "conversationSaved": "[XX-Conversation saved in your browser-XX]",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "[XX-AI Not Configured-XX]",
-    "message": "[XX-No AI provider is configured. To use the AI Assistant, please {link} in your settings.-XX]",
-    "linkText": "[XX-configure an AI provider-XX]"
+    "message": "[XX-No AI provider is configured. To use the AI Assistant, please {link} in your settings.-XX]"
   },
   "suggestedQueries": {
     "heading": "[XX-Ask about your finances-XX]",
@@ -72,6 +79,7 @@
     "newPayee": "[XX-(new payee)-XX]",
     "category": "[XX-Category-XX]",
     "splits": "[XX-Splits-XX]",
+    "attachments": "[XX-Attachments-XX]",
     "newCategory": "[XX-New category-XX]",
     "currentCategory": "[XX-Current category-XX]",
     "description": "[XX-Description-XX]",
@@ -121,6 +129,8 @@
     "createdInvestmentTransactions": "[XX-{count, plural, =0 {No investment transactions created} one {# investment transaction created} other {# investment transactions created}}-XX]",
     "rowsSkipped": "[XX-{count, plural, one {# row skipped} other {# rows skipped}}-XX]",
     "rowSkippedBadge": "[XX-Skipped-XX]",
+    "reconciledBadge": "[XX-Reconciled-XX]",
+    "reconciledWarning": "[XX-This transaction is reconciled. Changing it will affect a completed reconciliation.-XX]",
     "investmentActions": {
       "BUY": "[XX-Buy-XX]",
       "SELL": "[XX-Sell-XX]",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "[XX-Assistant offline-XX]",
-      "listening": "[XX-Assistant listening-XX]",
-      "busy": "[XX-Assistant working-XX]"
+      "offline": "[XX-MCP Agent offline-XX]",
+      "listening": "[XX-MCP Agent listening-XX]",
+      "busy": "[XX-MCP Agent working-XX]",
+      "idle": "[XX-Disconnected after inactivity — reconnect to continue-XX]"
     },
     "howToConnect": "[XX-How to connect-XX]",
     "hideHelp": "[XX-Hide-XX]",

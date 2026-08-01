@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Contant",
     "brokerage": "Effecten"
+  },
+  "import": {
+    "voidedTransactionNote": "Ongeldig gemaakt in de bron; het oorspronkelijke bedrag ontbrak in de export en is als nul geïmporteerd."
   }
 }

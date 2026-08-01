@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { gainLossColor } from '@/lib/format';
+import { gainLossColor, sumMoney } from '@/lib/format';
 import { Skeleton } from '@/components/ui/LoadingSkeleton';
 import {
   BarChart,
@@ -15,16 +15,47 @@ import {
   LabelList,
   Cell,
 } from 'recharts';
-import { format, lastDayOfMonth } from 'date-fns';
-import { parseLocalDate } from '@/lib/utils';
 import { MonthlyTotal } from '@/types/transaction';
+import {
+  bucketMonthlyTotals,
+  selectGranularity,
+  type BucketedPoint,
+  type Granularity,
+} from '@/lib/chart-buckets';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
+import { useChartDateFormat } from '@/hooks/useChartDateFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { ChartDownloadButton } from '@/components/ui/ChartDownloadButton';
 
-// Desktop goes vertical on the bar-top labels and widens the top margin only
-// once the column count crosses this threshold (3 years of monthly buckets).
-const DESKTOP_CROWDED_THRESHOLD = 36;
+// Desktop switches the bar-top value labels to vertical (and widens the top
+// margin) once there are more than this many bars, before wide horizontal
+// currency labels start to overlap.
+const DESKTOP_CROWDED_THRESHOLD = 20;
+
+// Above this many bars the value labels are unreadable even when vertical, so
+// drop them entirely and let the axis and tooltip carry the numbers.
+const MAX_LABELED_BARS = 60;
+
+// 'auto' follows the data span; the fixed modes let the user override it.
+type GranularityMode = 'auto' | Granularity;
+const GRANULARITY_MODES: readonly GranularityMode[] = [
+  'auto',
+  'month',
+  'quarter',
+  'year',
+];
+
+// Summary "average" label switches to match the active bucket size.
+const AVG_LABEL_KEY: Record<Granularity, string> = {
+  month: 'monthlyAvg',
+  quarter: 'quarterlyAvg',
+  year: 'yearlyAvg',
+};
+
+// Quarter number (1-4) from a 'YYYY-MM-DD' period start.
+function quarterOf(periodStart: string): number {
+  return Math.floor((Number(periodStart.split('-')[1]) - 1) / 3) + 1;
+}
 
 interface CategoryPayeeBarChartProps {
   data: MonthlyTotal[];
@@ -34,11 +65,9 @@ interface CategoryPayeeBarChartProps {
   filterLabel?: string;
 }
 
-interface ChartDataPoint {
-  month: string;
+interface ChartDataPoint extends BucketedPoint {
   label: string;
-  total: number;
-  count: number;
+  absTotal: number;
 }
 
 function MonthlyTotalTooltip({
@@ -83,32 +112,86 @@ export function CategoryPayeeBarChart({
   const t = useTranslations('transactions');
   const chartTitle = t('charts.monthlyTotals.title');
   const { formatCurrency, formatCurrencyAxis } = useNumberFormat();
+  const formatChartDate = useChartDateFormat();
   const chartRef = useRef<HTMLDivElement>(null);
   const downloadFilename = filterLabel ? `${chartTitle} - ${filterLabel}` : chartTitle;
   const isMobile = useIsMobile();
 
-  const chartData = useMemo(() => {
-    return data.map((d) => {
-      const parsed = parseLocalDate(`${d.month}-01`);
-      return {
-        month: d.month,
-        label: format(parsed, 'MMMM yyyy'),
-        total: d.total,
-        absTotal: Math.abs(d.total),
-        count: d.count,
-      };
-    });
-  }, [data]);
+  const [granularityMode, setGranularityMode] = useState<GranularityMode>('auto');
+  const autoGranularity = useMemo(
+    () => selectGranularity(data.map((d) => d.month)),
+    [data],
+  );
+  const granularity: Granularity =
+    granularityMode === 'auto' ? autoGranularity : granularityMode;
+
+  // Full label for the tooltip (e.g. "January 2024", "Q1 2024", "2024").
+  const bucketFullLabel = useCallback(
+    (bucket: BucketedPoint): string => {
+      if (bucket.granularity === 'year') {
+        return formatChartDate(bucket.periodStart, 'yyyy');
+      }
+      if (bucket.granularity === 'quarter') {
+        return t('charts.monthlyTotals.quarterLabel', {
+          quarter: String(quarterOf(bucket.periodStart)),
+          year: formatChartDate(bucket.periodStart, 'yyyy'),
+        });
+      }
+      return formatChartDate(bucket.periodStart, 'MMMM yyyy');
+    },
+    [formatChartDate, t],
+  );
+
+  // Compact axis tick (e.g. "Jan 24", "Q1 24", "2024").
+  const axisTick = useCallback(
+    (periodStart: string): string => {
+      if (granularity === 'year') return formatChartDate(periodStart, 'yyyy');
+      if (granularity === 'quarter') {
+        return t('charts.monthlyTotals.quarterTick', {
+          quarter: String(quarterOf(periodStart)),
+          year: periodStart.slice(2, 4),
+        });
+      }
+      return formatChartDate(periodStart, 'MMM yy');
+    },
+    [granularity, formatChartDate, t],
+  );
+
+  const buckets = useMemo(
+    () => bucketMonthlyTotals(data, granularity),
+    [data, granularity],
+  );
+
+  const chartData = useMemo<ChartDataPoint[]>(
+    () =>
+      buckets.map((bucket) => ({
+        ...bucket,
+        label: bucketFullLabel(bucket),
+        absTotal: Math.abs(bucket.total),
+      })),
+    [buckets, bucketFullLabel],
+  );
+
+  // Drill-down: map each bar's x value (periodStart) to its [start, end] range.
+  const rangeByStart = useMemo(
+    () =>
+      new Map(
+        buckets.map((b) => [b.periodStart, [b.periodStart, b.periodEnd] as const]),
+      ),
+    [buckets],
+  );
 
   const isCrowded = chartData.length > DESKTOP_CROWDED_THRESHOLD;
   const verticalLabels = isMobile || isCrowded;
+  const showBarLabels = chartData.length <= MAX_LABELED_BARS;
 
   const summary = useMemo(() => {
     if (chartData.length === 0) return null;
-    const total = chartData.reduce((sum, d) => sum + d.total, 0);
+    const total = sumMoney(chartData.map((d) => d.total));
     const totalCount = chartData.reduce((sum, d) => sum + d.count, 0);
-    const monthlyAvg = total / chartData.length;
-    return { total, totalCount, monthlyAvg };
+    const periodsElapsed = chartData.length;
+    const periodAvg = periodsElapsed > 0 ? total / periodsElapsed : 0;
+    return { total, totalCount, periodAvg };
   }, [chartData]);
 
   if (isLoading) {
@@ -139,11 +222,47 @@ export function CategoryPayeeBarChart({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700/50 p-3 sm:p-6 mb-6 min-h-[420px]">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           {chartTitle}
         </h3>
-        <ChartDownloadButton chartRef={chartRef} filename={downloadFilename} />
+        <div className="flex items-center gap-2">
+          <div
+            className="flex gap-1"
+            role="group"
+            aria-label={t('charts.monthlyTotals.granularityLabel')}
+          >
+            {GRANULARITY_MODES.map((mode) => {
+              const isActive = granularityMode === mode;
+              const label = t(`charts.monthlyTotals.granularity.${mode}`);
+              const title =
+                mode === 'auto'
+                  ? t('charts.monthlyTotals.granularityAutoTitle', {
+                      granularity: t(
+                        `charts.monthlyTotals.granularity.${autoGranularity}`,
+                      ),
+                    })
+                  : t('charts.monthlyTotals.granularityTitle', { label });
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setGranularityMode(mode)}
+                  aria-pressed={isActive}
+                  title={title}
+                  className={
+                    isActive
+                      ? 'px-2 py-1 text-xs rounded-md bg-blue-600 text-white transition-colors'
+                      : 'px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors'
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <ChartDownloadButton chartRef={chartRef} filename={downloadFilename} />
+        </div>
       </div>
 
       {/* overflow-hidden: while the account-widget column animates the card's
@@ -157,13 +276,11 @@ export function CategoryPayeeBarChart({
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart
             data={chartData}
-            margin={{ top: verticalLabels ? 20 : 12, right: isMobile ? 16 : 5, left: -10, bottom: 0 }}
+            margin={{ top: verticalLabels ? 28 : 20, right: isMobile ? 16 : 5, left: 0, bottom: 0 }}
             onClick={onMonthClick ? (state: any) => {
-              const month = state?.activeLabel;
-              if (!month) return;
-              const firstDay = `${month}-01`;
-              const lastDay = format(lastDayOfMonth(parseLocalDate(firstDay)), 'yyyy-MM-dd');
-              onMonthClick(firstDay, lastDay);
+              const start = state?.activeLabel;
+              const range = start ? rangeByStart.get(start) : undefined;
+              if (range) onMonthClick(range[0], range[1]);
             } : undefined}
             style={onMonthClick ? { cursor: 'pointer' } : undefined}
           >
@@ -173,11 +290,11 @@ export function CategoryPayeeBarChart({
               className="dark:stroke-gray-700"
             />
             <XAxis
-              dataKey="month"
+              dataKey="periodStart"
               tick={{ fill: '#6b7280', fontSize: isMobile ? 10 : 12 }}
               tickLine={false}
               axisLine={{ stroke: '#e5e7eb' }}
-              tickFormatter={(value: string) => format(parseLocalDate(`${value}-01`), 'MMM yy')}
+              tickFormatter={axisTick}
               interval="preserveStartEnd"
               angle={isMobile ? -35 : 0}
               textAnchor={isMobile ? 'end' : 'middle'}
@@ -189,7 +306,7 @@ export function CategoryPayeeBarChart({
               tickLine={false}
               axisLine={false}
               tickFormatter={formatCurrencyAxis}
-              width={45}
+              width="auto"
             />
             <Tooltip content={<MonthlyTotalTooltip formatCurrency={formatCurrency} />} />
             <Bar
@@ -203,24 +320,26 @@ export function CategoryPayeeBarChart({
                   fill={entry.total >= 0 ? '#22c55e' : '#ef4444'}
                 />
               ))}
-              <LabelList
-                dataKey="total"
-                position="top"
-                angle={verticalLabels ? -90 : 0}
-                offset={verticalLabels ? (isMobile ? 8 : 6) : 5}
-                textAnchor={verticalLabels ? 'start' : 'middle'}
-                formatter={(value: unknown) =>
-                  isMobile
-                    ? formatCurrencyAxis(Number(value))
-                    : formatCurrency(Number(value))
-                }
-                style={{
-                  fill: '#6b7280',
-                  fontSize: isMobile ? 10 : 11,
-                  fontWeight: 500,
-                  ...(verticalLabels && { dominantBaseline: 'central' as const }),
-                }}
-              />
+              {showBarLabels && (
+                <LabelList
+                  dataKey="total"
+                  position="top"
+                  angle={verticalLabels ? -90 : 0}
+                  offset={verticalLabels ? (isMobile ? 8 : 6) : 5}
+                  textAnchor={verticalLabels ? 'start' : 'middle'}
+                  formatter={(value: unknown) =>
+                    isMobile
+                      ? formatCurrencyAxis(Number(value))
+                      : formatCurrency(Number(value))
+                  }
+                  style={{
+                    fill: '#6b7280',
+                    fontSize: isMobile ? 10 : 11,
+                    fontWeight: 500,
+                    ...(verticalLabels && { dominantBaseline: 'central' as const }),
+                  }}
+                />
+              )}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -230,13 +349,13 @@ export function CategoryPayeeBarChart({
       {summary && (
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{t('charts.monthlyTotals.monthlyAvg')}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t(`charts.monthlyTotals.${AVG_LABEL_KEY[granularity]}`)}</div>
             <div
               className={`font-semibold ${
-                gainLossColor(summary.monthlyAvg)
+                gainLossColor(summary.periodAvg)
               }`}
             >
-              {formatCurrency(summary.monthlyAvg)}
+              {formatCurrency(summary.periodAvg)}
             </div>
           </div>
           <div>

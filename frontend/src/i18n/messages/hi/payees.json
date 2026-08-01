@@ -4,6 +4,7 @@
     "subtitle": "अपने भुगतानकर्ताओं और उनकी डिफ़ॉल्ट श्रेणियों का प्रबंधन करें",
     "deactivateUnused": "अप्रयुक्त निष्क्रिय करें",
     "autoAssignCategories": "श्रेणियां स्वतः असाइन करें",
+    "maintenance": "रखरखाव",
     "autoMergePayees": "भुगतानकर्ताओं को स्वतः मर्ज करें",
     "newPayee": "+ नया भुगतानकर्ता",
     "searchPlaceholder": "भुगतानकर्ता खोजें...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "पुनः सक्रिय करें",
-      "reactivateShort": "पु",
       "merge": "मर्ज करें",
-      "mergeShort": "म",
       "edit": "संपादित करें",
-      "editShort": "सं",
-      "delete": "हटाएं",
-      "deleteShort": "ह"
+      "delete": "हटाएं"
     },
     "viewTransactionsTitle": "इस भुगतानकर्ता के लेनदेन देखें",
     "uncategorizedBadge": "{count, plural, one {# वर्गीकृत न किया गया} other {# वर्गीकृत न किए गए}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "मर्ज करने के लिए कम से कम एक समूह चुनें",
       "applied": "{groups, plural, one {# समूह} other {# समूह}} मर्ज हुए ({payees} भुगतानकर्ता संयुक्त)",
       "backfilled": "{count, plural, one {# लेनदेन वर्गीकृत हुआ} other {# लेनदेन वर्गीकृत हुए}}",
-      "aliasesSkipped": "{count, plural, one {# उपनाम टकराव के कारण छोड़ा गया} other {# उपनाम टकरावों के कारण छोड़े गए}}",
+      "aliasesSkipped": "{count, plural, one {# उपनाम टकराव के कारण छोड़ा गया} other {# उपनाम टकरावों के कारण छोड़े गए}}: {aliases}",
       "loadFailed": "मर्ज समूह लोड करने में विफल",
-      "applyFailed": "भुगतानकर्ताओं को मर्ज करने में विफल"
+      "applyFailed": "भुगतानकर्ताओं को मर्ज करने में विफल",
+      "someGroupsFailed": "{count, plural, one {# समूह मर्ज नहीं किया जा सका} other {# समूह मर्ज नहीं किए जा सके}}: {reason}"
     },
     "categoryMatchLabel": "केवल एक ही श्रेणी के भुगतानकर्ताओं को मर्ज करें",
     "categoryMatchHelp": "जब श्रेणियां अलग हों तो भुगतानकर्ताओं को अलग रखें, जिससे गलत मिलान कम होते हैं।",

@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "Automobile",
+      "sub": {
+        "accessories": "Accessori",
+        "carPayment": "Rata dell'auto",
+        "cleaning": "Lavaggio",
+        "congestionCharge": "Pedaggio urbano",
+        "fines": "Multe",
+        "fuel": "Carburante",
+        "maintenance": "Manutenzione",
+        "mot": "Revisione",
+        "parking": "Parcheggio",
+        "parts": "Ricambi",
+        "registration": "Immatricolazione",
+        "roadTax": "Bollo auto",
+        "tolls": "Pedaggi"
+      }
+    },
+    "bankFees": {
+      "name": "Spese bancarie",
+      "sub": {
+        "annualFee": "Canone annuo",
+        "atm": "Bancomat",
+        "foreignTransaction": "Commissioni valuta",
+        "nsf": "Insufficienza di fondi",
+        "other": "Altre",
+        "overdraft": "Scoperto di conto",
+        "serviceCharge": "Spese di gestione",
+        "unpaidItemFee": "Commissione insoluto"
+      }
+    },
+    "bills": {
+      "name": "Bollette e utenze",
+      "sub": {
+        "electricity": "Elettricità",
+        "internet": "Internet",
+        "mobilePhone": "Cellulare",
+        "naturalGas": "Gas naturale",
+        "streamingServices": "Servizi di streaming",
+        "telephone": "Telefono",
+        "television": "Televisione",
+        "tvLicence": "Canone TV",
+        "wasteCollection": "Raccolta rifiuti",
+        "waterSewer": "Acqua e fognatura"
+      }
+    },
+    "business": {
+      "name": "Attività professionale",
+      "sub": {
+        "airfare": "Biglietti aerei",
+        "carRental": "Noleggio auto",
+        "diningOut": "Ristorante",
+        "fuel": "Carburante",
+        "lodging": "Alloggio",
+        "mileage": "Rimborso chilometrico",
+        "miscellaneous": "Varie",
+        "mobilePhone": "Cellulare",
+        "officeSupplies": "Forniture per ufficio",
+        "parking": "Parcheggio",
+        "software": "Software",
+        "transit": "Trasporti pubblici"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "Prelievo di contante",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "Donazioni di beneficenza",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "Cura dei figli",
+      "sub": {
+        "activities": "Attività",
+        "allowance": "Paghetta",
+        "babysitting": "Babysitter",
+        "clothing": "Abbigliamento",
+        "daycare": "Asilo nido",
+        "schoolSupplies": "Materiale scolastico",
+        "sports": "Sport",
+        "toysGames": "Giocattoli e giochi"
+      }
+    },
+    "clothing": {
+      "name": "Abbigliamento",
+      "sub": {
+        "accessories": "Accessori",
+        "clothes": "Vestiti",
+        "outerwear": "Capispalla",
+        "shoes": "Scarpe"
+      }
+    },
+    "education": {
+      "name": "Istruzione",
+      "sub": {
+        "529PlanContribution": "Contributo piano 529",
+        "books": "Libri",
+        "fees": "Tasse scolastiche",
+        "supplies": "Materiale didattico",
+        "tuition": "Retta"
+      }
+    },
+    "food": {
+      "name": "Alimentazione",
+      "sub": {
+        "alcohol": "Alcolici",
+        "cannabis": "Cannabis",
+        "coffeeShops": "Caffetterie",
+        "diningOut": "Ristorante",
+        "groceries": "Spesa alimentare",
+        "takeout": "Cibo da asporto"
+      }
+    },
+    "furnishings": {
+      "name": "Arredamento",
+      "sub": {
+        "accessories": "Accessori",
+        "appliances": "Elettrodomestici",
+        "bathroom": "Bagno",
+        "bedroom": "Camera da letto",
+        "decor": "Decorazioni",
+        "dishes": "Stoviglie",
+        "kitchen": "Cucina",
+        "livingRoom": "Soggiorno",
+        "office": "Ufficio",
+        "outdoor": "Esterni"
+      }
+    },
+    "gifts": {
+      "name": "Regali",
+      "sub": {
+        "anniversary": "Anniversario",
+        "birthday": "Compleanno",
+        "cards": "Biglietti d'auguri",
+        "flowers": "Fiori",
+        "holiday": "Festività",
+        "respContribution": "Versamento piano di risparmio per l'istruzione",
+        "wedding": "Matrimonio"
+      }
+    },
+    "governmentFees": {
+      "name": "Tasse amministrative",
+      "sub": {
+        "licencesPermits": "Licenze e permessi",
+        "passport": "Passaporto"
+      }
+    },
+    "healthcare": {
+      "name": "Salute",
+      "sub": {
+        "copay": "Ticket sanitario",
+        "counselling": "Sostegno psicologico",
+        "dental": "Dentista",
+        "eyecare": "Oculistica",
+        "fitness": "Fitness",
+        "healthSavingsAccount": "Conto risparmio sanitario",
+        "hospital": "Ospedale",
+        "medication": "Medicinali",
+        "physician": "Medico",
+        "physiotherapy": "Fisioterapia",
+        "supplies": "Forniture sanitarie"
+      }
+    },
+    "housing": {
+      "name": "Abitazione",
+      "sub": {
+        "fees": "Spese condominiali",
+        "garden": "Giardino",
+        "groundRent": "Canone del terreno",
+        "homeImprovement": "Ristrutturazione",
+        "maintenance": "Manutenzione",
+        "mortgageInterest": "Interessi sul mutuo",
+        "mortgagePrincipal": "Capitale del mutuo",
+        "rent": "Affitto",
+        "serviceCharge": "Spese condominiali",
+        "supplies": "Forniture",
+        "tools": "Utensili"
+      }
+    },
+    "insurance": {
+      "name": "Assicurazioni",
+      "sub": {
+        "automobile": "Auto",
+        "disability": "Invalidità",
+        "health": "Salute",
+        "home": "Casa",
+        "life": "Vita",
+        "provincialHealthPremium": "Premio sanitario provinciale",
+        "renter": "Inquilino",
+        "travel": "Viaggio"
+      }
+    },
+    "interestExpense": {
+      "name": "Oneri finanziari",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "Redditi da investimenti",
+      "sub": {
+        "capitalGains": "Plusvalenze",
+        "dividends": "Dividendi",
+        "interest": "Interessi",
+        "respGrant": "Contributo piano di risparmio per l'istruzione"
+      }
+    },
+    "leisure": {
+      "name": "Tempo libero",
+      "sub": {
+        "booksMagazines": "Libri e riviste",
+        "camping": "Campeggio",
+        "concerts": "Concerti",
+        "culturalEvents": "Eventi culturali",
+        "electronics": "Elettronica",
+        "games": "Giochi",
+        "hobbies": "Hobby",
+        "movies": "Cinema",
+        "music": "Musica",
+        "sportingEvents": "Eventi sportivi",
+        "sportingGoods": "Articoli sportivi",
+        "sports": "Sport"
+      }
+    },
+    "loan": {
+      "name": "Prestito",
+      "sub": {
+        "loanInterest": "Interessi sul prestito",
+        "loanPrincipal": "Capitale del prestito",
+        "studentLoanInterest": "Interessi prestito studenti",
+        "studentLoanPrincipal": "Capitale prestito studenti",
+        "studentLoanRepayment": "Rimborso prestito studenti"
+      }
+    },
+    "miscellaneous": {
+      "name": "Varie",
+      "sub": {
+        "other": "Altro",
+        "postage": "Spese postali"
+      }
+    },
+    "otherIncome": {
+      "name": "Altri redditi",
+      "sub": {
+        "businessReimbursement": "Rimborso spese aziendali",
+        "canadaChildBenefit": "Assegno figli (Canada)",
+        "cashback": "Cashback",
+        "childBenefit": "Assegno per i figli",
+        "creditCardReward": "Premio carta di credito",
+        "freelance": "Lavoro autonomo",
+        "giftsReceived": "Regali ricevuti",
+        "gstHstCredit": "Credito GST/HST",
+        "rentalIncome": "Redditi da locazione",
+        "stateTaxRefund": "Rimborso imposta statale",
+        "taxRefund": "Rimborso fiscale"
+      }
+    },
+    "personalCare": {
+      "name": "Cura della persona",
+      "sub": {
+        "cosmetics": "Cosmetici",
+        "dryCleaning": "Lavaggio a secco",
+        "haircut": "Taglio di capelli",
+        "laundry": "Lavanderia",
+        "spa": "Centro benessere",
+        "toiletries": "Prodotti per l'igiene"
+      }
+    },
+    "petCare": {
+      "name": "Cura degli animali",
+      "sub": {
+        "food": "Cibo",
+        "grooming": "Toelettatura",
+        "supplies": "Forniture",
+        "veterinarian": "Veterinario"
+      }
+    },
+    "professionalServices": {
+      "name": "Servizi professionali",
+      "sub": {
+        "accounting": "Contabilità",
+        "financialAdvice": "Consulenza finanziaria",
+        "legal": "Consulenza legale"
+      }
+    },
+    "retirementIncome": {
+      "name": "Redditi da pensione",
+      "sub": {
+        "401KWithdrawal": "Prelievo 401(k)",
+        "annuity": "Rendita",
+        "cppQppBenefits": "Prestazioni pensionistiche (CPP/QPP)",
+        "iraWithdrawal": "Prelievo IRA",
+        "oasBenefits": "Prestazioni OAS",
+        "pension": "Pensione",
+        "retirementAccountWithdrawal": "Prelievo fondo pensione",
+        "rrifWithdrawal": "Prelievo RRIF",
+        "rrspWithdrawal": "Prelievo RRSP",
+        "socialSecurityBenefits": "Prestazioni Social Security",
+        "statePension": "Pensione statale",
+        "workplacePension": "Pensione aziendale"
+      }
+    },
+    "taxes": {
+      "name": "Imposte",
+      "sub": {
+        "councilTax": "Imposta comunale",
+        "cppQppContributions": "Contributi pensionistici (CPP/QPP)",
+        "eiPremiums": "Contributi assicurazione contro la disoccupazione",
+        "federalIncomeTax": "Imposta federale sul reddito",
+        "gstHst": "GST/HST",
+        "incomeTax": "Imposta sul reddito",
+        "localIncomeTax": "Imposta locale sul reddito",
+        "medicareTax": "Imposta Medicare",
+        "nationalInsurance": "Contributi previdenziali",
+        "other": "Altre",
+        "propertyTax": "Imposta sulla proprietà",
+        "provincialIncomeTax": "Imposta provinciale sul reddito",
+        "provincialSalesTax": "Imposta provinciale sulle vendite",
+        "salesTax": "Imposta sulle vendite",
+        "socialSecurityTax": "Imposta previdenziale",
+        "stateIncomeTax": "Imposta statale sul reddito",
+        "unionDues": "Quote sindacali",
+        "vat": "IVA"
+      }
+    },
+    "technology": {
+      "name": "Tecnologia",
+      "sub": {
+        "hardware": "Hardware",
+        "software": "Software",
+        "subscriptions": "Abbonamenti",
+        "webHosting": "Hosting web"
+      }
+    },
+    "transportation": {
+      "name": "Trasporti",
+      "sub": {
+        "bicycle": "Bicicletta",
+        "publicTransit": "Trasporto pubblico",
+        "rideshare": "Ride sharing",
+        "taxi": "Taxi"
+      }
+    },
+    "vacation": {
+      "name": "Vacanze",
+      "sub": {
+        "activities": "Attività",
+        "airfare": "Biglietti aerei",
+        "carRental": "Noleggio auto",
+        "fuel": "Carburante",
+        "lodging": "Alloggio",
+        "miscellaneous": "Varie",
+        "parking": "Parcheggio"
+      }
+    },
+    "wagesSalary": {
+      "name": "Stipendio e salario",
+      "sub": {
+        "bonus": "Bonus",
+        "commission": "Provvigioni",
+        "employerMatching": "Contributo del datore di lavoro",
+        "grossPay": "Retribuzione lorda",
+        "netPay": "Retribuzione netta",
+        "overtime": "Straordinari",
+        "stockOptions": "Stock option",
+        "tips": "Mance",
+        "vacationPay": "Indennità di ferie"
+      }
+    }
+  }
+}

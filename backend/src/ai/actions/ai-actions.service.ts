@@ -5,9 +5,15 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
+import { createHash, timingSafeEqual } from "crypto";
 import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
 import { TransactionsService } from "../../transactions/transactions.service";
+import {
+  AttachmentsService,
+  UploadedAttachmentFile,
+} from "../../attachments/attachments.service";
+import { RelayAttachmentStore } from "../relay/relay-attachment.store";
 import { PayeesService } from "../../payees/payees.service";
 import { InvestmentTransactionsService } from "../../securities/investment-transactions.service";
 import { SecuritiesService } from "../../securities/securities.service";
@@ -56,6 +62,7 @@ import {
   BatchDeleteSecurityRow,
   TransactionRowDescriptor,
   MAX_BULK_ACTION_ROWS,
+  AttachmentRefDescriptor,
 } from "./ai-action.types";
 import { CreateTransferDto } from "../../transactions/dto/create-transfer.dto";
 import { UpdateTransferDto } from "../../transactions/dto/update-transfer.dto";
@@ -89,6 +96,8 @@ export class AiActionsService {
     private readonly securitiesService: SecuritiesService,
     private readonly signingService: AiActionSigningService,
     private readonly writeLimiter: AiWriteLimiter,
+    private readonly attachmentsService: AttachmentsService,
+    private readonly relayAttachmentStore: RelayAttachmentStore,
   ) {}
 
   async confirm(
@@ -515,6 +524,10 @@ export class AiActionsService {
     userId: string,
     descriptor: UpdateTransactionDescriptor,
   ): Promise<ConfirmActionResult> {
+    const { files, refIds } = this.resolveAttachmentFiles(
+      userId,
+      descriptor.attachments,
+    );
     const dto = await this.toValidatedDto(UpdateTransactionDto, {
       accountId: descriptor.accountId,
       transactionDate: descriptor.transactionDate,
@@ -547,6 +560,7 @@ export class AiActionsService {
         })),
       );
     }
+    await this.persistAttachments(userId, transaction.id, files, refIds);
     return { type: "update_transaction", id: transaction.id };
   }
 
@@ -597,10 +611,68 @@ export class AiActionsService {
     };
   }
 
+  /**
+   * Resolve the parked bytes for a descriptor's attachment refs BEFORE any
+   * write happens, so an expired ref or tampered payload fails the whole
+   * confirmation cleanly instead of leaving a transaction without its files.
+   * The sha256 in the signed descriptor is re-checked against the parked bytes.
+   */
+  private resolveAttachmentFiles(
+    userId: string,
+    refs: AttachmentRefDescriptor[] | undefined,
+  ): { files: UploadedAttachmentFile[]; refIds: string[] } {
+    if (!refs || refs.length === 0) {
+      return { files: [], refIds: [] };
+    }
+    const files = refs.map((ref) => {
+      const stored = this.relayAttachmentStore.get(userId, ref.attachmentRefId);
+      if (!stored) {
+        throw new BadRequestException(
+          tr(
+            "errors.ai.attachmentRefExpired",
+            "The attached file is no longer available. Please re-upload it and ask again.",
+          ),
+        );
+      }
+      // Constant-time comparison, matching the signing service's convention.
+      const sha256 = createHash("sha256").update(stored.data).digest();
+      const expected = Buffer.from(ref.sha256, "hex");
+      if (
+        sha256.length !== expected.length ||
+        !timingSafeEqual(sha256, expected)
+      ) {
+        throw new BadRequestException(this.invalidSignatureMessage());
+      }
+      return {
+        originalname: ref.filename,
+        buffer: stored.data,
+        size: stored.data.length,
+      };
+    });
+    return { files, refIds: refs.map((r) => r.attachmentRefId) };
+  }
+
+  /** Persist resolved files against the written transaction, then free the refs. */
+  private async persistAttachments(
+    userId: string,
+    transactionId: string,
+    files: UploadedAttachmentFile[],
+    refIds: string[],
+  ): Promise<void> {
+    for (const file of files) {
+      await this.attachmentsService.create(userId, transactionId, file);
+    }
+    this.relayAttachmentStore.releaseForPrompt(userId, refIds);
+  }
+
   private async executeCreateTransaction(
     userId: string,
     descriptor: CreateTransactionDescriptor,
   ): Promise<ConfirmActionResult> {
+    const { files, refIds } = this.resolveAttachmentFiles(
+      userId,
+      descriptor.attachments,
+    );
     const dto = await this.toValidatedDto(CreateTransactionDto, {
       accountId: descriptor.accountId,
       transactionDate: descriptor.transactionDate,
@@ -625,6 +697,7 @@ export class AiActionsService {
     const transaction = await this.transactionsService.create(userId, dto, {
       createPayeeIfMissing: descriptor.createPayee === true,
     });
+    await this.persistAttachments(userId, transaction.id, files, refIds);
     return { type: "create_transaction", id: transaction.id };
   }
 

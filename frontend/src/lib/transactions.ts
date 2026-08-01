@@ -17,6 +17,9 @@ import {
   BulkDeleteData,
   BulkDeleteResult,
   MonthlyTotal,
+  FxFeeMonthlyTotal,
+  GroupedTotal,
+  RecurringChargeInfo,
 } from '@/types/transaction';
 import { invalidateCache } from './apiCache';
 
@@ -29,6 +32,7 @@ function buildFilterParams(params?: {
   payeeId?: string;
   payeeIds?: string[];
   tagIds?: string[];
+  originalCurrencyCodes?: string[];
 }): Record<string, string | undefined> {
   const result: Record<string, string | undefined> = {};
 
@@ -54,6 +58,10 @@ function buildFilterParams(params?: {
     result.tagIds = params.tagIds.join(',');
   }
 
+  if (params?.originalCurrencyCodes && params.originalCurrencyCodes.length > 0) {
+    result.originalCurrencyCodes = params.originalCurrencyCodes.join(',');
+  }
+
   return result;
 }
 
@@ -74,6 +82,16 @@ export interface TransactionsGetAllParams {
   amountTo?: number;
   tagIds?: string[];
   statuses?: TransactionStatus[];
+  /** Filter to transactions entered in these currencies (foreign-entry only). */
+  originalCurrencyCodes?: string[];
+  /** KEY:VALUE tag filter: the key to filter on (e.g. "country"). */
+  tagKey?: string;
+  /** KEY:VALUE tag filter operator. */
+  tagKeyOp?: 'hasValue' | 'noValue' | 'contains' | 'notContains';
+  /** Substring term for the contains / notContains operators. */
+  tagKeyValue?: string;
+  /** Filter by attachment presence: true = only with, false = only without. */
+  hasAttachments?: boolean;
 }
 
 export const transactionsApi = {
@@ -98,6 +116,10 @@ export const transactionsApi = {
       amountFrom: params?.amountFrom,
       amountTo: params?.amountTo,
       statuses: params?.statuses && params.statuses.length > 0 ? params.statuses.join(',') : undefined,
+      tagKey: params?.tagKey || undefined,
+      tagKeyOp: params?.tagKey ? params?.tagKeyOp : undefined,
+      tagKeyValue: params?.tagKey ? params?.tagKeyValue || undefined : undefined,
+      hasAttachments: params?.hasAttachments,
     };
 
     const response = await apiClient.get<PaginatedTransactions>('/transactions', {
@@ -242,6 +264,96 @@ export const transactionsApi = {
     return response.data;
   },
 
+  // Get totals grouped by category or payee under the same filters as the summary
+  getGroupedTotals: async (params: {
+    groupBy: 'category' | 'payee';
+    accountIds?: string[];
+    startDate?: string;
+    endDate?: string;
+    categoryIds?: string[];
+    payeeIds?: string[];
+    tagIds?: string[];
+    search?: string;
+    amountFrom?: number;
+    amountTo?: number;
+    limit?: number;
+    /**
+     * Also include transactions dated before startDate that are not yet
+     * reconciled. Used by the credit-card cycle spending widget so late-posting
+     * charges from the previous cycle still show as owed.
+     */
+    includeUnreconciledBeforeStart?: boolean;
+  }): Promise<GroupedTotal[]> => {
+    const apiParams = {
+      ...buildFilterParams(params),
+      groupBy: params.groupBy,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      search: params.search,
+      amountFrom: params.amountFrom,
+      amountTo: params.amountTo,
+      limit: params.limit,
+      includeUnreconciledBeforeStart: params.includeUnreconciledBeforeStart,
+    };
+
+    const response = await apiClient.get<GroupedTotal[]>('/transactions/grouped-totals', {
+      params: apiParams,
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
+  // Spending broken down by the value of a KEY:VALUE tag key (e.g. key
+  // "country" -> a total per country). Rows are per-currency, like grouped
+  // totals, so the caller converts to one display currency.
+  getTagKeyBreakdown: async (params: {
+    key: string;
+    accountIds?: string[];
+    startDate?: string;
+    endDate?: string;
+    categoryIds?: string[];
+    payeeIds?: string[];
+    tagIds?: string[];
+    search?: string;
+    amountFrom?: number;
+    amountTo?: number;
+    limit?: number;
+  }): Promise<GroupedTotal[]> => {
+    const apiParams = {
+      ...buildFilterParams(params),
+      key: params.key,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      search: params.search,
+      amountFrom: params.amountFrom,
+      amountTo: params.amountTo,
+      limit: params.limit,
+    };
+
+    const response = await apiClient.get<GroupedTotal[]>(
+      '/transactions/tag-key-breakdown',
+      { params: apiParams, timeout: 60000 },
+    );
+    return response.data;
+  },
+
+  // Detect recurring charges (cadence + typical amount) for the given payees
+  getRecurringCharges: async (params: {
+    payeeIds: string[];
+    startDate: string;
+    endDate: string;
+  }): Promise<RecurringChargeInfo[]> => {
+    const response = await apiClient.get<RecurringChargeInfo[]>('/transactions/recurring-charges', {
+      params: {
+        payeeIds: params.payeeIds.join(','),
+        startDate: params.startDate,
+        endDate: params.endDate,
+      },
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
   // Get monthly transaction totals (for category/payee bar chart)
   getMonthlyTotals: async (params?: {
     accountIds?: string[];
@@ -267,6 +379,16 @@ export const transactionsApi = {
       params: apiParams,
       timeout: 60000,
     });
+    return response.data;
+  },
+
+  // Monthly foreign-transaction fee totals for one account, grouped by the
+  // currency the transaction was paid in (for the account-detail fees section)
+  getFxFeeSummary: async (accountId: string): Promise<FxFeeMonthlyTotal[]> => {
+    const response = await apiClient.get<FxFeeMonthlyTotal[]>(
+      '/transactions/fx-fee-summary',
+      { params: { accountId }, timeout: 60000 },
+    );
     return response.data;
   },
 

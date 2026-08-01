@@ -7,7 +7,18 @@ import {
   OneToOne,
   JoinColumn,
 } from "typeorm";
+import { Exclude } from "class-transformer";
 import { User } from "./user.entity";
+
+// Persisted state of a single guided tour for a user. `version` is stamped only
+// on release-* tour ids so a future release can offer them again.
+export interface TourProgressEntry {
+  status: "completed" | "dismissed";
+  version?: string;
+  updatedAt: string;
+}
+
+export type TourProgressMap = Record<string, TourProgressEntry>;
 
 @Entity("user_preferences")
 export class UserPreference {
@@ -66,6 +77,28 @@ export class UserPreference {
   })
   favouriteReportIds: string[];
 
+  // Ordered ids of the widgets shown on the dashboard. Empty means the user
+  // has not customized the layout and gets the built-in default.
+  @Column({
+    name: "dashboard_widgets",
+    type: "text",
+    array: true,
+    default: "{}",
+  })
+  dashboardWidgets: string[];
+
+  // Per-widget settings (timeframe, account selection, chart type, etc.) keyed
+  // by widget id. Empty object = every widget uses its built-in defaults.
+  // Typed as Record<string, any> (matching the other jsonb columns on
+  // relation-reachable entities, e.g. action-history) so TypeORM's DeepPartial
+  // stays satisfiable where UserPreference is reached through the User relation.
+  @Column({
+    name: "dashboard_widget_config",
+    type: "jsonb",
+    default: {},
+  })
+  dashboardWidgetConfig: Record<string, any>;
+
   @Column({ name: "show_created_at", default: false })
   showCreatedAt: boolean;
 
@@ -87,6 +120,34 @@ export class UserPreference {
     nullable: true,
   })
   dismissedUpdateVersion: string | null;
+
+  // Version whose "What's New" release notes the user acknowledged via
+  // "Don't show this again". The auto-popup is suppressed while this equals
+  // the running version; a newer release makes it reappear. Server-managed
+  // (written only via the What's New "seen" endpoint), so it is excluded from
+  // the user-editable preferences DTO, mirroring dismissedUpdateVersion.
+  @Column({
+    name: "last_seen_version",
+    type: "varchar",
+    length: 50,
+    nullable: true,
+  })
+  lastSeenVersion: string | null;
+
+  // Settings kill-switch for the What's New auto-popup. When false the popup
+  // never opens automatically, though the version labels can still open it
+  // manually.
+  @Column({ name: "show_whats_new", default: true })
+  showWhatsNew: boolean;
+
+  // Guided-tour completion state, keyed by opaque tour id. Server-managed and
+  // written only via the tenantTx atomic jsonb-merge in ToursService, so it is
+  // excluded from the serialized preferences response (the global
+  // ClassSerializerInterceptor honours @Exclude()) and from the editable DTO --
+  // GET /updates/tours/progress is the single source of truth.
+  @Exclude()
+  @Column({ name: "tour_progress", type: "jsonb", default: {} })
+  tourProgress: TourProgressMap;
 
   @Column({
     name: "default_quote_provider",

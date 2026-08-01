@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 import { Transaction } from "../../transactions/entities/transaction.entity";
 import { Category } from "../../categories/entities/category.entity";
+import { Payee } from "../../payees/entities/payee.entity";
 import { ScheduledTransaction } from "../../scheduled-transactions/entities/scheduled-transaction.entity";
 import { User } from "../../users/entities/user.entity";
 import { Institution } from "../../institutions/entities/institution.entity";
@@ -31,6 +32,10 @@ export enum AccountSubType {
   INVESTMENT_CASH = "INVESTMENT_CASH",
   INVESTMENT_BROKERAGE = "INVESTMENT_BROKERAGE",
 }
+
+/** How a loan/mortgage's interest is recorded, for rate detection. */
+export const INTEREST_BOOKING_MODES = ["AUTO", "SPLIT", "SEPARATE"] as const;
+export type InterestBookingMode = (typeof INTEREST_BOOKING_MODES)[number];
 
 const numericTransformer = {
   to: (value: number | null): number | null => value,
@@ -199,6 +204,67 @@ export class Account {
   @JoinColumn({ name: "interest_category_id" })
   interestCategory: Category | null;
 
+  // How the loan's interest is recorded, so rate detection reads it correctly:
+  //   'AUTO'     -- a categorized split leg of the payment when present, else a
+  //                 separate expense in the interest category (principal
+  //                 transfers are never counted as interest);
+  //   'SPLIT'    -- interest is only ever a categorized split leg of the payment;
+  //   'SEPARATE' -- interest is a standalone expense in the interest category,
+  //                 with principal booked as a transfer to the loan.
+  // Optional, per-loan; defaults to AUTO (universal).
+  @Column({
+    type: "varchar",
+    length: 16,
+    name: "interest_booking_mode",
+    default: "AUTO",
+  })
+  interestBookingMode: InterestBookingMode;
+
+  // Category the user tags standalone overpayments (extra principal) with, so
+  // the loan schedule can tell an overpayment apart from a regular installment
+  // (overpayments are 100% principal). Optional, per-loan setting.
+  @Column({ type: "uuid", name: "overpayment_category_id", nullable: true })
+  overpaymentCategoryId: string | null;
+
+  @ManyToOne(() => Category, { nullable: true })
+  @JoinColumn({ name: "overpayment_category_id" })
+  overpaymentCategory: Category | null;
+
+  // Free-text the user tags standalone overpayments with in a transaction memo
+  // (its description, the linked source transaction's memo, or a split memo).
+  // A case-insensitive substring match flags the payment as 100% principal,
+  // usable on its own or alongside the overpayment category. Optional, per-loan.
+  @Column({
+    type: "varchar",
+    length: 255,
+    name: "overpayment_memo",
+    nullable: true,
+  })
+  overpaymentMemo: string | null;
+
+  // Payee whose payments count as standalone overpayments (extra principal),
+  // usable on its own or alongside the overpayment category / memo. Optional,
+  // per-loan setting.
+  @Column({ type: "uuid", name: "overpayment_payee_id", nullable: true })
+  overpaymentPayeeId: string | null;
+
+  @ManyToOne(() => Payee, { nullable: true })
+  @JoinColumn({ name: "overpayment_payee_id" })
+  overpaymentPayee: Payee | null;
+
+  // Foreign-transaction fee: the bank's foreign-currency conversion fee, applied
+  // as a percentage of a foreign-entered transaction's converted amount and
+  // folded into the account-currency amount. Optional, per-account.
+  @Column({
+    type: "decimal",
+    precision: 8,
+    scale: 4,
+    name: "fx_fee_percent",
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  fxFeePercent: number | null;
+
   // Asset-specific fields
   @Column({ type: "uuid", name: "asset_category_id", nullable: true })
   assetCategoryId: string | null;
@@ -209,6 +275,15 @@ export class Account {
 
   @Column({ type: "date", name: "date_acquired", nullable: true })
   dateAcquired: Date | null;
+
+  // Links an asset/other account to its financing loan or mortgage so the
+  // detail page can show equity (asset value minus the loan balance).
+  @Column({ type: "uuid", name: "linked_loan_account_id", nullable: true })
+  linkedLoanAccountId: string | null;
+
+  @ManyToOne(() => Account, { nullable: true })
+  @JoinColumn({ name: "linked_loan_account_id" })
+  linkedLoanAccount: Account | null;
 
   // Mortgage-specific fields
   @Column({ name: "is_canadian_mortgage", default: false })

@@ -109,6 +109,7 @@ describe("AiInsightsService", () => {
           select: jest.fn().mockReturnThis(),
           from: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
           getRawMany: jest.fn().mockResolvedValue([]),
         }),
       },
@@ -304,6 +305,75 @@ describe("AiInsightsService", () => {
       );
       expect(mockAiService.complete).toHaveBeenCalled();
       expect(mockInsightRepo.save).toHaveBeenCalled();
+    });
+
+    it("appends a language directive when the user's language is not English", async () => {
+      const qb = mockQb();
+      qb.getOne.mockResolvedValue(null);
+      qb.getMany.mockResolvedValue([]);
+      qb.getRawOne.mockResolvedValue(null);
+      mockInsightRepo.createQueryBuilder.mockReturnValue(qb);
+      mockPrefRepo.findOne.mockResolvedValue({
+        defaultCurrency: "USD",
+        language: "fr",
+      });
+
+      await service.generateInsights(userId);
+
+      const systemPrompt = mockAiService.complete!.mock.calls[0][1]
+        .systemPrompt as string;
+      expect(systemPrompt).toContain("LANGUAGE:");
+      expect(systemPrompt).toContain("French");
+    });
+
+    it("does not append a language directive for English users", async () => {
+      const qb = mockQb();
+      qb.getOne.mockResolvedValue(null);
+      qb.getMany.mockResolvedValue([]);
+      qb.getRawOne.mockResolvedValue(null);
+      mockInsightRepo.createQueryBuilder.mockReturnValue(qb);
+      mockPrefRepo.findOne.mockResolvedValue({
+        defaultCurrency: "USD",
+        language: "en",
+      });
+
+      await service.generateInsights(userId);
+
+      const systemPrompt = mockAiService.complete!.mock.calls[0][1]
+        .systemPrompt as string;
+      expect(systemPrompt).not.toContain("LANGUAGE:");
+    });
+
+    it("includes entity ids in the prompt for deep linking", async () => {
+      const qb = mockQb();
+      qb.getOne.mockResolvedValue(null);
+      qb.getMany.mockResolvedValue([]);
+      qb.getRawOne.mockResolvedValue(null);
+      mockInsightRepo.createQueryBuilder.mockReturnValue(qb);
+      mockAggregatorService.computeAggregates!.mockResolvedValue(
+        makeAggregates({
+          recurringCharges: [
+            {
+              payeeName: "Netflix",
+              payeeId: "payee-1",
+              amounts: [15.99, 15.99, 15.99],
+              dates: ["2026-01-01", "2026-02-01", "2026-03-01"],
+              frequency: "monthly",
+              currentAmount: 15.99,
+              previousAmount: 15.99,
+              categoryName: "Entertainment",
+              categoryId: "cat-2",
+            },
+          ],
+        }),
+      );
+
+      await service.generateInsights(userId);
+
+      const userPrompt = mockAiService.complete!.mock.calls[0][1].messages[0]
+        .content as string;
+      expect(userPrompt).toContain("categoryId=cat-1");
+      expect(userPrompt).toContain("payeeId=payee-1");
     });
 
     it("skips AI call when no spending data exists", async () => {
@@ -831,12 +901,14 @@ describe("AiInsightsService", () => {
           recurringCharges: [
             {
               payeeName: "Netflix",
+              payeeId: "payee-1",
               amounts: [15.99, 15.99, 17.99],
               dates: ["2025-10-01", "2025-11-01", "2025-12-01"],
               frequency: "monthly",
               currentAmount: 17.99,
               previousAmount: 15.99,
               categoryName: "Entertainment",
+              categoryId: "cat-2",
             },
           ],
         }),
@@ -1110,6 +1182,24 @@ describe("AiInsightsService", () => {
       await expect(
         service.handleDailyInsightGeneration(),
       ).resolves.not.toThrow();
+    });
+
+    it("excludes relay-only users when selecting who to generate for", async () => {
+      const managerQb = {
+        select: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      mockInsightRepo.manager.createQueryBuilder.mockReturnValue(managerQb);
+
+      await service.handleDailyInsightGeneration();
+
+      expect(managerQb.andWhere).toHaveBeenCalledWith(
+        "apc.provider != :relayProvider",
+        { relayProvider: "mcp_relay" },
+      );
     });
   });
 });

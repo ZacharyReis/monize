@@ -203,7 +203,13 @@
     "addPriceSection": "Добавить цену",
     "editPriceSection": "Редактировать цену",
     "loading": "Загрузка цен...",
+    "chartTitle": "История цены",
+    "markers": {
+      "bought": "Покупка {quantity} · {account}",
+      "sold": "Продажа {quantity} · {account}"
+    },
     "empty": "История цен недоступна",
+    "showingCount": "Показано {shown} из {total} цен",
     "columns": {
       "date": "Дата",
       "close": "Закрытие",
@@ -230,6 +236,7 @@
     "closeButton": "Закрыть",
     "deleteConfirm": {
       "title": "Удалить цену",
+      "message": "Удалить запись цены за {date}?",
       "confirmLabel": "Удалить"
     }
   },

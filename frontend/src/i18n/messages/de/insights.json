@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "KI nicht konfiguriert",
-    "message": "Es ist kein KI-Anbieter konfiguriert. Um Ausgaben-Insights zu nutzen, {link} Sie bitte in Ihren Einstellungen.",
-    "linkText": "konfigurieren Sie einen KI-Anbieter"
+    "message": "Es ist kein KI-Anbieter konfiguriert. Um Ausgaben-Insights zu nutzen, {link} Sie bitte in Ihren Einstellungen."
   },
   "insightTypes": {
     "anomaly": "Anomalie",

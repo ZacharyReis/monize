@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import '@/lib/zodConfig';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect, useMemo, MutableRefObject } from 'react';
+import { useState, useEffect, useMemo, useCallback, MutableRefObject } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Combobox } from '@/components/ui/Combobox';
 import { Modal } from '@/components/ui/Modal';
@@ -18,7 +18,7 @@ import { institutionsApi } from '@/lib/institutions';
 import { Institution } from '@/types/institution';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
-import { Account, PaymentFrequency } from '@/types/account';
+import { Account, PaymentFrequency, InterestBookingMode } from '@/types/account';
 import { Category } from '@/types/category';
 import { accountsApi } from '@/lib/accounts';
 import { categoriesApi } from '@/lib/categories';
@@ -28,6 +28,7 @@ import { useNumberFormat } from '@/hooks/useNumberFormat';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { createLogger } from '@/lib/logger';
 import { getErrorMessage } from '@/lib/errors';
+import { TOUR_ANCHORS, tourAnchor } from '@/lib/tours/anchors';
 import { LoanFields } from './LoanFields';
 import { MortgageFields } from './MortgageFields';
 import { AssetFields } from './AssetFields';
@@ -53,15 +54,30 @@ const optionalNumberWithRange = (min: number, max: number) =>
     z.number().min(min).max(max).optional()
   );
 
-// Treats the empty-string placeholder from an unselected <Select> as undefined so
-// the optional enum accepts it instead of surfacing a raw "Invalid option:
-// expected one of ..." Zod message (see issue #785). Required-ness is enforced
-// per account type in the superRefine below with localized messages.
-const emptyToUndefined = (val: unknown) =>
-  val === '' || val === undefined ? undefined : val;
-
 const paymentFrequencies = ['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
 const mortgagePaymentFrequencies = ['MONTHLY', 'SEMI_MONTHLY', 'BIWEEKLY', 'ACCELERATED_BIWEEKLY', 'WEEKLY', 'ACCELERATED_WEEKLY'] as const;
+
+// An optional enum that maps any value outside its allowed set to undefined
+// rather than failing validation. This also absorbs the empty-string
+// placeholder from an unselected <Select> (issue #785); required-ness is
+// enforced per account type in the superRefine below with localized messages.
+// It further matters on the edit form: a mortgage
+// stores its (often accelerated/semi-monthly) cadence in the same
+// paymentFrequency column, which is not a member of the loan-only enum. The
+// frequency field is not rendered while editing, so a stored value like
+// ACCELERATED_BIWEEKLY loaded as the paymentFrequency default would otherwise
+// make the base schema reject the form, silently blocking submit with no
+// visible error. Coercing it to undefined lets the form save; the cleanup in
+// AccountFormModal drops the undefined field from the payload, so the stored
+// frequency round-trips untouched.
+const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
+  z.preprocess(
+    (val: unknown) =>
+      typeof val === 'string' && (values as readonly string[]).includes(val)
+        ? val
+        : undefined,
+    z.enum(values).optional(),
+  );
 
 const buildAccountSchema = (t: (key: string) => string, isEditing: boolean) => z.object({
   name: z.string().min(1, t('validation.nameRequired')).max(255),
@@ -83,7 +99,7 @@ const buildAccountSchema = (t: (key: string) => string, isEditing: boolean) => z
   interestRate: optionalNumberWithRange(0, 100),
   description: z.string().optional(),
   accountNumber: z.string().optional(),
-  institutionId: z.string().optional(),
+  institutionId: z.string().nullable().optional(),
   isFavourite: z.boolean().optional(),
   excludeFromNetWorth: z.boolean().optional(),
   createInvestmentPair: z.boolean().optional(),
@@ -92,10 +108,16 @@ const buildAccountSchema = (t: (key: string) => string, isEditing: boolean) => z
   statementSettlementDay: optionalNumberWithRange(1, 31),
   // Loan-specific fields
   paymentAmount: optionalNumber,
-  paymentFrequency: z.preprocess(emptyToUndefined, z.enum(paymentFrequencies).optional()),
+  paymentFrequency: optionalEnum(paymentFrequencies),
   paymentStartDate: z.string().optional(),
   sourceAccountId: z.string().optional(),
   interestCategoryId: z.string().optional(),
+  interestBookingMode: z.enum(['AUTO', 'SPLIT', 'SEPARATE']).optional(),
+  overpaymentCategoryId: z.string().optional(),
+  overpaymentMemo: z.string().max(255).optional(),
+  overpaymentPayeeId: z.string().optional(),
+  // Foreign-transaction fee (percentage)
+  fxFeePercent: optionalNumberWithRange(0, 100),
   // Asset-specific fields
   assetCategoryId: z.string().optional(),
   dateAcquired: z.string().optional(),
@@ -104,7 +126,7 @@ const buildAccountSchema = (t: (key: string) => string, isEditing: boolean) => z
   isVariableRate: z.boolean().optional(),
   termMonths: optionalNumber,
   amortizationMonths: optionalNumber,
-  mortgagePaymentFrequency: z.preprocess(emptyToUndefined, z.enum(mortgagePaymentFrequencies).optional()),
+  mortgagePaymentFrequency: optionalEnum(mortgagePaymentFrequencies),
 }).superRefine((data, ctx) => {
   // Loan and mortgage payment setup is only collected when creating the account
   // (the payment fields are hidden while editing), so only enforce these on
@@ -182,6 +204,9 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
   const [selectedAssetCategoryId, setSelectedAssetCategoryId] = useState<string>(account?.assetCategoryId || '');
   const [assetCategoryName, setAssetCategoryName] = useState<string>('');
   const [selectedInterestCategoryId, setSelectedInterestCategoryId] = useState<string>(account?.interestCategoryId || '');
+  const [interestBookingMode, setInterestBookingMode] = useState<InterestBookingMode>(account?.interestBookingMode || 'AUTO');
+  const [selectedOverpaymentCategoryId, setSelectedOverpaymentCategoryId] = useState<string>(account?.overpaymentCategoryId || '');
+  const [selectedOverpaymentPayeeId, setSelectedOverpaymentPayeeId] = useState<string>(account?.overpaymentPayeeId || '');
   const [showLoanSetupDialog, setShowLoanSetupDialog] = useState(false);
   const [hasScheduledPayment, setHasScheduledPayment] = useState(!!account?.scheduledTransactionId);
   // Currency becomes locked once the account has any transactions so existing
@@ -199,7 +224,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
     control,
     setValue,
     getValues,
-    formState: { errors, isSubmitting, isDirty },
+    formState: { errors, isSubmitting, isDirty, dirtyFields },
   } = useForm<AccountFormData>({
     resolver: zodResolver(buildAccountSchema(t, !!account)) as Resolver<AccountFormData>,
     defaultValues: account
@@ -230,6 +255,11 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           paymentStartDate: account.paymentStartDate?.split('T')[0] || undefined,
           sourceAccountId: account.sourceAccountId || undefined,
           interestCategoryId: account.interestCategoryId || undefined,
+          interestBookingMode: account.interestBookingMode || 'AUTO',
+          overpaymentCategoryId: account.overpaymentCategoryId || undefined,
+          overpaymentMemo: account.overpaymentMemo || undefined,
+          overpaymentPayeeId: account.overpaymentPayeeId || undefined,
+          fxFeePercent: account.fxFeePercent ?? undefined,
           assetCategoryId: account.assetCategoryId || undefined,
           dateAcquired: account.dateAcquired?.split('T')[0] || undefined,
           isCanadianMortgage: account.isCanadianMortgage || false,
@@ -250,7 +280,26 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
 
   useFormDirtyNotify(isDirty, onDirtyChange);
 
-  useFormSubmitRef(submitRef, handleSubmit, onSubmit);
+  // Retain the account's stored institution unless the user actually changed
+  // the Institution field. The institution combobox marks the field dirty only
+  // on real interaction (selecting, clearing, or creating an institution), so
+  // an untouched edit of any other property omits institutionId entirely and
+  // the backend keeps the stored value -- the form can never clobber it. Only
+  // an explicit change or removal (which dirties the field, null on a clear) is
+  // sent through (issue #806). Omitting rather than resending the loaded value
+  // also avoids overwriting the stored institution with a stale form value.
+  const handleValidatedSubmit = useCallback(
+    (data: AccountFormData) => {
+      if (account && !dirtyFields.institutionId) {
+        const { institutionId: _untouched, ...rest } = data;
+        return onSubmit(rest);
+      }
+      return onSubmit(data);
+    },
+    [account, dirtyFields.institutionId, onSubmit],
+  );
+
+  useFormSubmitRef(submitRef, handleSubmit, handleValidatedSubmit);
 
   const watchedCurrency = useWatch({ control, name: 'currencyCode' });
   const watchedIsFavourite = useWatch({ control, name: 'isFavourite' });
@@ -311,7 +360,15 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
 
   const handleInstitutionChange = (value: string) => {
     setSelectedInstitutionId(value);
-    setValue('institutionId', value || undefined, { shouldDirty: true });
+    // The combobox only reports changes from real user interaction, so an
+    // empty value here means the user explicitly cleared the field. When
+    // editing, encode that as null -- the explicit "clear the stored
+    // institution" signal -- so the submit layer never has to infer a clear
+    // from a merely absent value (issue #806). On create there is nothing to
+    // clear, so an empty selection stays undefined and is stripped on submit.
+    setValue('institutionId', value || (account ? null : undefined), {
+      shouldDirty: true,
+    });
   };
 
   const handleInstitutionCreate = (name: string) => {
@@ -380,26 +437,26 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
     }));
   }, [currencies, defaultCurrency]);
 
-  // Load accounts and categories when LOAN, MORTGAGE, LINE_OF_CREDIT, or ASSET type is selected
-  // For assets: always (to allow editing the value change category)
-  // For loans/mortgages: for new creation or when editing accounts that need payment setup
+  // Load accounts and categories when LOAN, MORTGAGE, LINE_OF_CREDIT, or ASSET
+  // type is selected (for the source-account and value-change/interest category
+  // pickers). Other account types don't need them.
   const isLineOfCreditAccount = watchedAccountType === 'LINE_OF_CREDIT';
   useEffect(() => {
-    const shouldLoadForLoan = isLoanAccount;
-    const shouldLoadForMortgage = isMortgageAccount;
-    const shouldLoadForLineOfCredit = isLineOfCreditAccount;
-    const shouldLoadForAsset = isAssetAccount;
+    const needData =
+      isLoanAccount || isMortgageAccount || isLineOfCreditAccount || isAssetAccount;
+    if (!needData) return;
 
-    if (shouldLoadForLoan || shouldLoadForMortgage || shouldLoadForLineOfCredit || shouldLoadForAsset) {
-      const loadData = async () => {
-        try {
-          const [accountsData, categoriesData] = await Promise.all([
-            accountsApi.getAll(false),
-            categoriesApi.getAll(),
-          ]);
+    const loadData = async () => {
+      try {
+        const [categoriesData, accountsData] = await Promise.all([
+          categoriesApi.getAll(),
+          accountsApi.getAll(false),
+        ]);
+        setCategories(categoriesData);
+        if (accountsData) {
           // Filter out loan and mortgage accounts from source account options
           setAccounts(accountsData.filter(a => a.accountType !== 'LOAN' && a.accountType !== 'MORTGAGE'));
-          setCategories(categoriesData);
+        }
 
           if (isLoanAccount && !account) {
             // Find default loan interest category
@@ -435,12 +492,11 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
               }
             }
           }
-        } catch (error) {
-          logger.error('Failed to load accounts/categories:', error);
-        }
-      };
-      loadData();
-    }
+      } catch (error) {
+        logger.error('Failed to load accounts/categories:', error);
+      }
+    };
+    loadData();
   }, [isLoanAccount, isMortgageAccount, isLineOfCreditAccount, isAssetAccount, account, setValue, getValues]);
 
   const toggleFavourite = () => {
@@ -460,12 +516,42 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
     }
   };
 
+  const handleViewLoanDetails = () => {
+    if (account) {
+      const accountId = account.id;
+      // Close the modal first so its history entry is cleaned up before
+      // navigating. Without this, the Modal's unmount cleanup calls
+      // history.back() which navigates away from the account detail page.
+      onCancel();
+      setTimeout(() => {
+        router.push(`/accounts/${accountId}#rate-history`);
+      }, 100);
+    }
+  };
+
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Handle interest category selection (for loan/mortgage)
   const handleInterestCategoryChange = (categoryId: string) => {
     setSelectedInterestCategoryId(categoryId);
     setValue('interestCategoryId', categoryId || '', { shouldDirty: true, shouldValidate: true });
+  };
+
+  const handleInterestBookingModeChange = (mode: InterestBookingMode) => {
+    setInterestBookingMode(mode);
+    setValue('interestBookingMode', mode, { shouldDirty: true, shouldValidate: true });
+  };
+
+  // Overpayment recognition: category and payee that mark a payment as a
+  // standalone overpayment (100% principal). Saved with the account on submit.
+  const handleOverpaymentCategoryChange = (categoryId: string) => {
+    setSelectedOverpaymentCategoryId(categoryId);
+    setValue('overpaymentCategoryId', categoryId || '', { shouldDirty: true, shouldValidate: true });
+  };
+
+  const handleOverpaymentPayeeChange = (payeeId: string) => {
+    setSelectedOverpaymentPayeeId(payeeId);
+    setValue('overpaymentPayeeId', payeeId || '', { shouldDirty: true, shouldValidate: true });
   };
 
   // Handle asset category selection
@@ -542,7 +628,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleValidatedSubmit)} className="space-y-4">
       <Input
         label={t('form.accountName')}
         error={errors.name?.message}
@@ -625,6 +711,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           onChange={handleInstitutionChange}
           onCreateNew={handleInstitutionCreate}
           allowCustomValue
+          valueIsId
           usePortal
           alwaysShowSubtitle
           error={errors.institutionId?.message}
@@ -695,6 +782,26 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
         </div>
       )}
 
+      {/* Foreign Currency Conversion Fee: the bank's FX fee (a percentage),
+          folded into the converted amount on foreign-entered transactions. */}
+      <div className="space-y-3" {...tourAnchor(TOUR_ANCHORS.accountFxFeePercent)}>
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {t('form.fxFeeTitle')}
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label={`${t('form.fxFeePercent')} (%)`}
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            placeholder={t('form.fxFeePercentPlaceholder')}
+            error={errors.fxFeePercent?.message}
+            {...register('fxFeePercent', { valueAsNumber: true })}
+          />
+        </div>
+      </div>
+
       {isLoanAccount && !account && (
         <LoanFields
           currencySymbol={currencySymbol}
@@ -712,6 +819,12 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           formatCurrency={formatCurrency}
           selectedInterestCategoryId={selectedInterestCategoryId}
           handleInterestCategoryChange={handleInterestCategoryChange}
+          interestBookingMode={interestBookingMode}
+          handleInterestBookingModeChange={handleInterestBookingModeChange}
+          selectedOverpaymentCategoryId={selectedOverpaymentCategoryId}
+          handleOverpaymentCategoryChange={handleOverpaymentCategoryChange}
+          selectedOverpaymentPayeeId={selectedOverpaymentPayeeId}
+          handleOverpaymentPayeeChange={handleOverpaymentPayeeChange}
         />
       )}
 
@@ -723,6 +836,7 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           paymentStartDate={watchedPaymentStartDate}
           isCanadianMortgage={watchedIsCanadianMortgage}
           isVariableRate={watchedIsVariableRate}
+          onViewLoanDetails={account ? handleViewLoanDetails : undefined}
           termMonths={watchedTermMonths}
           amortizationMonths={watchedAmortizationMonths}
           mortgagePaymentFrequency={watchedMortgagePaymentFrequency}
@@ -735,6 +849,12 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
           isEditing={!!account}
           selectedInterestCategoryId={selectedInterestCategoryId}
           handleInterestCategoryChange={handleInterestCategoryChange}
+          interestBookingMode={interestBookingMode}
+          handleInterestBookingModeChange={handleInterestBookingModeChange}
+          selectedOverpaymentCategoryId={selectedOverpaymentCategoryId}
+          handleOverpaymentCategoryChange={handleOverpaymentCategoryChange}
+          selectedOverpaymentPayeeId={selectedOverpaymentPayeeId}
+          handleOverpaymentPayeeChange={handleOverpaymentPayeeChange}
         />
       )}
 
@@ -895,7 +1015,14 @@ export function AccountForm({ account, onSubmit, onCancel, onDirtyChange, submit
         )}
       </div>
 
-      <FormActions onCancel={onCancel} submitLabel={account ? t('form.updateAccount') : t('form.createAccount')} isSubmitting={isSubmitting} />
+      {/* anchorProps, not a wrapper: it rings the Cancel/Save pair itself, so a
+          guided tour highlights the buttons rather than the full-width row. */}
+      <FormActions
+        anchorProps={tourAnchor(TOUR_ANCHORS.accountFormActions)}
+        onCancel={onCancel}
+        submitLabel={account ? t('form.updateAccount') : t('form.createAccount')}
+        isSubmitting={isSubmitting}
+      />
 
       {account && (
         <AccountExportModal

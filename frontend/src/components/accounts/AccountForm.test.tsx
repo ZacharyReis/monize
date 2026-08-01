@@ -6,6 +6,7 @@ import { Account } from '@/types/account';
 import { exchangeRatesApi } from '@/lib/exchange-rates';
 import { accountsApi } from '@/lib/accounts';
 import { categoriesApi } from '@/lib/categories';
+import { institutionsApi } from '@/lib/institutions';
 
 vi.mock('@/lib/accounts', () => ({
   accountsApi: {
@@ -212,9 +213,12 @@ function createExistingAccount(overrides: Partial<Account> = {}): Account {
     sourceAccountId: null,
     principalCategoryId: null,
     interestCategoryId: null,
+    interestBookingMode: 'AUTO',
+    overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
     scheduledTransactionId: null,
     assetCategoryId: null,
     dateAcquired: null,
+    linkedLoanAccountId: null,
     isCanadianMortgage: false,
     isVariableRate: false,
     termMonths: null,
@@ -585,6 +589,158 @@ describe('AccountForm', () => {
       expect(screen.getByText('Lender/Institution (required)')).toBeInTheDocument();
     });
     expect(screen.queryByText('Institution (optional)')).not.toBeInTheDocument();
+  });
+
+  it('omits institutionId on submit when the field is untouched, so the backend keeps it (issue #806)', async () => {
+    vi.mocked(institutionsApi.getAll).mockResolvedValueOnce([
+      { id: 'inst-1', name: 'RBC', website: 'rbc.com' } as never,
+    ]);
+    const account = createExistingAccount({ institutionId: 'inst-1' });
+
+    render(
+      <AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('RBC')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Update Account/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+    // Untouched -> not sent at all, so the stored institution is retained.
+    expect(mockOnSubmit.mock.calls[0][0]).not.toHaveProperty('institutionId');
+  });
+
+  it('retains the institution when editing another field and leaving institution untouched', async () => {
+    vi.mocked(institutionsApi.getAll).mockResolvedValueOnce([
+      { id: 'inst-1', name: 'RBC', website: 'rbc.com' } as never,
+    ]);
+    const account = createExistingAccount({ institutionId: 'inst-1' });
+
+    render(
+      <AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('RBC')).toBeInTheDocument();
+    });
+
+    // Edit an unrelated field (the account name) without touching institution.
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('My Chequing'), {
+        target: { value: 'Renamed Chequing' },
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Update Account/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+    const payload = mockOnSubmit.mock.calls[0][0];
+    expect(payload.name).toBe('Renamed Chequing');
+    // The institution must not be overwritten by an edit that never touched it.
+    expect(payload).not.toHaveProperty('institutionId');
+  });
+
+  it('retains the institution even when the institutions list fails to load', async () => {
+    // Institutions never populate, so the combobox cannot resolve the stored id
+    // to a label. An untouched edit must still not clear the institution.
+    vi.mocked(institutionsApi.getAll).mockResolvedValueOnce([] as never);
+    const account = createExistingAccount({ institutionId: 'inst-1' });
+
+    render(
+      <AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('My Chequing')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Update Account/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+    expect(mockOnSubmit.mock.calls[0][0]).not.toHaveProperty('institutionId');
+  });
+
+  it('submits an explicit null when the user clears the institution while editing', async () => {
+    vi.mocked(institutionsApi.getAll).mockResolvedValueOnce([
+      { id: 'inst-1', name: 'RBC', website: 'rbc.com' } as never,
+    ]);
+    const account = createExistingAccount({ institutionId: 'inst-1' });
+
+    render(
+      <AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('RBC')).toBeInTheDocument();
+    });
+
+    // Click the combobox's clear (X) button next to the institution input
+    const institutionInput = screen.getByDisplayValue('RBC');
+    const clearButton = institutionInput.parentElement!.querySelector('button');
+    expect(clearButton).not.toBeNull();
+    await act(async () => {
+      fireEvent.mouseDown(clearButton!);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Update Account/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+    expect(mockOnSubmit.mock.calls[0][0].institutionId).toBeNull();
+  });
+
+  it('saves a MORTGAGE edit whose stored frequency is an accelerated cadence (not in the loan enum)', async () => {
+    // Regression: a mortgage stores its cadence in paymentFrequency, and
+    // accelerated/semi-monthly values are not members of the loan-only enum.
+    // Loaded as the (unrendered) paymentFrequency default on the edit form,
+    // such a value used to fail base-schema validation and silently block
+    // submit -- "Update Account" did nothing.
+    const account = createExistingAccount({
+      accountType: 'MORTGAGE',
+      name: 'Home Mortgage',
+      paymentFrequency: 'ACCELERATED_BIWEEKLY',
+      interestRate: 5,
+      paymentAmount: 1200,
+      amortizationMonths: 300,
+      paymentStartDate: '2024-01-01',
+      originalPrincipal: 400000,
+    });
+
+    render(
+      <AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Update Account/i })).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Update Account/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+    // The unrendered loan-only frequency field is dropped rather than sent,
+    // so the stored mortgage cadence round-trips untouched.
+    expect(mockOnSubmit.mock.calls[0][0].paymentFrequency).toBeUndefined();
   });
 
   it('blocks new MORTGAGE submit with localized required errors and no raw Zod enum message', async () => {
@@ -1230,6 +1386,7 @@ describe('AccountForm', () => {
     const account = createExistingAccount({
       accountType: 'ASSET',
       dateAcquired: '2022-01-01T00:00:00Z',
+      linkedLoanAccountId: null,
     });
     render(<AccountForm account={account} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     await waitFor(() => {
@@ -1319,6 +1476,8 @@ describe('AccountForm', () => {
     const existingLoan = createExistingAccount({
       accountType: 'LOAN',
       interestCategoryId: 'loan-int',
+      interestBookingMode: 'AUTO',
+      overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
     });
     render(<AccountForm account={existingLoan} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     await waitFor(() => {

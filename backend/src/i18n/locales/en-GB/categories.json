@@ -1,0 +1,14 @@
+{
+  "defaults": {
+    "food": {
+      "sub": {
+        "takeout": "Takeaway"
+      }
+    },
+    "transportation": {
+      "sub": {
+        "publicTransit": "Public Transport"
+      }
+    }
+  }
+}

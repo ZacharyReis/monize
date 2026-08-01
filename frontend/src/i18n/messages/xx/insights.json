@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "[XX-AI Not Configured-XX]",
-    "message": "[XX-No AI provider is configured. To use Spending Insights, please {link} in your settings.-XX]",
-    "linkText": "[XX-configure an AI provider-XX]"
+    "message": "[XX-No AI provider is configured. To use Spending Insights, please {link} in your settings.-XX]"
   },
   "insightTypes": {
     "anomaly": "[XX-Anomaly-XX]",

@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "[XX-Next-XX]",
+    "back": "[XX-Back-XX]",
+    "done": "[XX-Done-XX]",
+    "endTour": "[XX-End tour-XX]",
+    "tryIt": "[XX-Try it — the tour continues once you do-XX]",
+    "skipStep": "[XX-Skip this step-XX]",
+    "move": "[XX-Move this card — drag it, or nudge it with the arrow keys-XX]",
+    "stepCounter": "[XX-{current} of {total}-XX]",
+    "skippedTitle": "[XX-Tour finished-XX]",
+    "skippedBody": "[XX-Some steps were skipped because their screen or control wasn't available. You can retake the tour anytime from Settings.-XX]"
+  },
+  "offer": {
+    "heading": "[XX-Take a quick tour-XX]",
+    "subheading": "[XX-Short walkthroughs of what's new in this release. This dialog steps aside while a tour runs and comes back when it ends.-XX]",
+    "showMe": "[XX-Show me-XX]",
+    "viewed": "[XX-Viewed-XX]",
+    "introTitle": "[XX-New here? Take the introduction tour-XX]",
+    "introSubtitle": "[XX-A quick walkthrough of the basics.-XX]"
+  },
+  "areas": {
+    "intro": "[XX-Getting started-XX]",
+    "transactions": "[XX-Transactions-XX]",
+    "accounts": "[XX-Accounts-XX]",
+    "budgets": "[XX-Budgets-XX]",
+    "reports": "[XX-Reports-XX]",
+    "settings": "[XX-Settings-XX]"
+  },
+  "gettingStarted": {
+    "takeTour": "[XX-Take the tour-XX]",
+    "retakeTour": "[XX-Retake the tour-XX]"
+  },
+  "settings": {
+    "title": "[XX-Guided tours-XX]",
+    "description": "[XX-Walk through the app's features step by step.-XX]",
+    "showList": "[XX-Show tours ({count})-XX]",
+    "hideList": "[XX-Hide tours-XX]",
+    "start": "[XX-Start-XX]",
+    "restart": "[XX-Retake-XX]",
+    "statusNotViewed": "[XX-Not viewed-XX]",
+    "statusDismissed": "[XX-Left early-XX]",
+    "reset": "[XX-Reset tour progress-XX]",
+    "resetSuccess": "[XX-Tour progress reset.-XX]",
+    "resetError": "[XX-Couldn't reset tour progress. Please try again.-XX]"
+  },
+  "intro": {
+    "basics": {
+      "title": "[XX-Introduction to Monize-XX]",
+      "steps": {
+        "welcome": {
+          "title": "[XX-Welcome to Monize-XX]",
+          "body": "[XX-This quick tour shows you around the core of the app. You can leave anytime by pressing **Escape** or **End tour**.-XX]"
+        },
+        "dashboard": {
+          "title": "[XX-Your dashboard-XX]",
+          "body": "[XX-This is your dashboard. Use the **Customize** button in the top-right to rearrange or hide widgets so the summaries you care about sit right at the top.-XX]"
+        },
+        "tools": {
+          "title": "[XX-The Tools menu-XX]",
+          "body": "[XX-The **Tools** menu is where you manage the building blocks of your finances — payees, categories, currencies, tags and more.-XX]"
+        },
+        "accounts": {
+          "title": "[XX-Your accounts-XX]",
+          "body": "[XX-Add your bank, credit card, loan, and investment accounts here with the highlighted button. Every balance and transaction belongs to an account.-XX]"
+        },
+        "transactions": {
+          "title": "[XX-Transactions-XX]",
+          "body": "[XX-This is your transaction register — every payment and deposit for your accounts lives here, ready to search and filter.-XX]"
+        },
+        "createTransaction": {
+          "title": "[XX-Record a transaction-XX]",
+          "body": "[XX-Add income or spending with **New Transaction**. Go ahead and open the form.-XX]"
+        },
+        "fields": {
+          "title": "[XX-Payee and category-XX]",
+          "body": "[XX-For each transaction you pick a payee and assign a category. Categories are what power your budgets and reports; the amount comes next.-XX]"
+        },
+        "splits": {
+          "title": "[XX-Split a transaction-XX]",
+          "body": "[XX-One purchase covering several categories? Use **Split** to divide a single transaction across categories — groceries and household from one shop, say.-XX]"
+        },
+        "currencyField": {
+          "title": "[XX-Amount and currency-XX]",
+          "body": "[XX-Enter what the transaction cost here. Paid in another currency? Set the entry currency beside the amount and type it as charged — Monize converts it to the account currency for you.-XX]"
+        },
+        "closeForm": {
+          "title": "[XX-Close the form to continue-XX]",
+          "body": "[XX-Close the transaction form with **Cancel**, or save it with the other button, and the tour will move on.-XX]"
+        },
+        "bills": {
+          "title": "[XX-Bills & Deposits-XX]",
+          "body": "[XX-Schedule recurring bills and deposits so upcoming payments are forecast and nothing slips through the cracks.-XX]"
+        },
+        "investments": {
+          "title": "[XX-Investments-XX]",
+          "body": "[XX-Track your holdings, prices, and returns across your investment accounts.-XX]"
+        },
+        "budgets": {
+          "title": "[XX-Plan with budgets-XX]",
+          "body": "[XX-Budgets let you set monthly targets per category and track how you're doing against them.-XX]"
+        },
+        "reports": {
+          "title": "[XX-Understand your money-XX]",
+          "body": "[XX-Reports turn your transactions into charts — spending by category, net worth over time, and more.-XX]"
+        },
+        "finish": {
+          "title": "[XX-You're all set-XX]",
+          "body": "[XX-That's the tour. You can retake it anytime from the **Guided tours** section in **Settings**.-XX]"
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "[XX-Foreign currency transactions-XX]",
+        "steps": {
+          "welcome": {
+            "title": "[XX-Track spending in other currencies-XX]",
+            "body": "[XX-Bought something abroad? This tour sets up an account's foreign-transaction fee, records a purchase in the currency you were charged, and shows where those costs turn up. Leave anytime with **Escape** or **End tour**.-XX]"
+          },
+          "openAccountEdit": {
+            "title": "[XX-Start with the account-XX]",
+            "body": "[XX-Foreign-transaction fees belong to the account. Pick the account you pay with abroad — a credit or debit card, or whatever your phone pays from — and choose **Edit** from its row actions, or long-press the row on mobile, to open its settings.-XX]"
+          },
+          "fxFeePercent": {
+            "title": "[XX-Set the conversion fee-XX]",
+            "body": "[XX-Enter the account's foreign-transaction fee here as a percentage — 2.5, say. Monize folds it into the converted amount of every foreign purchase, so the fee is captured for you.-XX]"
+          },
+          "closeAccountForm": {
+            "title": "[XX-Save and close-XX]",
+            "body": "[XX-Use these buttons to finish: **Update Account** saves the fee, **Cancel** closes without saving. Either way the tour carries on.-XX]"
+          },
+          "newTransaction": {
+            "title": "[XX-Record a foreign purchase-XX]",
+            "body": "[XX-Now log a purchase you made with that account in another currency. Open **New Transaction** and pick it as the account.-XX]"
+          },
+          "chooseAccount": {
+            "title": "[XX-Check the account and date-XX]",
+            "body": "[XX-The conversion fee belongs to the account, so make sure **Account** is the account you just set it on — change it here if not. Set **Date** to the day of the purchase too: the exchange rate is looked up for that date.-XX]"
+          },
+          "enterDetails": {
+            "title": "[XX-Enter the details-XX]",
+            "body": "[XX-Fill in the payee and category just like any other transaction. The foreign-currency part comes next.-XX]"
+          },
+          "entryCurrency": {
+            "title": "[XX-Choose the currency you paid in-XX]",
+            "body": "[XX-Open this and pick the currency you were charged in. Only your own currency in the list? Choose **Add currency...** at the bottom to add one — it's selected for you straight away.-XX]"
+          },
+          "enterAmount": {
+            "title": "[XX-Enter the amount you were charged-XX]",
+            "body": "[XX-Type the total exactly as it appears on your statement. Monize looks up the **exchange rate** for the transaction's date, shows the converted total beside it, and folds in the **foreign-transaction fee** you set on the account — the caption below spells out both. Bank rounded differently? Edit the rate or the converted total to match to the cent.-XX]"
+          },
+          "closeTransactionForm": {
+            "title": "[XX-Close the form-XX]",
+            "body": "[XX-Same here: save the transaction with the submit button, or close it with **Cancel**, and the tour continues.-XX]"
+          },
+          "openAccountDetail": {
+            "title": "[XX-Back to the account-XX]",
+            "body": "[XX-Open that account's Details page — choose **Details** from its row actions — to see how the foreign activity is summarized.-XX]"
+          },
+          "fxSection": {
+            "title": "[XX-Your foreign-currency section-XX]",
+            "body": "[XX-Accounts with foreign activity gain this section: the fees paid per currency, a chart over time, and the matching transactions, exportable to CSV and PNG. It appears once the account has a foreign purchase.-XX]",
+            "fallbackBody": "[XX-This account has no foreign-currency activity yet, so the section is not on its page. Record a purchase in another currency on it and the section appears: fees paid per currency, a chart over time, and CSV and PNG exports.-XX]"
+          },
+          "report": {
+            "title": "[XX-The Foreign-Currency Fees report-XX]",
+            "body": "[XX-This report gathers foreign purchases across all your accounts and currencies in one place, so you can see what those \"no foreign fee\" cards really cost. Open it anytime from **Reports**.-XX]",
+            "fallbackBody": "[XX-The **Foreign-Currency Fees** report gathers foreign purchases across all your accounts and currencies in one place. It is not on screen right now — a search or a category filter can hide it — but you will find it in **Reports**.-XX]"
+          },
+          "finish": {
+            "title": "[XX-That's foreign currency in Monize-XX]",
+            "body": "[XX-Set a fee once, enter purchases as charged, and the fees track themselves. You can retake this tour anytime from the **Guided tours** section in **Settings**.-XX]"
+          }
+        }
+      },
+      "settings": {
+        "title": "[XX-What's New digest-XX]",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "[XX-Release highlights-XX]",
+            "body": "[XX-This toggle controls whether the What's New summary pops up automatically after an update.-XX]"
+          },
+          "appVersion": {
+            "title": "[XX-Reread the notes-XX]",
+            "body": "[XX-Click the **version label** at the bottom of **Settings** anytime to reopen the release notes.-XX]"
+          },
+          "done": {
+            "title": "[XX-That's it-XX]",
+            "body": "[XX-You can revisit these highlights whenever you like from here in Settings.-XX]"
+          }
+        }
+      }
+    }
+  }
+}

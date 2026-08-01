@@ -2,16 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@/test/render';
 import { InsightsList } from './InsightsList';
 
+const mockGetStatus = vi.fn();
 const mockGetInsights = vi.fn();
 const mockGenerateInsights = vi.fn();
 const mockDismissInsight = vi.fn();
+const mockGetRelayStatus = vi.fn();
 
 vi.mock('@/lib/ai', () => ({
   aiApi: {
-    getStatus: vi.fn().mockResolvedValue({ configured: true }),
+    getStatus: (...args: unknown[]) => mockGetStatus(...args),
     getInsights: (...args: unknown[]) => mockGetInsights(...args),
     generateInsights: (...args: unknown[]) => mockGenerateInsights(...args),
     dismissInsight: (...args: unknown[]) => mockDismissInsight(...args),
+    // Used by the RelayStatusBar tunnel indicator when the relay is active.
+    getRelayStatus: (...args: unknown[]) => mockGetRelayStatus(...args),
   },
 }));
 
@@ -37,12 +41,17 @@ describe('InsightsList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    mockGetStatus.mockResolvedValue({
+      configured: true,
+      relayActive: false,
+    });
     mockGetInsights.mockResolvedValue({
       insights: [],
       total: 0,
       lastGeneratedAt: null,
       isGenerating: false,
     });
+    mockGetRelayStatus.mockResolvedValue({ state: 'listening', queued: 0 });
   });
 
   afterEach(async () => {
@@ -330,6 +339,55 @@ describe('InsightsList', () => {
         ),
       ).toBeInTheDocument();
     });
+  });
+
+  it('shows the relay connection status without blocking generation when the relay is active', async () => {
+    mockGetStatus.mockResolvedValue({
+      configured: true,
+      relayActive: true,
+    });
+
+    await renderInsights();
+
+    // Live tunnel status from the shared RelayStatusBar, polled via getRelayStatus.
+    await waitFor(() => {
+      expect(screen.getByText('MCP Agent listening')).toBeInTheDocument();
+    });
+    expect(mockGetRelayStatus).toHaveBeenCalled();
+    // Generation stays available: it is served by the connected relay agent
+    expect(screen.getByText('Refresh Insights')).not.toBeDisabled();
+    expect(screen.getByText('Generate Insights')).toBeInTheDocument();
+  });
+
+  it('reveals the same connect help as the AI Assistant when the relay is active', async () => {
+    mockGetStatus.mockResolvedValue({
+      configured: true,
+      relayActive: true,
+    });
+
+    await renderInsights();
+
+    await waitFor(() => {
+      expect(screen.getByText('How to connect')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('How to connect'));
+    });
+
+    expect(
+      screen.getByText(/claude mcp add --transport http monize/),
+    ).toBeInTheDocument();
+  });
+
+  it('does not show the relay status bar for a native provider', async () => {
+    await renderInsights();
+
+    await waitFor(() => {
+      expect(screen.getByText('Generate Insights')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('How to connect')).not.toBeInTheDocument();
+    expect(mockGetRelayStatus).not.toHaveBeenCalled();
   });
 
   it('passes filter parameters to API', async () => {

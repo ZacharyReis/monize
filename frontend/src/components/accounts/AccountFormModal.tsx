@@ -90,13 +90,15 @@ export function AccountFormModal({ formModal, onSaved }: AccountFormModalProps) 
       // When editing, a cleared optional field must reach the backend as null
       // so the stored value is overwritten. Left as '' or undefined it would be
       // stripped by the cleanup below and the field would silently keep its old
-      // value (e.g. removing a description or institution would not save).
+      // value (e.g. removing a description would not save). Only always-rendered
+      // plain text inputs belong here, where an empty submitted value can only
+      // mean the user emptied the field. institutionId must NOT be inferred
+      // from absence: the form submits an explicit null when the user clears
+      // the institution combobox, and force-nulling a merely absent value
+      // wiped the institution from investment cash accounts on unrelated
+      // edits (issue #806).
       if (editingItem) {
-        const clearableFields = [
-          'description',
-          'accountNumber',
-          'institutionId',
-        ] as const;
+        const clearableFields = ['description', 'accountNumber'] as const;
         for (const key of clearableFields) {
           if (
             (cleanedData[key] === '' || cleanedData[key] === undefined) &&
@@ -104,6 +106,18 @@ export function AccountFormModal({ formModal, onSaved }: AccountFormModalProps) 
           ) {
             cleanedData[key] = null;
           }
+        }
+
+        // Foreign-transaction fee: an emptied value on edit must reach the
+        // backend as null so a previously configured fee is cleared rather than
+        // silently retained (null survives the strip-empties cleanup below).
+        const feePercentEmpty =
+          cleanedData.fxFeePercent === undefined ||
+          cleanedData.fxFeePercent === '' ||
+          (typeof cleanedData.fxFeePercent === 'number' &&
+            isNaN(cleanedData.fxFeePercent));
+        if (feePercentEmpty && editingItem.fxFeePercent != null) {
+          cleanedData.fxFeePercent = null;
         }
       }
 

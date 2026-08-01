@@ -1,0 +1,19 @@
+{
+  "title": "添付ファイル",
+  "empty": "添付ファイルはまだありません",
+  "upload": "添付ファイルを追加",
+  "download": "ダウンロード",
+  "delete": "削除",
+  "remove": "取り除く",
+  "pendingHint": "ファイルは取引を保存したときにアップロードされます。",
+  "deleteConfirmTitle": "添付ファイルを削除しますか？",
+  "deleteConfirmMessage": "「{name}」は完全に削除されます。",
+  "uploaded": "添付ファイルを追加しました",
+  "deleted": "添付ファイルを削除しました",
+  "loadFailed": "添付ファイルの読み込みに失敗しました",
+  "uploadFailed": "添付ファイルのアップロードに失敗しました",
+  "deleteFailed": "添付ファイルの削除に失敗しました",
+  "tooLarge": "ファイルが大きすぎます（最大 {max}）",
+  "unsupported": "サポートされていないファイル形式です。使用可能: 画像または PDF",
+  "tooMany": "1件の取引につき添付ファイルは最大 {max} 件までです"
+}

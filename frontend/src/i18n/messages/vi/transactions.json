@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "Tổng chi tiêu",
+    "income": "Thu nhập",
+    "net": "Ròng",
+    "transactions": "Giao tác",
+    "averageAmount": "Số tiền trung bình",
+    "lastTransaction": "Giao tác gần nhất",
+    "defaultCategory": "Danh mục mặc định",
+    "nextBill": "Hóa đơn tiếp theo",
+    "viewBills": "Xem trong Hóa đơn & Tiền gửi",
+    "topCategories": "Danh mục hàng đầu",
+    "uncategorized": "Chưa phân loại",
+    "aliases": "Bí danh",
+    "recurring": "Định kỳ: {cadence} · {amount}",
+    "recurringTooltip": "Được phát hiện từ các khoản thanh toán lặp lại trong khoảng thời gian đã chọn (hoặc 12 tháng gần nhất nếu không có bộ lọc ngày).",
+    "cadence": {
+      "weekly": "Hàng tuần",
+      "biweekly": "Mỗi 2 tuần",
+      "monthly": "Hàng tháng",
+      "quarterly": "Hàng quý",
+      "yearly": "Hàng năm"
+    },
+    "inactive": "Không hoạt động",
+    "noTransactions": "Không có giao tác trong khoảng thời gian này",
+    "editAria": "Chỉnh sửa người nhận",
+    "collapseAria": "Ẩn thông tin người nhận",
+    "show": "Hiển thị thông tin người nhận"
+  },
+  "categoryWidget": {
+    "totalSpent": "Tổng chi tiêu",
+    "totalEarned": "Tổng thu nhập",
+    "income": "Thu nhập",
+    "expense": "Chi tiêu",
+    "budgetThisMonth": "Ngân sách tháng này",
+    "budgetProgress": "{spent} trên {budgeted}",
+    "transactions": "Giao tác",
+    "averageAmount": "Số tiền trung bình",
+    "monthlyAverage": "Trung bình hàng tháng",
+    "subcategories": "Danh mục con",
+    "thisCategory": "Danh mục này",
+    "topPayees": "Người nhận hàng đầu",
+    "noPayee": "Không có người nhận",
+    "nextScheduled": "Lịch tiếp theo",
+    "noTransactions": "Không có giao tác trong khoảng thời gian này",
+    "editAria": "Chỉnh sửa danh mục",
+    "collapseAria": "Ẩn thông tin danh mục",
+    "show": "Hiển thị thông tin danh mục"
+  },
   "accountWidget": {
     "currentBalance": "Số tiền còn lại",
     "nextPayment": "Lần thanh toán tiếp theo",
     "viewBills": "Xem trong Hóa đơn & Tiền gửi",
+    "viewDetailsAria": "Xem chi tiết tài khoản",
     "type": "Loại",
     "accountNumber": "Số tài khoản",
     "currency": "Tiền tệ",
@@ -27,7 +76,8 @@
       "duplicateTitle": "Sao chép giao tác",
       "newTitle": "Giao tác mới",
       "scheduleTitle": "Lên lịch định kỳ",
-      "editPayeeTitle": "Chỉnh sửa người nhận"
+      "editPayeeTitle": "Chỉnh sửa người nhận",
+      "editCategoryTitle": "Chỉnh sửa danh mục"
     },
     "loading": "Đang tải giao tác...",
     "totalCount": "{count, plural, one {# giao tác} other {# giao tác}}",
@@ -54,9 +104,13 @@
       "refNumber": "Số tham chiếu",
       "tags": "Thẻ",
       "amount": "Số tiền",
+      "currency": "Tiền tệ",
+      "paidAmount": "Số tiền đã trả",
+      "feePaid": "Phí đã trả",
       "balance": "Số tiền còn lại",
       "status": "Trạng thái",
-      "actions": "Hành động"
+      "actions": "Hành động",
+      "attachments": "Tệp đính kèm"
     },
     "today": "Hôm nay",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "Bạn có chắc muốn xóa giao tác này? Không thể hoàn tác.",
       "success": "Giao tác đã bị xóa",
       "transferSuccess": "Chuyển khoản đã bị xóa",
-      "error": "Không thể xóa giao tác"
+      "error": "Không thể xóa giao tác",
+      "reconciledWarning": "Giao dịch này đã được điều hoà, vì vậy việc xoá sẽ ảnh hưởng đến một lần điều hoà đã hoàn tất."
     },
     "status": {
       "voidError": "Chỉnh sửa giao tác để thay đổi trạng thái từ Hủy bỏ",
@@ -90,7 +145,6 @@
       "cleared": "Đã xong",
       "reconciled": "Đã điều hoà",
       "void": "Hủy bỏ",
-      "unreconciledDense": "C",
       "clearedDense": "X",
       "reconciledDense": "Đ",
       "voidDense": "H",
@@ -118,7 +172,8 @@
       "editButton": "Chỉnh sửa",
       "deleteButton": "Xóa"
     },
-    "itemNamePlural": "giao tác"
+    "itemNamePlural": "giao tác",
+    "attachmentsCount": "{count, plural, other {# tệp đính kèm}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "Số tiền từ",
       "amountTo": "Số tiền đến",
       "status": "Trạng thái",
-      "search": "Tìm kiếm"
+      "search": "Tìm kiếm",
+      "tagKey": "Khóa thẻ",
+      "tagKeyOp": "Điều kiện",
+      "tagKeyValue": "Giá trị",
+      "currency": "Tiền tệ",
+      "hasAttachments": "Tệp đính kèm"
     },
     "placeholders": {
       "accounts": "Tất cả tài khoản",
@@ -176,7 +236,8 @@
       "statuses": "Tất cả trạng thái",
       "amountMin": "Tối thiểu",
       "amountMax": "Tối đa",
-      "search": "Tìm kiếm người nhận, danh mục, số tiền, thẻ, mô tả, số tham chiếu..."
+      "search": "Tìm kiếm người nhận, danh mục, số tiền, thẻ, mô tả, số tham chiếu...",
+      "tagKeyValue": "ví dụ: usa"
     },
     "chips": {
       "removeAccount": "Xóa bộ lọc {name}",
@@ -189,7 +250,11 @@
       "dateFrom": "Từ {date}",
       "dateUntil": "Đến {date}",
       "amountFrom": "Từ {amount}",
-      "amountUpTo": "Đến {amount}"
+      "amountUpTo": "Đến {amount}",
+      "removeCurrency": "Xóa bộ lọc tiền tệ {name}",
+      "hasAttachments": "Có tệp đính kèm",
+      "noAttachments": "Không có tệp đính kèm",
+      "removeAttachments": "Xóa bộ lọc tệp đính kèm"
     },
     "bulkUpdate": "Cập nhật hàng loạt",
     "cancelBulk": "Hủy hàng loạt",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "Chọn khoảng thời gian...",
+      "allDates": "Tất cả ngày",
       "today": "Hôm nay",
       "yesterday": "Hôm qua",
       "thisWeek": "Tuần này",
       "lastWeek": "Tuần trước",
+      "last30Days": "30 ngày qua",
       "monthToDate": "Tháng đến nay",
       "lastMonth": "Tháng trước",
+      "last365Days": "365 ngày qua",
       "yearToDate": "Năm đến nay",
       "lastYear": "Năm ngoái",
       "custom": "Tùy chọn"
+    },
+    "tagKeyNone": "Bất kỳ (không lọc theo khóa)",
+    "tagKeyOps": {
+      "hasValue": "Có giá trị",
+      "noValue": "Không có giá trị",
+      "contains": "Giá trị chứa",
+      "notContains": "Giá trị không chứa"
+    },
+    "hasAttachmentsOptions": {
+      "any": "Bất kỳ",
+      "yes": "Có",
+      "no": "Không"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "Tạo {mode}",
     "submitUpdate": "Cập nhật {mode}",
+    "reconciledConfirm": {
+      "title": "Chỉnh sửa giao dịch đã điều hoà?",
+      "message": "Giao dịch này đã được điều hoà. Việc thay đổi sẽ ảnh hưởng đến một lần điều hoà đã hoàn tất. Bạn vẫn muốn lưu các thay đổi chứ?",
+      "confirm": "Lưu thay đổi"
+    },
     "modeLabel": {
       "transfer": "Chuyển khoản",
       "transaction": "Giao tác"
@@ -300,6 +385,7 @@
     "transferAmountNote": "Số tiền phải là dương cho chuyển khoản",
     "amountReceivedNote": "Số tiền nhận sau khi quy đổi tiền tệ",
     "splitTransaction": "Chia giao tác",
+    "splitDisabledDuringTour": "Không khả dụng trong lúc hướng dẫn",
     "newTagTitle": "Thẻ mới",
     "toasts": {
       "transferCreated": "Chuyển khoản đã được tạo",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "Không thể kích hoạt lại người nhận",
       "categoryCreated": "Danh mục \"{name}\" đã được tạo",
       "categoryCreateFailed": "Không thể tạo danh mục",
-      "tagCreated": "Thẻ \"{name}\" đã được tạo"
+      "tagCreated": "Thẻ \"{name}\" đã được tạo",
+      "fxRateRequired": "Nhập tỷ giá hoặc số tiền đã quy đổi trước khi lưu giao dịch bằng ngoại tệ.",
+      "attachmentsUploadFailed": "Đã lưu giao tác, nhưng {count} tệp đính kèm tải lên không thành công"
     },
     "ariaHistory": "Hiển thị giao tác gần đây",
     "ariaHistoryForPayee": "Hiển thị giao tác gần đây cho người nhận này",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "Tiền tệ nhập",
+      "ariaLabel": "Thay đổi tiền tệ nhập",
+      "title": "Nhập số tiền bằng",
+      "accountCurrency": "Tiền tệ tài khoản ({code})",
+      "addCurrency": "Thêm tiền tệ...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "Không thể thêm tiền tệ",
+      "reactivated": "Đã kích hoạt lại {code}"
+    },
+    "fx": {
+      "noRateWarning": "Không tìm thấy tỷ giá từ {from} sang {to} vào {date}. Vui lòng nhập số tiền đã quy đổi theo cách thủ công.",
+      "usingLatestRateHint": "Đang dùng tỷ giá mới nhất hiện có (không phải ngày {date}).",
+      "displayToggle": {
+        "account": "Tài khoản",
+        "original": "Gốc"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "Bao gồm phí giao dịch nước ngoài {percent}% ({fee}).",
+      "totalInCurrency": "Tổng bằng {currency}"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "Chọn tài khoản...",
     "memoPlaceholder": "Ghi nhớ tùy chọn",
     "mobileMemoPlaceholder": "Ghi nhớ",
-    "tagsPlaceholder": "Thẻ..."
+    "tagsPlaceholder": "Thẻ...",
+    "currencyToggle": {
+      "title": "Chuyển đổi tiền tệ dùng để hiển thị và chỉnh sửa các khoản chia",
+      "ariaAmountsIn": "Hiển thị và chỉnh sửa các khoản chia bằng {code}"
+    }
   },
   "recentPopover": {
     "recentForPayee": "Gần đây cho {name}",
@@ -397,15 +510,33 @@
       "current": "Hiện tại",
       "ending": "Kết thúc",
       "lowest": "Thấp nhất",
-      "minBalance": "Số dư tối thiểu"
+      "minBalance": "Số dư tối thiểu",
+      "projected": "Dự kiến",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "Tất cả tài khoản đã chọn đều có số dư bằng 0, nên không có biểu đồ số dư để hiển thị."
     },
     "monthlyTotals": {
       "title": "Tổng hàng tháng",
       "noData": "Không có dữ liệu giao tác",
       "monthlyAvg": "Trung bình tháng",
+      "quarterlyAvg": "Trung bình quý",
+      "yearlyAvg": "Trung bình năm",
       "total": "Tổng",
       "transactions": "Giao tác",
-      "tooltip": "{count, plural, one {# giao tác} other {# giao tác}}"
+      "tooltip": "{count, plural, one {# giao tác} other {# giao tác}}",
+      "quarterLabel": "Q{quarter} {year}",
+      "quarterTick": "Q{quarter} {year}",
+      "granularityLabel": "Nhóm theo",
+      "granularity": {
+        "auto": "Tự động",
+        "month": "Tháng",
+        "quarter": "Quý",
+        "year": "Năm"
+      },
+      "granularityAutoTitle": "Tự động ({granularity})",
+      "granularityTitle": "Xem theo {label}"
     },
     "accountBalances": {
       "title": "Số dư tài khoản",
@@ -430,9 +561,16 @@
     "loadFailed": "Không thể tải giao tác",
     "loadPayeeFailed": "Không thể tải chi tiết người nhận",
     "payeeUpdateFailed": "Không thể cập nhật người nhận",
+    "categoryUpdated": "Danh mục đã được cập nhật thành công",
+    "categoryUpdateFailed": "Không thể cập nhật danh mục",
     "exportFailed": "Không thể xuất giao tác"
   },
   "validation": {
     "dateRequired": "Ngày là bắt buộc"
+  },
+  "tagKeyBreakdown": {
+    "title": "Chi tiêu theo {key}",
+    "other": "Khác",
+    "noData": "Không có chi tiêu được gắn thẻ để phân tích cho khóa này."
   }
 }

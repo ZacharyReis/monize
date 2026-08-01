@@ -74,6 +74,7 @@ const DEFAULT_CSV_COLUMN_MAPPING: CsvColumnMappingConfig = {
 
 export function useImportWizard() {
   const t = useTranslations('import');
+  const tc = useTranslations('common');
   const searchParams = useSearchParams();
   const preselectedAccountId = searchParams.get('accountId');
   const defaultCurrency = usePreferencesStore((s) => s.preferences?.defaultCurrency) || 'USD';
@@ -1000,9 +1001,17 @@ export function useImportWizard() {
       { value: '', label: 'Skip (no transfer)' },
       ...transferableAccounts
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((a) => ({ value: a.id, label: `${a.name} (${formatAccountType(a.accountType)})` })),
+        .map((a) => ({ value: a.id, label: `${a.name} (${formatAccountType(a.accountType, tc)})` })),
     ];
   };
+
+  const accountTypeOptions = useMemo(
+    () => ACCOUNT_TYPE_OPTIONS.map((option) => ({
+      ...option,
+      label: tc(`accountTypes.${option.value}` as Parameters<typeof tc>[0]),
+    })),
+    [tc],
+  );
 
   const isInvestmentImport = parsedData?.accountType === 'INVESTMENT' ||
     (isBulkImport && importFiles.some((f) => f.parsedData?.accountType === 'INVESTMENT'));
@@ -1059,7 +1068,7 @@ export function useImportWizard() {
     newAccountName, setNewAccountName, newAccountType, setNewAccountType, newAccountCurrency, setNewAccountCurrency,
     isCreatingAccount, handleCreateAccount,
     categoryOptions, parentCategoryOptions, getAccountOptions,
-    accountTypeOptions: ACCOUNT_TYPE_OPTIONS, currencyOptions, getSecurityOptions, securityTypeOptions: SECURITY_TYPE_OPTIONS,
+    accountTypeOptions, currencyOptions, getSecurityOptions, securityTypeOptions: SECURITY_TYPE_OPTIONS,
     shouldShowMapAccounts, preselectedAccount,
     scrollContainerRef, dateFormat, setDateFormat, defaultCurrency,
     // Multi-account QIF

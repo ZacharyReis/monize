@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "Для цього рахунку вже налаштовано запланований платіж. Натомість відредагуйте існуючу заплановану операцію.",
     "sourceNotFound": "Рахунок-джерело не знайдено",
     "ambiguousBrokerage": "«{{ query }}» відповідає кільком брокерським рахункам: {{ list }}. Використовуйте точну назву рахунку.",
-    "unknownInvestmentAccount": "Невідомий рахунок: {{ name }}. Використовуйте точну назву зі списку рахунків користувача."
+    "unknownInvestmentAccount": "Невідомий рахунок: {{ name }}. Використовуйте точну назву зі списку рахунків користувача.",
+    "notACreditCard": "Розрахункові цикли доступні лише для рахунків кредитних карток",
+    "noStatementSettlementDay": "Для цієї кредитної картки не налаштовано розрахунковий день виписки"
   },
   "actionHistory": {
     "nothingToUndo": "Нічого скасовувати",
@@ -73,6 +75,8 @@
     "noActiveProviders": "Активних постачальників AI не налаштовано. Будь ласка, налаштуйте постачальника в налаштуваннях AI.",
     "allProvidersFailed": "Усі постачальники AI завершились з помилкою. Будь ласка, перевірте конфігурацію постачальника та спробуйте ще раз.",
     "noToolUseProvider": "Не налаштовано постачальника AI з підтримкою використання інструментів. Запити природною мовою вимагають Anthropic, OpenAI або Ollama. Будь ласка, налаштуйте один у налаштуваннях AI.",
+    "relayAgentOffline": "Ваш агент ретрансляції MCP не підключений. Підключіть агента та спробуйте ще раз.",
+    "relayCompletionTimedOut": "Ваш агент ретрансляції MCP не відповів вчасно. Переконайтеся, що він підключений, і спробуйте ще раз.",
     "baseUrlInvalidBasic": "baseUrl має бути дійсною URL-адресою HTTP або HTTPS",
     "baseUrlInvalidExternal": "baseUrl має бути дійсною URL-адресою HTTP/HTTPS, що вказує на зовнішній хост",
     "ollamaCloudApiKeyRequired": "apiKey обов'язковий для постачальника ollama-cloud",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "Вкладення перевищує максимальний розмір файлу.",
     "attachmentCorrupt": "Не вдалося прочитати вкладення, або це не той тип файлу, за який воно себе видає.",
     "attachmentsTooLarge": "Вкладення перевищують загальний ліміт розміру.",
+    "attachmentRefExpired": "Прикріплений файл більше недоступний. Будь ласка, завантажте його ще раз і запитайте знову.",
     "modelNoImageSupport": "Вибрана модель ШІ не може читати зображення або PDF-файли. Видаліть вкладення та поставте запитання текстом або перейдіть на модель із підтримкою зображень у налаштуваннях ШІ."
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "Невірний пароль"
   },
   "backup": {
-    "folderPathRequired": "Перед увімкненням автоматичного резервного копіювання необхідно вказати шлях до папки",
     "folderNotExist": "Папка не існує: {{ safePath }}",
     "folderAccessError": "Неможливо отримати доступ до папки: {{ safePath }}",
     "pathNotDirectory": "Шлях не є директорією: {{ safePath }}",
-    "notConfigured": "Автоматичне резервне копіювання не налаштовано. Спочатку вкажіть шлях до папки.",
     "userNotFound": "Користувача {{ userId }} не знайдено",
     "encryptedPasswordDecryptFailed": "Зашифровані резервні копії увімкнено, але збережений пароль не вдалося розшифрувати. Повторно увімкніть шифрування в налаштуваннях безпеки.",
     "pathTraversal": "Виявлено обхід шляху: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "Недійсний токен CSRF",
     "demoModeRestricted": "Ця дія недоступна в демонстраційному режимі.",
     "serviceNotReady": "Служба не готова",
-    "oauthProviderNotInitialized": "Постачальника OAuth не ініціалізовано"
+    "oauthProviderNotInitialized": "Постачальника OAuth не ініціалізовано",
+    "invalidCurrencyCode": "Недійсний код валюти: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "Валюта «{{ code }}» вже є у вашому списку",
     "notFound": "Валюту «{{ code }}» не знайдено",
     "cannotModifySystem": "Неможливо змінити метадані системної валюти",
     "cannotModifyOther": "Неможливо змінити валюту іншого користувача",
-    "inUse": "Валюта «{{ code }}» використовується вашими рахунками, цінними паперами або іншими записами. Натомість деактивуйте її."
+    "inUse": "Валюта «{{ code }}» використовується вашими рахунками, цінними паперами або іншими записами. Натомість деактивуйте її.",
+    "invalidRateDate": "date має бути у форматі РРРР-ММ-ДД",
+    "alreadyInListInactive": "Валюта «{{ code }}» вже є у вашому списку, але зараз неактивна. Активуйте її, щоб використовувати."
   },
   "delegation": {
     "delegatedAccessInvalid": "Делегований доступ більше не дійсний",
@@ -254,6 +260,7 @@
     "passwordBreached": "Цей пароль знайдено у витоку даних. Будь ласка, виберіть інший пароль."
   },
   "http": {
+    "forbidden": "Доступ заборонено",
     "tooManyRequests": "Забагато запитів. Будь ласка, зачекайте кілька хвилин і спробуйте ще раз.",
     "duplicateRecord": "Запис із цим значенням вже існує",
     "referencedRecord": "Пов'язаний запис не існує або не може бути видалений",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate має бути у форматі YYYY-MM-DD",
     "invalidEndDate": "endDate має бути у форматі YYYY-MM-DD",
-    "invalidAccountIds": "accountIds має бути UUID через кому"
+    "invalidAccountIds": "accountIds має бути UUID через кому",
+    "invalidGranularity": "granularity має бути 'daily' або 'monthly'"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP не налаштовано. Встановіть змінні середовища SMTP.",
@@ -302,7 +310,9 @@
     "aliasNotFound": "Псевдонім з ідентифікатором {{ id }} не знайдено",
     "mergeSelf": "Неможливо об'єднати одержувача із собою",
     "autoMergeDuplicatePayee": "Одержувач присутній у більш ніж одній групі об'єднання",
-    "autoMergeSourceNotFound": "Одного або кількох вихідних одержувачів не знайдено"
+    "autoMergeSourceNotFound": "Одного або кількох вихідних одержувачів не знайдено",
+    "autoMergeGroupConflict": "Не вдалося об'єднати «{{ name }}»: значення «{{ value }}» вже використовується",
+    "autoMergeGroupFailed": "Не вдалося об'єднати «{{ name }}»"
   },
   "reports": {
     "notFound": "Звіт з ідентифікатором {{ id }} не знайдено",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "«{{ query }}» відповідає кільком цінним паперам: {{ list }}. Повторіть запит, указавши біржу.",
     "lookupNoCurrency": "Не вдалося визначити валюту для «{{ symbol }}». Додайте цінний папір вручну.",
     "noUpdateFields": "Укажіть принаймні одне поле для зміни.",
-    "allocationExceedsTotal": "Сума відсотків розподілу перевищує 100%."
+    "allocationExceedsTotal": "Сума відсотків розподілу перевищує 100%.",
+    "invalidTagKey": "Потрібен ключ тегу (1–100 символів)"
   },
   "tags": {
     "notFound": "Тег з ідентифікатором {{ id }} не знайдено",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId має бути дійсним UUID",
     "amountFromMustBeNumber": "amountFrom має бути числом",
     "amountToMustBeNumber": "amountTo має бути числом",
+    "invalidGroupBy": "groupBy має бути 'category' або 'payee'",
+    "limitMustBePositive": "limit має бути додатним числом",
+    "recurringPayeeRequired": "payeeIds є обов'язковим",
+    "recurringDatesRequired": "startDate і endDate є обов'язковими",
     "statementDateFormat": "statementDate має бути у форматі YYYY-MM-DD",
     "statementBalanceMustBeNumber": "statementBalance має бути числом",
     "categoryNotFound": "Категорію не знайдено",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "Деякі операції не знайдено або вони не належать до зазначеного рахунку",
     "cannotReconcileVoidPlural": "Неможливо узгодити анульовані операції",
     "transferSameAccount": "Рахунки-джерело та призначення мають бути різними",
-    "transferSplitFromAccountFixed": "Рахунок джерела в розділеному рядку переказу не можна змінити",
     "transferAmountNegative": "Сума переказу не повинна бути від'ємною",
     "notATransfer": "Операція не є переказом",
+    "splitTransferLegAccountLocked": "Цей переказ є частиною розбитої операції. Щоб змінити його рахунки, відредагуйте частину у вихідній операції.",
     "notFoundById": "Операцію з ідентифікатором {{ id }} не знайдено",
     "bulkUpdateNoFields": "Необхідно вказати щонайменше одне поле для оновлення",
     "payeeNotFound": "Одержувача не знайдено",
     "cannotEditTransfer": "Перекази не можна редагувати тут. Відредагуйте переказ на екрані «Транзакції».",
     "cannotEditSplit": "Розділені транзакції не можна редагувати тут. Відредагуйте розділення на екрані «Транзакції».",
-    "noUpdateFields": "Укажіть принаймні одне поле для зміни."
+    "noUpdateFields": "Укажіть принаймні одне поле для зміни.",
+    "tagKeyTooLong": "tagKey не має перевищувати 100 символів",
+    "invalidTagKeyOp": "Недійсний tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "tagKeyValue обов'язковий для contains / notContains",
+    "tagKeyRequired": "Потрібен ключ тегу (1–100 символів)",
+    "fxFieldsIncomplete": "originalAmount і originalCurrencyCode потрібно вказувати разом",
+    "fxRateRequired": "Для операції в іноземній валюті потрібен додатний курс обміну",
+    "fxSignMismatch": "originalAmount і amount повинні мати однаковий знак"
   },
   "users": {
     "userNotFound": "Користувача не знайдено",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "Неможливо видалити останній обліковий запис адміністратора. Спочатку підвищте іншого користувача.",
     "oidcReauthRequiredForDataDelete": "Для підтвердження видалення даних необхідна повторна автентифікація OIDC",
     "passwordRequiredForDataDelete": "Для підтвердження видалення даних необхідний пароль"
+  },
+  "loanScenarios": {
+    "notFound": "Сценарій кредиту з ID {{ id }} не знайдено",
+    "nameConflict": "Сценарій із назвою «{{ name }}» уже існує для цього рахунку",
+    "notLoanAccount": "Сценарії кредиту доступні лише для рахунків кредитів, іпотек і кредитних ліній",
+    "budgetWindowInverted": "Дата початку бюджетного періоду має бути не пізнішою за дату його завершення"
+  },
+  "loanRateChanges": {
+    "notFound": "Зміну ставки з ідентифікатором {{ id }} не знайдено",
+    "notLoanAccount": "Зміни ставки доступні лише для кредитних та іпотечних рахунків",
+    "duplicateDate": "Зміна ставки, що набирає чинності {{ date }}, вже існує для цього рахунку",
+    "paymentModeConflict": "Вкажіть або нову суму платежу, або recalculatePayment, але не обидва",
+    "recalculateMortgageOnly": "Перерахунок платежу доступний лише для іпотечних рахунків",
+    "insufficientData": "Недостатньо платежів з деталями відсотків для виявлення змін ставки",
+    "frequencyMismatch": "Дати платежів не збігаються з періодичністю платежів рахунку; обчислені ставки можуть бути менш точними"
+  },
+  "attachments": {
+    "notFound": "Вкладення не знайдено",
+    "transactionNotFound": "Транзакцію не знайдено",
+    "empty": "Завантажений файл порожній",
+    "fileTooLarge": "Файл перевищує максимальний розмір {{ max }} байтів",
+    "unsupportedType": "Непідтримуваний тип файлу. Дозволені типи: {{ types }}",
+    "tooMany": "Ця транзакція вже має максимальну кількість вкладень — {{ max }}"
   }
 }

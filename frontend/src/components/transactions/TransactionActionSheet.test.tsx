@@ -18,6 +18,8 @@ const tx: Transaction = {
   amount: -10,
   currencyCode: 'USD',
   exchangeRate: 1,
+  originalAmount: null,
+  originalCurrencyCode: null,
   description: null,
   referenceNumber: null,
   status: TransactionStatus.UNRECONCILED,

@@ -98,12 +98,15 @@
       "both": "Lançar nesta data deixará <b>{fromAccount}</b> em <b>{fromAmount}</b> ({fromCondition}) e <b>{toAccount}</b> em <b>{toAmount}</b> ({toCondition})."
     },
     "splitLabel": "Dividir esta transação",
+    "copyAmount": "Copiar montante",
     "referenceNumberLabel": "Número de Referência (opcional)",
     "noPriceHistory": "Ainda não existe histórico de cotações para este título. Introduza o preço manualmente.",
     "postButton": "Lançar Transação",
     "toasts": {
       "posted": "Transação lançada",
       "postFailed": "Falha ao lançar transação",
+      "amountCopied": "Montante copiado",
+      "copyFailed": "Falha ao copiar o montante",
       "quantityRequired": "A quantidade deve ser superior a zero",
       "priceRequired": "O preço deve ser superior a zero",
       "totalAmountRequired": "O montante total é obrigatório",

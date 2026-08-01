@@ -76,8 +76,24 @@ describe('categoriesApi', () => {
   it('importDefaults posts to /categories/import-defaults', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: { categoriesCreated: 10 } });
     const result = await categoriesApi.importDefaults();
-    expect(apiClient.post).toHaveBeenCalledWith('/categories/import-defaults');
+    expect(apiClient.post).toHaveBeenCalledWith('/categories/import-defaults', {});
     expect(result.categoriesCreated).toBe(10);
+  });
+
+  it('importDefaults forwards the country and language', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { categoriesCreated: 10 } });
+    await categoriesApi.importDefaults({ country: 'GB', language: 'fr' });
+    expect(apiClient.post).toHaveBeenCalledWith('/categories/import-defaults', {
+      country: 'GB',
+      language: 'fr',
+    });
+  });
+
+  it('getDefaultCountries fetches the supported country codes', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { countries: ['CA', 'GB', 'US'] } });
+    const result = await categoriesApi.getDefaultCountries();
+    expect(apiClient.get).toHaveBeenCalledWith('/categories/default-countries');
+    expect(result).toEqual(['CA', 'GB', 'US']);
   });
 
   it('getAll returns cached result on second call without hitting the API', async () => {

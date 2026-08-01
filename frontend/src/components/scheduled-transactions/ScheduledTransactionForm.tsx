@@ -1056,6 +1056,7 @@ export function ScheduledTransactionForm({
               onInputChange={handlePayeeSearch}
               onCreateNew={handlePayeeCreate}
               allowCustomValue={true}
+              valueIsId
               error={errors.payeeName?.message}
             />
             <div>
@@ -1070,6 +1071,7 @@ export function ScheduledTransactionForm({
                     onChange={handleCategoryChange}
                     onCreateNew={handleCategoryCreate}
                     allowCustomValue={true}
+                    valueIsId
                     error={errors.categoryId?.message}
                   />
                 </div>
@@ -1186,6 +1188,7 @@ export function ScheduledTransactionForm({
               onInputChange={handlePayeeSearch}
               onCreateNew={handlePayeeCreate}
               allowCustomValue={true}
+              valueIsId
               error={errors.payeeName?.message}
             />
             <CurrencyInput
@@ -1351,6 +1354,7 @@ export function ScheduledTransactionForm({
               onInputChange={handlePayeeSearch}
               onCreateNew={handlePayeeCreate}
               allowCustomValue={true}
+              valueIsId
               error={errors.payeeName?.message}
             />
             <div>
@@ -1363,6 +1367,7 @@ export function ScheduledTransactionForm({
                 onChange={handleCategoryChange}
                 onCreateNew={handleCategoryCreate}
                 allowCustomValue={true}
+                valueIsId
                 error={errors.categoryId?.message}
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

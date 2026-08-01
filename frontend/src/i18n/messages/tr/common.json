@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "v{version} sürüm notlarını görüntüle"
   },
+  "whatsNew": {
+    "title": "Yenilikler",
+    "versionLabel": "Sürüm {version}",
+    "expandAll": "Tümünü genişlet",
+    "collapseAll": "Tümünü daralt",
+    "viewFullNotes": "Tüm sürüm notlarını görüntüle",
+    "dontShowAgain": "Bir daha gösterme",
+    "showNextLogin": "Sonraki girişte göster",
+    "close": "Kapat",
+    "unavailable": "Bu sürüme ait sürüm notları mevcut değil.",
+    "englishOnly": "Aşağıdaki sürüm notları yalnızca İngilizcedir. Rehberli turlar dahil Monize'nin kendisi dil ayarınızı kullanır."
+  },
   "save": "Kaydet",
   "cancel": "İptal",
   "delete": "Sil",
@@ -65,6 +77,9 @@
     "downloadAsPng": "{filename} dosyasını PNG olarak indir",
     "unableToCapture": "Grafik görüntüsü yakalanamıyor",
     "failedToDownload": "Grafik indirilemedi"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "{filename} dosyasını CSV olarak indir"
   },
   "chartViewToggle": {
     "pieChart": "Pasta Grafik",
@@ -158,10 +173,47 @@
     "length": "Kod tam olarak 6 haneli olmalıdır",
     "digits": "Kod 6 haneli olmalıdır"
   },
-  "monthsShort": ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
-  "weekdaysShort": ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
-  "weekdaysMin": ["Pz", "Pt", "Sa", "Ça", "Pe", "Cu", "Ct"],
-  "weekdaysNarrow": ["P", "P", "S", "Ç", "P", "C", "C"],
+  "monthsShort": [
+    "Oca",
+    "Şub",
+    "Mar",
+    "Nis",
+    "May",
+    "Haz",
+    "Tem",
+    "Ağu",
+    "Eyl",
+    "Eki",
+    "Kas",
+    "Ara"
+  ],
+  "weekdaysShort": [
+    "Paz",
+    "Pzt",
+    "Sal",
+    "Çar",
+    "Per",
+    "Cum",
+    "Cmt"
+  ],
+  "weekdaysMin": [
+    "Pz",
+    "Pt",
+    "Sa",
+    "Ça",
+    "Pe",
+    "Cu",
+    "Ct"
+  ],
+  "weekdaysNarrow": [
+    "P",
+    "P",
+    "S",
+    "Ç",
+    "P",
+    "C",
+    "C"
+  ],
   "dateFormat": {
     "browserAuto": "Tarayıcı yerel ayarını kullan (otomatik algılama: {sample})",
     "custom": "Özel..."

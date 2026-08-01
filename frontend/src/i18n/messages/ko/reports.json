@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "부채 상환 일정",
       "loan-amortization": "대출 상환 일정",
       "credit-utilization": "신용 활용도",
+      "loan-overpayment-simulator": "대출 조기 상환 시뮬레이터",
       "investment-performance": "투자 성과",
       "dividend-income": "이익, 배당금 및 이자",
       "sector-weightings": "섹터 비중",
@@ -57,13 +58,14 @@
       "security-type-allocation": "유가증권 유형 배분",
       "geographic-allocation": "지역/거래소별 배분",
       "dividend-yield-growth": "배당 수익률 및 성장",
-      "security-performance": "개별 유가증권 성과",
+      "security-performance": "유가증권 성과",
       "currency-exposure": "통화 노출",
       "monte-carlo-simulation": "몬테카를로 시뮬레이션",
       "recurring-expenses": "반복 지출 추적기",
       "spending-anomalies": "지출 이상 징후",
       "weekend-weekday-spending": "주말 대 평일 지출",
       "monthly-comparison": "월별 비교",
+      "foreign-currency-fees": "해외 거래 수수료",
       "uncategorized-transactions": "미분류 거래",
       "duplicate-transactions": "중복 거래 탐색기",
       "upcoming-bills": "예정 청구서 달력",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "상환 날짜 예측과 함께 부채 감소 진행 상황을 시각화하세요.",
       "loan-amortization": "원금 대 이자 분류와 함께 주택 담보 대출 및 대출에 대한 자세한 상환 일정입니다.",
       "credit-utilization": "신용 카드 및 신용 한도 전반에 걸쳐 사용 가능한 신용을 얼마나 사용하고 있는지 확인하세요.",
+      "loan-overpayment-simulator": "대출을 선택하고 추가 상환을 시뮬레이션하여 얼마나 빨리 갚을 수 있고 이자를 얼마나 절약할 수 있는지 확인하세요.",
       "investment-performance": "시간에 따른 포트폴리오 수익, 이익/손실 및 자산 배분을 추적하세요.",
       "dividend-income": "배당금 및 이자 수익과 함께 실현 및 미실현 자본이득과 손실을 추적하세요.",
       "sector-weightings": "개별 주식 및 ETF에서 포트폴리오 섹터 노출을 분석하세요.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "보유 항목 상세 보기와 함께 자산 유형(주식, ETF, 뮤추얼 펀드, 채권)별 포트폴리오 배분을 확인하세요.",
       "geographic-allocation": "분산 투자 인사이트를 위해 거래소와 지역별로 포트폴리오 지역 노출을 분석하세요.",
       "dividend-yield-growth": "배당 수익률, 유가증권별 수익률, 전년 대비 성장률 및 지급 빈도 분석을 추적하세요.",
-      "security-performance": "가격 이력, 거래 및 수익률과 함께 개별 유가증권 성과를 심층 분석하세요.",
+      "security-performance": "유가증권의 가격 이력, 거래, 수익률을 자세히 분석하거나 여러 유가증권의 성과를 하나의 차트에서 비교하세요.",
       "currency-exposure": "통화별 포트폴리오 배분과 환율 세부 정보로 통화 위험을 이해하세요.",
       "monte-carlo-simulation": "수천 가지 무작위 수익률 경로와 저장된 시나리오 라이브러리로 미래 포트폴리오 결과를 예측하세요.",
       "recurring-expenses": "구독, 멤버십 및 반복 요금을 파악하고 모니터링하세요.",
       "spending-anomalies": "주의가 필요한 비정상적으로 큰 거래와 지출 급증을 감지하세요.",
       "weekend-weekday-spending": "습관을 이해하기 위해 요일별 지출 패턴을 분석하세요.",
       "monthly-comparison": "수익, 지출, 순자산가액 및 투자 전반에 걸쳐 이번 달과 전 달을 비교하세요.",
+      "foreign-currency-fees": "환전 수수료를 적용하는 계정 전반에 걸쳐 청구된 해외 거래 수수료를 추적하세요.",
       "uncategorized-transactions": "카테고리가 누락된 거래를 찾아 분류하세요.",
       "duplicate-transactions": "검토나 삭제가 필요한 잠재적 중복 항목을 식별하세요.",
       "upcoming-bills": "예약된 거래와 예정된 청구서 만기일의 시각적 달력입니다.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "보고서 데이터를 불러오지 못했습니다. 다시 시도해 주세요.",
     "retry": "다시 시도"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "해외 거래 수수료가 설정된 계정이 없습니다. 계정에 수수료 비율을 설정하면 해당 외화 수수료를 여기에서 추적할 수 있습니다."
   },
   "accountBalances": {
     "totalAssets": "총 자산",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "종료: ",
     "cashFlowEventPdfStarts": "시작: ",
     "cashFlowEventPdfEnds": "종료: ",
-    "cashFlowDefaultName": "현금 흐름",
     "cashFlowPerYear": "/ 년",
     "tooltipRow90th": "90번째 백분위",
     "tooltipRow75th": "75번째 백분위",
@@ -1104,6 +1110,10 @@
     "noData": "이 기간에 투자 데이터가 없습니다.",
     "tooltipPortfolio": "포트폴리오:",
     "allAccounts": "모든 계정",
+    "viewTotal": "합계",
+    "viewSecurities": "종목별",
+    "seriesCash": "현금",
+    "seriesOther": "기타 종목",
     "colDate": "날짜",
     "colPortfolioValue": "포트폴리오 가치",
     "breakdownTitle": "현재 포트폴리오 분류",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "포트폴리오 비율"
   },
   "securityPerformance": {
-    "selectPrompt": "위에서 유가증권을 선택하여 성과 세부 정보를 확인하세요.",
-    "selectSecurityPlaceholder": "유가증권 선택...",
+    "selectPrompt": "위에서 하나 이상의 유가증권을 선택하면 성과를 확인할 수 있습니다. 두 개 이상을 선택하면 하나의 차트에서 비교할 수 있습니다.",
+    "selectSecuritiesPlaceholder": "유가증권 선택...",
+    "comparisonTitle": "성과 비교",
+    "comparisonSubtitle": "선택한 각 유가증권의 누적 수익률을 최초 이용 가능 가격에서 0%로 재기준화하여 가격이나 통화와 관계없이 동일한 척도로 비교합니다.",
+    "comparisonNoData": "선택한 유가증권의 가격 기록이 없습니다.",
+    "comparisonError": "가격 기록을 불러올 수 없습니다. 다시 시도해 주세요.",
     "viewPriceChart": "가격 차트",
     "viewTransactions": "거래",
     "viewDividends": "배당금",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "총 보유 항목",
     "largestType": "최대 유형",
     "assetTypeAllocation": "자산 유형 배분",
-    "typeStocks": "주식",
-    "typeEtfs": "ETF",
-    "typeMutualFunds": "뮤추얼 펀드",
-    "typeBonds": "채권",
-    "typeCash": "현금",
     "holdingsCount": "{count, plural, one {# 개의 계정} other {# 개의 계정}}",
     "total": "합계",
     "tooltipHoldings": "{count, plural, one {# 개의 보유 항목} other {# 개의 보유 항목}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "이름은 필수입니다"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "대출 계좌 선택",
+    "viewTransactions": "거래 보기",
+    "empty": "대출, 주택담보대출 또는 신용한도 계좌를 찾을 수 없습니다."
   }
 }

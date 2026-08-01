@@ -398,11 +398,60 @@ describe("AiQueryService", () => {
       const sourcesEvent = events.find((e) => e.type === "sources");
       expect(sourcesEvent).toBeDefined();
 
-      // Tool executor should have been called
+      // Tool executor should have been called, with the (empty) attachment
+      // context threaded through for manage_transactions attachment refs.
       expect(mockToolExecutor.execute).toHaveBeenCalledWith(
         userId,
         "query_transactions",
         { startDate: "2026-01-01", endDate: "2026-01-31" },
+        { attachments: undefined },
+      );
+    });
+
+    it("forwards the current turn's attachments to the tool executor context", async () => {
+      (mockProvider.completeWithTools as jest.Mock)
+        .mockResolvedValueOnce({
+          content: "",
+          toolCalls: [{ id: "tc-1", name: "query_transactions", input: {} }],
+          usage: { inputTokens: 100, outputTokens: 50 },
+          model: "claude-sonnet-4-20250514",
+          provider: "anthropic",
+          stopReason: "tool_use",
+        })
+        .mockResolvedValueOnce({
+          content: "Done.",
+          toolCalls: [],
+          usage: { inputTokens: 200, outputTokens: 40 },
+          model: "claude-sonnet-4-20250514",
+          provider: "anthropic",
+          stopReason: "end_turn",
+        });
+
+      const attachments = [
+        {
+          kind: "image" as const,
+          mediaType: "image/png",
+          filename: "receipt.png",
+          data: Buffer.from([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01,
+          ]).toString("base64"),
+        },
+      ];
+      const events: StreamEvent[] = [];
+      for await (const event of service.executeQueryStream(
+        userId,
+        "Save this receipt",
+        undefined,
+        attachments,
+      )) {
+        events.push(event);
+      }
+
+      expect(mockToolExecutor.execute).toHaveBeenCalledWith(
+        userId,
+        "query_transactions",
+        {},
+        { attachments },
       );
     });
 

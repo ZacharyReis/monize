@@ -2,9 +2,26 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@/test/render';
 import { SecurityPriceHistory } from './SecurityPriceHistory';
 
+// The chart itself is covered by BalanceHistoryChart.test; here it stands in
+// for itself so the props the modal builds -- the title and the trade markers
+// -- can be asserted directly.
+vi.mock('@/components/transactions/BalanceHistoryChart', () => ({
+  BalanceHistoryChart: ({ title, markers }: any) => (
+    <div data-testid="price-chart">
+      {title}
+      {(markers ?? []).map((marker: any, i: number) => (
+        <span key={i} data-testid="chart-marker">
+          {marker.direction}: {marker.label}
+        </span>
+      ))}
+    </div>
+  ),
+}));
+
 vi.mock('@/lib/investments', () => ({
   investmentsApi: {
     getSecurityPrices: vi.fn(),
+    getSecurityTransactionHistory: vi.fn(),
     createSecurityPrice: vi.fn(),
     updateSecurityPrice: vi.fn(),
     deleteSecurityPrice: vi.fn(),
@@ -80,6 +97,56 @@ const mockPrices = [
   },
 ];
 
+/** `count` synthetic daily prices, newest first, as the API returns them. */
+function manyPrices(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const month = 1 + Math.floor(i / 28);
+    const day = 1 + (i % 28);
+    return {
+      id: 100 + i,
+      securityId: 'sec-1',
+      priceDate: `2025-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      openPrice: 100 + i,
+      highPrice: 101 + i,
+      lowPrice: 99 + i,
+      closePrice: 100 + i,
+      volume: 1000,
+      source: 'yahoo_finance',
+      createdAt: '2025-04-01T10:00:00Z',
+    };
+  });
+}
+
+/**
+ * Controllable IntersectionObserver. The component tears its observer down and
+ * rebuilds it on every batch, so only the most recent callback is live --
+ * `scrollToEnd` always drives that one.
+ */
+type IntersectCallback = (entries: { isIntersecting: boolean }[]) => void;
+const liveObservers: IntersectCallback[] = [];
+
+vi.stubGlobal(
+  'IntersectionObserver',
+  vi.fn(function (this: Record<string, unknown>, callback: IntersectCallback) {
+    this.observe = vi.fn(() => {
+      liveObservers.push(callback);
+    });
+    this.unobserve = vi.fn();
+    this.disconnect = vi.fn(() => {
+      const index = liveObservers.indexOf(callback);
+      if (index !== -1) liveObservers.splice(index, 1);
+    });
+  }),
+);
+
+/** Scrolls the end-of-list sentinel into view, releasing the next batch. */
+async function scrollToEnd() {
+  const callback = liveObservers[liveObservers.length - 1];
+  await act(async () => {
+    callback?.([{ isIntersecting: true }]);
+  });
+}
+
 describe('SecurityPriceHistory', () => {
   const onClose = vi.fn();
 
@@ -96,8 +163,19 @@ describe('SecurityPriceHistory', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    liveObservers.length = 0;
     window.addEventListener('unhandledrejection', swallowExpected);
     (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(mockPrices);
+    (investmentsApi.getSecurityTransactionHistory as ReturnType<typeof vi.fn>).mockResolvedValue({
+      securityId: 'sec-1',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      currencyCode: 'USD',
+      isActive: true,
+      accounts: [],
+      transactions: [],
+      currentQuantityAll: 0,
+    });
   });
 
   afterEach(() => {
@@ -344,6 +422,14 @@ describe('SecurityPriceHistory', () => {
     expect(toast.success).toHaveBeenCalledWith('Price deleted');
   });
 
+  it('names the row being deleted in the confirm dialog', async () => {
+    await renderComponent();
+
+    fireEvent.click(screen.getAllByText('Delete')[0]);
+
+    expect(screen.getByText('Delete price entry for 2025-06-01?')).toBeInTheDocument();
+  });
+
   it('does not delete when the confirm dialog is cancelled', async () => {
     await renderComponent();
 
@@ -371,6 +457,243 @@ describe('SecurityPriceHistory', () => {
 
     expect(toast.error).toHaveBeenCalledWith('Failed to delete price');
     expect(screen.getAllByText('Edit')).toHaveLength(3);
+  });
+
+  describe('paging the price table', () => {
+    const rowCount = () =>
+      document.querySelectorAll('tbody tr').length;
+
+    it('renders only the first 10 rows, with no button to press', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(
+        manyPrices(75),
+      );
+      await renderComponent();
+
+      expect(rowCount()).toBe(10);
+      expect(screen.getByText('Showing 10 of 75 prices')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /more/i })).not.toBeInTheDocument();
+    });
+
+    it('appends 50 more each time the end of the list scrolls into view', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(
+        manyPrices(75),
+      );
+      await renderComponent();
+      expect(rowCount()).toBe(10);
+
+      await scrollToEnd();
+      expect(rowCount()).toBe(60);
+      expect(screen.getByText('Showing 60 of 75 prices')).toBeInTheDocument();
+
+      // Last batch is short: 15 left, not another 50.
+      await scrollToEnd();
+      expect(rowCount()).toBe(75);
+    });
+
+    it('stops observing once every row is shown', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(
+        manyPrices(25),
+      );
+      await renderComponent();
+
+      await scrollToEnd();
+
+      expect(rowCount()).toBe(25);
+      expect(screen.queryByTestId('price-history-sentinel')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
+      expect(liveObservers).toHaveLength(0);
+    });
+
+    it('leaves the sentinel out when everything already fits on one page', async () => {
+      await renderComponent();
+
+      expect(rowCount()).toBe(3);
+      expect(screen.queryByTestId('price-history-sentinel')).not.toBeInTheDocument();
+      expect(liveObservers).toHaveLength(0);
+    });
+
+    it('charts the whole series even though the table is paged', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(
+        manyPrices(25),
+      );
+      await renderComponent();
+
+      // The chart is fed every fetched point, not just the visible rows.
+      expect(investmentsApi.getSecurityPrices).toHaveBeenCalledWith('sec-1', 9999);
+      expect(screen.getByTestId('price-chart')).toBeInTheDocument();
+      expect(rowCount()).toBe(10);
+    });
+
+    it('collapses back to the first page after a reload', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue(
+        manyPrices(25),
+      );
+      (investmentsApi.deleteSecurityPrice as ReturnType<typeof vi.fn>).mockResolvedValue(
+        undefined,
+      );
+      await renderComponent();
+
+      await scrollToEnd();
+      expect(rowCount()).toBe(25);
+
+      fireEvent.click(screen.getAllByText('Delete')[0]);
+      const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+      await act(async () => {
+        fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+      });
+
+      expect(rowCount()).toBe(10);
+    });
+
+    it('keeps the table in a single vertical scroll region -- the modal panel', async () => {
+      await renderComponent();
+
+      const scroller = document.querySelector('table')!.parentElement!;
+      // Horizontal overflow stays for narrow screens; a capped vertical
+      // scroller here would nest a second scrollbar inside the modal's.
+      expect(scroller.className).toContain('overflow-x-auto');
+      expect(scroller.className).not.toContain('overflow-y-auto');
+      expect(scroller.className).not.toContain('max-h-');
+    });
+  });
+
+  describe('mobile long-press actions', () => {
+    // The actions column is CSS-hidden below the sm breakpoint, so on a phone
+    // the row's only route to edit/delete is a press-and-hold.
+    async function longPressFirstRow() {
+      const row = screen.getByText('2025-06-01').closest('tr')!;
+      fireEvent.touchStart(row, { touches: [{ clientX: 0, clientY: 0 }] });
+      await act(async () => {
+        await new Promise((res) => setTimeout(res, 800));
+      });
+      return row;
+    }
+
+    it('hides the actions column on mobile and keeps it from the sm breakpoint up', async () => {
+      await renderComponent();
+
+      const header = screen.getByRole('columnheader', { name: 'Actions' });
+      expect(header.className).toContain('hidden');
+      expect(header.className).toContain('sm:table-cell');
+
+      const actionCell = screen.getAllByText('Edit')[0].closest('td')!;
+      expect(actionCell.className).toContain('hidden');
+      expect(actionCell.className).toContain('sm:table-cell');
+    });
+
+    it('opens the action sheet on long-press, headed by the row date and close price', async () => {
+      await renderComponent();
+      await longPressFirstRow();
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      // Sheet heading: the pressed row's date, subtitled with its close price.
+      // Both also appear in the table row, hence the duplicate counts.
+      const sheet = screen.getByRole('dialog');
+      expect(sheet.textContent).toContain('2025-06-01');
+      expect(sheet.textContent).toContain('193.50');
+    });
+
+    it('does not open the sheet when the touch moves beyond the drag threshold', async () => {
+      await renderComponent();
+
+      const row = screen.getByText('2025-06-01').closest('tr')!;
+      fireEvent.touchStart(row, { touches: [{ clientX: 0, clientY: 0 }] });
+      fireEvent.touchMove(row, { touches: [{ clientX: 50, clientY: 50 }] });
+      await act(async () => {
+        await new Promise((res) => setTimeout(res, 800));
+      });
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens the edit form from the action sheet', async () => {
+      await renderComponent();
+      await longPressFirstRow();
+
+      const sheetEdit = screen.getAllByRole('button', { name: 'Edit' }).at(-1)!;
+      await act(async () => {
+        fireEvent.click(sheetEdit);
+      });
+
+      expect(screen.getByText('Edit Price')).toBeInTheDocument();
+    });
+
+    it('deletes a price from the action sheet after confirmation', async () => {
+      (investmentsApi.deleteSecurityPrice as ReturnType<typeof vi.fn>).mockResolvedValue(
+        undefined,
+      );
+      await renderComponent();
+      await longPressFirstRow();
+
+      const sheetDelete = screen.getAllByRole('button', { name: 'Delete' }).at(-1)!;
+      await act(async () => {
+        fireEvent.click(sheetDelete);
+      });
+
+      const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+      await act(async () => {
+        fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+      });
+
+      expect(investmentsApi.deleteSecurityPrice).toHaveBeenCalledWith('sec-1', 1);
+    });
+  });
+
+  describe('price chart', () => {
+    it('charts the price series above the table', async () => {
+      await renderComponent();
+
+      // Deliberately the account balance-history chart, so the two screens
+      // read the same way; only the title and the neutral colouring differ.
+      expect(screen.getByText('Price History')).toBeInTheDocument();
+      expect(screen.getByText(/AAPL/)).toBeInTheDocument();
+    });
+
+    it('marks the days shares moved, and how many', async () => {
+      (investmentsApi.getSecurityTransactionHistory as ReturnType<typeof vi.fn>).mockResolvedValue({
+        securityId: 'sec-1',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        currencyCode: 'USD',
+        isActive: true,
+        accounts: [],
+        currentQuantityAll: 8,
+        transactions: [
+          { id: 't1', transactionDate: '2025-05-30', accountId: 'a1', accountName: 'RRSP', action: 'BUY', quantity: 10, price: 150, commission: 0, totalAmount: 1500, description: null, runningQuantityAccount: 10, runningQuantityAll: 10 },
+          { id: 't2', transactionDate: '2025-06-01', accountId: 'a1', accountName: 'RRSP', action: 'SELL', quantity: 2, price: 193, commission: 0, totalAmount: 386, description: null, runningQuantityAccount: 8, runningQuantityAll: 8 },
+          // No shares moved, so nothing to pin on the chart.
+          { id: 't3', transactionDate: '2025-06-01', accountId: 'a1', accountName: 'RRSP', action: 'DIVIDEND', quantity: null, price: null, commission: 0, totalAmount: 12, description: null, runningQuantityAccount: 8, runningQuantityAll: 8 },
+        ],
+      });
+
+      await renderComponent();
+
+      const markers = screen.getAllByTestId('chart-marker');
+      expect(markers).toHaveLength(2);
+      expect(markers[0]).toHaveTextContent('in: Bought 10 · RRSP');
+      expect(markers[1]).toHaveTextContent('out: Sold 2 · RRSP');
+    });
+
+    it('keeps the chart when the trade lookup fails', async () => {
+      (investmentsApi.getSecurityTransactionHistory as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('nope'),
+      );
+      await renderComponent();
+
+      // Markers are a nicety; the price history is the point of the modal.
+      expect(screen.getByTestId('price-chart')).toBeInTheDocument();
+      expect(screen.queryAllByTestId('chart-marker')).toHaveLength(0);
+    });
+
+    it('leaves the chart out when there is nothing to plot', async () => {
+      (investmentsApi.getSecurityPrices as ReturnType<typeof vi.fn>).mockResolvedValue([
+        mockPrices[0],
+      ]);
+      await renderComponent();
+
+      // A single point is a dot, not a history.
+      expect(screen.queryByText('Price History')).not.toBeInTheDocument();
+    });
   });
 
   describe('Force Update Prices', () => {

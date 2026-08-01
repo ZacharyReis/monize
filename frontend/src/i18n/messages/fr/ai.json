@@ -8,7 +8,15 @@
     "title": "Assistant IA",
     "expand": "Passer en plein écran",
     "collapse": "Réduire au panneau",
-    "close": "Fermer"
+    "close": "Fermer",
+    "movePanel": "Déplacer le panneau : faites-le glisser, utilisez les flèches, ou cliquez pour le placer dans le coin suivant",
+    "moveCornerTo": "Déplacer {corner}",
+    "corner": {
+      "bottom-right": "en bas à droite",
+      "bottom-left": "en bas à gauche",
+      "top-right": "en haut à droite",
+      "top-left": "en haut à gauche"
+    }
   },
   "chat": {
     "conversationSaved": "Conversation enregistrée dans votre navigateur",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "IA non configurée",
-    "message": "Aucun fournisseur IA n'est configuré. Pour utiliser l'Assistant IA, veuillez {link} dans vos paramètres.",
-    "linkText": "configurer un fournisseur IA"
+    "message": "Aucun fournisseur IA n'est configuré. Pour utiliser l'Assistant IA, veuillez {link} dans vos paramètres."
   },
   "suggestedQueries": {
     "heading": "Posez des questions sur vos finances",
@@ -70,6 +77,7 @@
     "newPayee": "(nouveau bénéficiaire)",
     "category": "Catégorie",
     "splits": "Ventilations",
+    "attachments": "Pièces jointes",
     "newCategory": "Nouvelle catégorie",
     "currentCategory": "Catégorie actuelle",
     "description": "Description",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {Aucune transaction de placement créée} one {# transaction de placement créée} other {# transactions de placement créées}}",
     "rowsSkipped": "{count, plural, one {# ligne ignorée} other {# lignes ignorées}}",
     "rowSkippedBadge": "Ignorée",
+    "reconciledBadge": "Rapproché",
+    "reconciledWarning": "Cette transaction est rapprochée. La modifier affectera un rapprochement terminé.",
     "investmentActions": {
       "BUY": "Achat",
       "SELL": "Vente",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "Assistant hors ligne",
-      "listening": "Assistant à l'écoute",
-      "busy": "Assistant en cours"
+      "offline": "Agent MCP hors ligne",
+      "listening": "Agent MCP à l'écoute",
+      "busy": "Agent MCP en cours",
+      "idle": "Déconnecté pour inactivité — reconnectez-vous pour continuer"
     },
     "howToConnect": "Comment se connecter",
     "hideHelp": "Masquer",

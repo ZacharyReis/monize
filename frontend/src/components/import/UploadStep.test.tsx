@@ -31,9 +31,12 @@ function createAccount(overrides: Partial<Account> = {}): Account {
     sourceAccountId: null,
     principalCategoryId: null,
     interestCategoryId: null,
+    interestBookingMode: 'AUTO',
+    overpaymentCategoryId: null, overpaymentMemo: null, overpaymentPayeeId: null, fxFeePercent: null,
     scheduledTransactionId: null,
     assetCategoryId: null,
     dateAcquired: null,
+    linkedLoanAccountId: null,
     isCanadianMortgage: false,
     isVariableRate: false,
     termMonths: null,
@@ -102,6 +105,28 @@ describe('UploadStep', () => {
     const input = document.getElementById('import-file') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(['content'], 'test.qif')] } });
     expect(onFileSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the wiki notice banner with links to both import guides', () => {
+    render(<UploadStep preselectedAccount={undefined} isLoading={false} onFileSelect={onFileSelect} />);
+
+    expect(screen.getByText('Before you import')).toBeInTheDocument();
+
+    const moneyLink = screen.getByRole('link', { name: 'Importing from Microsoft Money' });
+    expect(moneyLink).toHaveAttribute(
+      'href',
+      'https://github.com/kenlasko/monize/wiki/Importing-from-Microsoft-Money'
+    );
+    expect(moneyLink).toHaveAttribute('target', '_blank');
+    expect(moneyLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    const quickenLink = screen.getByRole('link', { name: 'Importing from Quicken' });
+    expect(quickenLink).toHaveAttribute(
+      'href',
+      'https://github.com/kenlasko/monize/wiki/Importing-from-Quicken'
+    );
+    expect(quickenLink).toHaveAttribute('target', '_blank');
+    expect(quickenLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('renders file input with correct accept attribute', () => {

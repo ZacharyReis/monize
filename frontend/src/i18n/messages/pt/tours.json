@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Seguinte",
+    "back": "Voltar",
+    "done": "Concluído",
+    "endTour": "Terminar visita guiada",
+    "tryIt": "Experimente — a visita guiada continua assim que o fizer",
+    "skipStep": "Ignorar este passo",
+    "stepCounter": "{current} de {total}",
+    "skippedTitle": "Visita guiada terminada",
+    "skippedBody": "Alguns passos foram ignorados porque o respetivo ecrã ou controlo não estava disponível. Pode refazer a visita guiada a qualquer momento nas Definições.",
+    "move": "Mover este cartão — arraste-o ou desloque-o com as teclas de seta"
+  },
+  "offer": {
+    "heading": "Faça uma visita guiada rápida",
+    "subheading": "Percursos rápidos pelas novidades desta versão. Esta janela sai da frente durante um percurso e regressa quando ele termina.",
+    "showMe": "Mostrar-me",
+    "viewed": "Visto",
+    "introTitle": "Novo por aqui? Faça a visita guiada de introdução",
+    "introSubtitle": "Um percurso rápido pelo essencial."
+  },
+  "areas": {
+    "intro": "Primeiros Passos",
+    "transactions": "Transações",
+    "accounts": "Contas",
+    "budgets": "Orçamentos",
+    "reports": "Relatórios",
+    "settings": "Definições"
+  },
+  "gettingStarted": {
+    "takeTour": "Fazer a visita guiada",
+    "retakeTour": "Refazer a visita guiada"
+  },
+  "settings": {
+    "title": "Visitas guiadas",
+    "description": "Percorra as funcionalidades da aplicação passo a passo.",
+    "showList": "Mostrar visitas guiadas ({count})",
+    "hideList": "Ocultar visitas guiadas",
+    "start": "Iniciar",
+    "restart": "Repetir",
+    "statusNotViewed": "Não visto",
+    "statusDismissed": "Saiu antes do fim",
+    "reset": "Repor progresso da visita guiada",
+    "resetSuccess": "Progresso da visita guiada reposto.",
+    "resetError": "Não foi possível repor o progresso da visita guiada. Tente novamente."
+  },
+  "intro": {
+    "basics": {
+      "title": "Introdução ao Monize",
+      "steps": {
+        "welcome": {
+          "title": "Bem-vindo ao Monize",
+          "body": "Esta visita guiada rápida mostra-lhe o essencial da aplicação. Pode sair a qualquer momento premindo **Escape** ou **Terminar visita guiada**."
+        },
+        "dashboard": {
+          "title": "O seu painel",
+          "body": "Este é o seu painel. Utilize o botão **Personalizar** no canto superior direito para reorganizar ou ocultar widgets, de modo a que os resumos mais importantes para si fiquem no topo."
+        },
+        "tools": {
+          "title": "O menu Ferramentas",
+          "body": "O menu **Ferramentas** é onde gere os elementos base das suas finanças — beneficiários, categorias, moedas, etiquetas e muito mais."
+        },
+        "accounts": {
+          "title": "As suas contas",
+          "body": "Adicione aqui as suas contas bancárias, de cartão de crédito, de empréstimo e de investimento com o botão destacado. Cada saldo e transação pertence a uma conta."
+        },
+        "transactions": {
+          "title": "Transações",
+          "body": "Este é o seu registo de transações — todos os pagamentos e depósitos das suas contas encontram-se aqui, prontos a pesquisar e filtrar."
+        },
+        "createTransaction": {
+          "title": "Registar uma transação",
+          "body": "Adicione uma receita ou despesa com **Nova Transação**. Avance e abra o formulário."
+        },
+        "fields": {
+          "title": "Beneficiário e categoria",
+          "body": "Para cada transação escolhe um beneficiário e atribui uma categoria. As categorias são o motor dos seus orçamentos e relatórios; o montante vem no passo seguinte."
+        },
+        "splits": {
+          "title": "Dividir uma transação",
+          "body": "Uma compra que abrange várias categorias? Utilize **Dividir Transação em Parcelas** para dividir uma única transação por várias categorias — por exemplo, mercearia e artigos para casa numa só compra."
+        },
+        "currencyField": {
+          "title": "Montante e moeda",
+          "body": "Introduza aqui o montante da transação. Pagou noutra moeda? Defina a moeda ao lado do montante e introduza-o tal como foi cobrado — o Monize converte-o para a moeda da conta por si."
+        },
+        "closeForm": {
+          "title": "Feche o formulário para continuar",
+          "body": "Feche o formulário de transação com **Cancelar**, ou guarde-a com o outro botão, e a visita guiada avançará."
+        },
+        "bills": {
+          "title": "Faturas e depósitos",
+          "body": "Agende faturas e depósitos recorrentes para que os próximos pagamentos sejam previstos e nada lhe escape."
+        },
+        "investments": {
+          "title": "Investimentos",
+          "body": "Acompanhe as suas participações, preços e rendibilidades nas suas contas de investimento."
+        },
+        "budgets": {
+          "title": "Planeie com orçamentos",
+          "body": "Os orçamentos permitem-lhe definir metas mensais por categoria e acompanhar o seu progresso em relação a elas."
+        },
+        "reports": {
+          "title": "Compreenda o seu dinheiro",
+          "body": "Os relatórios transformam as suas transações em gráficos — despesas por categoria, património líquido ao longo do tempo, e muito mais."
+        },
+        "finish": {
+          "title": "Está tudo pronto",
+          "body": "Foi assim a visita guiada. Pode refazê-la a qualquer momento na secção **Visitas guiadas**, em **Definições**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transações em moeda estrangeira",
+        "steps": {
+          "welcome": {
+            "title": "Acompanhe os gastos noutras moedas",
+            "body": "Comprou algo no estrangeiro? Esta visita configura a comissão de transação em moeda estrangeira de uma conta, regista uma compra na moeda que lhe foi cobrada e mostra onde esses custos aparecem. Pode sair a qualquer momento com **Esc** ou **Terminar visita guiada**."
+          },
+          "openAccountEdit": {
+            "title": "Comece pela conta",
+            "body": "As comissões de transação em moeda estrangeira pertencem à conta. Escolha a conta com que paga no estrangeiro — um cartão de crédito ou de débito, ou aquela que está por trás dos pagamentos com o telemóvel — e selecione **Editar** nas ações da respetiva linha, ou toque longamente na linha no telemóvel, para abrir as definições."
+          },
+          "fxFeePercent": {
+            "title": "Defina a comissão de conversão",
+            "body": "Introduza aqui a comissão de transação em moeda estrangeira da conta em percentagem — 2,5, por exemplo. O Monize incorpora-a no montante convertido de cada compra no estrangeiro, pelo que a comissão fica registada por si."
+          },
+          "closeAccountForm": {
+            "title": "Guardar e fechar",
+            "body": "Use estes botões para concluir: **Atualizar Conta** guarda a comissão, **Cancelar** fecha sem guardar. De qualquer forma, a visita continua."
+          },
+          "newTransaction": {
+            "title": "Registe uma compra no estrangeiro",
+            "body": "Registe agora uma compra que fez com essa conta noutra moeda. Abra **Nova Transação** e escolha essa conta."
+          },
+          "chooseAccount": {
+            "title": "Verifique a conta e a data",
+            "body": "A comissão de conversão pertence à conta, por isso confirme que **Conta** é a conta em que acabou de a definir — altere aqui, se não for. Defina também a **Data** para o dia da compra: a taxa de câmbio é consultada para essa data."
+          },
+          "enterDetails": {
+            "title": "Introduza os detalhes",
+            "body": "Preencha o beneficiário e a categoria tal como em qualquer outra transação. A parte da moeda estrangeira vem a seguir."
+          },
+          "entryCurrency": {
+            "title": "Escolha a moeda em que pagou",
+            "body": "Abra isto e escolha a moeda que lhe foi cobrada. Só aparece a sua própria moeda na lista? Escolha **Adicionar moeda...** no fim para adicionar uma — fica selecionada de imediato."
+          },
+          "enterAmount": {
+            "title": "Introduza o montante que lhe foi cobrado",
+            "body": "Escreva o total exatamente como aparece no seu extrato. O Monize consulta a **taxa de câmbio** para a data da transação, mostra ao lado o total convertido e incorpora a **comissão de transação em moeda estrangeira** que definiu na conta — a legenda abaixo detalha ambas. O banco arredondou de outra forma? Edite a taxa ou o total convertido para acertar ao cêntimo."
+          },
+          "closeTransactionForm": {
+            "title": "Feche o formulário",
+            "body": "O mesmo aqui: guarde a transação com o botão de submissão, ou feche-a com **Cancelar**, e a visita continua."
+          },
+          "openAccountDetail": {
+            "title": "De volta à conta",
+            "body": "Abra a página de detalhes dessa conta — escolha **Detalhes** nas ações da respetiva linha — para ver como a atividade em moeda estrangeira é resumida."
+          },
+          "fxSection": {
+            "title": "A sua secção de moeda estrangeira",
+            "body": "As contas com atividade em moeda estrangeira ganham esta secção: as comissões pagas por moeda, um gráfico ao longo do tempo e as transações correspondentes, exportáveis para CSV e PNG. Aparece assim que a conta tiver uma compra no estrangeiro.",
+            "fallbackBody": "Esta conta ainda não tem atividade em moeda estrangeira, por isso a secção não está na sua página. Registe nela uma compra noutra moeda e a secção aparece: comissões por moeda, um gráfico ao longo do tempo e exportação para CSV e PNG."
+          },
+          "report": {
+            "title": "O relatório Comissões de transação em moeda estrangeira",
+            "body": "Este relatório reúne num só lugar as compras no estrangeiro de todas as suas contas e moedas, para ver quanto custam realmente os cartões \"sem comissão no estrangeiro\". Abra-o quando quiser a partir de **Relatórios**.",
+            "fallbackBody": "O relatório **Comissões em moeda estrangeira** reúne as compras no estrangeiro de todas as suas contas e moedas num só lugar. Não está visível agora — uma pesquisa ou um filtro de categoria pode ocultá-lo — mas encontra-o em **Relatórios**."
+          },
+          "finish": {
+            "title": "Isto é a moeda estrangeira no Monize",
+            "body": "Defina a comissão uma vez, introduza as compras tal como lhe foram cobradas, e as comissões acompanham-se sozinhas. Pode repetir esta visita quando quiser na secção **Visitas guiadas** das **Definições**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Resumo de Novidades",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Destaques da versão",
+            "body": "Este interruptor controla se o resumo de Novidades aparece automaticamente depois de uma atualização."
+          },
+          "appVersion": {
+            "title": "Reler as notas",
+            "body": "Clique na etiqueta de versão no fundo das **Definições** sempre que quiser reabrir as notas de versão."
+          },
+          "done": {
+            "title": "É tudo",
+            "body": "Pode voltar a consultar estes destaques quando quiser aqui em Definições."
+          }
+        }
+      }
+    }
+  }
+}

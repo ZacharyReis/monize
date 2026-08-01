@@ -19,8 +19,8 @@ import {
 } from "./loan-amortization.util";
 import {
   calculateMortgageAmortization,
-  recalculateMortgageAfterRateChange,
   getMortgagePeriodsPerYear,
+  getPeriodicRate,
   MortgagePaymentFrequency,
   MortgageAmortizationInput,
   MortgageAmortizationResult,
@@ -28,6 +28,7 @@ import {
 import { formatDateYMD } from "../common/date-utils";
 import { roundMoney } from "../common/round.util";
 import { tr } from "../i18n/translate";
+import { LoanRateChangesService } from "../loan-rate-changes/loan-rate-changes.service";
 
 @Injectable()
 export class LoanMortgageAccountService {
@@ -42,6 +43,8 @@ export class LoanMortgageAccountService {
     private categoriesService: CategoriesService,
     @Inject(forwardRef(() => ScheduledTransactionsService))
     private scheduledTransactionsService: ScheduledTransactionsService,
+    @Inject(forwardRef(() => LoanRateChangesService))
+    private loanRateChangesService: LoanRateChangesService,
   ) {}
 
   /**
@@ -387,6 +390,12 @@ export class LoanMortgageAccountService {
     );
   }
 
+  /**
+   * Legacy mortgage-rate endpoint, now a thin wrapper over the rate-change
+   * timeline: every call records a history row (finally persisting the
+   * effective date) and, when no explicit payment is given, keeps the old
+   * recalculate-to-hold-amortization default via recalculatePayment.
+   */
   async updateMortgageRate(
     account: Account,
     userId: string,
@@ -418,95 +427,37 @@ export class LoanMortgageAccountService {
       );
     }
 
+    const rateChange = await this.loanRateChangesService.create(
+      userId,
+      account.id,
+      {
+        effectiveDate: formatDateYMD(effectiveDate),
+        annualRate: newRate,
+        newPaymentAmount: newPaymentAmount ?? null,
+        recalculatePayment: newPaymentAmount == null,
+      },
+    );
+
     const currentBalance = Math.abs(Number(account.currentBalance));
-    const startDate = account.paymentStartDate || new Date();
-    // M21: Use calendar months instead of 30-day approximation
-    const monthsElapsed = Math.max(
-      0,
-      (effectiveDate.getFullYear() - startDate.getFullYear()) * 12 +
-        (effectiveDate.getMonth() - startDate.getMonth()),
-    );
-    const remainingAmortizationMonths = Math.max(
-      12,
-      (account.amortizationMonths || 300) - monthsElapsed,
-    );
-
-    let paymentAmount: number;
-    let principalPayment: number;
-    let interestPayment: number;
-
-    if (newPaymentAmount) {
-      paymentAmount = newPaymentAmount;
-
-      const periodsPerYear = getMortgagePeriodsPerYear(
+    const paymentAmount =
+      rateChange.newPaymentAmount ?? (Number(account.paymentAmount) || 0);
+    const periodicRate = getPeriodicRate(
+      newRate,
+      getMortgagePeriodsPerYear(
         (account.paymentFrequency || "MONTHLY") as MortgagePaymentFrequency,
-      );
-      const isCanadian = account.isCanadianMortgage || false;
-      const isVariable = account.isVariableRate || false;
-
-      let periodicRate: number;
-      if (isCanadian && !isVariable) {
-        const semiAnnualRate = newRate / 100 / 2;
-        periodicRate = Math.pow(1 + semiAnnualRate, 2 / periodsPerYear) - 1;
-      } else {
-        periodicRate = newRate / 100 / periodsPerYear;
-      }
-
-      interestPayment = roundMoney(currentBalance * periodicRate);
-      principalPayment = roundMoney(paymentAmount - interestPayment);
-    } else {
-      const result = recalculateMortgageAfterRateChange(
-        currentBalance,
-        newRate,
-        remainingAmortizationMonths,
-        (account.paymentFrequency || "MONTHLY") as MortgagePaymentFrequency,
-        account.isCanadianMortgage || false,
-        account.isVariableRate || false,
-      );
-
-      paymentAmount = result.paymentAmount;
-      principalPayment = result.principalPayment;
-      interestPayment = result.interestPayment;
-    }
-
-    account.interestRate = newRate;
-    account.paymentAmount = paymentAmount;
-    await this.accountsRepository.save(account);
-
-    if (account.scheduledTransactionId) {
-      try {
-        await this.scheduledTransactionsService.update(
-          userId,
-          account.scheduledTransactionId,
-          {
-            amount: -paymentAmount,
-            splits: [
-              {
-                transferAccountId: account.id,
-                amount: -principalPayment,
-                memo: "Principal",
-              },
-              {
-                categoryId: account.interestCategoryId || undefined,
-                amount: -interestPayment,
-                memo: "Interest",
-              },
-            ],
-          },
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Could not update scheduled transaction: ${error.message}`,
-        );
-      }
-    }
+      ),
+      account.isCanadianMortgage || false,
+      account.isVariableRate || false,
+    );
+    const interestPayment = roundMoney(currentBalance * periodicRate);
+    const principalPayment = roundMoney(paymentAmount - interestPayment);
 
     return {
       newRate,
       paymentAmount,
       principalPayment,
       interestPayment,
-      effectiveDate: formatDateYMD(effectiveDate),
+      effectiveDate: rateChange.effectiveDate,
     };
   }
 }

@@ -1,0 +1,30 @@
+{
+  "title": "Phí giao tác ngoại tệ",
+  "currencyFilter": { "label": "Tiền tệ", "placeholder": "Tất cả tiền tệ" },
+  "chart": {
+    "title": "Phí theo thời gian",
+    "noData": "Chưa có giao tác ngoại tệ nào",
+    "monthlyAvg": "Trung bình tháng",
+    "quarterlyAvg": "Trung bình quý",
+    "yearlyAvg": "Trung bình năm",
+    "total": "Tổng phí",
+    "transactions": "Giao tác",
+    "tooltip": "{count, plural, one {# giao tác} other {# giao tác}}",
+    "quarterLabel": "Q{quarter} {year}",
+    "quarterTick": "Q{quarter} {year}",
+    "granularityLabel": "Nhóm theo",
+    "granularity": { "auto": "Tự động", "month": "Tháng", "quarter": "Quý", "year": "Năm" },
+    "granularityAutoTitle": "Tự động ({granularity})",
+    "granularityTitle": "Xem theo {label}"
+  },
+  "list": {
+    "title": "Giao tác ngoại tệ",
+    "editTitle": "Chỉnh sửa giao tác",
+    "investmentLinked": "Giao tác này được liên kết với một khoản đầu tư. Đang mở trình chỉnh sửa đầu tư.",
+    "export": {
+      "success": "{count, plural, one {Đã xuất # giao tác} other {Đã xuất # giao tác}}",
+      "none": "Không có giao tác để xuất",
+      "failed": "Không thể xuất giao tác"
+    }
+  }
+}

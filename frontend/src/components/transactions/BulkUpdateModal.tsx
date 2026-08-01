@@ -222,6 +222,7 @@ export function BulkUpdateModal({
                     setValue('payeeName', name);
                   }}
                   allowCustomValue
+                  valueIsId
                 />
               )}
             />

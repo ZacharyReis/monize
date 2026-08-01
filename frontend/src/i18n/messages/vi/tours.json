@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Tiếp theo",
+    "back": "Quay lại",
+    "done": "Xong",
+    "endTour": "Kết thúc hướng dẫn",
+    "tryIt": "Thử ngay — phần hướng dẫn sẽ tiếp tục sau khi bạn thực hiện",
+    "skipStep": "Bỏ qua bước này",
+    "stepCounter": "{current} / {total}",
+    "skippedTitle": "Đã hoàn tất hướng dẫn",
+    "skippedBody": "Một số bước đã bị bỏ qua vì màn hình hoặc điều khiển tương ứng không khả dụng. Bạn có thể xem lại hướng dẫn bất cứ lúc nào từ Cài đặt.",
+    "move": "Di chuyển thẻ này — kéo thẻ, hoặc dịch bằng các phím mũi tên"
+  },
+  "offer": {
+    "heading": "Xem hướng dẫn nhanh",
+    "subheading": "Những hướng dẫn ngắn về các tính năng mới trong bản phát hành này. Cửa sổ này tạm nhường chỗ trong lúc hướng dẫn chạy và trở lại khi hướng dẫn kết thúc.",
+    "showMe": "Xem ngay",
+    "viewed": "Đã xem",
+    "introTitle": "Mới đến đây? Hãy xem hướng dẫn giới thiệu",
+    "introSubtitle": "Một hướng dẫn nhanh về những điều cơ bản."
+  },
+  "areas": {
+    "intro": "Bắt đầu",
+    "transactions": "Giao dịch",
+    "accounts": "Tài khoản",
+    "budgets": "Ngân sách",
+    "reports": "Báo cáo",
+    "settings": "Cài đặt"
+  },
+  "gettingStarted": {
+    "takeTour": "Xem hướng dẫn",
+    "retakeTour": "Xem lại hướng dẫn"
+  },
+  "settings": {
+    "title": "Hướng dẫn sử dụng",
+    "description": "Tìm hiểu các tính năng của ứng dụng theo từng bước.",
+    "showList": "Hiện hướng dẫn ({count})",
+    "hideList": "Ẩn hướng dẫn",
+    "start": "Bắt đầu",
+    "restart": "Xem lại",
+    "statusNotViewed": "Chưa xem",
+    "statusDismissed": "Đã thoát giữa chừng",
+    "reset": "Đặt lại tiến trình hướng dẫn",
+    "resetSuccess": "Đã đặt lại tiến trình hướng dẫn.",
+    "resetError": "Không thể đặt lại tiến trình hướng dẫn. Vui lòng thử lại."
+  },
+  "intro": {
+    "basics": {
+      "title": "Giới thiệu về Monize",
+      "steps": {
+        "welcome": {
+          "title": "Chào mừng đến với Monize",
+          "body": "Hướng dẫn nhanh này sẽ giới thiệu cho bạn những phần cốt lõi của ứng dụng. Bạn có thể rời khỏi bất cứ lúc nào bằng cách nhấn **Escape** hoặc **Kết thúc hướng dẫn**."
+        },
+        "dashboard": {
+          "title": "Bảng điều khiển của bạn",
+          "body": "Đây là bảng điều khiển của bạn. Dùng nút **Tùy chỉnh** ở góc trên bên phải để sắp xếp lại hoặc ẩn các tiện ích, giúp những tóm tắt bạn quan tâm nằm ngay ở trên cùng."
+        },
+        "tools": {
+          "title": "Menu Công cụ",
+          "body": "Menu **Công cụ** là nơi bạn quản lý các thành phần cơ bản trong tài chính của mình — người thụ hưởng, danh mục, loại tiền tệ, thẻ và nhiều hơn nữa."
+        },
+        "accounts": {
+          "title": "Tài khoản của bạn",
+          "body": "Thêm tài khoản ngân hàng, thẻ tín dụng, khoản vay và đầu tư của bạn tại đây bằng nút được làm nổi bật. Mọi số dư và giao dịch đều thuộc về một tài khoản."
+        },
+        "transactions": {
+          "title": "Giao dịch",
+          "body": "Đây là sổ giao dịch của bạn — mọi khoản thanh toán và tiền gửi cho các tài khoản đều nằm ở đây, sẵn sàng để tìm kiếm và lọc."
+        },
+        "createTransaction": {
+          "title": "Ghi lại một giao dịch",
+          "body": "Thêm khoản thu hoặc chi bằng **Giao tác mới**. Hãy mở biểu mẫu để thử."
+        },
+        "fields": {
+          "title": "Người thụ hưởng và danh mục",
+          "body": "Với mỗi giao dịch, bạn chọn một người thụ hưởng và gán một danh mục. Danh mục chính là yếu tố vận hành ngân sách và báo cáo của bạn; số tiền sẽ ở bước tiếp theo."
+        },
+        "splits": {
+          "title": "Chia giao tác",
+          "body": "Một lần mua hàng bao gồm nhiều danh mục? Dùng **Chia giao tác** để chia một giao dịch thành nhiều danh mục — ví dụ như hàng tạp hóa và đồ gia dụng từ cùng một cửa hàng."
+        },
+        "currencyField": {
+          "title": "Số tiền và loại tiền",
+          "body": "Nhập số tiền của giao dịch tại đây. Bạn đã trả bằng loại tiền khác? Đặt loại tiền bên cạnh số tiền và nhập theo đúng hóa đơn — Monize sẽ quy đổi sang loại tiền của tài khoản giúp bạn."
+        },
+        "closeForm": {
+          "title": "Đóng biểu mẫu để tiếp tục",
+          "body": "Đóng biểu mẫu giao dịch bằng **Hủy**, hoặc lưu lại bằng nút còn lại, và hướng dẫn sẽ tiếp tục."
+        },
+        "bills": {
+          "title": "Hóa đơn & Tiền gửi",
+          "body": "Lên lịch hóa đơn và tiền gửi định kỳ để các khoản thanh toán sắp tới được dự báo trước và không bỏ sót điều gì."
+        },
+        "investments": {
+          "title": "Đầu tư",
+          "body": "Theo dõi danh mục đầu tư, giá cả và lợi nhuận trên các tài khoản đầu tư của bạn."
+        },
+        "budgets": {
+          "title": "Lập kế hoạch với ngân sách",
+          "body": "Ngân sách cho phép bạn đặt mục tiêu hàng tháng theo từng danh mục và theo dõi mức độ bám sát mục tiêu đó."
+        },
+        "reports": {
+          "title": "Hiểu rõ tình hình tài chính",
+          "body": "Báo cáo biến giao dịch của bạn thành biểu đồ — chi tiêu theo danh mục, giá trị tài sản ròng theo thời gian, và nhiều hơn nữa."
+        },
+        "finish": {
+          "title": "Vậy là bạn đã sẵn sàng",
+          "body": "Đó là toàn bộ hướng dẫn. Bạn có thể xem lại bất cứ lúc nào từ mục **Hướng dẫn sử dụng** trong **Cài đặt**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Giao tác ngoại tệ",
+        "steps": {
+          "welcome": {
+            "title": "Theo dõi chi tiêu bằng các loại tiền tệ khác",
+            "body": "Bạn mua gì đó ở nước ngoài? Phần hướng dẫn này thiết lập phí giao tác ngoại tệ cho một tài khoản, ghi nhận một giao dịch mua theo đúng loại tiền bạn bị tính, và cho thấy các chi phí đó xuất hiện ở đâu. Bạn có thể thoát bất cứ lúc nào bằng **Esc** hoặc **Kết thúc hướng dẫn**."
+          },
+          "openAccountEdit": {
+            "title": "Bắt đầu từ tài khoản",
+            "body": "Phí giao tác ngoại tệ thuộc về tài khoản. Hãy chọn tài khoản bạn dùng để chi trả ở nước ngoài — thẻ tín dụng, thẻ ghi nợ, hay bất cứ nguồn nào điện thoại của bạn thanh toán từ đó — rồi chọn **Chỉnh sửa** trong các thao tác trên dòng của tài khoản, hoặc nhấn giữ dòng đó trên di động, để mở cài đặt."
+          },
+          "fxFeePercent": {
+            "title": "Đặt phí quy đổi",
+            "body": "Nhập phí giao tác ngoại tệ của tài khoản tại đây dưới dạng phần trăm — ví dụ 2,5. Monize gộp phí này vào số tiền đã quy đổi của mọi giao dịch mua ở nước ngoài, nên phí được ghi nhận sẵn cho bạn."
+          },
+          "closeAccountForm": {
+            "title": "Lưu và đóng",
+            "body": "Dùng các nút này để kết thúc: **Cập nhật tài khoản** lưu phí, **Hủy** đóng mà không lưu. Dù chọn cách nào, phần hướng dẫn vẫn tiếp tục."
+          },
+          "newTransaction": {
+            "title": "Ghi nhận một giao dịch mua ở nước ngoài",
+            "body": "Bây giờ hãy ghi lại một giao dịch mua bạn đã thực hiện bằng tài khoản đó bằng loại tiền khác. Mở **Giao tác mới** và chọn chính tài khoản đó."
+          },
+          "chooseAccount": {
+            "title": "Kiểm tra tài khoản và ngày",
+            "body": "Phí quy đổi thuộc về tài khoản, vì vậy hãy đảm bảo **Tài khoản** đúng là tài khoản bạn vừa đặt phí — nếu không, hãy đổi tại đây. Cũng hãy đặt **Ngày** đúng ngày mua: tỷ giá được tra cứu theo ngày đó."
+          },
+          "enterDetails": {
+            "title": "Nhập thông tin",
+            "body": "Điền người nhận và danh mục như mọi giao tác khác. Phần ngoại tệ sẽ đến ngay sau đây."
+          },
+          "entryCurrency": {
+            "title": "Chọn loại tiền bạn đã thanh toán",
+            "body": "Mở mục này và chọn loại tiền bạn bị tính. Danh sách chỉ có loại tiền của riêng bạn? Chọn **Thêm tiền tệ...** ở dưới cùng để thêm một loại — nó được chọn ngay cho bạn."
+          },
+          "enterAmount": {
+            "title": "Nhập số tiền bạn bị tính",
+            "body": "Gõ tổng số tiền đúng như trên sao kê của bạn. Monize tra **tỷ giá** theo ngày của giao tác, hiển thị tổng đã quy đổi ngay bên cạnh, và gộp **phí giao tác ngoại tệ** bạn đã đặt trên tài khoản — dòng chú thích bên dưới nêu rõ cả hai. Ngân hàng làm tròn khác? Hãy sửa tỷ giá hoặc tổng đã quy đổi cho khớp đến từng xu."
+          },
+          "closeTransactionForm": {
+            "title": "Đóng biểu mẫu",
+            "body": "Cũng vậy ở đây: lưu giao tác bằng nút gửi, hoặc đóng bằng **Hủy**, rồi phần hướng dẫn sẽ tiếp tục."
+          },
+          "openAccountDetail": {
+            "title": "Quay lại tài khoản",
+            "body": "Mở trang chi tiết của tài khoản đó — chọn **Chi tiết** trong các thao tác trên dòng của thẻ — để xem hoạt động ngoại tệ được tóm tắt ra sao."
+          },
+          "fxSection": {
+            "title": "Mục ngoại tệ của bạn",
+            "body": "Các tài khoản có hoạt động ngoại tệ sẽ có thêm mục này: phí đã trả theo từng loại tiền, biểu đồ theo thời gian, và các giao tác tương ứng, có thể xuất ra CSV và PNG. Mục này xuất hiện khi tài khoản có một giao dịch mua ở nước ngoài.",
+            "fallbackBody": "Tài khoản này chưa có hoạt động ngoại tệ nào, nên phần đó không xuất hiện trên trang của nó. Hãy ghi một giao dịch mua bằng loại tiền khác cho tài khoản này và phần đó sẽ hiện ra: phí theo từng loại tiền, biểu đồ theo thời gian, cùng xuất CSV và PNG."
+          },
+          "report": {
+            "title": "Báo cáo Phí giao tác ngoại tệ",
+            "body": "Báo cáo này tập hợp các giao dịch mua ở nước ngoài trên tất cả tài khoản và loại tiền của bạn vào một nơi, để bạn thấy những chiếc thẻ \"miễn phí giao tác nước ngoài\" thực sự tốn bao nhiêu. Mở bất cứ lúc nào từ **Báo cáo**.",
+            "fallbackBody": "Báo cáo **Phí ngoại tệ** tập hợp các giao dịch mua ở nước ngoài của mọi tài khoản và loại tiền vào một chỗ. Hiện nó không có trên màn hình — một tìm kiếm hoặc bộ lọc danh mục có thể đang ẩn nó — nhưng bạn sẽ thấy nó trong **Báo cáo**."
+          },
+          "finish": {
+            "title": "Ngoại tệ trong Monize là như vậy",
+            "body": "Đặt phí một lần, nhập các giao dịch mua đúng như bị tính, rồi phí sẽ tự được theo dõi. Bạn có thể xem lại phần hướng dẫn này bất cứ lúc nào trong mục **Hướng dẫn sử dụng** ở **Cài đặt**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Bản tin Có gì mới",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Điểm nổi bật của bản phát hành",
+            "body": "Công tắc này quyết định liệu tóm tắt Có gì mới có tự động hiện lên sau khi cập nhật hay không."
+          },
+          "appVersion": {
+            "title": "Xem lại ghi chú phát hành",
+            "body": "Nhấp vào nhãn phiên bản ở cuối trang **Cài đặt** bất cứ lúc nào để mở lại ghi chú phát hành."
+          },
+          "done": {
+            "title": "Vậy là xong",
+            "body": "Bạn có thể xem lại những điểm nổi bật này bất cứ khi nào bạn muốn ngay tại đây trong Cài đặt."
+          }
+        }
+      }
+    }
+  }
+}

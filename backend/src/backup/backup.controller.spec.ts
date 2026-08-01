@@ -4,6 +4,7 @@ import { BackupController } from "./backup.controller";
 import { BackupService } from "./backup.service";
 import { AutoBackupService } from "./auto-backup.service";
 import { BackupEncryptionService } from "./backup-encryption.service";
+import { SupportBackupService } from "./support-backup/support-backup.service";
 import { AutoBackupSettings } from "./entities/auto-backup-settings.entity";
 
 describe("BackupController", () => {
@@ -11,6 +12,7 @@ describe("BackupController", () => {
   let mockBackupService: Record<string, jest.Mock>;
   let mockAutoBackupService: Record<string, jest.Mock>;
   let mockBackupEncryption: Record<string, jest.Mock>;
+  let mockSupportBackup: Record<string, jest.Mock>;
 
   const userId = "test-user-id";
   const mockReq = {
@@ -40,6 +42,11 @@ describe("BackupController", () => {
       disable: jest.fn(),
     };
 
+    mockSupportBackup = {
+      generate: jest.fn(),
+      preview: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BackupController],
       providers: [
@@ -54,6 +61,10 @@ describe("BackupController", () => {
         {
           provide: BackupEncryptionService,
           useValue: mockBackupEncryption,
+        },
+        {
+          provide: SupportBackupService,
+          useValue: mockSupportBackup,
         },
       ],
     }).compile();
@@ -104,6 +115,63 @@ describe("BackupController", () => {
         mockRes,
         "pw",
       );
+    });
+  });
+
+  describe("supportExport", () => {
+    it("sends the generated buffer with a gzip filename", async () => {
+      const mockRes = { setHeader: jest.fn(), send: jest.fn() };
+      mockSupportBackup.generate.mockResolvedValue({
+        buffer: Buffer.from("gz"),
+        encrypted: false,
+      });
+      const dto = { multiplier: 2.5 };
+
+      await controller.supportExport(mockReq, dto as any, mockRes as any);
+
+      expect(mockSupportBackup.generate).toHaveBeenCalledWith(userId, dto);
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "application/gzip",
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "Content-Disposition",
+        expect.stringContaining(".json.gz"),
+      );
+      expect(mockRes.send).toHaveBeenCalledWith(Buffer.from("gz"));
+    });
+
+    it("uses .mzbe when the file is encrypted", async () => {
+      const mockRes = { setHeader: jest.fn(), send: jest.fn() };
+      mockSupportBackup.generate.mockResolvedValue({
+        buffer: Buffer.from("enc"),
+        encrypted: true,
+      });
+
+      await controller.supportExport(
+        mockReq,
+        { multiplier: 2.5, password: "pw" } as any,
+        mockRes as any,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "application/octet-stream",
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "Content-Disposition",
+        expect.stringContaining(".mzbe"),
+      );
+    });
+
+    it("preview delegates to the service", async () => {
+      mockSupportBackup.preview.mockResolvedValue({ samples: [] });
+      const dto = { multiplier: 2.5 };
+
+      const result = await controller.supportExportPreview(mockReq, dto as any);
+
+      expect(mockSupportBackup.preview).toHaveBeenCalledWith(userId, dto);
+      expect(result).toEqual({ samples: [] });
     });
   });
 

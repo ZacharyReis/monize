@@ -1,0 +1,19 @@
+{
+  "title": "첨부 파일",
+  "empty": "첨부 파일이 아직 없습니다",
+  "upload": "첨부 파일 추가",
+  "download": "다운로드",
+  "delete": "삭제",
+  "remove": "제거",
+  "pendingHint": "파일은 거래를 저장할 때 업로드됩니다.",
+  "deleteConfirmTitle": "첨부 파일을 삭제하시겠습니까?",
+  "deleteConfirmMessage": "\"{name}\"이(가) 영구적으로 삭제됩니다.",
+  "uploaded": "첨부 파일이 추가되었습니다",
+  "deleted": "첨부 파일이 삭제되었습니다",
+  "loadFailed": "첨부 파일을 불러오지 못했습니다",
+  "uploadFailed": "첨부 파일을 업로드하지 못했습니다",
+  "deleteFailed": "첨부 파일을 삭제하지 못했습니다",
+  "tooLarge": "파일이 너무 큽니다 (최대 {max})",
+  "unsupported": "지원되지 않는 파일 형식입니다. 허용: 이미지 또는 PDF",
+  "tooMany": "거래당 첨부 파일은 최대 {max}개까지 가능합니다"
+}

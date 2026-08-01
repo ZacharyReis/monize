@@ -8,6 +8,7 @@
     "title": "Favourite Accounts",
     "empty": "No favourite accounts yet. Mark accounts as favourites to see them here.",
     "reorder": "Reorder",
+    "dragToReorder": "Drag accounts to reorder them, or use the arrow buttons.",
     "done": "Done",
     "moveUp": "Move up",
     "moveDown": "Move down",
@@ -87,6 +88,7 @@
       "noLosers": "No losers today."
     },
     "dailyChange": "Daily change",
+    "openPriceHistory": "Price history for {symbol}",
     "refreshPrices": "Refresh prices",
     "viewPortfolio": "View portfolio",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "No favourite securities yet. Visit the <securitiesLink>Securities page</securitiesLink> and star the securities you want to track here.",
     "noPriceYet": "No price yet",
     "dailyChange": "Daily change",
+    "openPriceHistory": "Price history for {symbol}",
     "refreshPrices": "Refresh prices",
     "manage": "Manage securities"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "Expenses by Category",
     "empty": "No expense data for this period.",
-    "past30Days": "Past 30 days",
     "total": "Total",
     "uncategorized": "Uncategorized",
     "other": "Other"
   },
   "incomeExpenses": {
     "title": "Income vs Expenses",
-    "last5Weeks": "Last 5 weeks",
-    "weekOf": "Week of {date}",
     "income": "Income",
     "expenses": "Expenses",
     "net": "Net"
+  },
+  "customize": {
+    "button": "Customize",
+    "title": "Customize dashboard",
+    "description": "The layout below mirrors your dashboard: widgets flow left to right, two per row on large screens.",
+    "moveEarlier": "Move {name} earlier",
+    "moveLater": "Move {name} later",
+    "dragToReorder": "Drag widgets to rearrange them, or use the arrow buttons.",
+    "hiddenWidgets": "Hidden widgets",
+    "hide": "Hide {name}",
+    "show": "Show {name}",
+    "atLeastOne": "Select at least one widget to show on the dashboard.",
+    "reset": "Reset to default",
+    "toasts": {
+      "saveFailed": "Failed to save dashboard layout"
+    }
+  },
+  "favouriteReports": {
+    "title": "Favourite Reports",
+    "empty": "No favourite reports yet. Star reports on the Reports page to see them here.",
+    "browseReports": "Browse reports"
+  },
+  "widgets": {
+    "configure": "Configure {name}",
+    "done": "Done",
+    "configSaveFailed": "Couldn't save widget settings. Please try again.",
+    "timeframe": "Timeframe",
+    "accounts": "Accounts",
+    "chartType": "Chart type",
+    "view": "View",
+    "displayName": "Display name",
+    "description": "Description",
+    "descriptionPlaceholder": "Add an optional description",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "All"
+    }
+  },
+  "portfolioValue": {
+    "title": "Portfolio Value over Time",
+    "empty": "No investment history to show yet.",
+    "refresh": "Refresh current value"
+  },
+  "spendingByPayee": {
+    "title": "Spending by Payee",
+    "empty": "No spending in this period.",
+    "totalLabel": "Total"
+  },
+  "monthlySpendingTrend": {
+    "title": "Monthly Spending Trend",
+    "empty": "No data for this period.",
+    "expenses": "Expenses",
+    "income": "Income"
+  },
+  "incomeBySource": {
+    "title": "Income by Source",
+    "empty": "No income in this period.",
+    "totalLabel": "Total income"
+  },
+  "creditUtilizationAccounts": {
+    "title": "Credit Utilization by Account",
+    "empty": "No credit accounts with a limit set.",
+    "utilization": "Utilization",
+    "used": "Used"
+  },
+  "creditUtilizationTotal": {
+    "title": "Total Credit Utilization",
+    "empty": "No credit accounts with a limit set.",
+    "used": "Used",
+    "available": "Available"
+  },
+  "sectorWeightings": {
+    "title": "Sector Allocation",
+    "empty": "No sector data available.",
+    "direct": "Direct",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "Security Type Allocation",
+    "empty": "No holdings to show.",
+    "types": {
+      "STOCK": "Stocks",
+      "ETF": "ETFs",
+      "MUTUAL_FUND": "Mutual Funds",
+      "BOND": "Bonds",
+      "CASH": "Cash"
+    }
+  },
+  "geographicAllocation": {
+    "title": "Geographic Allocation",
+    "empty": "No holdings to show.",
+    "viewRegion": "Region",
+    "viewExchange": "Exchange",
+    "viewCountry": "Country"
+  },
+  "recurringExpenses": {
+    "title": "Top Recurring Expenses",
+    "empty": "No recurring expenses found.",
+    "minOccurrences": "Minimum occurrences",
+    "minOccurrencesOption": "{count} or more",
+    "occurrences": "{count} occurrences",
+    "monthlyEstimate": "Monthly estimate"
+  },
+  "weekendVsWeekday": {
+    "title": "Weekend vs Weekday Spending",
+    "empty": "No spending in this period.",
+    "weekendLabel": "Weekend",
+    "weekdayLabel": "Weekday",
+    "viewOverview": "Overview",
+    "viewByDay": "By day"
   }
 }

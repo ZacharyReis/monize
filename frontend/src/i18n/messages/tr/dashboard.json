@@ -8,6 +8,7 @@
     "title": "Favori Hesaplar",
     "empty": "Henüz favori hesap yok. Burada görmek istediğiniz hesapları favori olarak işaretleyin.",
     "reorder": "Yeniden Sırala",
+    "dragToReorder": "Hesapları sürükleyerek yeniden sıralayın veya ok düğmelerini kullanın.",
     "done": "Tamam",
     "moveUp": "Yukarı taşı",
     "moveDown": "Aşağı taşı",
@@ -87,6 +88,7 @@
       "noLosers": "Bugün kaybedenler yok."
     },
     "dailyChange": "Günlük değişim",
+    "openPriceHistory": "{symbol} fiyat geçmişi",
     "refreshPrices": "Fiyatları yenile",
     "viewPortfolio": "Portföyü görüntüle",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "Henüz favori menkul kıymet yok. <securitiesLink>Menkul Kıymetler sayfasını</securitiesLink> ziyaret edin ve burada takip etmek istediğiniz menkul kıymetleri yıldızlayın.",
     "noPriceYet": "Henüz fiyat yok",
     "dailyChange": "Günlük değişim",
+    "openPriceHistory": "{symbol} fiyat geçmişi",
     "refreshPrices": "Fiyatları yenile",
     "manage": "Menkul kıymetleri yönet"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "Kategoriye Göre Giderler",
     "empty": "Bu dönem için gider verisi yok.",
-    "past30Days": "Son 30 gün",
     "total": "Toplam",
     "uncategorized": "Kategorisiz",
     "other": "Diğer"
   },
   "incomeExpenses": {
     "title": "Gelir ve Giderler",
-    "last5Weeks": "Son 5 hafta",
-    "weekOf": "{date} haftası",
     "income": "Gelir",
     "expenses": "Giderler",
     "net": "Net"
+  },
+  "customize": {
+    "button": "Özelleştir",
+    "title": "Panoyu özelleştir",
+    "description": "Aşağıdaki düzen panonuzu yansıtır: widget'lar soldan sağa akar, büyük ekranlarda her satırda iki tane bulunur.",
+    "moveEarlier": "{name} öğesini öne taşı",
+    "moveLater": "{name} öğesini arkaya taşı",
+    "dragToReorder": "Widget'ları sürükleyerek yeniden düzenleyin veya ok düğmelerini kullanın.",
+    "hiddenWidgets": "Gizli widget'lar",
+    "hide": "{name} gizle",
+    "show": "{name} göster",
+    "atLeastOne": "Panoda göstermek için en az bir widget seçin.",
+    "reset": "Varsayılana sıfırla",
+    "toasts": {
+      "saveFailed": "Pano düzeni kaydedilemedi"
+    }
+  },
+  "favouriteReports": {
+    "title": "Favori Raporlar",
+    "empty": "Henüz favori rapor yok. Burada görmek için Raporlar sayfasında raporları yıldızlayın.",
+    "browseReports": "Raporlara göz at"
+  },
+  "widgets": {
+    "configure": "{name} yapılandır",
+    "done": "Tamam",
+    "configSaveFailed": "Widget ayarları kaydedilemedi. Lütfen tekrar deneyin.",
+    "timeframe": "Zaman aralığı",
+    "accounts": "Hesaplar",
+    "chartType": "Grafik türü",
+    "view": "Görünüm",
+    "displayName": "Görünen ad",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "İsteğe bağlı bir açıklama ekleyin",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "Tümü"
+    }
+  },
+  "portfolioValue": {
+    "title": "Portföy Değeri",
+    "empty": "Henüz gösterilecek yatırım geçmişi yok.",
+    "refresh": "Güncel değeri yenile"
+  },
+  "spendingByPayee": {
+    "title": "Alacaklıya Göre Harcama",
+    "empty": "Bu dönemde harcama yok.",
+    "totalLabel": "Toplam"
+  },
+  "monthlySpendingTrend": {
+    "title": "Aylık Harcama Trendi",
+    "empty": "Bu dönem için veri yok.",
+    "expenses": "Giderler",
+    "income": "Gelir"
+  },
+  "incomeBySource": {
+    "title": "Kaynağa Göre Gelir",
+    "empty": "Bu dönemde gelir yok.",
+    "totalLabel": "Toplam Gelir"
+  },
+  "creditUtilizationAccounts": {
+    "title": "Hesaba Göre Kredi Kullanımı",
+    "empty": "Limit belirlenmiş kredi hesabı yok.",
+    "utilization": "Kullanım",
+    "used": "Kullanılan"
+  },
+  "creditUtilizationTotal": {
+    "title": "Toplam Kredi Kullanımı",
+    "empty": "Limit belirlenmiş kredi hesabı yok.",
+    "used": "Kullanılan",
+    "available": "Mevcut"
+  },
+  "sectorWeightings": {
+    "title": "Sektör Dağılımı",
+    "empty": "Kullanılabilir sektör verisi yok.",
+    "direct": "Doğrudan",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "Menkul Kıymet Türü Dağılımı",
+    "empty": "Gösterilecek varlık yok.",
+    "types": {
+      "STOCK": "Hisseler",
+      "ETF": "ETF'ler",
+      "MUTUAL_FUND": "Yatırım Fonları",
+      "BOND": "Tahviller",
+      "CASH": "Nakit"
+    }
+  },
+  "geographicAllocation": {
+    "title": "Coğrafi Dağılım",
+    "empty": "Gösterilecek varlık yok.",
+    "viewRegion": "Bölge",
+    "viewExchange": "Borsa",
+    "viewCountry": "Ülke"
+  },
+  "recurringExpenses": {
+    "title": "En Yüksek Tekrarlayan Giderler",
+    "empty": "Tekrarlayan gider bulunamadı.",
+    "minOccurrences": "Minimum tekrar",
+    "minOccurrencesOption": "{count} veya daha fazla",
+    "occurrences": "{count} tekrar",
+    "monthlyEstimate": "Aylık Tahmin"
+  },
+  "weekendVsWeekday": {
+    "title": "Hafta Sonu - Hafta İçi Harcama",
+    "empty": "Bu dönemde harcama yok.",
+    "weekendLabel": "Hafta Sonu",
+    "weekdayLabel": "Hafta İçi",
+    "viewOverview": "Genel Bakış",
+    "viewByDay": "Güne Göre"
   }
 }

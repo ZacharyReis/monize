@@ -1,0 +1,30 @@
+{
+  "title": "해외 거래 수수료",
+  "currencyFilter": { "label": "통화", "placeholder": "모든 통화" },
+  "chart": {
+    "title": "수수료 추이",
+    "noData": "아직 외화 거래가 없습니다",
+    "monthlyAvg": "월 평균",
+    "quarterlyAvg": "분기 평균",
+    "yearlyAvg": "연 평균",
+    "total": "총 수수료",
+    "transactions": "거래",
+    "tooltip": "{count, plural, one {# 건의 거래} other {# 건의 거래}}",
+    "quarterLabel": "{year}년 Q{quarter}",
+    "quarterTick": "{year}년 Q{quarter}",
+    "granularityLabel": "그룹화",
+    "granularity": { "auto": "자동", "month": "월", "quarter": "분기", "year": "연" },
+    "granularityAutoTitle": "자동 ({granularity})",
+    "granularityTitle": "{label} 보기"
+  },
+  "list": {
+    "title": "외화 거래",
+    "editTitle": "거래 편집",
+    "investmentLinked": "이 거래는 투자에 연결되어 있습니다. 투자 편집기를 엽니다.",
+    "export": {
+      "success": "{count, plural, one {# 건의 거래 내보냄} other {# 건의 거래 내보냄}}",
+      "none": "내보낼 거래가 없습니다",
+      "failed": "거래 내보내기에 실패했습니다"
+    }
+  }
+}

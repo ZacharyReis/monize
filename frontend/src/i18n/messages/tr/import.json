@@ -41,7 +41,11 @@
     "importingTo": "İçe aktarılıyor:",
     "clickToSelect": "Dosya(ları) seçmek için tıklayın",
     "processing": "İşleniyor...",
-    "acceptedFormats": "QIF, OFX, QFX veya CSV"
+    "acceptedFormats": "QIF, OFX, QFX veya CSV",
+    "wikiNotice": {
+      "title": "İçe aktarmadan önce",
+      "body": "Herhangi bir şeyi içe aktarmadan önce wiki'deki <money>Importing from Microsoft Money</money> veya <quicken>Importing from Quicken</quicken> bölümünü okuyun."
+    }
   },
   "selectAccount": {
     "headingSingle": "Hedef Hesabı Seçin",

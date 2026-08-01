@@ -5,8 +5,6 @@ export interface DemoTransaction {
   categoryPath: string;
   amount: number;
   description: string;
-  isCleared: boolean;
-  isReconciled: boolean;
   status: string;
   currencyCode?: string;
   // For split transactions
@@ -66,10 +64,10 @@ export function generateTransactions(referenceDate: Date): DemoTransaction[] {
       month === referenceDate.getMonth();
 
     const clearedStatus = isOlderThan2Months
-      ? { isCleared: true, isReconciled: true, status: "RECONCILED" }
+      ? { status: "RECONCILED" }
       : isCurrentMonth
-        ? { isCleared: false, isReconciled: false, status: "UNRECONCILED" }
-        : { isCleared: true, isReconciled: false, status: "CLEARED" };
+        ? { status: "UNRECONCILED" }
+        : { status: "CLEARED" };
 
     // === SALARY (biweekly: 15th and last day) ===
     const salary15 = getMonthDate(year, month, 15);

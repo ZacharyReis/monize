@@ -8,12 +8,15 @@ import { EmergencyAccessContact } from "./entities/emergency-access-contact.enti
 import { AiEncryptionService } from "../ai/ai-encryption.service";
 import { EmailService } from "../notifications/email.service";
 import { User } from "../users/entities/user.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
+import { getRequestContext } from "../common/request-context";
 
 describe("EmergencyAccessMonitorService", () => {
   let service: EmergencyAccessMonitorService;
   let settingsRepo: Record<string, jest.Mock>;
   let contactsRepo: Record<string, jest.Mock>;
   let usersRepo: Record<string, jest.Mock>;
+  let prefsRepo: Record<string, jest.Mock>;
   let emailService: Record<string, jest.Mock>;
   let encryption: Record<string, jest.Mock>;
   let configService: Record<string, jest.Mock>;
@@ -41,6 +44,7 @@ describe("EmergencyAccessMonitorService", () => {
       })),
     };
     usersRepo = { findOne: jest.fn() };
+    prefsRepo = { findOne: jest.fn().mockResolvedValue(null) };
     emailService = {
       getStatus: jest.fn().mockReturnValue({ configured: true }),
       sendMail: jest.fn().mockResolvedValue(undefined),
@@ -65,6 +69,10 @@ describe("EmergencyAccessMonitorService", () => {
           useValue: contactsRepo,
         },
         { provide: getRepositoryToken(User), useValue: usersRepo },
+        {
+          provide: getRepositoryToken(UserPreference),
+          useValue: prefsRepo,
+        },
         { provide: EmailService, useValue: emailService },
         { provide: AiEncryptionService, useValue: encryption },
         { provide: ConfigService, useValue: configService },
@@ -86,6 +94,17 @@ describe("EmergencyAccessMonitorService", () => {
     await service.runDailyCheck();
     expect(settingsRepo.find).not.toHaveBeenCalled();
     expect(emailService.sendMail).not.toHaveBeenCalled();
+  });
+
+  // RLS (task C4): the cross-user sweep runs under a system context.
+  it("runs the sweep under a system context", async () => {
+    let ctx: ReturnType<typeof getRequestContext>;
+    settingsRepo.find.mockImplementation(() => {
+      ctx = getRequestContext();
+      return Promise.resolve([]);
+    });
+    await service.runDailyCheck();
+    expect(ctx).toEqual({ system: true });
   });
 
   it("sends a reminder when inactivity exceeds reminderAfterDays but not grantAfterDays", async () => {
@@ -291,6 +310,48 @@ describe("EmergencyAccessMonitorService", () => {
     await service.runDailyCheck();
 
     expect(emailService.sendMail).toHaveBeenCalledTimes(2);
+  });
+
+  it("localizes the grant email to the contact's own account language when they are a Monize user", async () => {
+    settingsRepo.find.mockResolvedValue([
+      {
+        ownerUserId: userId,
+        enabled: true,
+        grantAfterDays: 14,
+        reminderAfterDays: 7,
+        messageCiphertext: null,
+        lastReminderSentAt: null,
+        grantedAt: null,
+      },
+    ]);
+    usersRepo.findOne.mockImplementation((opts) =>
+      opts?.where?.email === "carol@example.com"
+        ? Promise.resolve({ id: "contact-1", email: "carol@example.com" })
+        : Promise.resolve({
+            id: userId,
+            email: "owner@example.com",
+            firstName: "Owner",
+            isActive: true,
+            lastActivityAt: daysAgo(20),
+          }),
+    );
+    contactsRepo.find.mockResolvedValue([
+      { id: "c1", firstName: "Carol", email: "carol@example.com" },
+    ]);
+    prefsRepo.findOne.mockResolvedValue({
+      userId: "contact-1",
+      language: "fr",
+    });
+
+    await service.runDailyCheck();
+
+    expect(usersRepo.findOne).toHaveBeenCalledWith({
+      where: { email: "carol@example.com" },
+    });
+    expect(prefsRepo.findOne).toHaveBeenCalledWith({
+      where: { userId: "contact-1" },
+    });
+    expect(emailService.sendMail).toHaveBeenCalledTimes(1);
   });
 
   it("skips a user gracefully when their settings row is inactive (no email)", async () => {

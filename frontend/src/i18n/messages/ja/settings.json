@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "週の開始曜日",
     "showCreatedAtLabel": "取引フォームに作成日を表示",
     "showCreatedAtTooltip": "取引フォームに取引が最初に作成された日時を表示します。これは取引日とは別のもので、Monizeにエントリが実際に追加されたタイミングを確認するのに役立ちます。",
+    "showWhatsNewLabel": "アップグレード後に新着情報を表示",
+    "showWhatsNewTooltip": "Monizeが新しいバージョンに更新された後、初めてログインしたときにリリースノートの概要を表示します。このページ下部またはログイン画面のバージョン番号をクリックすると、いつでも再度開くことができます。",
     "timeFormatLabel": "時刻形式",
     "recentTransactionsLabel": "クイック入力の最近の取引数",
     "recentTransactionsHelp": "取引フォームの支払先フィールド横にある履歴ボタンのポップオーバーに表示されるエントリ数。",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "カラーテーマの保存に失敗しました"
     },
     "browserLocale": "ブラウザのロケールを使用（自動検出）",
-    "browserTimezonePrefix": "ブラウザのタイムゾーンを使用（自動検出: {tz}）",
     "numberFormatOptions": {
       "browser": "ブラウザのロケールを使用（自動検出: {sample}）",
       "enUS": "英語（US） - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "ガイドとドキュメントを参照できます。"
+    },
+    "supportBackup": {
+      "label": "サポート用バックアップを作成",
+      "description": "本当の名称や金額を見せずにメンテナーがバグを再現できるよう、匿名化・暗号化したデータのコピーを共有します。"
     }
+  },
+  "supportBackup": {
+    "title": "サポート用バックアップを作成",
+    "howItWorks": "バックアップの匿名化コピーを作成します。名称はマスクされ(先頭と末尾の2文字のみ残ります)、メモ/説明/口座番号は削除され、各金額は単一の非公開係数で乗算されます。公開値(為替レート、価格、金利)はそのままです。ファイルは常に下のパスワードで暗号化され、通常のバックアップと同じ手順で復元できます。これは偶発的な露出への保護であり、あなたを既に知る相手への保護ではありません — バグを再現できるよう、日付・頻度・構造は保持されます。",
+    "sectionsLabel": "含める内容",
+    "sections": {
+      "investments": "投資(証券、保有、価格)",
+      "scheduled": "定期取引",
+      "budgets": "予算",
+      "reports": "レポートと予測",
+      "importMappings": "インポート列マッピング",
+      "autoBackup": "自動バックアップ設定"
+    },
+    "priceHistoryLabel": "証券の価格履歴を含める",
+    "priceHistoryHint": "既定ではオフ:完全な価格系列は公開市場データと一致し、マスクされたティッカーを特定できてしまいます。バグが価格や評価額に関わる場合のみオンにしてください。",
+    "accountsLabel": "特定の口座に限定",
+    "accountsHint": "すべて未選択のままにすると全口座が含まれます。一部を選ぶと、参照される口座や支払先も一緒に含まれます。",
+    "dateRangeLabel": "期間(任意)",
+    "dateRangeHint": "エクスポートする履歴をこの期間に限定します。切り詰めたファイルでも収支が合うよう、期首残高は調整されます。",
+    "dateFromLabel": "開始",
+    "dateToLabel": "終了",
+    "multiplierLabel": "金額の乗数",
+    "multiplierHint": "すべての非公開金額はこの数値で乗算され、実際の値を隠しつつ整合性を保ちます。1より大きい非整数なら何でも使えます。「再生成」で新しい値を選びます。",
+    "multiplierWarning": "乗数は誰にも共有しないでください — 隠した金額を元に戻す鍵です。",
+    "multiplierInvalid": "1より大きい非整数を入力してください。",
+    "regenerate": "再生成",
+    "passwordLabel": "暗号化パスワード",
+    "preview": "プレビュー",
+    "previewLabel": "プレビュー",
+    "previewBefore": "変換前",
+    "previewAfter": "変換後",
+    "previewEmpty": "この選択ではプレビューできる行がありません。",
+    "previewFailed": "プレビューを作成できませんでした。もう一度お試しください。",
+    "generate": "生成",
+    "confirmPasswordTitle": "パスワードは保存しましたか?",
+    "confirmPasswordMessage": "ファイルは上に表示された暗号化パスワードでのみ開けます。パスワードはどこにも保存されず、後から復元できません。生成する前に必ず控えてください。",
+    "confirmPasswordConfirm": "保存した — 生成する",
+    "generatedToast": "サポート用バックアップをダウンロードしました。",
+    "generateFailed": "サポート用バックアップを生成できませんでした。もう一度お試しください。",
+    "passwordHint": "ファイルは常に暗号化されます。このパスワードはファイルと一緒にではなく、別の経路で調査担当者に伝えてください。",
+    "passwordInvalid": "8文字以上入力してください。"
   },
   "dangerZone": {
     "heading": "危険な操作",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "自動バックアップ",
-    "description": "スケジュールに従ってフォルダーにデータを自動でバックアップします。MonizeはDockerで動作しているため、ホストフォルダーをボリュームとしてコンテナにマップする必要があります（例: -v /host/backups:/backups）。",
+    "description": "スケジュールに従ってフォルダーにデータを自動でバックアップします。MonizeはDockerで動作しているため、ホストフォルダーをボリュームとしてコンテナにマップする必要があります（例: -v /host/backups:/data/backups）。",
     "loadingText": "読み込み中...",
     "enableLabel": "自動バックアップを有効化",
     "backupFolderLabel": "バックアップフォルダー",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "参照...",
     "validateButton": "検証",
     "validatingButton": "検証中...",

@@ -41,7 +41,11 @@
     "importingTo": "インポート先:",
     "clickToSelect": "クリックしてファイルを選択",
     "processing": "処理中...",
-    "acceptedFormats": "QIF、OFX、QFX、または CSV"
+    "acceptedFormats": "QIF、OFX、QFX、または CSV",
+    "wikiNotice": {
+      "title": "インポートする前に",
+      "body": "何かをインポートする前に、Wiki の <money>Importing from Microsoft Money</money> または <quicken>Importing from Quicken</quicken> のセクションをお読みください。"
+    }
   },
   "selectAccount": {
     "headingSingle": "インポート先勘定科目の選択",

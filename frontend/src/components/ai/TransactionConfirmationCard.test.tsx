@@ -67,6 +67,81 @@ describe('TransactionConfirmationCard', () => {
     expect(screen.queryByText('Category')).not.toBeInTheDocument();
   });
 
+  it('lists the files an approval will save as attachments', () => {
+    render(
+      <TransactionConfirmationCard
+        action={makeAction({
+          preview: {
+            ...makeAction().preview,
+            attachments: [
+              {
+                filename: 'receipt.png',
+                contentType: 'image/png',
+                byteSize: 2048,
+              },
+              {
+                filename: 'invoice.pdf',
+                contentType: 'application/pdf',
+                byteSize: 1024 * 1024,
+              },
+            ],
+          },
+        })}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Attachments')).toBeInTheDocument();
+    expect(screen.getByText('receipt.png (2.0 KB)')).toBeInTheDocument();
+    expect(screen.getByText('invoice.pdf (1.0 MB)')).toBeInTheDocument();
+  });
+
+  it('shows no attachments section when the preview carries none', () => {
+    render(
+      <TransactionConfirmationCard
+        action={makeAction()}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Attachments')).not.toBeInTheDocument();
+  });
+
+  it('warns when an update targets a reconciled transaction', () => {
+    render(
+      <TransactionConfirmationCard
+        action={makeAction({
+          type: 'update_transaction',
+          descriptor: { type: 'update_transaction' },
+          preview: {
+            accountName: 'Checking',
+            amount: -12.5,
+            currencyCode: 'USD',
+            transactionDate: '2026-01-15',
+            payeeName: 'Starbucks',
+            categoryName: 'Dining',
+            isReconciled: true,
+          },
+        })}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/reconciled/i)).toBeInTheDocument();
+  });
+
+  it('does not warn about reconciliation for a create action', () => {
+    render(
+      <TransactionConfirmationCard
+        action={makeAction({ preview: { ...makeAction().preview, isReconciled: true } })}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    // isReconciled is only meaningful for update/delete; a create never warns.
+    expect(screen.queryByText(/reconciled/i)).not.toBeInTheDocument();
+  });
+
   it('marks the payee as new when a payee will be created on approval', () => {
     render(
       <TransactionConfirmationCard

@@ -65,11 +65,16 @@
     "cash": "Gotówka",
     "untagged": "Bez tagów",
     "noTagData": "Brak otagowanych pozycji do pokazania. Dodaj tagi do swoich papierów, aby zobaczyć ekspozycję wg tagów.",
-    "tagExposureNote": "Ekspozycja wg tagów: pozycja z kilkoma tagami liczona jest w całości pod każdym z nich, więc procenty mogą sumować się do ponad 100%.",
+    "noCountryData": "Brak danych o alokacji krajowej.",
+    "otherCountries": "Pozostałe kraje",
     "groupBy": {
       "security": "Wg papieru",
-      "tag": "Wg tagu"
-    }
+      "tag": "Wg tagu",
+      "country": "Wg kraju",
+      "tagKey": "Wg klucza"
+    },
+    "noKeyData": "Żadna pozycja nie ma wartości dla tego klucza tagu. Oznacz papiery jako klucz:wartość (np. country:usa), aby zobaczyć ten podział.",
+    "keySelectorLabel": "Klucz tagu do agregacji"
   },
   "holdingsList": {
     "title": "Pozycje",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "Wartość portfela w czasie",
+    "viewReport": "Zobacz raport",
+    "viewReportTitle": "Otwórz pełny raport Wartość portfela",
     "updatingLabel": "Aktualizowanie…",
-    "updatingAriaLabel": "Aktualizowanie",
     "intradayFallbackWarningAriaLabel": "Szczegółowe ceny śróddzienne niedostępne",
     "intradayUnavailableTitle": "Widok śróddzienny niedostępny dla tego zestawu kont",
     "intradayUnavailableDescription": "Jedna lub więcej pozycji korzysta z dostawcy notowań (MSN Money), który nie udostępnia danych śróddziennych. Przełącz na dłuższy zakres, aby zobaczyć migawki dzienne.",

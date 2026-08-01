@@ -8,6 +8,7 @@
     "title": "收藏账户",
     "empty": "暂无收藏账户。将账户标记为收藏后即可在此查看。",
     "reorder": "重新排序",
+    "dragToReorder": "拖动账户以调整顺序，或使用箭头按钮。",
     "done": "完成",
     "moveUp": "上移",
     "moveDown": "下移",
@@ -87,6 +88,7 @@
       "noLosers": "今日无下跌。"
     },
     "dailyChange": "日涨跌",
+    "openPriceHistory": "{symbol} 的价格历史",
     "refreshPrices": "刷新价格",
     "viewPortfolio": "查看投资组合",
     "filter": {
@@ -100,6 +102,7 @@
     "empty": "暂无收藏证券。前往<securitiesLink>证券页面</securitiesLink>并收藏您想在此跟踪的证券。",
     "noPriceYet": "暂无价格",
     "dailyChange": "日涨跌",
+    "openPriceHistory": "{symbol} 的价格历史",
     "refreshPrices": "刷新价格",
     "manage": "管理证券"
   },
@@ -120,17 +123,130 @@
   "expensesPieChart": {
     "title": "按科目划分的支出",
     "empty": "此期间无支出数据。",
-    "past30Days": "过去 30 天",
     "total": "合计",
     "uncategorized": "未分类",
     "other": "其他"
   },
   "incomeExpenses": {
     "title": "收入与支出",
-    "last5Weeks": "最近 5 周",
-    "weekOf": "{date} 当周",
     "income": "收入",
     "expenses": "支出",
     "net": "净额"
+  },
+  "customize": {
+    "button": "自定义",
+    "title": "自定义仪表盘",
+    "description": "下方布局与仪表盘一致：小组件从左到右排列，大屏幕上每行两个。",
+    "moveEarlier": "将{name}前移",
+    "moveLater": "将{name}后移",
+    "dragToReorder": "拖动小组件以重新排列，或使用箭头按钮。",
+    "hiddenWidgets": "已隐藏的小组件",
+    "hide": "隐藏{name}",
+    "show": "显示{name}",
+    "atLeastOne": "请至少选择一个要在仪表盘上显示的小组件。",
+    "reset": "恢复默认",
+    "toasts": {
+      "saveFailed": "保存仪表盘布局失败"
+    }
+  },
+  "favouriteReports": {
+    "title": "收藏报告",
+    "empty": "暂无收藏报告。在报告页面为报告加星后即可在此查看。",
+    "browseReports": "浏览报告"
+  },
+  "widgets": {
+    "configure": "配置{name}",
+    "done": "完成",
+    "configSaveFailed": "无法保存小组件设置。请重试。",
+    "timeframe": "时间范围",
+    "accounts": "账户",
+    "chartType": "图表类型",
+    "view": "视图",
+    "displayName": "显示名称",
+    "description": "描述",
+    "descriptionPlaceholder": "添加可选描述",
+    "rangeLabels": {
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y",
+      "2y": "2Y",
+      "5y": "5Y",
+      "ytd": "YTD",
+      "all": "全部"
+    }
+  },
+  "portfolioValue": {
+    "title": "投资组合价值",
+    "empty": "暂无投资历史可显示。",
+    "refresh": "刷新当前价值"
+  },
+  "spendingByPayee": {
+    "title": "按收款人支出",
+    "empty": "此期间无支出。",
+    "totalLabel": "合计"
+  },
+  "monthlySpendingTrend": {
+    "title": "月度支出趋势",
+    "empty": "此期间无数据。",
+    "expenses": "支出",
+    "income": "收入"
+  },
+  "incomeBySource": {
+    "title": "按来源收入",
+    "empty": "此期间无收入。",
+    "totalLabel": "总收入"
+  },
+  "creditUtilizationAccounts": {
+    "title": "按账户信用额度使用率",
+    "empty": "没有设置额度的信用账户。",
+    "utilization": "使用率",
+    "used": "已用"
+  },
+  "creditUtilizationTotal": {
+    "title": "总信用额度使用率",
+    "empty": "没有设置额度的信用账户。",
+    "used": "已用",
+    "available": "可用"
+  },
+  "sectorWeightings": {
+    "title": "行业配置",
+    "empty": "暂无行业数据。",
+    "direct": "直接",
+    "etf": "ETF"
+  },
+  "securityTypeAllocation": {
+    "title": "证券类型配置",
+    "empty": "无持仓可显示。",
+    "types": {
+      "STOCK": "股票",
+      "ETF": "ETF",
+      "MUTUAL_FUND": "共同基金",
+      "BOND": "债券",
+      "CASH": "现金"
+    }
+  },
+  "geographicAllocation": {
+    "title": "地理配置",
+    "empty": "无持仓可显示。",
+    "viewRegion": "地区",
+    "viewExchange": "交易所",
+    "viewCountry": "国家/地区"
+  },
+  "recurringExpenses": {
+    "title": "主要定期支出",
+    "empty": "未找到定期支出。",
+    "minOccurrences": "最少发生次数",
+    "minOccurrencesOption": "{count} 次或以上",
+    "occurrences": "发生 {count} 次",
+    "monthlyEstimate": "月度估算"
+  },
+  "weekendVsWeekday": {
+    "title": "周末与工作日支出",
+    "empty": "此期间无支出。",
+    "weekendLabel": "周末",
+    "weekdayLabel": "工作日",
+    "viewOverview": "概览",
+    "viewByDay": "按日"
   }
 }

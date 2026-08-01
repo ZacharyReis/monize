@@ -41,6 +41,12 @@ services:
       DATABASE_NAME: ${POSTGRES_DB}
       DATABASE_USER: ${POSTGRES_USER}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Row-Level Security (defense-in-depth; off by default). See
+      # docs/future-plans/row-level-security.md and the runbook before enabling.
+      # Empty-safe so an existing .env without these keys upgrades unchanged.
+      RLS_MODE: ${RLS_MODE:-off}
+      DATABASE_APP_USER: ${DATABASE_APP_USER:-monize_app}
+      DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL}
@@ -51,6 +57,10 @@ services:
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
       FORCE_2FA: ${FORCE_2FA:-false}
       REMEMBER_ME_DAYS: ${REMEMBER_ME_DAYS:-30}
+      # Backup
+      BACKUP_CONTAINER_DIR: ${BACKUP_CONTAINER_DIR:-/data/backups}
+      # Attachments (used by ATTACHMENT_STORAGE_PROVIDER=local)
+      ATTACHMENT_CONTAINER_DIR: ${ATTACHMENT_CONTAINER_DIR:-/data/attachments}
       # Demo mode (optional)
       DEMO_MODE: ${DEMO_MODE:-false}
       # OIDC (optional)
@@ -72,6 +82,12 @@ services:
       AI_DEFAULT_BASE_URL: ${AI_DEFAULT_BASE_URL:-}
       # HTTP mode (optional)
       DISABLE_HTTPS_HEADERS: ${DISABLE_HTTPS_HEADERS:-false}
+    volumes:
+      # Automatic backups are written to BACKUP_CONTAINER_DIR in the container.
+      - ${BACKUP_HOST_DIR:-./monize/backups}:${BACKUP_CONTAINER_DIR:-/data/backups}
+      # Attachments are written to ATTACHMENT_CONTAINER_DIR in the container
+      # when ATTACHMENT_STORAGE_PROVIDER=local.
+      - ${ATTACHMENT_HOST_DIR:-./monize/attachments}:${ATTACHMENT_CONTAINER_DIR:-/data/attachments}
     networks:
       - monize-network
     healthcheck:

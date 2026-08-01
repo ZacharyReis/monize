@@ -1,8 +1,57 @@
 {
+  "payeeWidget": {
+    "totalSpent": "總支出",
+    "income": "收入",
+    "net": "淨額",
+    "transactions": "交易",
+    "averageAmount": "平均金額",
+    "lastTransaction": "最近交易",
+    "defaultCategory": "預設分類",
+    "nextBill": "下一筆帳單",
+    "viewBills": "在帳單與存款中查看",
+    "topCategories": "主要分類",
+    "uncategorized": "未分類",
+    "aliases": "別名",
+    "recurring": "定期:{cadence} · {amount}",
+    "recurringTooltip": "根據所選期間(未設定日期篩選時為最近12個月)內的重複扣款偵測得出。",
+    "cadence": {
+      "weekly": "每週",
+      "biweekly": "每兩週",
+      "monthly": "每月",
+      "quarterly": "每季",
+      "yearly": "每年"
+    },
+    "inactive": "已停用",
+    "noTransactions": "此期間沒有交易",
+    "editAria": "編輯收款人",
+    "collapseAria": "隱藏收款人資訊",
+    "show": "顯示收款人資訊"
+  },
+  "categoryWidget": {
+    "totalSpent": "總支出",
+    "totalEarned": "總收入",
+    "income": "收入",
+    "expense": "支出",
+    "budgetThisMonth": "本月預算",
+    "budgetProgress": "{spent} / {budgeted}",
+    "transactions": "交易",
+    "averageAmount": "平均金額",
+    "monthlyAverage": "月平均",
+    "subcategories": "子分類",
+    "thisCategory": "此分類",
+    "topPayees": "主要收款人",
+    "noPayee": "無收款人",
+    "nextScheduled": "下一筆排程交易",
+    "noTransactions": "此期間沒有交易",
+    "editAria": "編輯分類",
+    "collapseAria": "隱藏分類資訊",
+    "show": "顯示分類資訊"
+  },
   "accountWidget": {
     "currentBalance": "目前結餘",
     "nextPayment": "下次付款",
     "viewBills": "在帳單與存款中查看",
+    "viewDetailsAria": "檢視帳戶詳情",
     "type": "類型",
     "accountNumber": "科目號碼",
     "currency": "貨幣",
@@ -27,7 +76,8 @@
       "duplicateTitle": "複製交易",
       "newTitle": "新增交易",
       "scheduleTitle": "設為固定排程",
-      "editPayeeTitle": "編輯收款人"
+      "editPayeeTitle": "編輯收款人",
+      "editCategoryTitle": "編輯分類"
     },
     "loading": "載入交易中...",
     "totalCount": "{count, plural, one {# 筆交易} other {# 筆交易}}",
@@ -54,9 +104,13 @@
       "refNumber": "參考 #",
       "tags": "標籤",
       "amount": "金額",
+      "currency": "幣別",
+      "paidAmount": "支付金額",
+      "feePaid": "已付手續費",
       "balance": "結餘",
       "status": "狀態",
-      "actions": "動作"
+      "actions": "動作",
+      "attachments": "附件"
     },
     "today": "今天",
     "export": {
@@ -80,7 +134,8 @@
       "transactionMessage": "確定要刪除此交易嗎？此操作無法復原。",
       "success": "交易已刪除",
       "transferSuccess": "轉帳已刪除",
-      "error": "刪除交易失敗"
+      "error": "刪除交易失敗",
+      "reconciledWarning": "此交易已對帳，因此刪除將影響已完成的對帳。"
     },
     "status": {
       "voidError": "請編輯交易以從作廢狀態更改",
@@ -90,7 +145,6 @@
       "cleared": "已結清",
       "reconciled": "已對帳",
       "void": "作廢",
-      "unreconciledDense": "未",
       "clearedDense": "清",
       "reconciledDense": "帳",
       "voidDense": "廢",
@@ -118,7 +172,8 @@
       "editButton": "編輯",
       "deleteButton": "刪除"
     },
-    "itemNamePlural": "筆交易"
+    "itemNamePlural": "筆交易",
+    "attachmentsCount": "{count, plural, other {# 個附件}}"
   },
   "row": {
     "copyOptions": {
@@ -166,7 +221,12 @@
       "amountFrom": "金額起",
       "amountTo": "金額至",
       "status": "狀態",
-      "search": "搜尋"
+      "search": "搜尋",
+      "tagKey": "標籤鍵",
+      "tagKeyOp": "條件",
+      "tagKeyValue": "值",
+      "currency": "幣別",
+      "hasAttachments": "附件"
     },
     "placeholders": {
       "accounts": "所有科目",
@@ -176,7 +236,8 @@
       "statuses": "所有狀態",
       "amountMin": "最小",
       "amountMax": "最大",
-      "search": "搜尋收款人、類別、金額、標籤、描述、參考號碼..."
+      "search": "搜尋收款人、類別、金額、標籤、描述、參考號碼...",
+      "tagKeyValue": "例如 usa"
     },
     "chips": {
       "removeAccount": "移除 {name} 篩選",
@@ -189,7 +250,11 @@
       "dateFrom": "從 {date}",
       "dateUntil": "至 {date}",
       "amountFrom": "從 {amount}",
-      "amountUpTo": "至 {amount}"
+      "amountUpTo": "至 {amount}",
+      "removeCurrency": "移除 {name} 幣別篩選",
+      "hasAttachments": "有附件",
+      "noAttachments": "無附件",
+      "removeAttachments": "移除附件篩選"
     },
     "bulkUpdate": "批次更新",
     "cancelBulk": "取消批次",
@@ -201,15 +266,30 @@
     },
     "periods": {
       "select": "選擇期間...",
+      "allDates": "所有日期",
       "today": "今天",
       "yesterday": "昨天",
       "thisWeek": "本週",
       "lastWeek": "上週",
+      "last30Days": "最近30天",
       "monthToDate": "本月至今",
       "lastMonth": "上個月",
+      "last365Days": "最近365天",
       "yearToDate": "年初至今",
       "lastYear": "去年",
       "custom": "自訂"
+    },
+    "tagKeyNone": "任意（無鍵篩選）",
+    "tagKeyOps": {
+      "hasValue": "有值",
+      "noValue": "無值",
+      "contains": "值包含",
+      "notContains": "值不包含"
+    },
+    "hasAttachmentsOptions": {
+      "any": "任何",
+      "yes": "是",
+      "no": "否"
     }
   },
   "bulk": {
@@ -293,6 +373,11 @@
     },
     "submitCreate": "建立{mode}",
     "submitUpdate": "更新{mode}",
+    "reconciledConfirm": {
+      "title": "編輯已對帳的交易？",
+      "message": "此交易已對帳。變更將影響已完成的對帳。仍要儲存變更嗎？",
+      "confirm": "儲存變更"
+    },
     "modeLabel": {
       "transfer": "轉帳",
       "transaction": "交易"
@@ -300,6 +385,7 @@
     "transferAmountNote": "轉帳金額必須為正數",
     "amountReceivedNote": "貨幣換算後的收到金額",
     "splitTransaction": "分割交易",
+    "splitDisabledDuringTour": "導覽引導期間無法使用",
     "newTagTitle": "新增標籤",
     "toasts": {
       "transferCreated": "轉帳已建立",
@@ -318,7 +404,9 @@
       "payeeReactivateFailed": "重新啟用收款人失敗",
       "categoryCreated": "類別「{name}」已建立",
       "categoryCreateFailed": "建立類別失敗",
-      "tagCreated": "標籤「{name}」已建立"
+      "tagCreated": "標籤「{name}」已建立",
+      "fxRateRequired": "儲存外幣交易前，請輸入匯率或換算後的金額。",
+      "attachmentsUploadFailed": "交易已儲存，但 {count} 個附件上傳失敗"
     },
     "ariaHistory": "顯示最近交易",
     "ariaHistoryForPayee": "顯示此收款人的最近交易",
@@ -328,6 +416,27 @@
       "auto": "Auto (detect)",
       "oneTime": "One-time (don't project)",
       "recurring": "Recurring (always project)"
+    },
+    "currencyPicker": {
+      "label": "輸入幣別",
+      "ariaLabel": "變更輸入幣別",
+      "title": "輸入金額的幣別",
+      "accountCurrency": "帳戶幣別（{code}）",
+      "addCurrency": "新增幣別...",
+      "optionLabel": "{symbol} - {name} ({code})",
+      "createFailed": "新增貨幣失敗",
+      "reactivated": "已重新啟用 {code}"
+    },
+    "fx": {
+      "noRateWarning": "找不到 {date} 從 {from} 到 {to} 的匯率。請手動輸入換算後的金額。",
+      "usingLatestRateHint": "正在使用最新可用匯率（非 {date} 當天）。",
+      "displayToggle": {
+        "account": "帳戶",
+        "original": "原幣別"
+      },
+      "rateCaption": "1 {from} = {rate} {to} ({date})",
+      "feeCaption": "包含 {percent}% 境外交易手續費（{fee}）。",
+      "totalInCurrency": "以 {currency} 計的總額"
     }
   },
   "splitEditor": {
@@ -369,7 +478,11 @@
     "selectAccount": "選擇科目...",
     "memoPlaceholder": "選填備註",
     "mobileMemoPlaceholder": "備註",
-    "tagsPlaceholder": "標籤..."
+    "tagsPlaceholder": "標籤...",
+    "currencyToggle": {
+      "title": "切換拆分金額的顯示和編輯貨幣",
+      "ariaAmountsIn": "以 {code} 顯示和編輯拆分金額"
+    }
   },
   "recentPopover": {
     "recentForPayee": "{name} 的最近記錄",
@@ -397,15 +510,33 @@
       "current": "目前",
       "ending": "結束",
       "lowest": "最低",
-      "minBalance": "最低結餘"
+      "minBalance": "最低結餘",
+      "projected": "預測",
+      "range": "{start} – {end}"
+    },
+    "zeroBalances": {
+      "message": "所選帳戶的餘額皆為零，因此沒有可顯示的餘額圖表。"
     },
     "monthlyTotals": {
       "title": "每月總計",
       "noData": "無可用的交易資料",
       "monthlyAvg": "月平均",
+      "quarterlyAvg": "季平均",
+      "yearlyAvg": "年平均",
       "total": "總計",
       "transactions": "交易",
-      "tooltip": "{count, plural, one {# 筆交易} other {# 筆交易}}"
+      "tooltip": "{count, plural, one {# 筆交易} other {# 筆交易}}",
+      "quarterLabel": "{year}年Q{quarter}",
+      "quarterTick": "{year}年Q{quarter}",
+      "granularityLabel": "分組方式",
+      "granularity": {
+        "auto": "自動",
+        "month": "月",
+        "quarter": "季度",
+        "year": "年"
+      },
+      "granularityAutoTitle": "自動（{granularity}）",
+      "granularityTitle": "{label}檢視"
     },
     "accountBalances": {
       "title": "科目結餘",
@@ -430,9 +561,16 @@
     "loadFailed": "載入交易失敗",
     "loadPayeeFailed": "載入收款人詳情失敗",
     "payeeUpdateFailed": "更新收款人失敗",
+    "categoryUpdated": "分類更新成功",
+    "categoryUpdateFailed": "更新分類失敗",
     "exportFailed": "匯出交易失敗"
   },
   "validation": {
     "dateRequired": "日期為必填"
+  },
+  "tagKeyBreakdown": {
+    "title": "依 {key} 的支出",
+    "other": "其他",
+    "noData": "沒有可依此鍵細分的已標記支出。"
   }
 }

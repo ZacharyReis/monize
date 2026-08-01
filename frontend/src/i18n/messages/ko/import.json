@@ -41,7 +41,11 @@
     "importingTo": "가져오기 대상:",
     "clickToSelect": "파일을 선택하려면 클릭하세요",
     "processing": "처리 중...",
-    "acceptedFormats": "QIF, OFX, QFX 또는 CSV"
+    "acceptedFormats": "QIF, OFX, QFX 또는 CSV",
+    "wikiNotice": {
+      "title": "가져오기 전에",
+      "body": "무엇이든 가져오기 전에 위키의 <money>Importing from Microsoft Money</money> 또는 <quicken>Importing from Quicken</quicken> 섹션을 먼저 읽어 보세요."
+    }
   },
   "selectAccount": {
     "headingSingle": "대상 계정 선택",

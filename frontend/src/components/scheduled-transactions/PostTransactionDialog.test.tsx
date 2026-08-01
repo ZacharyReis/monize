@@ -39,6 +39,7 @@ vi.mock('@/lib/format', () => ({
   getCurrencySymbol: () => '$',
   getDecimalPlacesForCurrency: () => 2,
   roundToCents: (v: number) => Math.round(v * 100) / 100,
+  formatAmount: (v: number) => (v ?? 0).toFixed(2),
   formatAmountWithCommas: (v: number) => v?.toLocaleString() ?? '',
   parseAmount: (v: string) => parseFloat(v) || 0,
   filterCurrencyInput: (v: string) => v,
@@ -224,6 +225,15 @@ describe('PostTransactionDialog', () => {
     const descInput = screen.getByPlaceholderText('Description...');
     fireEvent.change(descInput, { target: { value: 'Custom description' } });
     expect((descInput as HTMLInputElement).value).toBe('Custom description');
+  });
+
+  it('renders description as a multi-line textarea that preserves CR/LF', () => {
+    const multiline = { ...scheduledTransaction, description: 'Line one\nLine two' };
+    render(<PostTransactionDialog {...defaultProps} scheduledTransaction={multiline} />);
+    const descInput = screen.getByPlaceholderText('Description...');
+    // A <textarea> (not <input>) is required to display embedded newlines.
+    expect(descInput.tagName).toBe('TEXTAREA');
+    expect((descInput as HTMLTextAreaElement).value).toBe('Line one\nLine two');
   });
 
   // --- Transaction date ---
@@ -585,6 +595,16 @@ describe('PostTransactionDialog', () => {
     expect((refInput as HTMLInputElement).value).toBe('CHQ-1234');
   });
 
+  it('renders reference number field for split transactions', () => {
+    render(<PostTransactionDialog {...defaultProps} scheduledTransaction={splitTransaction} />);
+    expect(screen.getByPlaceholderText('Cheque #, confirmation #...')).toBeInTheDocument();
+  });
+
+  it('renders reference number field for transfer transactions', () => {
+    render(<PostTransactionDialog {...defaultProps} scheduledTransaction={transferTransaction} />);
+    expect(screen.getByPlaceholderText('Cheque #, confirmation #...')).toBeInTheDocument();
+  });
+
   it('includes referenceNumber in post payload when provided', async () => {
     const onPosted = vi.fn();
     render(<PostTransactionDialog {...defaultProps} onPosted={onPosted} />);
@@ -615,6 +635,49 @@ describe('PostTransactionDialog', () => {
       expect(mockPostApi).toHaveBeenCalled();
       const payload = mockPostApi.mock.calls[0][1];
       expect(payload.referenceNumber).toBeUndefined();
+    });
+  });
+
+  // --- Copy amount ---
+  function mockClipboard() {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    return writeText;
+  }
+
+  it('renders a copy-amount button', () => {
+    render(<PostTransactionDialog {...defaultProps} />);
+    expect(screen.getByLabelText('Copy amount')).toBeInTheDocument();
+  });
+
+  it('copies the amount without the minus sign', async () => {
+    const writeText = mockClipboard();
+    // scheduledTransaction.amount is -15.99 — the copied value must be unsigned.
+    render(<PostTransactionDialog {...defaultProps} />);
+
+    fireEvent.click(screen.getByLabelText('Copy amount'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('15.99');
+    });
+    expect(toast.success).toHaveBeenCalledWith('Amount copied');
+  });
+
+  it('shows an error toast when copying fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    render(<PostTransactionDialog {...defaultProps} />);
+
+    fireEvent.click(screen.getByLabelText('Copy amount'));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Failed to copy amount');
     });
   });
 

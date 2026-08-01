@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "La settimana inizia il",
     "showCreatedAtLabel": "Mostra la data di creazione nei moduli transazione",
     "showCreatedAtTooltip": "Mostra la data e l'ora in cui una transazione è stata originariamente creata nei moduli transazione. È separata dalla data della transazione e può aiutarti a capire quando una voce è stata effettivamente aggiunta a Monize.",
+    "showWhatsNewLabel": "Mostra le Novità dopo un aggiornamento",
+    "showWhatsNewTooltip": "Mostra un riepilogo delle note di rilascio al primo accesso dopo l'aggiornamento di Monize a una nuova versione. Puoi sempre riaprirlo facendo clic sul numero di versione in fondo a questa pagina o nella schermata di accesso.",
     "timeFormatLabel": "Formato ora",
     "recentTransactionsLabel": "Transazioni recenti nel riempimento rapido",
     "recentTransactionsHelp": "Numero di voci mostrate nel popover della cronologia accanto al campo Beneficiario nei moduli transazione.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Impossibile salvare il tema colori"
     },
     "browserLocale": "Usa localizzazione del browser (rilevamento automatico)",
-    "browserTimezonePrefix": "Usa fuso orario del browser (rilevato automaticamente: {tz})",
     "numberFormatOptions": {
       "browser": "Usa localizzazione del browser (rilevata automaticamente: {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Sfoglia guide e documentazione."
+    },
+    "supportBackup": {
+      "label": "Crea un backup di supporto",
+      "description": "Condividi una copia cifrata e de-identificata dei tuoi dati così che un manutentore possa riprodurre un bug senza vedere i tuoi nomi o importi reali."
     }
+  },
+  "supportBackup": {
+    "title": "Crea backup di supporto",
+    "howItWorks": "Produce una copia de-identificata del tuo backup: i nomi sono mascherati (restano i primi e gli ultimi due caratteri), note/descrizioni/numeri di conto vengono rimossi e ogni importo è moltiplicato per un unico fattore nascosto, mentre i valori pubblici (tassi di cambio, prezzi, tassi d'interesse) restano intatti. Il file è sempre cifrato con la password qui sotto e si ripristina come un backup normale. Protegge dall'esposizione casuale, non da chi ti conosce già: date, frequenze e struttura sono preservate perché i bug restino riproducibili.",
+    "sectionsLabel": "Cosa includere",
+    "sections": {
+      "investments": "Investimenti (titoli, posizioni, prezzi)",
+      "scheduled": "Transazioni pianificate",
+      "budgets": "Budget",
+      "reports": "Report e proiezioni",
+      "importMappings": "Mappature colonne di importazione",
+      "autoBackup": "Impostazioni backup automatico"
+    },
+    "priceHistoryLabel": "Includi lo storico prezzi dei titoli",
+    "priceHistoryHint": "Disattivato di default: una serie completa di prezzi coincide con i dati pubblici di mercato e può identificare un simbolo mascherato. Attivalo solo se il bug riguarda prezzi o valutazioni.",
+    "accountsLabel": "Limita a conti specifici",
+    "accountsHint": "Lascia tutto deselezionato per includere ogni conto. Scegliere un sottoinsieme trascina anche i conti e i beneficiari referenziati.",
+    "dateRangeLabel": "Intervallo di date (facoltativo)",
+    "dateRangeHint": "Limita lo storico esportato a queste date. I saldi iniziali vengono corretti perché il file ridotto continui a quadrare.",
+    "dateFromLabel": "Dal",
+    "dateToLabel": "Al",
+    "multiplierLabel": "Moltiplicatore degli importi",
+    "multiplierHint": "Ogni importo privato viene moltiplicato per questo numero per nascondere i valori reali mantenendo la coerenza. Va bene qualsiasi numero non intero maggiore di 1; «Rigenera» ne sceglie uno nuovo.",
+    "multiplierWarning": "Non condividere il moltiplicatore con nessuno: è la chiave che inverte gli importi nascosti.",
+    "multiplierInvalid": "Inserisci un numero non intero maggiore di 1.",
+    "regenerate": "Rigenera",
+    "passwordLabel": "Password di cifratura",
+    "preview": "Anteprima",
+    "previewLabel": "Anteprima",
+    "previewBefore": "Prima",
+    "previewAfter": "Dopo",
+    "previewEmpty": "Nessuna riga di esempio per questa selezione.",
+    "previewFailed": "Impossibile generare l'anteprima. Riprova.",
+    "generate": "Genera",
+    "confirmPasswordTitle": "Hai salvato la password?",
+    "confirmPasswordMessage": "Il file può essere aperto solo con la password di cifratura mostrata sopra. Non viene memorizzata da nessuna parte e non potrà essere recuperata: assicurati di averla salvata prima di generare.",
+    "confirmPasswordConfirm": "L'ho salvata — genera",
+    "generatedToast": "Backup di supporto scaricato.",
+    "generateFailed": "Impossibile generare il backup di supporto. Riprova.",
+    "passwordHint": "Il file è sempre cifrato. Condividi questa password con l'investigatore tramite un canale separato, non insieme al file.",
+    "passwordInvalid": "Inserisci almeno 8 caratteri."
   },
   "dangerZone": {
     "heading": "Zona pericolosa",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Backup automatico",
-    "description": "Esegui automaticamente il backup dei tuoi dati in una cartella secondo una pianificazione. Poiché Monize gira in Docker, devi mappare una cartella dell'host nel container come volume (es. -v /host/backups:/backups).",
+    "description": "Esegui automaticamente il backup dei tuoi dati in una cartella secondo una pianificazione. Poiché Monize gira in Docker, devi mappare una cartella dell'host nel container come volume (es. -v /host/backups:/data/backups).",
     "loadingText": "Caricamento...",
     "enableLabel": "Attiva backup automatici",
     "backupFolderLabel": "Cartella di backup",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Sfoglia...",
     "validateButton": "Convalida",
     "validatingButton": "Convalida in corso...",

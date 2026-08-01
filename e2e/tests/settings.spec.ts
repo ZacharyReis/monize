@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import { logout, loginUser } from '../helpers/auth';
 import { uniqueId } from '../helpers/api';
+import { createCurrency } from '../helpers/factories';
 
 // Settings: the page renders Profile, Preferences, and Security on one
 // scrolling page. The smoke tests assert the sections render; the deeper tests
@@ -43,11 +44,19 @@ test.describe('Settings', () => {
 
   test('changes the default currency and persists it after reload', async ({
     authedPage: page,
+    api,
   }) => {
+    // Currencies are created on demand, so add GBP for this user before it can
+    // be selected as the default currency.
+    await createCurrency(api, {
+      code: 'GBP',
+      name: 'British Pound',
+      symbol: '£',
+    });
+
     await page.goto('/settings');
     const currency = page.getByLabel('Default Currency');
     await expect(currency).toBeVisible({ timeout: 15000 });
-    // GBP is part of the seeded currency catalog (see currencies.spec).
     await currency.selectOption('GBP');
     await page.getByRole('button', { name: /save preferences/i }).click();
 

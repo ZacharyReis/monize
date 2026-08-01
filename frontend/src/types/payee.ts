@@ -93,6 +93,19 @@ export interface ApplyAutoMergeGroup {
   backfillTransactions?: boolean;
 }
 
+export interface ApplyAutoMergeFailure {
+  canonicalPayeeId: string;
+  canonicalName: string;
+  conflictingValue: string | null;
+  reason: string;
+}
+
+export interface ApplyAutoMergeSkippedAlias {
+  canonicalPayeeId: string;
+  canonicalName: string;
+  alias: string;
+}
+
 export interface ApplyAutoMergeResult {
   groupsMerged: number;
   payeesMerged: number;
@@ -100,6 +113,8 @@ export interface ApplyAutoMergeResult {
   aliasesCreated: number;
   skippedAliases: number;
   transactionsBackfilled: number;
+  skippedAliasDetails: ApplyAutoMergeSkippedAlias[];
+  failures: ApplyAutoMergeFailure[];
 }
 
 export interface PayeeSummary {

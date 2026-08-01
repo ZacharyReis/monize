@@ -6,6 +6,7 @@ import * as bcrypt from "bcryptjs";
 import { DemoModeService } from "../common/demo-mode.service";
 import { DemoSeedService } from "./demo-seed.service";
 import { INTRADAY_TEMPLATES } from "./demo-seed-data/intraday-templates";
+import { withSystemContext } from "../common/db/with-context";
 
 @Injectable()
 export class DemoResetService {
@@ -23,6 +24,12 @@ export class DemoResetService {
 
     this.logger.log("Starting daily demo data reset...");
 
+    // RLS (task C3): clears and re-seeds the demo user's data across many
+    // tables via raw SQL -- runs under a system context.
+    return withSystemContext(() => this.resetDemoDataWithinContext());
+  }
+
+  private async resetDemoDataWithinContext(): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -182,6 +189,13 @@ export class DemoResetService {
 
     this.logger.log("Generating intra-day demo transactions...");
 
+    // RLS (task C3): raw cross-user SQL over the demo user's data.
+    return withSystemContext(() =>
+      this.generateIntradayTransactionsWithinContext(),
+    );
+  }
+
+  private async generateIntradayTransactionsWithinContext(): Promise<void> {
     try {
       const [demoUser] = await this.dataSource.query(
         "SELECT id FROM users WHERE email = 'demo@monize.com'",
@@ -268,9 +282,8 @@ export class DemoResetService {
         await this.dataSource.query(
           `INSERT INTO transactions (
             user_id, account_id, transaction_date, payee_id, payee_name,
-            category_id, amount, currency_code, description,
-            is_cleared, is_reconciled, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'CAD', $8, false, false, 'UNRECONCILED')`,
+            category_id, amount, currency_code, description, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'CAD', $8, 'UNRECONCILED')`,
           [
             userId,
             account.id,

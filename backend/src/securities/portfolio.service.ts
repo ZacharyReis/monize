@@ -12,6 +12,7 @@ import {
 import { YahooFinanceService } from "./yahoo-finance.service";
 import { QuoteProviderRegistry } from "./providers/quote-provider.registry";
 import { roundMoney } from "../common/round.util";
+import { collectTagKeys } from "../tags/tag-key-value.util";
 import { mapWithConcurrency } from "../common/concurrency.util";
 import { formatDateYMD } from "../common/date-utils";
 import {
@@ -23,6 +24,9 @@ import {
   IntradayRangeKey,
   IntradayValuePoint,
   IntradayValueResponse,
+  IntradayBreakdownResponse,
+  IntradayBreakdownSeries,
+  IntradayBreakdownPoint,
 } from "./dto/intraday-value.dto";
 
 // Intraday charts run on an interactive request; cap concurrent Yahoo fetches
@@ -119,6 +123,11 @@ export interface AssetAllocation {
  * to answer holdings questions.
  */
 export interface LlmPortfolioHolding {
+  // The owned security's UUID, surfaced so the assistant can deep-link a
+  // holding to its row on the Securities page (monize://security/<id>). It is
+  // the Security id, not the holding-row id, matching what /securities?highlight=
+  // resolves against.
+  securityId: string;
   symbol: string;
   name: string;
   securityType: string;
@@ -172,9 +181,69 @@ export interface LlmPortfolioSummary {
   allocation: LlmPortfolioAllocation[];
 }
 
+/**
+ * A currency's live intraday FX bars (times/rates) plus a latest-spot fallback,
+ * used to value each grid bar at the rate that prevailed at that moment.
+ */
+interface IntradayFxSeries {
+  times: number[];
+  rates: number[];
+  latest: number;
+}
+
+/**
+ * Fully loaded intraday inputs, shared by the total-value and per-security
+ * breakdown views so both are derived from a single set of Yahoo fetches. The
+ * expensive part (price + FX fetches, cash, the unified time grid) lives here
+ * and is cached; the cheap per-bar aggregation runs per view.
+ *
+ * When `fallbackToDaily` is true (or there are no holdings) the value arrays
+ * are empty and the caller renders/flags the daily fallback instead.
+ */
+interface IntradayLoaded {
+  interval: IntradayInterval;
+  currency: string;
+  range: IntradayRangeKey;
+  fetchedAt: string;
+  skippedSymbols: string[];
+  failedSymbols: string[];
+  fallbackToDaily: boolean;
+  timestamps: number[];
+  /** Holdings with live intraday bars, in the security's native currency. */
+  sources: Array<{
+    securityId: string;
+    symbol: string;
+    name: string;
+    quantity: number;
+    currencyCode: string;
+    times: number[];
+    opens: Array<number | null | undefined>;
+    closes: number[];
+  }>;
+  /** Holdings valued at their last daily close (native-currency amount). */
+  staleSources: Array<{
+    securityId: string;
+    symbol: string;
+    name: string;
+    currencyCode: string;
+    amount: number;
+  }>;
+  /**
+   * Stale-holding amounts grouped by native currency, used by the total series
+   * so its per-currency rounding matches the pre-refactor output exactly.
+   */
+  staleByCurrency: Array<[string, number]>;
+  /** Cash grouped by native currency (currency -> amount). */
+  cashByCurrency: Array<[string, number]>;
+  fxByCurrency: Map<string, IntradayFxSeries>;
+  dailyRateIndex: DailyRateIndex;
+  /** Latest spot rate per `${currency}->${display}` fallback. */
+  spotRate: Map<string, number>;
+}
+
 interface IntradayCacheEntry {
   expiresAt: number;
-  payload: IntradayValueResponse;
+  loaded: IntradayLoaded;
 }
 
 const RANGE_TO_YAHOO: Record<
@@ -423,7 +492,6 @@ export class PortfolioService {
       sortedHoldings,
       holdingsResult.holdings,
       totalCashValue,
-      totalPortfolioValue,
       defaultCurrency,
       rateCache,
     );
@@ -481,6 +549,7 @@ export class PortfolioService {
       v === null || v === undefined ? null : Math.round(Number(v) * 100) / 100;
 
     const toLlmHolding = (h: HoldingWithMarketValue): LlmPortfolioHolding => ({
+      securityId: h.securityId,
       symbol: h.symbol,
       name: h.name,
       securityType: h.securityType,
@@ -850,6 +919,72 @@ export class PortfolioService {
     userId: string,
     accountIds?: string[],
   ): Promise<AssetAllocation> {
+    const inputs = await this.loadTaggedAllocationInputs(userId, accountIds);
+    const allocation = this.calculationService.buildAllocationByTag(
+      inputs.securityItems,
+      inputs.tagsBySymbol,
+      inputs.totalCashValue,
+      inputs.defaultCurrency,
+    );
+    return { allocation, totalValue: inputs.totalValue };
+  }
+
+  /**
+   * Portfolio allocation aggregated by the VALUE of a single KEY:VALUE tag key
+   * (e.g. key `country` -> slices per country). See
+   * `PortfolioCalculationService.buildAllocationByTagKey` for the value-weighted
+   * (overlapping) semantics.
+   */
+  async getAllocationByTagKey(
+    userId: string,
+    key: string,
+    accountIds?: string[],
+  ): Promise<AssetAllocation> {
+    const inputs = await this.loadTaggedAllocationInputs(userId, accountIds);
+    const allocation = this.calculationService.buildAllocationByTagKey(
+      inputs.securityItems,
+      inputs.tagsBySymbol,
+      inputs.totalCashValue,
+      inputs.defaultCurrency,
+      key,
+    );
+    return { allocation, totalValue: inputs.totalValue };
+  }
+
+  /**
+   * Distinct KEY:VALUE tag keys present on the portfolio's securities, so the
+   * UI can offer "aggregate by key" choices. Case-folded and sorted.
+   */
+  async getPortfolioTagKeys(
+    userId: string,
+    accountIds?: string[],
+  ): Promise<string[]> {
+    const inputs = await this.loadTaggedAllocationInputs(userId, accountIds);
+    const names: string[] = [];
+    for (const tags of inputs.tagsBySymbol.values()) {
+      for (const tag of tags) names.push(tag.name);
+    }
+    return collectTagKeys(names);
+  }
+
+  /**
+   * Shared prep for the by-tag / by-tag-key allocation views: the per-security
+   * slices (values already in the default currency), the cash total, the
+   * default currency, and each security's tags keyed by symbol.
+   */
+  private async loadTaggedAllocationInputs(
+    userId: string,
+    accountIds?: string[],
+  ): Promise<{
+    securityItems: AllocationItem[];
+    totalCashValue: number;
+    defaultCurrency: string;
+    tagsBySymbol: Map<
+      string,
+      Array<{ id: string; name: string; color: string | null }>
+    >;
+    totalValue: number;
+  }> {
     const summary = await this.getPortfolioSummary(userId, accountIds);
     const securityItems = summary.allocation.filter(
       (a) => a.type === "security",
@@ -866,14 +1001,13 @@ export class PortfolioService {
       .filter((s): s is string => Boolean(s));
     const tagsBySymbol = await this.loadTagsBySymbol(userId, symbols);
 
-    const allocation = this.calculationService.buildAllocationByTag(
+    return {
       securityItems,
-      tagsBySymbol,
       totalCashValue,
-      summary.totalPortfolioValue,
       defaultCurrency,
-    );
-    return { allocation, totalValue: summary.totalPortfolioValue };
+      tagsBySymbol,
+      totalValue: summary.totalPortfolioValue,
+    };
   }
 
   /** The user's default display currency, falling back to CAD. */
@@ -926,14 +1060,13 @@ export class PortfolioService {
   }
 
   /**
-   * Compute the intraday portfolio value series for the user's current
-   * holdings. Pulls live minute/hour bars from Yahoo Finance for each
-   * security, aligns them on a unified time grid, and converts each bar to
-   * the user's display currency.
+   * Intraday portfolio value series for the 1D / 1W / 1M chart ranges. Sums the
+   * per-security and cash contributions loaded by {@link loadIntradayData} into
+   * a single total per grid bar.
    *
    * Results are cached in-memory for 60 seconds keyed by
-   * `userId|range|accountIds|currency` to absorb double clicks and the
-   * frontend's optimistic refresh.
+   * `userId|range|accountIds|currency` (via loadIntradayData) to absorb double
+   * clicks and the frontend's optimistic refresh.
    */
   async getIntradayValueSeries(
     userId: string,
@@ -943,6 +1076,304 @@ export class PortfolioService {
       displayCurrency?: string;
     },
   ): Promise<IntradayValueResponse> {
+    const loaded = await this.loadIntradayData(userId, query);
+    const meta = {
+      interval: loaded.interval,
+      currency: loaded.currency,
+      range: loaded.range,
+      fetchedAt: loaded.fetchedAt,
+      skippedSymbols: loaded.skippedSymbols,
+      failedSymbols: loaded.failedSymbols,
+      fallbackToDaily: loaded.fallbackToDaily,
+    };
+
+    if (loaded.timestamps.length === 0) {
+      return { points: [], ...meta };
+    }
+
+    const fxAt = this.makeIntradayFxAt(loaded);
+    const cursors = loaded.sources.map(() => -1);
+    const points: IntradayValuePoint[] = [];
+
+    for (const ts of loaded.timestamps) {
+      let totalCents = 0; // integer arithmetic to avoid float drift
+      // Cash contributions, valued at the FX rate prevailing at this bar.
+      for (const [ccy, amount] of loaded.cashByCurrency) {
+        totalCents += Math.round(amount * fxAt(ccy, ts) * 10000);
+      }
+      // Stale-holding contributions (last daily close * quantity), grouped by
+      // currency so the per-currency rounding matches the historical total.
+      for (const [ccy, amount] of loaded.staleByCurrency) {
+        totalCents += Math.round(amount * fxAt(ccy, ts) * 10000);
+      }
+      for (let i = 0; i < loaded.sources.length; i++) {
+        const src = loaded.sources[i];
+        cursors[i] = this.advanceIntradayCursor(src.times, cursors[i], ts);
+        const price = this.intradayPriceAt(src, cursors[i], ts);
+        totalCents += Math.round(
+          src.quantity * price * fxAt(src.currencyCode, ts) * 10000,
+        );
+      }
+      points.push({
+        timestamp: new Date(ts).toISOString(),
+        value: totalCents / 10000,
+      });
+    }
+
+    return { points, ...meta };
+  }
+
+  /**
+   * Per-security intraday series for the Portfolio Value Over Time report's "by
+   * security" view. Shares {@link loadIntradayData} (and its cache) with the
+   * total-value series, then values each holding individually so the bands
+   * stack up to the total. The top `limit` securities (by peak contribution)
+   * keep their own band; the rest roll into a single "other" band, with cash
+   * as its own aggregate band.
+   */
+  async getIntradayBreakdown(
+    userId: string,
+    query: {
+      range: IntradayRangeKey;
+      accountIds?: string[];
+      displayCurrency?: string;
+      limit?: number;
+    },
+  ): Promise<IntradayBreakdownResponse> {
+    const loaded = await this.loadIntradayData(userId, query);
+    const meta = {
+      interval: loaded.interval,
+      currency: loaded.currency,
+      range: loaded.range,
+      fetchedAt: loaded.fetchedAt,
+      skippedSymbols: loaded.skippedSymbols,
+      failedSymbols: loaded.failedSymbols,
+      fallbackToDaily: loaded.fallbackToDaily,
+    };
+
+    if (loaded.timestamps.length === 0) {
+      return { series: [], points: [], ...meta };
+    }
+
+    const fxAt = this.makeIntradayFxAt(loaded);
+    const cursors = loaded.sources.map(() => -1);
+    const n = loaded.timestamps.length;
+
+    // Per-security value arrays (display currency) plus the aggregate cash band.
+    const secValues = new Map<string, number[]>();
+    const secMeta = new Map<string, { symbol: string; name: string }>();
+    const cash = new Array<number>(n).fill(0);
+    const ensureSec = (id: string, symbol: string, name: string) => {
+      if (!secValues.has(id)) {
+        secValues.set(id, new Array<number>(n).fill(0));
+        secMeta.set(id, { symbol, name });
+      }
+    };
+
+    for (let ti = 0; ti < n; ti++) {
+      const ts = loaded.timestamps[ti];
+      let cashCents = 0;
+      for (const [ccy, amount] of loaded.cashByCurrency) {
+        cashCents += Math.round(amount * fxAt(ccy, ts) * 10000);
+      }
+      cash[ti] = cashCents / 10000;
+      // Stale (last-close) holdings keep their own band, unlike the total
+      // series which only needs a per-currency subtotal.
+      for (const s of loaded.staleSources) {
+        ensureSec(s.securityId, s.symbol, s.name);
+        secValues.get(s.securityId)![ti] =
+          Math.round(s.amount * fxAt(s.currencyCode, ts) * 10000) / 10000;
+      }
+      for (let i = 0; i < loaded.sources.length; i++) {
+        const src = loaded.sources[i];
+        cursors[i] = this.advanceIntradayCursor(src.times, cursors[i], ts);
+        const price = this.intradayPriceAt(src, cursors[i], ts);
+        ensureSec(src.securityId, src.symbol, src.name);
+        secValues.get(src.securityId)![ti] =
+          Math.round(
+            src.quantity * price * fxAt(src.currencyCode, ts) * 10000,
+          ) / 10000;
+      }
+    }
+
+    const { series, points } = this.groupIntradayBreakdown(
+      loaded.timestamps,
+      secValues,
+      secMeta,
+      cash,
+      query.limit ?? 10,
+    );
+    return { series, points, ...meta };
+  }
+
+  /** Advance a forward-fill cursor to the latest sample at or before `ts`. */
+  private advanceIntradayCursor(
+    times: number[],
+    cursor: number,
+    ts: number,
+  ): number {
+    let c = cursor;
+    while (c + 1 < times.length && times[c + 1] <= ts) c++;
+    return c;
+  }
+
+  /**
+   * Price for one holding at grid bar `ts` given its forward-fill cursor.
+   * Backfills unstarted series at their first open, and uses the first bar's
+   * open (not close) at the very first bar so the chart's starting value
+   * matches the day's official opening price.
+   */
+  private intradayPriceAt(
+    src: {
+      times: number[];
+      opens: Array<number | null | undefined>;
+      closes: number[];
+    },
+    cursor: number,
+    ts: number,
+  ): number {
+    if (cursor < 0) return src.opens[0] ?? src.closes[0];
+    const atFirstBar =
+      cursor === 0 && ts === src.times[0] && src.opens[0] != null;
+    if (atFirstBar) return src.opens[0] as number;
+    return src.closes[cursor];
+  }
+
+  /**
+   * Build a fresh FX lookup over the loaded intraday/daily rate series. Each
+   * call owns its cursor state, so the total-value and breakdown views can each
+   * walk the (ascending) grid independently. See the original inline notes:
+   * live intraday bar at-or-before `ts` wins, else the stored daily close for
+   * that bar's date, else the latest spot.
+   */
+  private makeIntradayFxAt(
+    loaded: IntradayLoaded,
+  ): (currency: string, ts: number) => number {
+    const display = loaded.currency;
+    const cursors = new Map<string, number>();
+    const dailyRateCache = new Map<string, number | undefined>();
+    const dailyFxAt = (currency: string, ts: number): number | undefined => {
+      const dateStr = formatDateYMD(new Date(ts));
+      const memoKey = `${currency}|${dateStr}`;
+      if (dailyRateCache.has(memoKey)) return dailyRateCache.get(memoKey);
+      const rate = this.calculationService.resolveDailyRate(
+        loaded.dailyRateIndex,
+        currency,
+        display,
+        dateStr,
+      );
+      dailyRateCache.set(memoKey, rate);
+      return rate;
+    };
+    return (currency: string, ts: number): number => {
+      if (currency === display) return 1;
+      const fx = loaded.fxByCurrency.get(currency);
+      if (!fx) return loaded.spotRate.get(`${currency}->${display}`) ?? 1;
+      if (fx.times.length > 0) {
+        let c = cursors.get(currency) ?? -1;
+        while (c + 1 < fx.times.length && fx.times[c + 1] <= ts) c++;
+        cursors.set(currency, c);
+        if (c >= 0) return fx.rates[c];
+      }
+      return dailyFxAt(currency, ts) ?? fx.latest;
+    };
+  }
+
+  /**
+   * Rank securities by peak contribution, keep the top `limit` as their own
+   * bands, roll the rest into a single "other" band, and append a cash band
+   * when any cash is present. Values are rounded to 4 decimals to match the
+   * intraday total series' precision.
+   */
+  private groupIntradayBreakdown(
+    timestamps: number[],
+    secValues: Map<string, number[]>,
+    secMeta: Map<string, { symbol: string; name: string }>,
+    cash: number[],
+    limit: number,
+  ): { series: IntradayBreakdownSeries[]; points: IntradayBreakdownPoint[] } {
+    const peak = new Map<string, number>();
+    for (const [id, arr] of secValues) {
+      let p = 0;
+      for (const v of arr) if (Math.abs(v) > Math.abs(p)) p = v;
+      peak.set(id, p);
+    }
+
+    const ranked = [...peak.entries()]
+      .filter(([, v]) => Math.abs(v) >= 0.005)
+      .sort((a, b) => {
+        const diff = Math.abs(b[1]) - Math.abs(a[1]);
+        if (diff !== 0) return diff;
+        const an = secMeta.get(a[0])?.name ?? "";
+        const bn = secMeta.get(b[0])?.name ?? "";
+        return an.localeCompare(bn);
+      })
+      .map(([id]) => id);
+
+    const topIds = ranked.slice(0, limit);
+    const otherIds = ranked.slice(limit);
+    const hasOther = otherIds.length > 0;
+    const hasCash = cash.some((v) => Math.abs(v) >= 0.005);
+
+    const series: IntradayBreakdownSeries[] = topIds.map((id) => {
+      const m = secMeta.get(id);
+      return {
+        key: id,
+        type: "security",
+        symbol: m?.symbol ?? null,
+        name: m?.name ?? m?.symbol ?? id,
+      };
+    });
+    if (hasOther)
+      series.push({ key: "other", type: "other", symbol: null, name: "" });
+    if (hasCash)
+      series.push({ key: "cash", type: "cash", symbol: null, name: "" });
+
+    const round4 = (v: number) => Math.round(v * 10000) / 10000;
+    const points: IntradayBreakdownPoint[] = timestamps.map((ts, ti) => {
+      const values: Record<string, number> = {};
+      let total = 0;
+      for (const id of topIds) {
+        const v = round4(secValues.get(id)![ti]);
+        values[id] = v;
+        total += v;
+      }
+      if (hasOther) {
+        let sum = 0;
+        for (const id of otherIds) sum += secValues.get(id)![ti];
+        const v = round4(sum);
+        values.other = v;
+        total += v;
+      }
+      if (hasCash) {
+        const v = round4(cash[ti]);
+        values.cash = v;
+        total += v;
+      }
+      return {
+        timestamp: new Date(ts).toISOString(),
+        total: round4(total),
+        values,
+      };
+    });
+
+    return { series, points };
+  }
+
+  /**
+   * Load and cache all intraday inputs (Yahoo price + FX fetches, cash, the
+   * unified time grid) for a range. Shared by {@link getIntradayValueSeries}
+   * and {@link getIntradayBreakdown} so a portfolio is fetched from Yahoo once
+   * per 60-second window regardless of which view(s) the frontend requests.
+   */
+  private async loadIntradayData(
+    userId: string,
+    query: {
+      range: IntradayRangeKey;
+      accountIds?: string[];
+      displayCurrency?: string;
+    },
+  ): Promise<IntradayLoaded> {
     const { range, accountIds } = query;
     const pref = await this.prefRepository.findOne({ where: { userId } });
     const displayCurrency =
@@ -957,7 +1388,7 @@ export class PortfolioService {
     const now = Date.now();
     const cached = this.intradayCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
-      return cached.payload;
+      return cached.loaded;
     }
 
     const yahooParams = RANGE_TO_YAHOO[range];
@@ -969,6 +1400,7 @@ export class PortfolioService {
     let activeHoldings: Array<{
       securityId: string;
       symbol: string;
+      name: string;
       exchange: string | null;
       currencyCode: string;
       quantity: number;
@@ -988,6 +1420,7 @@ export class PortfolioService {
         {
           securityId: string;
           symbol: string;
+          name: string;
           exchange: string | null;
           currencyCode: string;
           quantity: number;
@@ -1016,6 +1449,7 @@ export class PortfolioService {
           aggregated.set(h.securityId, {
             securityId: h.securityId,
             symbol: h.security.symbol,
+            name: h.security.name,
             exchange: h.security.exchange,
             currencyCode: h.security.currencyCode,
             quantity: qty,
@@ -1040,22 +1474,38 @@ export class PortfolioService {
     //             single day's series).
     const fallbackToDaily = skippedSymbols.length > 0;
 
+    // Shape a "no series" result (empty holdings / skip-fallback / all-failed)
+    // with the given availability flags.
+    const emptyLoaded = (
+      overrides: Partial<
+        Pick<IntradayLoaded, "failedSymbols" | "fallbackToDaily">
+      >,
+    ): IntradayLoaded => ({
+      interval: yahooParams.interval,
+      currency: displayCurrency,
+      range,
+      fetchedAt,
+      skippedSymbols,
+      failedSymbols: [],
+      fallbackToDaily,
+      timestamps: [],
+      sources: [],
+      staleSources: [],
+      staleByCurrency: [],
+      cashByCurrency: [],
+      fxByCurrency: new Map(),
+      dailyRateIndex: new Map() as DailyRateIndex,
+      spotRate: new Map(),
+      ...overrides,
+    });
+
     if (activeHoldings.length === 0 || fallbackToDaily) {
-      const payload: IntradayValueResponse = {
-        points: [],
-        interval: yahooParams.interval,
-        currency: displayCurrency,
-        range,
-        fetchedAt,
-        skippedSymbols,
-        failedSymbols: [],
-        fallbackToDaily,
-      };
+      const loaded = emptyLoaded({});
       this.intradayCache.set(cacheKey, {
         expiresAt: now + INTRADAY_CACHE_TTL_MS,
-        payload,
+        loaded,
       });
-      return payload;
+      return loaded;
     }
 
     const intradayHoldings = activeHoldings.filter((h) => h.hasIntraday);
@@ -1097,23 +1547,14 @@ export class PortfolioService {
 
     // If literally every holding failed we have nothing to chart -- assume
     // a real upstream outage and fall back to daily for the whole series.
-    // We deliberately do NOT cache this failure payload: caching it would
+    // We deliberately do NOT cache this failure result: caching it would
     // leave the "Couldn't load intraday prices" banner pinned on screen
     // even after the user clicks Refresh and the issue resolves.
     if (
       failedSymbols.length > 0 &&
       failedSymbols.length === intradayHoldings.length
     ) {
-      return {
-        points: [],
-        interval: yahooParams.interval,
-        currency: displayCurrency,
-        range,
-        fetchedAt,
-        skippedSymbols,
-        failedSymbols,
-        fallbackToDaily: true,
-      };
+      return emptyLoaded({ failedSymbols, fallbackToDaily: true });
     }
 
     // Build the unified time grid from the union of all timestamps.
@@ -1163,8 +1604,9 @@ export class PortfolioService {
     // For holdings whose intraday fetch failed (Yahoo errored, was
     // rate-limited past the retry budget, or simply has no minute-resolution
     // data for this security -- common for mutual funds and illiquid names),
-    // fall back to the security's latest known daily close. Group by native
-    // currency so per-timestamp FX still applies to these "stale" amounts.
+    // fall back to the security's latest known daily close. Kept both grouped
+    // by currency (for the total series' per-currency rounding) and per
+    // security (so the breakdown can give each stale holding its own band).
     // Without this, a single mutual fund in the user's portfolio would
     // either undercount the chart (if we ignored it) or pin the
     // "Couldn't load intraday prices" banner permanently (if we treated
@@ -1173,6 +1615,7 @@ export class PortfolioService {
       (h) => !seriesBySecurity.has(h.securityId),
     );
     const staleByCurrency = new Map<string, number>();
+    const staleSources: IntradayLoaded["staleSources"] = [];
     if (failedHoldings.length > 0) {
       const latestPrices = await this.getLatestPrices(
         failedHoldings.map((h) => h.securityId),
@@ -1180,10 +1623,18 @@ export class PortfolioService {
       for (const h of failedHoldings) {
         const lastClose = latestPrices.get(h.securityId);
         if (lastClose == null) continue;
+        const amount = h.quantity * lastClose;
         staleByCurrency.set(
           h.currencyCode,
-          (staleByCurrency.get(h.currencyCode) ?? 0) + h.quantity * lastClose,
+          (staleByCurrency.get(h.currencyCode) ?? 0) + amount,
         );
+        staleSources.push({
+          securityId: h.securityId,
+          symbol: h.symbol,
+          name: h.name,
+          currencyCode: h.currencyCode,
+          amount,
+        });
       }
     }
 
@@ -1199,13 +1650,7 @@ export class PortfolioService {
     ]);
     fxCurrencies.delete(displayCurrency);
 
-    type FxCursor = {
-      times: number[];
-      rates: number[];
-      cursor: number;
-      latest: number;
-    };
-    const fxByCurrency = new Map<string, FxCursor>();
+    const fxByCurrency = new Map<string, IntradayFxSeries>();
     await mapWithConcurrency(
       [...fxCurrencies],
       INTRADAY_FETCH_CONCURRENCY,
@@ -1241,7 +1686,6 @@ export class PortfolioService {
         fxByCurrency.set(currency, {
           times: series?.map((p) => p.timestamp.getTime()) ?? [],
           rates: series?.map((p) => p.close) ?? [],
-          cursor: -1,
           latest,
         });
       },
@@ -1268,53 +1712,17 @@ export class PortfolioService {
             indexEnd,
           )
         : (new Map() as DailyRateIndex);
-    // Memoise the per-currency, per-date daily lookup -- fxAt is called once per
-    // currency per grid bar and the daily rate only changes by date.
-    const dailyRateCache = new Map<string, number | undefined>();
-    const dailyFxAt = (currency: string, ts: number): number | undefined => {
-      const dateStr = formatDateYMD(new Date(ts));
-      const memoKey = `${currency}|${dateStr}`;
-      if (dailyRateCache.has(memoKey)) return dailyRateCache.get(memoKey);
-      const rate = this.calculationService.resolveDailyRate(
-        dailyRateIndex,
-        currency,
-        displayCurrency,
-        dateStr,
-      );
-      dailyRateCache.set(memoKey, rate);
-      return rate;
-    };
 
-    // Walk each FX cursor monotonically as the grid advances. When an intraday
-    // FX bar exists at or before the current timestamp, value the bar at that
-    // live rate. Otherwise (before the first intraday bar, or no intraday series
-    // at all) fall back to the stored daily close for that bar's own date so
-    // historical points are valued at the rate that prevailed then -- not the
-    // first/latest intraday rate -- with the stored latest spot as a last
-    // resort when no daily history exists for the pair.
-    const fxAt = (currency: string, ts: number): number => {
-      if (currency === displayCurrency) return 1;
-      const fx = fxByCurrency.get(currency);
-      if (!fx) return rateCache.get(`${currency}->${displayCurrency}`) ?? 1;
-      if (fx.times.length > 0) {
-        while (
-          fx.cursor + 1 < fx.times.length &&
-          fx.times[fx.cursor + 1] <= ts
-        ) {
-          fx.cursor++;
-        }
-        if (fx.cursor >= 0) return fx.rates[fx.cursor];
-      }
-      return dailyFxAt(currency, ts) ?? fx.latest;
-    };
-
-    // Build per-security ordered timestamp/close arrays and a cursor-based
+    // Build per-security ordered timestamp/close arrays for the cursor-based
     // forward-fill so each grid point uses the latest known close.
-    const sources = intradayHoldings
+    const sources: IntradayLoaded["sources"] = intradayHoldings
       .map((h) => {
         const points = seriesBySecurity.get(h.securityId);
         if (!points || points.length === 0) return null;
         return {
+          securityId: h.securityId,
+          symbol: h.symbol,
+          name: h.name,
           quantity: h.quantity,
           currencyCode: h.currencyCode,
           times: points.map((p) => p.timestamp.getTime()),
@@ -1324,64 +1732,7 @@ export class PortfolioService {
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
 
-    const cursors = sources.map(() => -1);
-    const points: IntradayValuePoint[] = [];
-
-    for (const ts of timestamps) {
-      let totalCents = 0; // integer arithmetic to avoid float drift
-      // Cash contributions, valued at the FX rate prevailing at this bar.
-      for (const [ccy, amount] of cashByCurrency) {
-        totalCents += Math.round(amount * fxAt(ccy, ts) * 10000);
-      }
-      // Stale-holding contributions (last daily close * quantity), same
-      // per-timestamp FX treatment as live holdings.
-      for (const [ccy, amount] of staleByCurrency) {
-        totalCents += Math.round(amount * fxAt(ccy, ts) * 10000);
-      }
-      for (let i = 0; i < sources.length; i++) {
-        const src = sources[i];
-        // Advance cursor to the latest sample at-or-before ts.
-        while (
-          cursors[i] + 1 < src.times.length &&
-          src.times[cursors[i] + 1] <= ts
-        ) {
-          cursors[i]++;
-        }
-        // Backfill: when this security's first bar is later than the current
-        // grid timestamp (e.g. one holding is on an exchange with thinner
-        // intraday coverage, or just has a slightly later first-bar than its
-        // peers), value it at its earliest known open. Without this, every
-        // unstarted series contributes 0 and the aggregate jumps up the
-        // moment each one's first bar arrives — which is exactly the
-        // "significant jump" the chart used to show on multi-account views.
-        //
-        // At the very first bar of each security (cursor=0 and ts equals the
-        // first bar's timestamp) we also use that bar's open rather than its
-        // close, so the chart's starting value matches the day's official
-        // opening price (the same one stored in security_prices.open_price)
-        // rather than the price at the end of the first 1-minute bar.
-        const atFirstBar =
-          cursors[i] === 0 && ts === src.times[0] && src.opens[0] != null;
-        let price: number;
-        if (cursors[i] < 0) {
-          price = src.opens[0] ?? src.closes[0];
-        } else if (atFirstBar) {
-          price = src.opens[0] as number;
-        } else {
-          price = src.closes[cursors[i]];
-        }
-        const valueInDisplay =
-          src.quantity * price * fxAt(src.currencyCode, ts);
-        totalCents += Math.round(valueInDisplay * 10000);
-      }
-      points.push({
-        timestamp: new Date(ts).toISOString(),
-        value: totalCents / 10000,
-      });
-    }
-
-    const payload: IntradayValueResponse = {
-      points,
+    const loaded: IntradayLoaded = {
       interval: yahooParams.interval,
       currency: displayCurrency,
       range,
@@ -1389,12 +1740,20 @@ export class PortfolioService {
       skippedSymbols,
       failedSymbols: [],
       fallbackToDaily: false,
+      timestamps,
+      sources,
+      staleSources,
+      staleByCurrency: [...staleByCurrency],
+      cashByCurrency: [...cashByCurrency],
+      fxByCurrency,
+      dailyRateIndex,
+      spotRate: rateCache,
     };
     this.intradayCache.set(cacheKey, {
       expiresAt: now + INTRADAY_CACHE_TTL_MS,
-      payload,
+      loaded,
     });
-    return payload;
+    return loaded;
   }
 
   private buildIntradayCacheKey(

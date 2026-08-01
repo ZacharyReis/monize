@@ -203,7 +203,13 @@
     "addPriceSection": "मूल्य जोड़ें",
     "editPriceSection": "मूल्य संपादित करें",
     "loading": "मूल्य लोड हो रहे हैं...",
+    "chartTitle": "मूल्य इतिहास",
+    "markers": {
+      "bought": "खरीद {quantity} · {account}",
+      "sold": "बिक्री {quantity} · {account}"
+    },
     "empty": "कोई मूल्य इतिहास उपलब्ध नहीं",
+    "showingCount": "{total} में से {shown} मूल्य दिखाए जा रहे हैं",
     "columns": {
       "date": "तिथि",
       "close": "बंद",
@@ -230,6 +236,7 @@
     "closeButton": "बंद करें",
     "deleteConfirm": {
       "title": "मूल्य हटाएं",
+      "message": "{date} के लिए मूल्य प्रविष्टि हटाएं?",
       "confirmLabel": "हटाएं"
     }
   },

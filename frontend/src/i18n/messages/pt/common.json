@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Ver as notas de versão da v{version}"
   },
+  "whatsNew": {
+    "title": "Novidades",
+    "versionLabel": "Versão {version}",
+    "expandAll": "Expandir tudo",
+    "collapseAll": "Reduzir tudo",
+    "viewFullNotes": "Ver as notas de versão completas",
+    "dontShowAgain": "Não mostrar novamente",
+    "showNextLogin": "Mostrar no próximo início de sessão",
+    "close": "Fechar",
+    "unavailable": "Não há notas de versão disponíveis para esta versão.",
+    "englishOnly": "As notas de versão abaixo estão apenas em inglês. O Monize, incluindo os guias interativos, segue a sua definição de idioma."
+  },
   "save": "Guardar",
   "cancel": "Cancelar",
   "delete": "Eliminar",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Transferir {filename} como PNG",
     "unableToCapture": "Não foi possível capturar a imagem do gráfico",
     "failedToDownload": "Falha ao transferir o gráfico"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Transferir {filename} como CSV"
   },
   "chartViewToggle": {
     "pieChart": "Gráfico circular",
@@ -158,10 +173,47 @@
     "length": "O código deve ter exatamente 6 dígitos",
     "digits": "O código deve ter 6 dígitos"
   },
-  "monthsShort": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
-  "weekdaysShort": ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"],
-  "weekdaysMin": ["do", "se", "te", "qu", "qu", "se", "sá"],
-  "weekdaysNarrow": ["D", "S", "T", "Q", "Q", "S", "S"],
+  "monthsShort": [
+    "jan",
+    "fev",
+    "mar",
+    "abr",
+    "mai",
+    "jun",
+    "jul",
+    "ago",
+    "set",
+    "out",
+    "nov",
+    "dez"
+  ],
+  "weekdaysShort": [
+    "dom",
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sáb"
+  ],
+  "weekdaysMin": [
+    "do",
+    "se",
+    "te",
+    "qu",
+    "qu",
+    "se",
+    "sá"
+  ],
+  "weekdaysNarrow": [
+    "D",
+    "S",
+    "T",
+    "Q",
+    "Q",
+    "S",
+    "S"
+  ],
   "dateFormat": {
     "browserAuto": "Utilizar locale do browser (detetado automaticamente como {sample})",
     "custom": "Personalizado..."

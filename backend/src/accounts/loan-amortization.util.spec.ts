@@ -5,6 +5,7 @@ import {
   calculateEndDate,
   calculateAmortization,
   calculateFinalPayment,
+  calculatePaymentForTerm,
   PaymentFrequency,
 } from "./loan-amortization.util";
 
@@ -237,6 +238,30 @@ describe("Loan Amortization Utility", () => {
 
     it("rounds to 4 decimal places (storage precision)", () => {
       const result = calculateFinalPayment(333.33, 7.77, "MONTHLY");
+      expect(result).toBe(Math.round(result * 10000) / 10000);
+    });
+  });
+
+  describe("calculatePaymentForTerm", () => {
+    it("is the inverse of calculateTotalPayments", () => {
+      // A payment that clears 200000 in ~180 months at 5% should, fed back in,
+      // reproduce ~180 payments.
+      const payment = calculatePaymentForTerm(200000, 5, 180, "MONTHLY");
+      const periods = calculateTotalPayments(200000, 5, payment, "MONTHLY");
+      expect(Math.abs(periods - 180)).toBeLessThanOrEqual(1);
+    });
+
+    it("splits the balance evenly at 0% interest", () => {
+      expect(calculatePaymentForTerm(12000, 0, 24, "MONTHLY")).toBe(500);
+    });
+
+    it("returns 0 for a non-positive balance or term", () => {
+      expect(calculatePaymentForTerm(0, 5, 180, "MONTHLY")).toBe(0);
+      expect(calculatePaymentForTerm(1000, 5, 0, "MONTHLY")).toBe(0);
+    });
+
+    it("rounds to 4 decimal places (storage precision)", () => {
+      const result = calculatePaymentForTerm(225400, 5, 300, "MONTHLY");
       expect(result).toBe(Math.round(result * 10000) / 10000);
     });
   });

@@ -8,6 +8,7 @@ import { PersonalAccessToken } from "../auth/entities/personal-access-token.enti
 import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { PasswordBreachService } from "../auth/password-breach.service";
+import { DemoModeModule } from "../common/demo-mode.module";
 
 /**
  * `PasswordBreachService` is re-provided here (rather than imported from
@@ -26,6 +27,11 @@ import { PasswordBreachService } from "../auth/password-breach.service";
       RefreshToken,
       PersonalAccessToken,
     ]),
+    // DemoModeModule is @Global, but UsersService depends on DemoModeService
+    // directly, so import it here too: integration tests build a TestingModule
+    // around UsersModule without AppModule's global registration, and would
+    // otherwise fail to resolve DemoModeService.
+    DemoModeModule,
   ],
   providers: [UsersService, PasswordBreachService],
   controllers: [UsersController],

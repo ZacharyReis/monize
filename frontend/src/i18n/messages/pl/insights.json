@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI nie jest skonfigurowane",
-    "message": "Nie skonfigurowano żadnego dostawcy AI. Aby korzystać z Analiz wydatków, {link} w ustawieniach.",
-    "linkText": "skonfiguruj dostawcę AI"
+    "message": "Nie skonfigurowano żadnego dostawcy AI. Aby korzystać z Analiz wydatków, {link} w ustawieniach."
   },
   "insightTypes": {
     "anomaly": "Anomalia",

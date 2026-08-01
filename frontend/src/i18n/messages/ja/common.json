@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "v{version}のリリースノートを見る"
   },
+  "whatsNew": {
+    "title": "新着情報",
+    "versionLabel": "バージョン {version}",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ",
+    "viewFullNotes": "リリースノート全体を表示",
+    "dontShowAgain": "今後表示しない",
+    "showNextLogin": "次回ログイン時に表示",
+    "close": "閉じる",
+    "unavailable": "このバージョンのリリースノートはありません。",
+    "englishOnly": "以下のリリースノートは英語のみです。ガイドツアーを含む Monize 本体は言語設定に従います。"
+  },
   "save": "保存",
   "cancel": "キャンセル",
   "delete": "削除",
@@ -65,6 +77,9 @@
     "downloadAsPng": "{filename} を PNG としてダウンロード",
     "unableToCapture": "チャート画像を取得できません",
     "failedToDownload": "チャートのダウンロードに失敗しました"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "{filename} を CSV としてダウンロード"
   },
   "chartViewToggle": {
     "pieChart": "円グラフ",
@@ -158,10 +173,47 @@
     "length": "コードは正確に6桁である必要があります",
     "digits": "コードは6桁である必要があります"
   },
-  "monthsShort": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
-  "weekdaysShort": ["日", "月", "火", "水", "木", "金", "土"],
-  "weekdaysMin": ["日", "月", "火", "水", "木", "金", "土"],
-  "weekdaysNarrow": ["日", "月", "火", "水", "木", "金", "土"],
+  "monthsShort": [
+    "1月",
+    "2月",
+    "3月",
+    "4月",
+    "5月",
+    "6月",
+    "7月",
+    "8月",
+    "9月",
+    "10月",
+    "11月",
+    "12月"
+  ],
+  "weekdaysShort": [
+    "日",
+    "月",
+    "火",
+    "水",
+    "木",
+    "金",
+    "土"
+  ],
+  "weekdaysMin": [
+    "日",
+    "月",
+    "火",
+    "水",
+    "木",
+    "金",
+    "土"
+  ],
+  "weekdaysNarrow": [
+    "日",
+    "月",
+    "火",
+    "水",
+    "木",
+    "金",
+    "土"
+  ],
   "dateFormat": {
     "browserAuto": "ブラウザのロケールを使用（自動検出: {sample}）",
     "custom": "カスタム..."

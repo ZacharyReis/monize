@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@/test/render';
 import { OnboardingPreferences } from './OnboardingPreferences';
 
@@ -18,9 +18,9 @@ vi.mock('next/navigation', async () => {
 
 vi.mock('@/lib/exchange-rates', () => ({
   exchangeRatesApi: {
-    getCurrencies: vi.fn().mockResolvedValue([
-      { code: 'USD', name: 'US Dollar' },
-      { code: 'CAD', name: 'Canadian Dollar' },
+    getCurrencyCatalog: vi.fn().mockResolvedValue([
+      { code: 'USD', name: 'US Dollar', symbol: '$', decimalPlaces: 2 },
+      { code: 'CAD', name: 'Canadian Dollar', symbol: 'CA$', decimalPlaces: 2 },
     ]),
   },
 }));
@@ -45,15 +45,91 @@ async function renderOnboarding(onComplete = vi.fn()) {
   return { onComplete };
 }
 
+/** Render without an explicit language so the browser detection path runs. */
+async function renderAutoDetected(onComplete = vi.fn()) {
+  await act(async () => {
+    render(<OnboardingPreferences onComplete={onComplete} />);
+  });
+  return { onComplete };
+}
+
+const originalLanguages = window.navigator.languages;
+
+function setBrowserLanguages(languages: string[]) {
+  Object.defineProperty(window.navigator, 'languages', {
+    value: languages,
+    configurable: true,
+  });
+  Object.defineProperty(window.navigator, 'language', {
+    value: languages[0],
+    configurable: true,
+  });
+}
+
 describe('OnboardingPreferences', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  afterEach(() => {
+    Object.defineProperty(window.navigator, 'languages', {
+      value: originalLanguages,
+      configurable: true,
+    });
+    Object.defineProperty(window.navigator, 'language', {
+      value: originalLanguages[0],
+      configurable: true,
+    });
+  });
+
+  it('pre-selects the currency detected from the browser region', async () => {
+    setBrowserLanguages(['en-CA', 'en']);
+    await renderOnboarding();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Default currency')).toHaveValue('CAD'),
+    );
+  });
+
+  it('falls back to USD when the detected currency is not in the catalog', async () => {
+    // The catalog this instance serves only carries USD and CAD, so a detected
+    // JPY must not leave the picker showing a code it cannot offer.
+    setBrowserLanguages(['ja-JP']);
+    await renderOnboarding();
+    await waitFor(() =>
+      expect(screen.getByLabelText('Default currency')).toHaveValue('USD'),
+    );
+  });
+
+  it('pre-selects the browser language when none is supplied', async () => {
+    setBrowserLanguages(['pl-PL', 'pl']);
+    await renderAutoDetected();
+    expect(screen.getByLabelText('Language')).toHaveValue('pl');
+  });
+
+  it('saves the detected values when the user just continues', async () => {
+    setBrowserLanguages(['fr-CA', 'fr']);
+    mockUpdatePreferences.mockResolvedValue({ language: 'fr', defaultCurrency: 'CAD' });
+    await renderAutoDetected();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Default currency')).toHaveValue('CAD'),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByText('Continue'));
+    });
+
+    await waitFor(() =>
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({
+        language: 'fr',
+        defaultCurrency: 'CAD',
+      }),
+    );
+  });
 
   it('renders language and currency selectors', async () => {
     await renderOnboarding();
     expect(screen.getByText('Language')).toBeInTheDocument();
     expect(screen.getByText('Default currency')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText('CAD - Canadian Dollar')).toBeInTheDocument(),
+      expect(screen.getByText('CA$ - Canadian Dollar (CAD)')).toBeInTheDocument(),
     );
   });
 
@@ -62,7 +138,7 @@ describe('OnboardingPreferences', () => {
     const { onComplete } = await renderOnboarding();
 
     await waitFor(() =>
-      expect(screen.getByText('CAD - Canadian Dollar')).toBeInTheDocument(),
+      expect(screen.getByText('CA$ - Canadian Dollar (CAD)')).toBeInTheDocument(),
     );
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Default currency'), {

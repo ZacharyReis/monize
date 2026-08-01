@@ -104,8 +104,12 @@
       "lookupTooShort": "Introduza um código ou nome de moeda (pelo menos 2 caracteres) para pesquisar",
       "found": "Encontrado: {details}",
       "notFound": "Nenhuma moeda encontrada para \"{query}\"",
-      "lookupFailed": "Pesquisa falhou - tente novamente"
-    }
+      "lookupFailed": "Pesquisa falhou - tente novamente",
+      "reactivateFailed": "Falha ao reativar a moeda"
+    },
+    "inactiveNotice": "{code} já está na sua lista, mas está inativa.",
+    "reactivateButton": "Reativar {code}",
+    "reactivating": "A reativar..."
   },
   "validation": {
     "codeLength": "O código da moeda deve ter exatamente 3 caracteres",

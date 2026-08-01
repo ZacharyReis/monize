@@ -12,12 +12,26 @@ import {
   UpdateRowInput,
 } from "../../transactions/transaction-tool-prep.service";
 import { AiRelayService } from "../../ai/relay/ai-relay.service";
+import {
+  ATTACHMENT_URI_SCHEME,
+  RelayAttachmentStore,
+} from "../../ai/relay/relay-attachment.store";
 import { AiActionBuilderService } from "../../ai/actions/ai-action-builder.service";
 import {
   ApprovalMode,
+  AttachmentRefDescriptor,
   PendingAiAction,
   resolveApprovalMode,
 } from "../../ai/actions/ai-action.types";
+import {
+  AttachmentDto,
+  MAX_ATTACHMENT_BASE64_LENGTH,
+  MAX_ATTACHMENTS,
+} from "../../ai/query/dto/ai-query.dto";
+import { AttachmentToolPrepService } from "../../attachments/attachment-tool-prep.service";
+import { AttachmentsService } from "../../attachments/attachments.service";
+import { sniffAttachmentMime } from "../../attachments/attachment-mime.util";
+import { withUserContext } from "../../common/db/with-context";
 import { RELAY_PREVIEW_SHOWN } from "../mcp-relay-confirm";
 import {
   UserContextResolver,
@@ -45,6 +59,25 @@ import { READ_ONLY, WRITE } from "../mcp-annotations";
 
 type ManageOperation = "create" | "update" | "delete";
 
+/**
+ * Appended to an MCP confirmation prompt when the target transaction is
+ * reconciled, so the approver knows the edit/delete disturbs a completed
+ * reconciliation. The web chat card surfaces the same warning visually.
+ */
+const RECONCILED_CONFIRM_NOTE =
+  "\nWarning: this transaction is reconciled. Changing it will affect a completed reconciliation.";
+
+/**
+ * One file to save on the transaction: either a relayed chat attachment
+ * (referenced by its monize-attachment:// URI) or inline base64 bytes from a
+ * direct MCP client.
+ */
+interface ManageAttachmentInput {
+  attachmentUri?: string;
+  fileData?: string;
+  fileName?: string;
+}
+
 interface ManageItem {
   // create (standard)
   accountName?: string;
@@ -64,6 +97,8 @@ interface ManageItem {
   toAmount?: number;
   // split transactions (category splits only)
   splits?: { categoryName: string; amount: number; memo?: string }[];
+  // files to save on the transaction (create/update, single item only)
+  attachments?: ManageAttachmentInput[];
 }
 
 @Injectable()
@@ -77,6 +112,9 @@ export class McpTransactionsTools {
     private readonly prepService: TransactionToolPrepService,
     private readonly accountsService: AccountsService,
     private readonly writeLimiter: McpWriteLimiter,
+    private readonly attachmentPrepService: AttachmentToolPrepService,
+    private readonly attachmentsService: AttachmentsService,
+    private readonly relayAttachmentStore: RelayAttachmentStore,
   ) {}
 
   register(server: McpServer, resolve: UserContextResolver) {
@@ -153,7 +191,7 @@ export class McpTransactionsTools {
             .optional()
             .default(false)
             .describe(
-              "When true, also include the raw transaction list (costs more tokens). Default false -- the summary alone usually suffices.",
+              "When true, also include the raw transaction list (costs more tokens). Default false -- the summary alone usually suffices. Foreign-currency rows also carry read-only originalAmount, originalCurrencyCode, and exchangeRate metadata (amount stays in the account currency); informational only, creating foreign-currency transactions is not supported.",
             ),
           limit: z
             .number()
@@ -339,6 +377,7 @@ export class McpTransactionsTools {
           "update: { transactionId, amount?, date?, payeeName?, categoryName?, description?, createPayeeIfMissing? } (>=1 field; a category-only change is transactionId + categoryName; transfers auto-detected; categoryName also applies to a transfer -- it is stored on both legs and surfaces the transfer in the monthly category breakdown without making it count as income/expense; payeeName sets the transfer's custom label, matched to an existing payee or created if missing). " +
           "split transactions (create or update): add a 'splits' array of { categoryName, amount, memo? } (>= 2 lines, category splits only) instead of a single categoryName; split amounts must sum to the transaction amount. Send split transactions one item at a time, not mixed into a multi-row batch. " +
           "delete: { transactionId } (removes linked transfer legs / split children too). " +
+          "attachments (create or update): add an 'attachments' array to save files permanently on the transaction; each entry is EITHER { attachmentUri } referencing a monize-attachment:// chat file relayed from the Monize web chat, OR { fileData, fileName } with inline base64 bytes. Images and PDFs only, max 5 MB each. Single-item calls only; not valid on transfers, delete, or dryRun. An attachments-only update (transactionId + attachments) is a valid edit. " +
           "approvalMode controls the confirmation: by default 6 or more items show one confirmation for the whole batch and 1-5 items show one confirmation per item; pass 'individual' to force one confirmation per item at any count; ignored for a single item. Set dryRun=true to preview every item without saving. The user is asked to confirm before anything is saved (web chat card via relay, or an MCP confirmation dialog).",
         inputSchema: {
           operation: z
@@ -450,6 +489,36 @@ export class McpTransactionsTools {
                   .describe(
                     "Category splits (create/update). >= 2 lines instead of a single categoryName; amounts must sum to the transaction amount. Send split transactions one item at a time.",
                   ),
+                attachments: z
+                  .array(
+                    z.object({
+                      attachmentUri: z
+                        .string()
+                        .max(300)
+                        .optional()
+                        .describe(
+                          "monize-attachment://<id> URI (or bare id) of a chat file relayed from the Monize web chat. Mutually exclusive with fileData.",
+                        ),
+                      fileData: z
+                        .string()
+                        .max(MAX_ATTACHMENT_BASE64_LENGTH)
+                        .optional()
+                        .describe(
+                          "Inline base64 file bytes (image or PDF, max 5 MB decoded). Requires fileName. Mutually exclusive with attachmentUri.",
+                        ),
+                      fileName: z
+                        .string()
+                        .max(255)
+                        .optional()
+                        .describe("Filename for fileData."),
+                    }),
+                  )
+                  .min(1)
+                  .max(MAX_ATTACHMENTS)
+                  .optional()
+                  .describe(
+                    "create/update: files to save permanently on the transaction (images/PDF only). Single-item calls only; not valid on transfers, delete, or dryRun.",
+                  ),
               }),
             )
             .min(1)
@@ -485,6 +554,36 @@ export class McpTransactionsTools {
         );
 
         try {
+          // Attachments only ride the singular create/update card, mirroring
+          // the AI Assistant executor's rules.
+          let attachmentDtos: AttachmentDto[] | undefined;
+          if (items.some((i) => i.attachments !== undefined)) {
+            if (items.length > 1) {
+              return toolError(
+                "Attachments must be sent one at a time: use a single item with an attachments array.",
+              );
+            }
+            if (operation === "delete") {
+              return toolError("attachments are not used for delete.");
+            }
+            if (args.dryRun) {
+              return toolError(
+                "attachments cannot be combined with dryRun. Preview without attachments, then call again with dryRun=false.",
+              );
+            }
+            if (this.isTransferItem(items[0])) {
+              return toolError(
+                "Attachments cannot be added to transfers: attach files to a standard transaction instead.",
+              );
+            }
+            const resolved = this.resolveMcpAttachments(
+              ctx.userId,
+              items[0].attachments as ManageAttachmentInput[],
+            );
+            if ("error" in resolved) return toolError(resolved.error);
+            attachmentDtos = resolved.dtos;
+          }
+
           if (args.dryRun) {
             return this.manageDryRun(ctx.userId, operation, items);
           }
@@ -495,6 +594,7 @@ export class McpTransactionsTools {
               items,
               approvalMode,
               extra.requestId,
+              attachmentDtos,
             );
           }
           if (operation === "update") {
@@ -504,6 +604,7 @@ export class McpTransactionsTools {
               items,
               approvalMode,
               extra.requestId,
+              attachmentDtos,
             );
           }
           return await this.manageDelete(
@@ -852,12 +953,161 @@ export class McpTransactionsTools {
     return confirmation === "declined" ? "declined" : "accepted";
   }
 
+  /**
+   * Resolve the tool call's attachment entries into validated chat-attachment
+   * DTOs: relay URIs read the parked chat file, inline base64 is sniffed for a
+   * supported type. Returns an error string the model can act on.
+   */
+  private resolveMcpAttachments(
+    userId: string,
+    entries: ManageAttachmentInput[],
+  ): { dtos: AttachmentDto[] } | { error: string } {
+    const dtos: AttachmentDto[] = [];
+    for (const entry of entries) {
+      const hasUri = entry.attachmentUri !== undefined;
+      const hasData = entry.fileData !== undefined;
+      if (hasUri === hasData) {
+        return {
+          error:
+            "Each attachments entry needs exactly one of attachmentUri or fileData.",
+        };
+      }
+      if (hasUri) {
+        const id = this.parseAttachmentUri(entry.attachmentUri as string);
+        const stored = this.relayAttachmentStore.get(userId, id);
+        if (!stored) {
+          return {
+            error: `Unknown or expired attachment reference "${entry.attachmentUri}". Chat attachments expire about 20 minutes after upload; ask the user to re-send the file.`,
+          };
+        }
+        if (stored.kind === "text") {
+          return {
+            error: `"${stored.filename}" cannot be saved as a transaction attachment: only images and PDFs can be attached (CSV/text files cannot).`,
+          };
+        }
+        dtos.push({
+          kind: stored.kind,
+          mediaType: stored.mediaType,
+          filename: stored.filename,
+          data: stored.data.toString("base64"),
+        });
+      } else {
+        if (!entry.fileName) {
+          return { error: "fileName is required with fileData." };
+        }
+        const buffer = Buffer.from(
+          (entry.fileData as string).replace(/\s+/g, ""),
+          "base64",
+        );
+        const mediaType =
+          buffer.length > 0 ? sniffAttachmentMime(buffer) : null;
+        if (!mediaType) {
+          return {
+            error: `"${entry.fileName}" is not a supported file type: only images (JPEG/PNG/GIF/WebP) and PDFs can be attached.`,
+          };
+        }
+        dtos.push({
+          kind: mediaType === "application/pdf" ? "pdf" : "image",
+          mediaType,
+          filename: entry.fileName,
+          data: buffer.toString("base64"),
+        });
+      }
+    }
+    return { dtos };
+  }
+
+  /** Accept a full monize-attachment:// URI or a bare store id. */
+  private parseAttachmentUri(uri: string): string {
+    const prefix = `${ATTACHMENT_URI_SCHEME}://`;
+    return uri.startsWith(prefix) ? uri.slice(prefix.length) : uri;
+  }
+
+  /**
+   * Validate the resolved files (size/type/per-transaction cap) and park their
+   * bytes under fresh store ids for the signed card. Validation errors bubble
+   * as 4xx HttpExceptions for `safeToolError`. The MCP request has no ambient
+   * identity context (bearer auth, no JWT guard), so tenantTx-based prep runs
+   * under withUserContext.
+   */
+  private async prepareAttachmentRefs(
+    userId: string,
+    dtos: AttachmentDto[],
+    existingTransactionId?: string,
+  ): Promise<AttachmentRefDescriptor[]> {
+    const previews = await withUserContext(userId, () =>
+      this.attachmentPrepService.prepareAttachments(
+        userId,
+        dtos.map((dto) => ({
+          filename: dto.filename,
+          buffer: Buffer.from(dto.data, "base64"),
+        })),
+        existingTransactionId,
+      ),
+    );
+    const stored = this.relayAttachmentStore.store(userId, dtos);
+    return previews.map((preview, i) => ({
+      attachmentRefId: stored[i].id,
+      filename: preview.filename,
+      contentType: preview.contentType,
+      byteSize: preview.byteSize,
+      sha256: preview.sha256,
+    }));
+  }
+
+  /**
+   * Persist the resolved files against the written transaction (direct MCP
+   * confirm path), then free the parked refs.
+   */
+  private async persistAttachmentsDirect(
+    userId: string,
+    transactionId: string,
+    dtos: AttachmentDto[],
+    refs: AttachmentRefDescriptor[],
+  ): Promise<{ id: string; filename: string }[]> {
+    const created: { id: string; filename: string }[] = [];
+    for (const dto of dtos) {
+      const buffer = Buffer.from(dto.data, "base64");
+      const attachment = await withUserContext(userId, () =>
+        this.attachmentsService.create(userId, transactionId, {
+          originalname: dto.filename,
+          buffer,
+          size: buffer.length,
+        }),
+      );
+      created.push({ id: attachment.id, filename: attachment.filename });
+    }
+    this.releaseAttachmentRefs(userId, refs);
+    return created;
+  }
+
+  /** Drop parked refs a declined/committed confirmation no longer needs. */
+  private releaseAttachmentRefs(
+    userId: string,
+    refs?: AttachmentRefDescriptor[],
+  ): void {
+    if (refs?.length) {
+      this.relayAttachmentStore.releaseForPrompt(
+        userId,
+        refs.map((r) => r.attachmentRefId),
+      );
+    }
+  }
+
+  /** Confirmation-prompt suffix listing the files an approval would save. */
+  private attachmentConfirmNote(refs?: AttachmentRefDescriptor[]): string {
+    return refs?.length
+      ? `\nAttachments: ${refs.map((r) => r.filename).join(", ")}`
+      : "";
+  }
+
   /** Create one category-split transaction (single rich item). */
   private async manageCreateSplit(
     server: McpServer,
     userId: string,
     item: ManageItem,
     requestId: unknown,
+    attachmentDtos?: AttachmentDto[],
   ) {
     const budget = this.writeLimiter.reserve(userId, 1);
     if (budget) return budget;
@@ -866,23 +1116,29 @@ export class McpTransactionsTools {
         userId,
         this.toCreateRow(item),
       );
+    const attachmentRefs = attachmentDtos
+      ? await this.prepareAttachmentRefs(userId, attachmentDtos)
+      : undefined;
     const action = this.actionBuilder.buildCreateTransaction(
       userId,
       preview,
       splits,
+      attachmentRefs,
     );
     const outcome = await this.emitOrConfirm(
       server,
       userId,
       action,
-      `Create this split transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}\nSplits: ${(splits ?? []).map((s) => `${s.categoryName} ${s.amount}`).join(", ")}`,
+      `Create this split transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}\nSplits: ${(splits ?? []).map((s) => `${s.categoryName} ${s.amount}`).join(", ")}${this.attachmentConfirmNote(attachmentRefs)}`,
       requestId,
     );
     if (outcome === "relay") return toolResult(RELAY_PREVIEW_SHOWN);
-    if (outcome === "declined")
+    if (outcome === "declined") {
+      this.releaseAttachmentRefs(userId, attachmentRefs);
       return toolError(
         "Cancelled: the confirmation was declined, so no transaction was created.",
       );
+    }
     const tx = await this.transactionsService.create(
       userId,
       {
@@ -902,7 +1158,21 @@ export class McpTransactionsTools {
       { createPayeeIfMissing: createPayee },
     );
     this.writeLimiter.record(userId, "create_transaction");
-    return toolResult({ id: tx.id, date: tx.transactionDate, count: 1 });
+    const attachments =
+      attachmentDtos && attachmentRefs
+        ? await this.persistAttachmentsDirect(
+            userId,
+            tx.id,
+            attachmentDtos,
+            attachmentRefs,
+          )
+        : undefined;
+    return toolResult({
+      id: tx.id,
+      date: tx.transactionDate,
+      count: 1,
+      ...(attachments ? { attachments } : {}),
+    });
   }
 
   private async manageCreate(
@@ -911,13 +1181,20 @@ export class McpTransactionsTools {
     items: ManageItem[],
     approvalMode: ApprovalMode,
     requestId: unknown,
+    attachmentDtos?: AttachmentDto[],
   ) {
     const single = items.length === 1;
 
     // A single split transaction is its own rich unit; handle it on a dedicated
     // path (the bulk prepare/preview helpers do not carry splits).
     if (single && items[0].splits) {
-      return this.manageCreateSplit(server, userId, items[0], requestId);
+      return this.manageCreateSplit(
+        server,
+        userId,
+        items[0],
+        requestId,
+        attachmentDtos,
+      );
     }
 
     const standardItems = items.filter((i) => !this.isTransferItem(i));
@@ -945,22 +1222,29 @@ export class McpTransactionsTools {
     if (single) {
       if (std.okPreviews.length === 1) {
         const preview = std.okPreviews[0];
+        const attachmentRefs = attachmentDtos
+          ? await this.prepareAttachmentRefs(userId, attachmentDtos)
+          : undefined;
         const action = this.actionBuilder.buildCreateTransaction(
           userId,
           preview,
+          undefined,
+          attachmentRefs,
         );
         const outcome = await this.emitOrConfirm(
           server,
           userId,
           action,
-          `Create this transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}`,
+          `Create this transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}${this.attachmentConfirmNote(attachmentRefs)}`,
           requestId,
         );
         if (outcome === "relay") return toolResult(RELAY_PREVIEW_SHOWN);
-        if (outcome === "declined")
+        if (outcome === "declined") {
+          this.releaseAttachmentRefs(userId, attachmentRefs);
           return toolError(
             "Cancelled: the confirmation was declined, so no transaction was created.",
           );
+        }
         const tx = await this.transactionsService.create(
           userId,
           {
@@ -976,7 +1260,21 @@ export class McpTransactionsTools {
           { createPayeeIfMissing: std.okCreatePayee[0] },
         );
         this.writeLimiter.record(userId, "create_transaction");
-        return toolResult({ id: tx.id, date: tx.transactionDate, count: 1 });
+        const attachments =
+          attachmentDtos && attachmentRefs
+            ? await this.persistAttachmentsDirect(
+                userId,
+                tx.id,
+                attachmentDtos,
+                attachmentRefs,
+              )
+            : undefined;
+        return toolResult({
+          id: tx.id,
+          date: tx.transactionDate,
+          count: 1,
+          ...(attachments ? { attachments } : {}),
+        });
       }
       // single transfer
       const preview = xfer.okPreviews[0];
@@ -1114,6 +1412,7 @@ export class McpTransactionsTools {
     items: ManageItem[],
     approvalMode: ApprovalMode,
     requestId: unknown,
+    attachmentDtos?: AttachmentDto[],
   ) {
     const single = items.length === 1;
 
@@ -1124,6 +1423,11 @@ export class McpTransactionsTools {
       );
       const budget = this.writeLimiter.reserve(userId, 1);
       if (budget) return budget;
+      if (result.kind === "transfer" && attachmentDtos) {
+        return toolError(
+          "Attachments cannot be added to transfers: this transaction is a transfer between accounts.",
+        );
+      }
       if (result.kind === "transfer") {
         const preview = result.preview;
         const action = this.actionBuilder.buildUpdateTransfer(userId, preview);
@@ -1159,14 +1463,26 @@ export class McpTransactionsTools {
       }
       const preview = result.preview;
       const splits = result.splits;
+      const attachmentRefs = attachmentDtos
+        ? await this.prepareAttachmentRefs(
+            userId,
+            attachmentDtos,
+            preview.transactionId,
+          )
+        : undefined;
       const action = this.actionBuilder.buildUpdateTransaction(
         userId,
         preview,
         splits,
+        attachmentRefs,
       );
+      const reconciledNote = preview.isReconciled
+        ? RECONCILED_CONFIRM_NOTE
+        : "";
+      const attachmentNote = this.attachmentConfirmNote(attachmentRefs);
       const confirmMessage = splits
-        ? `Apply this transaction edit?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}\nSplits: ${splits.map((s) => `${s.categoryName} ${s.amount}`).join(", ")}`
-        : `Apply this transaction edit?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}`;
+        ? `Apply this transaction edit?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}\nSplits: ${splits.map((s) => `${s.categoryName} ${s.amount}`).join(", ")}${attachmentNote}${reconciledNote}`
+        : `Apply this transaction edit?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}${attachmentNote}${reconciledNote}`;
       const outcome = await this.emitOrConfirm(
         server,
         userId,
@@ -1175,10 +1491,12 @@ export class McpTransactionsTools {
         requestId,
       );
       if (outcome === "relay") return toolResult(RELAY_PREVIEW_SHOWN);
-      if (outcome === "declined")
+      if (outcome === "declined") {
+        this.releaseAttachmentRefs(userId, attachmentRefs);
         return toolError(
           "Cancelled: the confirmation was declined, so the transaction was not changed.",
         );
+      }
       const tx = await this.transactionsService.update(
         userId,
         preview.transactionId,
@@ -1206,7 +1524,20 @@ export class McpTransactionsTools {
         );
       }
       this.writeLimiter.record(userId, "update_transaction");
-      return toolResult({ id: tx.id, count: 1 });
+      const attachments =
+        attachmentDtos && attachmentRefs
+          ? await this.persistAttachmentsDirect(
+              userId,
+              tx.id,
+              attachmentDtos,
+              attachmentRefs,
+            )
+          : undefined;
+      return toolResult({
+        id: tx.id,
+        count: 1,
+        ...(attachments ? { attachments } : {}),
+      });
     }
 
     if (approvalMode === "individual") {
@@ -1307,7 +1638,7 @@ export class McpTransactionsTools {
         server,
         userId,
         action,
-        `Delete this transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}`,
+        `Delete this transaction?\nAccount: ${preview.accountName}\nAmount: ${preview.amount} ${preview.currencyCode}\nDate: ${preview.transactionDate}${preview.isReconciled ? RECONCILED_CONFIRM_NOTE : ""}`,
         requestId,
       );
       if (outcome === "relay") return toolResult(RELAY_PREVIEW_SHOWN);
@@ -1417,9 +1748,9 @@ export class McpTransactionsTools {
       case "update_transfer":
         return `${card.type === "create_transfer" ? "Create" : "Edit"} transfer?\nFrom: ${p.fromAccountName}\nTo: ${p.toAccountName}\nAmount: ${p.amount} ${p.currencyCode}`;
       case "delete_transaction":
-        return `Delete this transaction?\nAccount: ${p.accountName}`;
+        return `Delete this transaction?\nAccount: ${p.accountName}${p.isReconciled ? RECONCILED_CONFIRM_NOTE : ""}`;
       case "update_transaction":
-        return `Apply this transaction edit?\nAccount: ${p.accountName}\nAmount: ${p.amount} ${p.currencyCode}`;
+        return `Apply this transaction edit?\nAccount: ${p.accountName}\nAmount: ${p.amount} ${p.currencyCode}${p.isReconciled ? RECONCILED_CONFIRM_NOTE : ""}`;
       default:
         return `Create this transaction?\nAccount: ${p.accountName}\nAmount: ${p.amount} ${p.currencyCode}`;
     }

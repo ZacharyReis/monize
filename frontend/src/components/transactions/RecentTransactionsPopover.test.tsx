@@ -46,6 +46,8 @@ function txn(overrides: Partial<Transaction> = {}): Transaction {
     amount: -42.5,
     currencyCode: 'CAD',
     exchangeRate: 1,
+    originalAmount: null,
+    originalCurrencyCode: null,
     description: 'Weekly shop',
     referenceNumber: null,
     status: TransactionStatus.UNRECONCILED,

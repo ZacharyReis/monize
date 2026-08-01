@@ -54,6 +54,7 @@ export function AssetFields({
         onChange={handleAssetCategoryChange}
         onCreateNew={handleAssetCategoryCreate}
         allowCustomValue={true}
+        valueIsId
       />
       <DateInput
         label={t('assetFields.dateAcquired')}

@@ -8,7 +8,15 @@
     "title": "AI Assistant",
     "expand": "Expand to full screen",
     "collapse": "Collapse to panel",
-    "close": "Close"
+    "close": "Close",
+    "movePanel": "Move the panel: drag it, nudge it with the arrow keys, or click to snap it to the next corner",
+    "moveCornerTo": "Move to {corner}",
+    "corner": {
+      "bottom-right": "bottom right",
+      "bottom-left": "bottom left",
+      "top-right": "top right",
+      "top-left": "top left"
+    }
   },
   "chat": {
     "conversationSaved": "Conversation saved in your browser",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "AI Not Configured",
-    "message": "No AI provider is configured. To use the AI Assistant, please {link} in your settings.",
-    "linkText": "configure an AI provider"
+    "message": "No AI provider is configured. To use the AI Assistant, please {link} in your settings."
   },
   "suggestedQueries": {
     "heading": "Ask about your finances",
@@ -72,6 +79,7 @@
     "newPayee": "(new payee)",
     "category": "Category",
     "splits": "Splits",
+    "attachments": "Attachments",
     "newCategory": "New category",
     "currentCategory": "Current category",
     "description": "Description",
@@ -121,6 +129,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {No investment transactions created} one {# investment transaction created} other {# investment transactions created}}",
     "rowsSkipped": "{count, plural, one {# row skipped} other {# rows skipped}}",
     "rowSkippedBadge": "Skipped",
+    "reconciledBadge": "Reconciled",
+    "reconciledWarning": "This transaction is reconciled. Changing it will affect a completed reconciliation.",
     "investmentActions": {
       "BUY": "Buy",
       "SELL": "Sell",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "Assistant offline",
-      "listening": "Assistant listening",
-      "busy": "Assistant working"
+      "offline": "MCP Agent offline",
+      "listening": "MCP Agent listening",
+      "busy": "MCP Agent working",
+      "idle": "Disconnected after inactivity — reconnect to continue"
     },
     "howToConnect": "How to connect",
     "hideHelp": "Hide",

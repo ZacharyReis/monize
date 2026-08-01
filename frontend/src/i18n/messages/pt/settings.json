@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "A semana começa em",
     "showCreatedAtLabel": "Mostrar Data de Criação nos formulários de transação",
     "showCreatedAtTooltip": "Apresenta a data e hora em que uma transação foi originalmente criada nos formulários de transação. É diferente da data da transação e pode ajudar a identificar quando um registo foi efetivamente adicionado ao Monize.",
+    "showWhatsNewLabel": "Mostrar Novidades após uma atualização",
+    "showWhatsNewTooltip": "Mostra um resumo das notas de versão na primeira vez que inicia sessão após o Monize ser atualizado para uma nova versão. Pode reabri-lo a qualquer momento clicando no número da versão na parte inferior desta página ou no ecrã de início de sessão.",
     "timeFormatLabel": "Formato de Hora",
     "recentTransactionsLabel": "Transações recentes no preenchimento rápido",
     "recentTransactionsHelp": "Número de entradas mostradas no menu do botão de histórico junto ao campo Beneficiário nos formulários de transação.",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "Falha ao guardar o tema de cor"
     },
     "browserLocale": "Utilizar locale do browser (deteção automática)",
-    "browserTimezonePrefix": "Utilizar fuso horário do browser (detetado automaticamente como {tz})",
     "numberFormatOptions": {
       "browser": "Utilizar locale do browser (detetado automaticamente como {sample})",
       "enUS": "English (US) - 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "Consulte guias e documentação."
+    },
+    "supportBackup": {
+      "label": "Criar cópia de suporte",
+      "description": "Partilhe uma cópia cifrada e desidentificada dos seus dados para que um responsável possa reproduzir um erro sem ver os seus nomes ou montantes reais."
     }
+  },
+  "supportBackup": {
+    "title": "Criar cópia de suporte",
+    "howItWorks": "Produz uma cópia desidentificada da sua cópia de segurança: os nomes são mascarados (mantêm-se os dois primeiros e os dois últimos caracteres), notas/descrições/números de conta são removidos e cada montante é multiplicado por um único fator oculto, enquanto os valores públicos (taxas de câmbio, preços, taxas de juro) ficam intactos. O ficheiro é sempre cifrado com a palavra-passe abaixo e restaura-se como uma cópia normal. Protege contra exposição casual, não contra alguém que já o conhece — datas, frequências e estrutura são preservadas para que os erros continuem reproduzíveis.",
+    "sectionsLabel": "O que incluir",
+    "sections": {
+      "investments": "Investimentos (títulos, posições, preços)",
+      "scheduled": "Transações agendadas",
+      "budgets": "Orçamentos",
+      "reports": "Relatórios e projeções",
+      "importMappings": "Mapeamentos de colunas de importação",
+      "autoBackup": "Definições de cópia automática"
+    },
+    "priceHistoryLabel": "Incluir histórico de preços dos títulos",
+    "priceHistoryHint": "Desativado por predefinição: uma série completa de preços coincide com os dados públicos de mercado e pode identificar um símbolo mascarado. Ative apenas se o erro disser respeito a preços ou avaliações.",
+    "accountsLabel": "Limitar a contas específicas",
+    "accountsHint": "Deixe tudo desmarcado para incluir todas as contas. Escolher um subconjunto arrasta também as contas e beneficiários referenciados.",
+    "dateRangeLabel": "Intervalo de datas (opcional)",
+    "dateRangeHint": "Limite o histórico exportado a estas datas. Os saldos iniciais são ajustados para que o ficheiro reduzido continue a bater certo.",
+    "dateFromLabel": "De",
+    "dateToLabel": "Até",
+    "multiplierLabel": "Multiplicador de montantes",
+    "multiplierHint": "Cada montante privado é multiplicado por este número para ocultar os valores reais mantendo a coerência. Serve qualquer número não inteiro maior que 1; «Regenerar» escolhe um novo.",
+    "multiplierWarning": "Não partilhe o multiplicador com ninguém — é a chave que reverte os montantes ocultos.",
+    "multiplierInvalid": "Introduza um número não inteiro maior que 1.",
+    "regenerate": "Regenerar",
+    "passwordLabel": "Palavra-passe de cifragem",
+    "preview": "Pré-visualização",
+    "previewLabel": "Pré-visualização",
+    "previewBefore": "Antes",
+    "previewAfter": "Depois",
+    "previewEmpty": "Sem linhas de exemplo para esta seleção.",
+    "previewFailed": "Não foi possível criar a pré-visualização. Tente novamente.",
+    "generate": "Gerar",
+    "confirmPasswordTitle": "Guardou a palavra-passe?",
+    "confirmPasswordMessage": "O ficheiro só pode ser aberto com a palavra-passe de cifragem mostrada acima. Não é guardada em lado nenhum e não poderá ser recuperada — certifique-se de que a guardou antes de gerar.",
+    "confirmPasswordConfirm": "Guardei — gerar",
+    "generatedToast": "Cópia de suporte transferida.",
+    "generateFailed": "Não foi possível gerar a cópia de suporte. Tente novamente.",
+    "passwordHint": "O ficheiro é sempre cifrado. Partilhe esta palavra-passe com o investigador por um canal separado, não junto com o ficheiro.",
+    "passwordInvalid": "Introduza pelo menos 8 caracteres."
   },
   "dangerZone": {
     "heading": "Zona de Perigo",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "Cópia de Segurança Automática",
-    "description": "Faça cópias de segurança automáticas dos seus dados para uma pasta, de acordo com um agendamento. Como o Monize corre em Docker, tem de mapear uma pasta do anfitrião para o contentor como volume (ex.: -v /host/backups:/backups).",
+    "description": "Faça cópias de segurança automáticas dos seus dados para uma pasta, de acordo com um agendamento. Como o Monize corre em Docker, tem de mapear uma pasta do anfitrião para o contentor como volume (ex.: -v /host/backups:/data/backups).",
     "loadingText": "A carregar...",
     "enableLabel": "Ativar cópias de segurança automáticas",
     "backupFolderLabel": "Pasta de Cópias de Segurança",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "Procurar...",
     "validateButton": "Validar",
     "validatingButton": "A validar...",

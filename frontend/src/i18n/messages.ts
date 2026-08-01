@@ -12,10 +12,17 @@ import { deepMerge } from "./deep-merge";
  */
 const NAMESPACES = [
   "common",
+  "attachments",
   "settings",
   "auth",
   "navigation",
   "accounts",
+  "accountDetail",
+  "accountDetail-creditCard",
+  "accountDetail-banking",
+  "accountDetail-investment",
+  "accountDetail-asset",
+  "accountDetail-fxFees",
   "admin",
   "ai",
   "bills",
@@ -35,6 +42,7 @@ const NAMESPACES = [
   "scheduledTransactions",
   "securities",
   "tags",
+  "tours",
   "transactions",
 ] as const;
 

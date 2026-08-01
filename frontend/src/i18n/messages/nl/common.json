@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Release-opmerkingen voor v{version} bekijken"
   },
+  "whatsNew": {
+    "title": "Wat is er nieuw",
+    "versionLabel": "Versie {version}",
+    "expandAll": "Alles uitklappen",
+    "collapseAll": "Alles inklappen",
+    "viewFullNotes": "Volledige release-opmerkingen bekijken",
+    "dontShowAgain": "Niet meer weergeven",
+    "showNextLogin": "Weergeven bij volgende aanmelding",
+    "close": "Sluiten",
+    "unavailable": "Er zijn geen release-opmerkingen beschikbaar voor deze versie.",
+    "englishOnly": "De release-opmerkingen hieronder zijn alleen in het Engels. Monize zelf, inclusief de rondleidingen, volgt je taalinstelling."
+  },
   "save": "Opslaan",
   "cancel": "Annuleren",
   "delete": "Verwijderen",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Download {filename} als PNG",
     "unableToCapture": "Kan grafiekafbeelding niet vastleggen",
     "failedToDownload": "Grafiek downloaden mislukt"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Download {filename} als CSV"
   },
   "chartViewToggle": {
     "pieChart": "Cirkeldiagram",
@@ -158,10 +173,47 @@
     "length": "Code moet precies 6 cijfers bevatten",
     "digits": "Code moet 6 cijfers zijn"
   },
-  "monthsShort": ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
-  "weekdaysShort": ["zo", "ma", "di", "wo", "do", "vr", "za"],
-  "weekdaysMin": ["zo", "ma", "di", "wo", "do", "vr", "za"],
-  "weekdaysNarrow": ["Z", "M", "D", "W", "D", "V", "Z"],
+  "monthsShort": [
+    "jan",
+    "feb",
+    "mrt",
+    "apr",
+    "mei",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "okt",
+    "nov",
+    "dec"
+  ],
+  "weekdaysShort": [
+    "zo",
+    "ma",
+    "di",
+    "wo",
+    "do",
+    "vr",
+    "za"
+  ],
+  "weekdaysMin": [
+    "zo",
+    "ma",
+    "di",
+    "wo",
+    "do",
+    "vr",
+    "za"
+  ],
+  "weekdaysNarrow": [
+    "Z",
+    "M",
+    "D",
+    "W",
+    "D",
+    "V",
+    "Z"
+  ],
   "dateFormat": {
     "browserAuto": "Browserinstelling gebruiken (automatisch gedetecteerd als {sample})",
     "custom": "Aangepast..."

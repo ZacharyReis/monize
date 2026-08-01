@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "Dalej",
+    "back": "Wstecz",
+    "done": "Gotowe",
+    "endTour": "Zakończ przewodnik",
+    "tryIt": "Wypróbuj — przewodnik będzie kontynuowany, gdy to zrobisz",
+    "skipStep": "Pomiń ten krok",
+    "stepCounter": "{current} z {total}",
+    "skippedTitle": "Przewodnik zakończony",
+    "skippedBody": "Niektóre kroki zostały pominięte, ponieważ ich ekran lub element sterujący nie był dostępny. Możesz ponownie przejść przewodnik w dowolnym momencie w Ustawieniach.",
+    "move": "Przenieś tę kartę — przeciągnij ją lub przesuń klawiszami strzałek"
+  },
+  "offer": {
+    "heading": "Zobacz krótki przewodnik",
+    "subheading": "Krótkie wprowadzenia do nowości w tym wydaniu. To okno schowa się na czas przewodnika i wróci po jego zakończeniu.",
+    "showMe": "Pokaż mi",
+    "viewed": "Obejrzano",
+    "introTitle": "Nowy tutaj? Skorzystaj z przewodnika wprowadzającego",
+    "introSubtitle": "Krótkie omówienie podstaw."
+  },
+  "areas": {
+    "intro": "Pierwsze kroki",
+    "transactions": "Transakcje",
+    "accounts": "Konta",
+    "budgets": "Budżety",
+    "reports": "Raporty",
+    "settings": "Ustawienia"
+  },
+  "gettingStarted": {
+    "takeTour": "Zobacz przewodnik",
+    "retakeTour": "Powtórz przewodnik"
+  },
+  "settings": {
+    "title": "Przewodniki po aplikacji",
+    "description": "Poznaj funkcje aplikacji krok po kroku.",
+    "showList": "Pokaż przewodniki ({count})",
+    "hideList": "Ukryj przewodniki",
+    "start": "Rozpocznij",
+    "restart": "Powtórz",
+    "statusNotViewed": "Nieobejrzany",
+    "statusDismissed": "Zakończony przedwcześnie",
+    "reset": "Zresetuj postęp przewodnika",
+    "resetSuccess": "Postęp przewodnika został zresetowany.",
+    "resetError": "Nie udało się zresetować postępu przewodnika. Spróbuj ponownie."
+  },
+  "intro": {
+    "basics": {
+      "title": "Wprowadzenie do Monize",
+      "steps": {
+        "welcome": {
+          "title": "Witamy w Monize",
+          "body": "Ten krótki przewodnik pokaże Ci najważniejsze elementy aplikacji. Możesz go opuścić w dowolnym momencie, naciskając **Escape** lub wybierając **Zakończ przewodnik**."
+        },
+        "dashboard": {
+          "title": "Twój pulpit",
+          "body": "To jest Twój pulpit. Użyj przycisku **Dostosuj** w prawym górnym rogu, aby zmienić układ lub ukryć widżety, tak aby najważniejsze dla Ciebie podsumowania znalazły się na samej górze."
+        },
+        "tools": {
+          "title": "Menu Narzędzia",
+          "body": "W menu **Narzędzia** zarządzasz podstawowymi elementami swoich finansów — odbiorcami, kategoriami, walutami, tagami i innymi."
+        },
+        "accounts": {
+          "title": "Twoje konta",
+          "body": "Dodaj tutaj swoje konta bankowe, karty kredytowe, pożyczki i konta inwestycyjne za pomocą wyróżnionego przycisku. Każde saldo i każda transakcja należą do jakiegoś konta."
+        },
+        "transactions": {
+          "title": "Transakcje",
+          "body": "To jest Twój rejestr transakcji — znajdziesz tu każdą płatność i wpłatę na swoich kontach, gotową do wyszukiwania i filtrowania."
+        },
+        "createTransaction": {
+          "title": "Zapisz transakcję",
+          "body": "Dodaj przychód lub wydatek za pomocą przycisku **Nowa transakcja**. Otwórz teraz formularz."
+        },
+        "fields": {
+          "title": "Odbiorca i kategoria",
+          "body": "Dla każdej transakcji wybierasz odbiorcę i przypisujesz kategorię. To kategorie napędzają Twoje budżety i raporty; kwota będzie w następnym kroku."
+        },
+        "splits": {
+          "title": "Podziel transakcję",
+          "body": "Jeden zakup obejmujący kilka kategorii? Użyj opcji **Podziel transakcję**, aby rozdzielić pojedynczą transakcję na kilka kategorii — na przykład zakupy spożywcze i artykuły gospodarstwa domowego z jednego sklepu."
+        },
+        "currencyField": {
+          "title": "Kwota i waluta",
+          "body": "Tutaj wpisujesz kwotę transakcji. Płaciłeś w innej walucie? Ustaw walutę obok kwoty i wpisz ją zgodnie z obciążeniem — Monize przeliczy ją na walutę konta za Ciebie."
+        },
+        "closeForm": {
+          "title": "Zamknij formularz, aby kontynuować",
+          "body": "Zamknij formularz transakcji przyciskiem **Anuluj** lub zapisz ją drugim przyciskiem, a przewodnik przejdzie dalej."
+        },
+        "bills": {
+          "title": "Rachunki i wpłaty",
+          "body": "Zaplanuj cykliczne rachunki i wpłaty, aby nadchodzące płatności były prognozowane i nic Ci nie umknęło."
+        },
+        "investments": {
+          "title": "Inwestycje",
+          "body": "Śledź swoje aktywa, ceny i stopy zwrotu na kontach inwestycyjnych."
+        },
+        "budgets": {
+          "title": "Planuj z budżetami",
+          "body": "Budżety pozwalają ustalać miesięczne cele dla poszczególnych kategorii i śledzić, jak sobie z nimi radzisz."
+        },
+        "reports": {
+          "title": "Zrozum swoje finanse",
+          "body": "Raporty zamieniają Twoje transakcje w wykresy — wydatki według kategorii, wartość netto w czasie i wiele więcej."
+        },
+        "finish": {
+          "title": "Wszystko gotowe",
+          "body": "To już koniec przewodnika. Możesz go powtórzyć w dowolnym momencie w sekcji **Przewodniki po aplikacji** w **Ustawieniach**."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Transakcje w obcej walucie",
+        "steps": {
+          "welcome": {
+            "title": "Śledź wydatki w innych walutach",
+            "body": "Kupiłeś coś za granicą? Ten przewodnik ustawia opłatę za transakcje w obcej walucie dla konta, rejestruje zakup w walucie, którą obciążono Twoje konto, i pokazuje, gdzie te koszty się pojawiają. Możesz wyjść w każdej chwili klawiszem **Esc** lub przyciskiem **Zakończ przewodnik**."
+          },
+          "openAccountEdit": {
+            "title": "Zacznij od konta",
+            "body": "Opłaty za transakcje w obcej walucie należą do konta. Wybierz konto, którym płacisz za granicą — kartę kredytową, debetową albo to, z którego płacisz telefonem — i kliknij **Edytuj** wśród akcji w jego wierszu, a na telefonie przytrzymaj wiersz, aby otworzyć jego ustawienia."
+          },
+          "fxFeePercent": {
+            "title": "Ustaw opłatę za przewalutowanie",
+            "body": "Wpisz tutaj opłatę tego konta za transakcje w obcej walucie jako procent — na przykład 2,5. Monize wlicza ją w przeliczoną kwotę każdego zagranicznego zakupu, więc opłata jest rejestrowana za Ciebie."
+          },
+          "closeAccountForm": {
+            "title": "Zapisz i zamknij",
+            "body": "Użyj tych przycisków, aby zakończyć: **Zaktualizuj konto** zapisuje opłatę, **Anuluj** zamyka bez zapisywania. Tak czy inaczej przewodnik trwa dalej."
+          },
+          "newTransaction": {
+            "title": "Zapisz zagraniczny zakup",
+            "body": "Teraz zapisz zakup zrobiony z tego konta w innej walucie. Otwórz **Nowa transakcja** i wskaż to konto."
+          },
+          "chooseAccount": {
+            "title": "Sprawdź konto i datę",
+            "body": "Opłata za przewalutowanie należy do konta, więc upewnij się, że w polu **Konto** jest to konto, dla którego właśnie ją ustawiłeś — jeśli nie, zmień to tutaj. Ustaw też **Datę** na dzień zakupu: kurs wymiany jest pobierany dla tej daty."
+          },
+          "enterDetails": {
+            "title": "Wprowadź szczegóły",
+            "body": "Uzupełnij odbiorcę i kategorię tak jak w każdej innej transakcji. Część walutowa będzie za chwilę."
+          },
+          "entryCurrency": {
+            "title": "Wybierz walutę, w której zapłaciłeś",
+            "body": "Otwórz to i wybierz walutę, którą Cię obciążono. Na liście jest tylko Twoja własna waluta? Wybierz na dole **Dodaj walutę...**, aby dodać nową — zostanie od razu wybrana."
+          },
+          "enterAmount": {
+            "title": "Wpisz kwotę, którą Cię obciążono",
+            "body": "Wpisz sumę dokładnie tak, jak widnieje na wyciągu. Monize pobiera **kurs wymiany** na dzień transakcji, pokazuje obok przeliczoną sumę i wlicza **opłatę za transakcje w obcej walucie** ustawioną na koncie — podpis poniżej wymienia oba. Bank zaokrąglił inaczej? Zmień kurs lub przeliczoną sumę, aby zgadzało się co do grosza."
+          },
+          "closeTransactionForm": {
+            "title": "Zamknij formularz",
+            "body": "Tutaj tak samo: zapisz transakcję przyciskiem zatwierdzenia albo zamknij ją przyciskiem **Anuluj**, a przewodnik pójdzie dalej."
+          },
+          "openAccountDetail": {
+            "title": "Wróć do konta",
+            "body": "Otwórz stronę szczegółów tego konta — wybierz **Szczegóły** wśród akcji w jej wierszu — aby zobaczyć, jak podsumowywana jest aktywność walutowa."
+          },
+          "fxSection": {
+            "title": "Twoja sekcja walutowa",
+            "body": "Konta z aktywnością w obcej walucie zyskują tę sekcję: opłaty zapłacone w podziale na waluty, wykres w czasie i pasujące transakcje, z eksportem do CSV i PNG. Pojawia się, gdy konto ma zagraniczny zakup.",
+            "fallbackBody": "To konto nie ma jeszcze żadnej aktywności w obcej walucie, więc sekcji nie ma na jego stronie. Zapisz na nim zakup w innej walucie i sekcja się pojawi: opłaty w podziale na waluty, wykres w czasie oraz eksport do CSV i PNG."
+          },
+          "report": {
+            "title": "Raport Opłaty za transakcje w obcej walucie",
+            "body": "Ten raport zbiera w jednym miejscu zagraniczne zakupy ze wszystkich Twoich kont i walut, więc widzisz, ile naprawdę kosztują karty \"bez opłat zagranicznych\". Otwórz go kiedy chcesz z sekcji **Raporty**.",
+            "fallbackBody": "Raport **Opłaty za waluty obce** zbiera zagraniczne zakupy ze wszystkich kont i walut w jednym miejscu. Teraz go tu nie widać — może go ukrywać wyszukiwanie albo filtr kategorii — ale znajdziesz go w **Raportach**."
+          },
+          "finish": {
+            "title": "To tyle o walutach obcych w Monize",
+            "body": "Ustaw opłatę raz, wprowadzaj zakupy tak, jak Cię obciążono, a opłaty policzą się same. Ten przewodnik możesz powtórzyć kiedy chcesz w sekcji **Przewodniki po aplikacji** w **Ustawieniach**."
+          }
+        }
+      },
+      "settings": {
+        "title": "Podsumowanie Co nowego",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Najważniejsze zmiany",
+            "body": "Ten przełącznik decyduje o tym, czy podsumowanie Co nowego pojawia się automatycznie po aktualizacji."
+          },
+          "appVersion": {
+            "title": "Przeczytaj notatki ponownie",
+            "body": "Kliknij oznaczenie wersji na dole **Ustawień** w dowolnym momencie, aby ponownie otworzyć informacje o wydaniu."
+          },
+          "done": {
+            "title": "To wszystko",
+            "body": "Możesz wrócić do tych najważniejszych zmian, kiedy tylko zechcesz, tutaj, w Ustawieniach."
+          }
+        }
+      }
+    }
+  }
+}

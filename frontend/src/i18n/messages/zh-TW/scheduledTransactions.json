@@ -98,12 +98,15 @@
       "both": "在此日期記帳會使 <b>{fromAccount}</b> 變為 <b>{fromAmount}</b>（{fromCondition}）、<b>{toAccount}</b> 變為 <b>{toAmount}</b>（{toCondition}）。"
     },
     "splitLabel": "分割此交易",
+    "copyAmount": "複製金額",
     "referenceNumberLabel": "參考號碼（選填）",
     "noPriceHistory": "此證券尚無價格歷史。請手動輸入價格。",
     "postButton": "過帳交易",
     "toasts": {
       "posted": "交易已過帳",
       "postFailed": "過帳交易失敗",
+      "amountCopied": "已複製金額",
+      "copyFailed": "複製金額失敗",
       "quantityRequired": "數量必須大於零",
       "priceRequired": "價格必須大於零",
       "totalAmountRequired": "總金額為必填",

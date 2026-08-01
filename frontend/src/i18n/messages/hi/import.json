@@ -41,7 +41,11 @@
     "importingTo": "इसमें आयात हो रहा है:",
     "clickToSelect": "फ़ाइल(ें) चुनने के लिए क्लिक करें",
     "processing": "प्रसंस्करण हो रहा है...",
-    "acceptedFormats": "QIF, OFX, QFX, या CSV"
+    "acceptedFormats": "QIF, OFX, QFX, या CSV",
+    "wikiNotice": {
+      "title": "आयात करने से पहले",
+      "body": "कुछ भी आयात करने से पहले विकी का <money>Importing from Microsoft Money</money> या <quicken>Importing from Quicken</quicken> अनुभाग पढ़ें।"
+    }
   },
   "selectAccount": {
     "headingSingle": "गंतव्य खाता चुनें",

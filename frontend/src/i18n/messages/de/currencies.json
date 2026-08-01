@@ -104,8 +104,12 @@
       "lookupTooShort": "Geben Sie einen Währungscode oder -namen ein (mindestens 2 Zeichen) für die Suche",
       "found": "Gefunden: {details}",
       "notFound": "Keine Währung für \"{query}\" gefunden",
-      "lookupFailed": "Suche fehlgeschlagen – bitte versuchen Sie es erneut"
-    }
+      "lookupFailed": "Suche fehlgeschlagen – bitte versuchen Sie es erneut",
+      "reactivateFailed": "Währung konnte nicht reaktiviert werden"
+    },
+    "inactiveNotice": "{code} ist bereits in Ihrer Liste, aber inaktiv.",
+    "reactivateButton": "{code} reaktivieren",
+    "reactivating": "Wird reaktiviert..."
   },
   "validation": {
     "codeLength": "Der Währungscode muss genau 3 Zeichen lang sein",

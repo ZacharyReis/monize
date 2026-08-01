@@ -18,6 +18,8 @@ function createTransaction(id: string): Transaction {
     amount: -50,
     currencyCode: 'CAD',
     exchangeRate: 1,
+    originalAmount: null,
+    originalCurrencyCode: null,
     description: null,
     referenceNumber: null,
     status: TransactionStatus.UNRECONCILED,

@@ -41,6 +41,12 @@ services:
       DATABASE_NAME: ${POSTGRES_DB:-monize}
       DATABASE_USER: ${POSTGRES_USER:-monize_user}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-monize_password}
+      # Row-Level Security (defense-in-depth; off by default). See
+      # docs/future-plans/row-level-security.md. Empty-safe so an untouched
+      # .env boots unchanged.
+      RLS_MODE: ${RLS_MODE:-off}
+      DATABASE_APP_USER: ${DATABASE_APP_USER:-monize_app}
+      DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3001}
@@ -51,6 +57,10 @@ services:
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
       FORCE_2FA: ${FORCE_2FA:-false}
       REMEMBER_ME_DAYS: ${REMEMBER_ME_DAYS:-30}
+      # Backup
+      BACKUP_CONTAINER_DIR: ${BACKUP_CONTAINER_DIR:-/data/backups}
+      # Attachments (used by ATTACHMENT_STORAGE_PROVIDER=local)
+      ATTACHMENT_CONTAINER_DIR: ${ATTACHMENT_CONTAINER_DIR:-/data/attachments}
       # Demo mode (optional)
       DEMO_MODE: ${DEMO_MODE:-false}
       # OIDC (optional)
@@ -71,11 +81,19 @@ services:
       AI_DEFAULT_API_KEY: ${AI_DEFAULT_API_KEY:-}
       AI_DEFAULT_BASE_URL: ${AI_DEFAULT_BASE_URL:-}
       # HTTP mode (optional)
-      DISABLE_HTTPS_HEADERS: ${DISABLE_HTTPS_HEADERS:-false}
+      DISABLE_HTTPS_HEADERS: ${DISABLE_HTTPS_HEADERS:-true}
     volumes:
       - ./backend:/app
-      - ./database/schema.sql:/app/schema.sql:ro
+      - ./database:/database:ro
       - ./database/migrations:/app/migrations:ro
+      # Release notes for the What's New digest (the ./backend:/app mount would
+      # otherwise shadow the copy baked into the image).
+      - ./docs/release-notes:/app/release-notes:ro
+      # Automatic backups are written to BACKUP_CONTAINER_DIR in the container.
+      - ${BACKUP_HOST_DIR:-./monize/backups}:${BACKUP_CONTAINER_DIR:-/data/backups}
+      # Attachments are written to ATTACHMENT_CONTAINER_DIR in the container
+      # when ATTACHMENT_STORAGE_PROVIDER=local.
+      - ${ATTACHMENT_HOST_DIR:-./monize/attachments}:${ATTACHMENT_CONTAINER_DIR:-/data/attachments}
       - /app/node_modules
     ports:
       - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
@@ -97,7 +115,7 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       INTERNAL_API_URL: http://backend:3000
       PUBLIC_APP_URL: http://localhost:3001
-      DISABLE_HTTPS_HEADERS: ${DISABLE_HTTPS_HEADERS:-false}
+      DISABLE_HTTPS_HEADERS: ${DISABLE_HTTPS_HEADERS:-true}
     volumes:
       - ./frontend:/app
       - /app/node_modules

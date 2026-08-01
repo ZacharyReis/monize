@@ -1,0 +1,30 @@
+{
+  "title": "Commissioni per transazioni in valuta estera",
+  "currencyFilter": { "label": "Valute", "placeholder": "Tutte le valute" },
+  "chart": {
+    "title": "Commissioni nel tempo",
+    "noData": "Ancora nessuna transazione in valuta estera",
+    "monthlyAvg": "Media mensile",
+    "quarterlyAvg": "Media trimestrale",
+    "yearlyAvg": "Media annuale",
+    "total": "Commissioni totali",
+    "transactions": "Transazioni",
+    "tooltip": "{count, plural, one {# transazione} other {# transazioni}}",
+    "quarterLabel": "T{quarter} {year}",
+    "quarterTick": "T{quarter} {year}",
+    "granularityLabel": "Raggruppamento",
+    "granularity": { "auto": "Auto", "month": "Mese", "quarter": "Trimestre", "year": "Anno" },
+    "granularityAutoTitle": "Auto ({granularity})",
+    "granularityTitle": "Vista per {label}"
+  },
+  "list": {
+    "title": "Transazioni in valuta estera",
+    "editTitle": "Modifica transazione",
+    "investmentLinked": "Questa transazione è collegata a un investimento. Apertura dell'editor dell'investimento.",
+    "export": {
+      "success": "{count, plural, one {Esportata # transazione} other {Esportate # transazioni}}",
+      "none": "Nessuna transazione da esportare",
+      "failed": "Esportazione transazioni non riuscita"
+    }
+  }
+}

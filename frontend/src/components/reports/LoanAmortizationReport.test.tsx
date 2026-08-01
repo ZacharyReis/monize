@@ -20,6 +20,7 @@ vi.mock('@/hooks/useNumberFormat', () => ({
 
 const mockGetAllAccounts = vi.fn();
 const mockGetAllTransactions = vi.fn();
+const mockGetAllPages = vi.fn();
 
 vi.mock('@/lib/accounts', () => ({
   accountsApi: {
@@ -30,6 +31,7 @@ vi.mock('@/lib/accounts', () => ({
 vi.mock('@/lib/transactions', () => ({
   transactionsApi: {
     getAll: (...args: any[]) => mockGetAllTransactions(...args),
+    getAllPages: (...args: any[]) => mockGetAllPages(...args),
   },
 }));
 
@@ -59,6 +61,44 @@ describe('LoanAmortizationReport', () => {
     await waitFor(() => {
       expect(screen.getByText(/No loan or mortgage accounts found/)).toBeInTheDocument();
     });
+  });
+
+  it('fetches the loan\'s separately-booked interest expenses (issue #893)', async () => {
+    mockGetAllAccounts.mockResolvedValue([
+      {
+        id: 'loan-1',
+        name: 'Mortgage',
+        accountType: 'MORTGAGE',
+        currentBalance: -100000,
+        openingBalance: -120000,
+        interestRate: 5.0,
+        paymentAmount: 800,
+        paymentFrequency: 'MONTHLY',
+        interestCategoryId: 'cat-int',
+        sourceAccountId: 'src-1',
+        isCanadianMortgage: false,
+        isVariableRate: false,
+        isClosed: false,
+      },
+    ]);
+    mockGetAllTransactions.mockResolvedValue({
+      data: [{ id: 'p1', transactionDate: '2024-06-01', amount: 500, linkedTransaction: null }],
+    });
+    mockGetAllPages.mockResolvedValue([
+      { id: 'i1', transactionDate: '2024-06-01', amount: -300, categoryId: 'cat-int', isTransfer: false },
+    ]);
+
+    render(<LoanAmortizationReport />);
+
+    // The report now pulls the loan's interest expenses, scoped to its
+    // configured interest category + source account, so its interest matches
+    // the loan detail page instead of an analytic estimate.
+    await waitFor(() =>
+      expect(mockGetAllPages).toHaveBeenCalledWith({
+        categoryIds: ['cat-int'],
+        accountIds: ['src-1'],
+      }),
+    );
   });
 
   it('renders account selector and summary with data', async () => {

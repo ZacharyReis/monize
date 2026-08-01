@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@/test/render';
+import { render, screen, fireEvent, cleanup } from '@/test/render';
 import { BalanceHistoryChart } from './BalanceHistoryChart';
 import { computeBalanceGradient } from '@/lib/balance-history';
 
@@ -22,17 +22,42 @@ vi.mock('recharts', () => ({
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
+  // Render the tooltip's content with a hovered point, so the marker lines
+  // under the value are exercised.
+  Tooltip: ({ content }: any) => (
+    <div data-testid="tooltip">
+      {content
+        ? {
+            ...content,
+            props: {
+              ...content.props,
+              active: true,
+              payload: [
+                { payload: { date: '2026-01-02', label: 'Jan 2, 2026', balance: 120 } },
+              ],
+            },
+          }
+        : null}
+    </div>
+  ),
   ReferenceLine: () => <div data-testid="reference-line" />,
+  ReferenceDot: ({ x, y, fill }: any) => (
+    <div data-testid="reference-dot" data-x={x} data-y={y} data-fill={fill} />
+  ),
 }));
 
 const mockFormatCurrency = vi.fn((n: number, _code?: string) => `$${n.toFixed(2)}`);
 const mockFormatCurrencyAxis = vi.fn((n: number, _code?: string) => `$${n}`);
 const mockFormatCurrencyFlag = vi.fn((n: number, _code?: string) => `$${n}`);
 
+const mockFormatCurrencyPrecise = vi.fn(
+  (n: number, _code?: string) => `$${n.toFixed(6)}`,
+);
+
 vi.mock('@/hooks/useNumberFormat', () => ({
   useNumberFormat: () => ({
     formatCurrency: mockFormatCurrency,
+    formatCurrencyPrecise: mockFormatCurrencyPrecise,
     formatCurrencyAxis: mockFormatCurrencyAxis,
     formatCurrencyFlag: mockFormatCurrencyFlag,
   }),
@@ -73,6 +98,26 @@ describe('BalanceHistoryChart', () => {
     expect(screen.getByText('$1000.00')).toBeInTheDocument();
     expect(screen.getByText('$900.00')).toBeInTheDocument();
     expect(screen.getByText('$750.00')).toBeInTheDocument();
+  });
+
+  it('shows the covered date range under the title', () => {
+    // A multi-year span also exercises the year-based axis tick branch.
+    render(
+      <BalanceHistoryChart
+        data={[
+          { date: '2021-01-01', balance: 1000 },
+          { date: '2025-06-01', balance: 900 },
+        ]}
+        isLoading={false}
+      />
+    );
+
+    expect(screen.getByText(/2021.*–.*2025/)).toBeInTheDocument();
+  });
+
+  it('does not render a date-range caption in the empty state', () => {
+    render(<BalanceHistoryChart data={[]} isLoading={false} />);
+    expect(screen.queryByText(/–/)).not.toBeInTheDocument();
   });
 
   it('renders a download button titled after the chart when data is present', () => {
@@ -133,25 +178,84 @@ describe('BalanceHistoryChart', () => {
     expect(screen.getByText('!')).toBeInTheDocument();
   });
 
-  it('shows Ending balance when future transactions exist', () => {
+  it('omits the "Lowest" alarm styling for liability accounts with a negative balance', () => {
     render(
       <BalanceHistoryChart
         data={[
-          { date: '2026-01-01', balance: 1000 },
-          { date: '2026-03-19', balance: 800 },
-          { date: '2026-04-15', balance: 650 },
-          { date: '2026-05-01', balance: 500 },
-          { date: '2026-06-01', balance: 400 },
-          { date: '2026-07-01', balance: 300 },
+          { date: '2025-01-01', balance: -100 },
+          { date: '2025-01-02', balance: -250 },
         ]}
         isLoading={false}
+        isLiability
       />
     );
 
-    expect(screen.getByText('Starting')).toBeInTheDocument();
-    expect(screen.getByText('Current')).toBeInTheDocument();
-    expect(screen.getByText('Ending')).toBeInTheDocument();
+    // A negative balance is expected for a credit card / loan, so the footer
+    // keeps the neutral "Min Balance" label and shows no warning marker.
     expect(screen.getByText('Min Balance')).toBeInTheDocument();
+    expect(screen.queryByText('Lowest')).not.toBeInTheDocument();
+    expect(screen.queryByText('!')).not.toBeInTheDocument();
+    // The value is still coloured red because it is negative (Current and Min
+    // are both -250 here).
+    screen
+      .getAllByText('$-250.00')
+      .forEach((el) => expect(el.className).toContain('text-red-600'));
+  });
+
+  it('colours each summary figure green or red by sign', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-04-10T12:00:00Z'));
+    try {
+      render(
+        <BalanceHistoryChart
+          data={[
+            { date: '2026-01-01', balance: 100 }, // Starting: positive -> green
+            { date: '2026-03-01', balance: -50 }, // Current/Min: negative -> red
+            { date: '2026-06-01', balance: 200 }, // Ending: positive -> green
+          ]}
+          isLoading={false}
+        />
+      );
+
+      expect(screen.getByText('$100.00').className).toContain('text-green-600');
+      expect(screen.getByText('$200.00').className).toContain('text-green-600');
+      // Current and Min are both -50 here; both render red.
+      const negatives = screen.getAllByText('$-50.00');
+      expect(negatives).toHaveLength(2);
+      negatives.forEach((el) => expect(el.className).toContain('text-red-600'));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows Ending balance when future transactions exist', () => {
+    // Lock "today" so the data points after it stay in the future forever;
+    // with a real clock this test started failing the day the last hardcoded
+    // date stopped being in the future.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-04-10T12:00:00Z'));
+    try {
+      render(
+        <BalanceHistoryChart
+          data={[
+            { date: '2026-01-01', balance: 1000 },
+            { date: '2026-03-19', balance: 800 },
+            { date: '2026-04-15', balance: 650 },
+            { date: '2026-05-01', balance: 500 },
+            { date: '2026-06-01', balance: 400 },
+            { date: '2026-07-01', balance: 300 },
+          ]}
+          isLoading={false}
+        />
+      );
+
+      expect(screen.getByText('Starting')).toBeInTheDocument();
+      expect(screen.getByText('Current')).toBeInTheDocument();
+      expect(screen.getByText('Ending')).toBeInTheDocument();
+      expect(screen.getByText('Min Balance')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not show Ending balance when no future transactions', () => {
@@ -336,5 +440,116 @@ describe('computeBalanceGradient', () => {
     expect(g.topOpacity).toBe(0);
     expect(g.bottomOpacity).toBe(0.3);
     expect(g.zeroOffset).toBe(0);
+  });
+
+  describe('markers', () => {
+    const series = [
+      { date: '2026-01-01', balance: 100 },
+      { date: '2026-01-02', balance: 120 },
+      { date: '2026-01-03', balance: 110 },
+    ];
+
+    it('pins a dot on the day of each event, green in and red out', () => {
+      render(
+        <BalanceHistoryChart
+          data={series}
+          isLoading={false}
+          markers={[
+            { date: '2026-01-02', direction: 'in', label: 'Bought 10' },
+            { date: '2026-01-03', direction: 'out', label: 'Sold 4' },
+          ]}
+        />,
+      );
+
+      const dots = screen.getAllByTestId('reference-dot');
+      expect(dots).toHaveLength(2);
+      expect(dots[0]).toHaveAttribute('data-x', '2026-01-02');
+      expect(dots[0]).toHaveAttribute('data-y', '120');
+      expect(dots[0].getAttribute('data-fill')).not.toBe(
+        dots[1].getAttribute('data-fill'),
+      );
+    });
+
+    it('snaps an event on a non-trading day back to the last known price', () => {
+      // A trade on a Saturday has no price row of its own.
+      render(
+        <BalanceHistoryChart
+          data={series}
+          isLoading={false}
+          markers={[{ date: '2026-01-02T12:00:00Z'.slice(0, 10), direction: 'in', label: 'Bought 1' }]}
+        />,
+      );
+      expect(screen.getByTestId('reference-dot')).toHaveAttribute('data-x', '2026-01-02');
+
+      cleanup();
+      render(
+        <BalanceHistoryChart
+          data={series}
+          isLoading={false}
+          markers={[
+            { date: '2025-12-31', direction: 'in', label: 'Bought 100' },
+            { date: '2026-01-04', direction: 'out', label: 'Sold 2' },
+          ]}
+        />,
+      );
+      // Outside the series entirely: dropped, not clamped onto its ends. A
+      // migration carries decades of trades against a couple of years of
+      // backfilled prices, and clamping would claim they all happened on the
+      // first day it has a price for.
+      expect(screen.queryByTestId('reference-dot')).toBeNull();
+    });
+
+    it('lists the events for the hovered day in the tooltip', () => {
+      render(
+        <BalanceHistoryChart
+          data={series}
+          isLoading={false}
+          markers={[
+            { date: '2026-01-02', direction: 'in', label: 'Bought 10' },
+            { date: '2026-01-02', direction: 'out', label: 'Sold 4' },
+          ]}
+        />,
+      );
+
+      expect(screen.getByText('Bought 10')).toBeInTheDocument();
+      expect(screen.getByText('Sold 4')).toBeInTheDocument();
+    });
+
+    it('draws no dots without markers', () => {
+      render(<BalanceHistoryChart data={series} isLoading={false} />);
+      expect(screen.queryByTestId('reference-dot')).toBeNull();
+    });
+  });
+
+  describe('precise mode', () => {
+    const subCent = [
+      { date: '2026-01-01', balance: 0.000342 },
+      { date: '2026-01-02', balance: 0.000411 },
+    ];
+
+    it('keeps sub-cent values and formats them precisely', () => {
+      render(
+        <BalanceHistoryChart data={subCent} isLoading={false} precise />
+      );
+
+      // Rounding a price to cents would flatten the series to zero and print
+      // "$0.00" beside a table showing 0.000342.
+      expect(mockFormatCurrencyPrecise).toHaveBeenCalled();
+      const rounded = mockFormatCurrency.mock.calls.map((call) => call[0]);
+      expect(rounded).not.toContain(0);
+    });
+
+    it('still rounds a balance series to cents', () => {
+      render(
+        <BalanceHistoryChart
+          data={[
+            { date: '2026-01-01', balance: 10.005 },
+            { date: '2026-01-02', balance: 12.344 },
+          ]}
+          isLoading={false}
+        />,
+      );
+      expect(mockFormatCurrency).toHaveBeenCalled();
+    });
   });
 });

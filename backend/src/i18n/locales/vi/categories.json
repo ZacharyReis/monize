@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "Ô tô",
+      "sub": {
+        "accessories": "Phụ kiện",
+        "carPayment": "Trả góp xe",
+        "cleaning": "Rửa xe",
+        "congestionCharge": "Phí ùn tắc",
+        "fines": "Tiền phạt",
+        "fuel": "Nhiên liệu",
+        "maintenance": "Bảo dưỡng",
+        "mot": "Đăng kiểm",
+        "parking": "Đỗ xe",
+        "parts": "Phụ tùng",
+        "registration": "Đăng ký xe",
+        "roadTax": "Thuế đường bộ",
+        "tolls": "Phí cầu đường"
+      }
+    },
+    "bankFees": {
+      "name": "Phí ngân hàng",
+      "sub": {
+        "annualFee": "Phí thường niên",
+        "atm": "ATM",
+        "foreignTransaction": "Phí giao dịch ngoại tệ",
+        "nsf": "Phí không đủ số dư",
+        "other": "Khác",
+        "overdraft": "Thấu chi",
+        "serviceCharge": "Phí dịch vụ",
+        "unpaidItemFee": "Phí thanh toán thất bại"
+      }
+    },
+    "bills": {
+      "name": "Hóa đơn",
+      "sub": {
+        "electricity": "Điện",
+        "internet": "Internet",
+        "mobilePhone": "Điện thoại di động",
+        "naturalGas": "Khí đốt",
+        "streamingServices": "Dịch vụ xem trực tuyến",
+        "telephone": "Điện thoại",
+        "television": "Truyền hình",
+        "tvLicence": "Phí bản quyền truyền hình",
+        "wasteCollection": "Thu gom rác",
+        "waterSewer": "Nước & thoát nước"
+      }
+    },
+    "business": {
+      "name": "Công tác",
+      "sub": {
+        "airfare": "Vé máy bay",
+        "carRental": "Thuê xe",
+        "diningOut": "Ăn ngoài",
+        "fuel": "Nhiên liệu",
+        "lodging": "Lưu trú",
+        "mileage": "Phụ cấp đi lại",
+        "miscellaneous": "Linh tinh",
+        "mobilePhone": "Điện thoại di động",
+        "officeSupplies": "Văn phòng phẩm",
+        "parking": "Đỗ xe",
+        "software": "Phần mềm",
+        "transit": "Phương tiện công cộng"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "Rút tiền mặt",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "Quyên góp từ thiện",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "Chăm sóc con cái",
+      "sub": {
+        "activities": "Hoạt động",
+        "allowance": "Tiền tiêu vặt",
+        "babysitting": "Trông trẻ",
+        "clothing": "Quần áo",
+        "daycare": "Nhà trẻ",
+        "schoolSupplies": "Dụng cụ học tập",
+        "sports": "Thể thao",
+        "toysGames": "Đồ chơi & trò chơi"
+      }
+    },
+    "clothing": {
+      "name": "Quần áo",
+      "sub": {
+        "accessories": "Phụ kiện",
+        "clothes": "Trang phục",
+        "outerwear": "Áo khoác",
+        "shoes": "Giày dép"
+      }
+    },
+    "education": {
+      "name": "Giáo dục",
+      "sub": {
+        "529PlanContribution": "Đóng góp quỹ 529",
+        "books": "Sách",
+        "fees": "Lệ phí",
+        "supplies": "Tài liệu học tập",
+        "tuition": "Học phí"
+      }
+    },
+    "food": {
+      "name": "Thực phẩm",
+      "sub": {
+        "alcohol": "Đồ uống có cồn",
+        "cannabis": "Cần sa",
+        "coffeeShops": "Quán cà phê",
+        "diningOut": "Ăn ngoài",
+        "groceries": "Thực phẩm & tạp hóa",
+        "takeout": "Đồ ăn mang về"
+      }
+    },
+    "furnishings": {
+      "name": "Đồ nội thất",
+      "sub": {
+        "accessories": "Phụ kiện trang trí",
+        "appliances": "Thiết bị gia dụng",
+        "bathroom": "Phòng tắm",
+        "bedroom": "Phòng ngủ",
+        "decor": "Đồ trang trí",
+        "dishes": "Bát đĩa",
+        "kitchen": "Nhà bếp",
+        "livingRoom": "Phòng khách",
+        "office": "Phòng làm việc",
+        "outdoor": "Ngoài trời"
+      }
+    },
+    "gifts": {
+      "name": "Quà tặng",
+      "sub": {
+        "anniversary": "Kỷ niệm",
+        "birthday": "Sinh nhật",
+        "cards": "Thiệp",
+        "flowers": "Hoa",
+        "holiday": "Lễ tết",
+        "respContribution": "Đóng góp quỹ tiết kiệm giáo dục",
+        "wedding": "Đám cưới"
+      }
+    },
+    "governmentFees": {
+      "name": "Lệ phí nhà nước",
+      "sub": {
+        "licencesPermits": "Giấy phép",
+        "passport": "Hộ chiếu"
+      }
+    },
+    "healthcare": {
+      "name": "Chăm sóc sức khỏe",
+      "sub": {
+        "copay": "Đồng chi trả",
+        "counselling": "Tư vấn tâm lý",
+        "dental": "Nha khoa",
+        "eyecare": "Chăm sóc mắt",
+        "fitness": "Thể hình",
+        "healthSavingsAccount": "Tài khoản tiết kiệm y tế",
+        "hospital": "Bệnh viện",
+        "medication": "Thuốc men",
+        "physician": "Bác sĩ",
+        "physiotherapy": "Vật lý trị liệu",
+        "supplies": "Vật dụng y tế"
+      }
+    },
+    "housing": {
+      "name": "Nhà ở",
+      "sub": {
+        "fees": "Lệ phí",
+        "garden": "Sân vườn",
+        "groundRent": "Tiền thuê đất",
+        "homeImprovement": "Cải tạo nhà",
+        "maintenance": "Bảo trì",
+        "mortgageInterest": "Lãi vay thế chấp",
+        "mortgagePrincipal": "Gốc vay thế chấp",
+        "rent": "Tiền thuê nhà",
+        "serviceCharge": "Phí quản lý",
+        "supplies": "Vật dụng",
+        "tools": "Dụng cụ"
+      }
+    },
+    "insurance": {
+      "name": "Bảo hiểm",
+      "sub": {
+        "automobile": "Ô tô",
+        "disability": "Thương tật",
+        "health": "Sức khỏe",
+        "home": "Nhà ở",
+        "life": "Nhân thọ",
+        "provincialHealthPremium": "Phí y tế cấp tỉnh",
+        "renter": "Người thuê nhà",
+        "travel": "Du lịch"
+      }
+    },
+    "interestExpense": {
+      "name": "Chi phí lãi vay",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "Thu nhập đầu tư",
+      "sub": {
+        "capitalGains": "Lãi vốn",
+        "dividends": "Cổ tức",
+        "interest": "Tiền lãi",
+        "respGrant": "Trợ cấp quỹ tiết kiệm giáo dục"
+      }
+    },
+    "leisure": {
+      "name": "Giải trí",
+      "sub": {
+        "booksMagazines": "Sách & tạp chí",
+        "camping": "Cắm trại",
+        "concerts": "Hòa nhạc",
+        "culturalEvents": "Sự kiện văn hóa",
+        "electronics": "Đồ điện tử",
+        "games": "Trò chơi",
+        "hobbies": "Sở thích",
+        "movies": "Phim ảnh",
+        "music": "Âm nhạc",
+        "sportingEvents": "Sự kiện thể thao",
+        "sportingGoods": "Dụng cụ thể thao",
+        "sports": "Thể thao"
+      }
+    },
+    "loan": {
+      "name": "Khoản vay",
+      "sub": {
+        "loanInterest": "Lãi vay",
+        "loanPrincipal": "Gốc vay",
+        "studentLoanInterest": "Lãi vay sinh viên",
+        "studentLoanPrincipal": "Gốc vay sinh viên",
+        "studentLoanRepayment": "Trả nợ vay sinh viên"
+      }
+    },
+    "miscellaneous": {
+      "name": "Linh tinh",
+      "sub": {
+        "other": "Khác",
+        "postage": "Cước bưu chính"
+      }
+    },
+    "otherIncome": {
+      "name": "Thu nhập khác",
+      "sub": {
+        "businessReimbursement": "Hoàn ứng công tác",
+        "canadaChildBenefit": "Trợ cấp trẻ em (Canada)",
+        "cashback": "Hoàn tiền",
+        "childBenefit": "Trợ cấp trẻ em",
+        "creditCardReward": "Ưu đãi thẻ tín dụng",
+        "freelance": "Làm tự do",
+        "giftsReceived": "Quà tặng nhận được",
+        "gstHstCredit": "Hoàn thuế GST/HST",
+        "rentalIncome": "Thu nhập cho thuê",
+        "stateTaxRefund": "Hoàn thuế tiểu bang",
+        "taxRefund": "Hoàn thuế"
+      }
+    },
+    "personalCare": {
+      "name": "Chăm sóc cá nhân",
+      "sub": {
+        "cosmetics": "Mỹ phẩm",
+        "dryCleaning": "Giặt khô",
+        "haircut": "Cắt tóc",
+        "laundry": "Giặt là",
+        "spa": "Spa",
+        "toiletries": "Đồ vệ sinh cá nhân"
+      }
+    },
+    "petCare": {
+      "name": "Chăm sóc thú cưng",
+      "sub": {
+        "food": "Thức ăn",
+        "grooming": "Chăm sóc lông",
+        "supplies": "Vật dụng",
+        "veterinarian": "Bác sĩ thú y"
+      }
+    },
+    "professionalServices": {
+      "name": "Dịch vụ chuyên môn",
+      "sub": {
+        "accounting": "Kế toán",
+        "financialAdvice": "Tư vấn tài chính",
+        "legal": "Dịch vụ pháp lý"
+      }
+    },
+    "retirementIncome": {
+      "name": "Thu nhập hưu trí",
+      "sub": {
+        "401KWithdrawal": "Rút 401(k)",
+        "annuity": "Niên kim",
+        "cppQppBenefits": "Trợ cấp CPP/QPP",
+        "iraWithdrawal": "Rút IRA",
+        "oasBenefits": "Trợ cấp OAS",
+        "pension": "Lương hưu",
+        "retirementAccountWithdrawal": "Rút tài khoản hưu trí",
+        "rrifWithdrawal": "Rút RRIF",
+        "rrspWithdrawal": "Rút RRSP",
+        "socialSecurityBenefits": "Trợ cấp an sinh xã hội",
+        "statePension": "Lương hưu nhà nước",
+        "workplacePension": "Hưu trí doanh nghiệp"
+      }
+    },
+    "taxes": {
+      "name": "Thuế",
+      "sub": {
+        "councilTax": "Thuế hội đồng",
+        "cppQppContributions": "Đóng góp CPP/QPP",
+        "eiPremiums": "Phí bảo hiểm thất nghiệp",
+        "federalIncomeTax": "Thuế thu nhập liên bang",
+        "gstHst": "GST/HST",
+        "incomeTax": "Thuế thu nhập",
+        "localIncomeTax": "Thuế thu nhập địa phương",
+        "medicareTax": "Thuế Medicare",
+        "nationalInsurance": "Bảo hiểm quốc gia",
+        "other": "Khác",
+        "propertyTax": "Thuế tài sản",
+        "provincialIncomeTax": "Thuế thu nhập cấp tỉnh",
+        "provincialSalesTax": "Thuế bán hàng cấp tỉnh",
+        "salesTax": "Thuế bán hàng",
+        "socialSecurityTax": "Thuế an sinh xã hội",
+        "stateIncomeTax": "Thuế thu nhập tiểu bang",
+        "unionDues": "Phí công đoàn",
+        "vat": "Thuế GTGT"
+      }
+    },
+    "technology": {
+      "name": "Công nghệ",
+      "sub": {
+        "hardware": "Phần cứng",
+        "software": "Phần mềm",
+        "subscriptions": "Đăng ký dịch vụ",
+        "webHosting": "Lưu trữ web"
+      }
+    },
+    "transportation": {
+      "name": "Đi lại",
+      "sub": {
+        "bicycle": "Xe đạp",
+        "publicTransit": "Giao thông công cộng",
+        "rideshare": "Xe công nghệ",
+        "taxi": "Taxi"
+      }
+    },
+    "vacation": {
+      "name": "Kỳ nghỉ",
+      "sub": {
+        "activities": "Hoạt động",
+        "airfare": "Vé máy bay",
+        "carRental": "Thuê xe",
+        "fuel": "Nhiên liệu",
+        "lodging": "Lưu trú",
+        "miscellaneous": "Linh tinh",
+        "parking": "Đỗ xe"
+      }
+    },
+    "wagesSalary": {
+      "name": "Tiền công & lương",
+      "sub": {
+        "bonus": "Tiền thưởng",
+        "commission": "Hoa hồng",
+        "employerMatching": "Đóng góp đối ứng của chủ lao động",
+        "grossPay": "Lương gộp",
+        "netPay": "Lương thực nhận",
+        "overtime": "Tăng ca",
+        "stockOptions": "Quyền chọn cổ phiếu",
+        "tips": "Tiền tip",
+        "vacationPay": "Lương nghỉ phép"
+      }
+    }
+  }
+}

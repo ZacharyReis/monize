@@ -74,6 +74,7 @@ const mockGetAll = vi.fn().mockResolvedValue([]);
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockImportDefaults = vi.fn();
+const mockGetDefaultCountries = vi.fn().mockResolvedValue(['CA', 'GB', 'US']);
 
 vi.mock('@/lib/categories', () => ({
   categoriesApi: {
@@ -81,6 +82,7 @@ vi.mock('@/lib/categories', () => ({
     create: (...args: any[]) => mockCreate(...args),
     update: (...args: any[]) => mockUpdate(...args),
     importDefaults: (...args: any[]) => mockImportDefaults(...args),
+    getDefaultCountries: (...args: any[]) => mockGetDefaultCountries(...args),
   },
 }));
 
@@ -415,8 +417,9 @@ describe('CategoriesPage', () => {
     });
   });
 
-  it('calls importDefaults when Import Default Categories is clicked', async () => {
-    mockImportDefaults.mockResolvedValueOnce({ categoriesCreated: 15 });
+  // The empty-state button opens the country/language picker; the import
+  // itself is confirmed from inside that dialog.
+  async function openImportDialogAndConfirm() {
     render(<CategoriesPage />);
     await waitFor(() => {
       expect(screen.getByText('Import Default Categories')).toBeInTheDocument();
@@ -425,19 +428,52 @@ describe('CategoriesPage', () => {
       fireEvent.click(screen.getByText('Import Default Categories'));
     });
     await waitFor(() => {
-      expect(mockImportDefaults).toHaveBeenCalled();
+      expect(screen.getByText('Import default categories')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Import Categories'));
+    });
+  }
+
+  it('opens the import dialog when Import Default Categories is clicked', async () => {
+    render(<CategoriesPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Import Default Categories')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Import Default Categories'));
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Country')).toBeInTheDocument();
+      expect(screen.getByLabelText('Language')).toBeInTheDocument();
+    });
+    expect(mockImportDefaults).not.toHaveBeenCalled();
+  });
+
+  it('calls importDefaults with the chosen country and language', async () => {
+    mockImportDefaults.mockResolvedValueOnce({ categoriesCreated: 15 });
+    render(<CategoriesPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Import Default Categories')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Import Default Categories'));
+    });
+    await waitFor(() => expect(screen.getByLabelText('Country')).toBeInTheDocument());
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'CA' } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Import Categories'));
+    });
+    await waitFor(() => {
+      expect(mockImportDefaults).toHaveBeenCalledWith({ country: 'CA', language: 'en' });
     });
   });
 
   it('shows success toast after importing default categories', async () => {
     mockImportDefaults.mockResolvedValueOnce({ categoriesCreated: 15 });
-    render(<CategoriesPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Import Default Categories')).toBeInTheDocument();
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText('Import Default Categories'));
-    });
+    await openImportDialogAndConfirm();
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Successfully imported 15 categories');
     });
@@ -445,13 +481,8 @@ describe('CategoriesPage', () => {
 
   it('shows error toast when import fails', async () => {
     mockImportDefaults.mockRejectedValueOnce(new Error('Import failed'));
-    render(<CategoriesPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Import Default Categories')).toBeInTheDocument();
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText('Import Default Categories'));
-    });
+    await openImportDialogAndConfirm();
+    await act(async () => {});
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Failed to import default categories');
     });

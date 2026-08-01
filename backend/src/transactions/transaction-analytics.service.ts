@@ -1,24 +1,42 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, Repository } from "typeorm";
-import { Transaction } from "./entities/transaction.entity";
+import { Transaction, TransactionStatus } from "./entities/transaction.entity";
 import { Category } from "../categories/entities/category.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
 import { getAllCategoryIdsWithChildren } from "../common/category-tree.util";
 import { applyInvestmentTransactionFilters } from "../common/investment-filter.util";
 import {
   joinSplitsForAnalytics,
   SPLIT_AMOUNT,
+  SPLIT_CATEGORY_ID,
   SPLIT_CATEGORY_NAME,
 } from "../common/transaction-split-query.util";
 import {
   buildTransactionSearchClause,
   escapeLikePattern,
 } from "./transaction-search.util";
+import {
+  parseSearchTerm,
+  ParsedSearchTerm,
+} from "./transaction-search-parse.util";
 import { RecurringCharge, detectFrequency } from "./recurring-charges.util";
 import { roundMoney, sumMoney } from "../common/round.util";
 import { suggestClosestNames } from "../common/name-suggestions.util";
 
+export interface FxFeeMonthlySummaryRow {
+  /** Calendar month in 'YYYY-MM'. */
+  month: string;
+  /** The currency the transaction was paid in (originalCurrencyCode). */
+  currencyCode: string;
+  /** Foreign-transaction fees for the month, positive, in account currency. */
+  feeTotal: number;
+  /** Number of foreign-entered transactions in the month. */
+  count: number;
+}
+
 export interface TransferAccountSummary {
+  accountId: string | null;
   accountName: string;
   currency: string;
   inbound: number;
@@ -159,7 +177,27 @@ export class TransactionAnalyticsService {
     private transactionsRepository: Repository<Transaction>,
     @InjectRepository(Category)
     private categoriesRepository: Repository<Category>,
+    @InjectRepository(UserPreference)
+    private userPreferenceRepository: Repository<UserPreference>,
   ) {}
+
+  /**
+   * Interprets the search term as an exact amount and/or date using the user's
+   * number/date-format preferences, so locale-formatted values also match.
+   */
+  private async resolveSearchTerm(
+    userId: string,
+    term?: string,
+  ): Promise<ParsedSearchTerm> {
+    if (!term || !term.trim()) return { amount: null, date: null };
+    const prefs = await this.userPreferenceRepository.findOne({
+      where: { userId },
+    });
+    return parseSearchTerm(term, {
+      numberFormat: prefs?.numberFormat,
+      dateFormat: prefs?.dateFormat,
+    });
+  }
 
   /**
    * Per-account transfer activity between the user's own accounts for a date
@@ -180,6 +218,7 @@ export class TransactionAnalyticsService {
       .createQueryBuilder("t")
       .leftJoin("t.account", "transferAccount")
       .select("transferAccount.name", "accountName")
+      .addSelect("transferAccount.id", "accountId")
       .addSelect("t.currencyCode", "currencyCode")
       .addSelect(
         "SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END)",
@@ -210,6 +249,7 @@ export class TransactionAnalyticsService {
       const inbound = roundMoney(Number(r.inbound) || 0);
       const outbound = roundMoney(Number(r.outbound) || 0);
       return {
+        accountId: r.accountId ?? null,
         accountName: r.accountName,
         currency: r.currencyCode,
         inbound,
@@ -239,11 +279,14 @@ export class TransactionAnalyticsService {
     amountTo?: number,
     excludeInvestmentLinked?: boolean,
     excludeTransfers?: boolean,
+    tagIds?: string[],
   ): Promise<{
     totalIncome: number;
     totalExpenses: number;
     netCashFlow: number;
     transactionCount: number;
+    firstTransactionDate: string | null;
+    lastTransactionDate: string | null;
     byCurrency: Record<
       string,
       {
@@ -254,6 +297,146 @@ export class TransactionAnalyticsService {
       }
     >;
   }> {
+    const queryBuilder = await this.createFilteredAnalyticsQuery(userId, {
+      accountIds,
+      startDate,
+      endDate,
+      categoryIds,
+      payeeIds,
+      search,
+      amountFrom,
+      amountTo,
+      excludeInvestmentLinked,
+      excludeTransfers,
+      tagIds,
+    });
+
+    // Use the split amount when the row came from the splits join;
+    // otherwise the transaction's own amount. A split parent's `amount`
+    // equals the sum of its splits, so only one of the two contributes
+    // per row.
+    const amountExpr = "COALESCE(splits.amount, transaction.amount)";
+
+    queryBuilder
+      .select("transaction.currencyCode", "currencyCode")
+      .addSelect(
+        `SUM(CASE WHEN ${amountExpr} > 0 THEN ${amountExpr} ELSE 0 END)`,
+        "totalIncome",
+      )
+      .addSelect(
+        `SUM(CASE WHEN ${amountExpr} < 0 THEN ABS(${amountExpr}) ELSE 0 END)`,
+        "totalExpenses",
+      )
+      .addSelect("COUNT(DISTINCT transaction.id)", "transactionCount")
+      .addSelect(
+        "TO_CHAR(MIN(transaction.transactionDate), 'YYYY-MM-DD')",
+        "firstDate",
+      )
+      .addSelect(
+        "TO_CHAR(MAX(transaction.transactionDate), 'YYYY-MM-DD')",
+        "lastDate",
+      )
+      .groupBy("transaction.currencyCode");
+
+    const rows = await queryBuilder.getRawMany();
+
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let transactionCount = 0;
+    let firstTransactionDate: string | null = null;
+    let lastTransactionDate: string | null = null;
+    const byCurrency: Record<
+      string,
+      {
+        totalIncome: number;
+        totalExpenses: number;
+        netCashFlow: number;
+        transactionCount: number;
+      }
+    > = {};
+
+    for (const row of rows) {
+      const income = Number(row.totalIncome) || 0;
+      const expenses = Number(row.totalExpenses) || 0;
+      const count = Number(row.transactionCount) || 0;
+      totalIncome += income;
+      totalExpenses += expenses;
+      transactionCount += count;
+      // ISO date strings compare correctly as strings, so the min/max
+      // across per-currency rows reduces with a plain comparison.
+      if (
+        row.firstDate &&
+        (!firstTransactionDate || row.firstDate < firstTransactionDate)
+      ) {
+        firstTransactionDate = row.firstDate;
+      }
+      if (
+        row.lastDate &&
+        (!lastTransactionDate || row.lastDate > lastTransactionDate)
+      ) {
+        lastTransactionDate = row.lastDate;
+      }
+      if (row.currencyCode) {
+        byCurrency[row.currencyCode] = {
+          totalIncome: income,
+          totalExpenses: expenses,
+          netCashFlow: income - expenses,
+          transactionCount: count,
+        };
+      }
+    }
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netCashFlow: totalIncome - totalExpenses,
+      transactionCount,
+      firstTransactionDate,
+      lastTransactionDate,
+      byCurrency,
+    };
+  }
+
+  /**
+   * Base query shared by {@link getSummary} and {@link getGroupedTotals}:
+   * applies the full transaction-list filter surface (accounts incl. the
+   * brokerage exclusion, dates, categories with descendant expansion and
+   * the `uncategorized`/`transfer` pseudo-ids, payees, search, amount
+   * range, tags) with splits always joined so split transactions count
+   * per matching split via `COALESCE(splits.amount, transaction.amount)`.
+   */
+  private async createFilteredAnalyticsQuery(
+    userId: string,
+    filters: {
+      accountIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      categoryIds?: string[];
+      payeeIds?: string[];
+      search?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      excludeInvestmentLinked?: boolean;
+      excludeTransfers?: boolean;
+      tagIds?: string[];
+      includeUnreconciledBeforeStart?: boolean;
+    },
+  ) {
+    const {
+      accountIds,
+      startDate,
+      endDate,
+      categoryIds,
+      payeeIds,
+      search,
+      amountFrom,
+      amountTo,
+      excludeInvestmentLinked,
+      excludeTransfers,
+      tagIds,
+      includeUnreconciledBeforeStart,
+    } = filters;
+
     const queryBuilder = this.transactionsRepository
       .createQueryBuilder("transaction")
       .where("transaction.userId = :userId", { userId });
@@ -305,9 +488,26 @@ export class TransactionAnalyticsService {
     }
 
     if (startDate) {
-      queryBuilder.andWhere("transaction.transactionDate >= :startDate", {
-        startDate,
-      });
+      if (includeUnreconciledBeforeStart) {
+        // Credit-card "spending this cycle" widget: also count charges dated
+        // before the cycle start that have not yet been reconciled onto a
+        // statement. They usually posted late but still belong to what is
+        // owed. Reconciled and voided prior transactions stay excluded; a NULL
+        // status predates the status column and counts as unreconciled.
+        queryBuilder.andWhere(
+          new Brackets((qb) => {
+            qb.where("transaction.transactionDate >= :startDate", {
+              startDate,
+            }).orWhere(
+              "(transaction.status IS NULL OR transaction.status NOT IN ('RECONCILED', 'VOID'))",
+            );
+          }),
+        );
+      } else {
+        queryBuilder.andWhere("transaction.transactionDate >= :startDate", {
+          startDate,
+        });
+      }
     }
 
     if (endDate) {
@@ -341,7 +541,19 @@ export class TransactionAnalyticsService {
               const method = hasCondition ? "orWhere" : "where";
               hasCondition = true;
               qb[method](
-                "transaction.categoryId IS NULL AND transaction.isSplit = false AND transaction.isTransfer = false AND summaryAccount.accountType != 'INVESTMENT'",
+                new Brackets((unc) => {
+                  unc
+                    .where(
+                      "transaction.categoryId IS NULL AND transaction.isSplit = false AND transaction.isTransfer = false AND summaryAccount.accountType != 'INVESTMENT'",
+                    )
+                    // A split transaction counts as uncategorised when any of
+                    // its non-transfer split lines has no category (transfer
+                    // splits are already excluded by the base query), matching
+                    // the category breakdown grouping.
+                    .orWhere(
+                      "transaction.isSplit = true AND transaction.isTransfer = false AND summaryAccount.accountType != 'INVESTMENT' AND splits.categoryId IS NULL",
+                    );
+                }),
               );
             }
             if (hasTransfer) {
@@ -378,208 +590,17 @@ export class TransactionAnalyticsService {
 
     if (search && search.trim()) {
       const searchPattern = `%${escapeLikePattern(search.trim())}%`;
+      const parsedSearch = await this.resolveSearchTerm(userId, search);
       queryBuilder.andWhere(
         buildTransactionSearchClause({
           transaction: "transaction",
           splits: "splits",
         }),
-        { search: searchPattern },
-      );
-    }
-
-    if (amountFrom !== undefined) {
-      queryBuilder.andWhere("transaction.amount >= :amountFrom", {
-        amountFrom,
-      });
-    }
-
-    if (amountTo !== undefined) {
-      queryBuilder.andWhere("transaction.amount <= :amountTo", { amountTo });
-    }
-
-    // Use the split amount when the row came from the splits join;
-    // otherwise the transaction's own amount. A split parent's `amount`
-    // equals the sum of its splits, so only one of the two contributes
-    // per row.
-    const amountExpr = "COALESCE(splits.amount, transaction.amount)";
-
-    queryBuilder
-      .select("transaction.currencyCode", "currencyCode")
-      .addSelect(
-        `SUM(CASE WHEN ${amountExpr} > 0 THEN ${amountExpr} ELSE 0 END)`,
-        "totalIncome",
-      )
-      .addSelect(
-        `SUM(CASE WHEN ${amountExpr} < 0 THEN ABS(${amountExpr}) ELSE 0 END)`,
-        "totalExpenses",
-      )
-      .addSelect("COUNT(DISTINCT transaction.id)", "transactionCount")
-      .groupBy("transaction.currencyCode");
-
-    const rows = await queryBuilder.getRawMany();
-
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    let transactionCount = 0;
-    const byCurrency: Record<
-      string,
-      {
-        totalIncome: number;
-        totalExpenses: number;
-        netCashFlow: number;
-        transactionCount: number;
-      }
-    > = {};
-
-    for (const row of rows) {
-      const income = Number(row.totalIncome) || 0;
-      const expenses = Number(row.totalExpenses) || 0;
-      const count = Number(row.transactionCount) || 0;
-      totalIncome += income;
-      totalExpenses += expenses;
-      transactionCount += count;
-      if (row.currencyCode) {
-        byCurrency[row.currencyCode] = {
-          totalIncome: income,
-          totalExpenses: expenses,
-          netCashFlow: income - expenses,
-          transactionCount: count,
-        };
-      }
-    }
-
-    return {
-      totalIncome,
-      totalExpenses,
-      netCashFlow: totalIncome - totalExpenses,
-      transactionCount,
-      byCurrency,
-    };
-  }
-
-  async getMonthlyTotals(
-    userId: string,
-    accountIds?: string[],
-    startDate?: string,
-    endDate?: string,
-    categoryIds?: string[],
-    payeeIds?: string[],
-    search?: string,
-    amountFrom?: number,
-    amountTo?: number,
-    tagIds?: string[],
-  ): Promise<Array<{ month: string; total: number; count: number }>> {
-    const queryBuilder = this.transactionsRepository
-      .createQueryBuilder("transaction")
-      .where("transaction.userId = :userId", { userId });
-
-    // Join account for filtering.  Use the same exclusion logic as
-    // findAll() so the chart counts/totals match the transaction list.
-    // getMonthlyTotals is only called when filters are active (the
-    // frontend switches to daily balances otherwise).
-    queryBuilder.leftJoin("transaction.account", "summaryAccount");
-
-    queryBuilder.andWhere(
-      "(summaryAccount.accountSubType IS NULL OR summaryAccount.accountSubType != 'INVESTMENT_BROKERAGE')",
-    );
-
-    if (accountIds && accountIds.length > 0) {
-      queryBuilder.andWhere("transaction.accountId IN (:...accountIds)", {
-        accountIds,
-      });
-    }
-
-    if (startDate) {
-      queryBuilder.andWhere("transaction.transactionDate >= :startDate", {
-        startDate,
-      });
-    }
-
-    if (endDate) {
-      queryBuilder.andWhere("transaction.transactionDate <= :endDate", {
-        endDate,
-      });
-    }
-
-    let splitsJoined = false;
-
-    if (categoryIds && categoryIds.length > 0) {
-      const hasUncategorized = categoryIds.includes("uncategorized");
-      const hasTransfer = categoryIds.includes("transfer");
-      const regularCategoryIds = categoryIds.filter(
-        (id) => id !== "uncategorized" && id !== "transfer",
-      );
-
-      let hasCondition = false;
-
-      if (hasUncategorized || hasTransfer || regularCategoryIds.length > 0) {
-        const uniqueCategoryIds =
-          regularCategoryIds.length > 0
-            ? await getAllCategoryIdsWithChildren(
-                this.categoriesRepository,
-                userId,
-                regularCategoryIds,
-              )
-            : [];
-
-        if (uniqueCategoryIds.length > 0) {
-          queryBuilder.leftJoin("transaction.splits", "splits");
-          splitsJoined = true;
-        }
-
-        queryBuilder.andWhere(
-          new Brackets((qb) => {
-            if (hasUncategorized) {
-              const method = hasCondition ? "orWhere" : "where";
-              hasCondition = true;
-              qb[method](
-                "transaction.categoryId IS NULL AND transaction.isSplit = false AND transaction.isTransfer = false AND summaryAccount.accountType != 'INVESTMENT'",
-              );
-            }
-            if (hasTransfer) {
-              const method = hasCondition ? "orWhere" : "where";
-              hasCondition = true;
-              qb[method]("transaction.isTransfer = true");
-            }
-            if (uniqueCategoryIds.length > 0) {
-              const method = hasCondition ? "orWhere" : "where";
-              hasCondition = true;
-              qb[method](
-                new Brackets((inner) => {
-                  inner
-                    .where(
-                      "transaction.categoryId IN (:...monthlyCategoryIds)",
-                      { monthlyCategoryIds: uniqueCategoryIds },
-                    )
-                    .orWhere("splits.categoryId IN (:...monthlyCategoryIds)", {
-                      monthlyCategoryIds: uniqueCategoryIds,
-                    });
-                }),
-              );
-            }
-          }),
-        );
-      }
-    }
-
-    if (payeeIds && payeeIds.length > 0) {
-      queryBuilder.andWhere("transaction.payeeId IN (:...payeeIds)", {
-        payeeIds,
-      });
-    }
-
-    if (search && search.trim()) {
-      const searchPattern = `%${escapeLikePattern(search.trim())}%`;
-      if (!splitsJoined) {
-        queryBuilder.leftJoin("transaction.splits", "splits");
-        splitsJoined = true;
-      }
-      queryBuilder.andWhere(
-        buildTransactionSearchClause({
-          transaction: "transaction",
-          splits: "splits",
-        }),
-        { search: searchPattern },
+        {
+          search: searchPattern,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
+        },
       );
     }
 
@@ -594,36 +615,234 @@ export class TransactionAnalyticsService {
     }
 
     if (tagIds && tagIds.length > 0) {
-      if (!splitsJoined) {
-        queryBuilder.leftJoin("transaction.splits", "splits");
-        splitsJoined = true;
-      }
       queryBuilder.leftJoin("transaction.tags", "filterTags");
       queryBuilder.leftJoin("splits.tags", "filterSplitTags");
       queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where("filterTags.id IN (:...monthlyTagIds)", {
-            monthlyTagIds: tagIds,
-          }).orWhere("filterSplitTags.id IN (:...monthlyTagIds)", {
-            monthlyTagIds: tagIds,
+          qb.where("filterTags.id IN (:...summaryTagIds)", {
+            summaryTagIds: tagIds,
+          }).orWhere("filterSplitTags.id IN (:...summaryTagIds)", {
+            summaryTagIds: tagIds,
           });
         }),
       );
     }
 
-    // When category or tag filter joins splits, use the split amount for split
-    // transactions so we only count the matching split, not the full parent.
-    const amountExpr = splitsJoined
-      ? "COALESCE(splits.amount, transaction.amount)"
-      : "transaction.amount";
+    return queryBuilder;
+  }
+
+  /**
+   * Totals grouped by category or payee under the same filter semantics
+   * as {@link getSummary}, so a widget's breakdown reconciles with its
+   * headline summary and with the transaction list. Rows are keyed by
+   * entity id (null = uncategorized / no payee) and split per currency;
+   * `total` keeps its sign so income and refunds remain visible.
+   *
+   * Unlike the private LLM breakdown, this returns ids (rows must be
+   * clickable in the UI) and applies no minimum-count aggregation.
+   */
+  async getGroupedTotals(
+    userId: string,
+    params: {
+      groupBy: "category" | "payee";
+      accountIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      categoryIds?: string[];
+      payeeIds?: string[];
+      tagIds?: string[];
+      search?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      limit?: number;
+      includeUnreconciledBeforeStart?: boolean;
+    },
+  ): Promise<
+    Array<{
+      id: string | null;
+      name: string | null;
+      currencyCode: string;
+      total: number;
+      count: number;
+    }>
+  > {
+    const { groupBy, limit, ...filters } = params;
+
+    const queryBuilder = await this.createFilteredAnalyticsQuery(
+      userId,
+      filters,
+    );
+
+    const amountExpr = "COALESCE(splits.amount, transaction.amount)";
+
+    if (groupBy === "category") {
+      // A split row's own category wins over the parent transaction's.
+      const idExpr = "COALESCE(splits.categoryId, transaction.categoryId)";
+      queryBuilder
+        .leftJoin("transaction.category", "groupCat")
+        .leftJoin("splits.category", "groupSplitCat")
+        .select(idExpr, "id")
+        .addSelect("COALESCE(groupSplitCat.name, groupCat.name)", "name")
+        .groupBy(idExpr)
+        .addGroupBy("COALESCE(groupSplitCat.name, groupCat.name)")
+        // Transfers are movements between own accounts, not spending, so a
+        // transfer with no category must not swell the "Uncategorized" bucket.
+        // This matches the transaction-list filter, which excludes transfers
+        // from "uncategorized". A transfer carrying an optional category still
+        // shows under that category.
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where(`${idExpr} IS NOT NULL`).orWhere(
+              "transaction.isTransfer = false",
+            );
+          }),
+        );
+    } else {
+      queryBuilder
+        .leftJoin("transaction.payee", "groupPayee")
+        .select("transaction.payeeId", "id")
+        .addSelect("COALESCE(groupPayee.name, transaction.payeeName)", "name")
+        .groupBy("transaction.payeeId")
+        .addGroupBy("COALESCE(groupPayee.name, transaction.payeeName)");
+    }
+
+    queryBuilder
+      .addSelect("transaction.currencyCode", "currencyCode")
+      .addSelect(`SUM(${amountExpr})`, "total")
+      .addSelect("COUNT(DISTINCT transaction.id)", "count")
+      .addGroupBy("transaction.currencyCode")
+      .orderBy(`SUM(ABS(${amountExpr}))`, "DESC")
+      .limit(Math.min(Math.max(limit ?? 100, 1), 500));
+
+    const rows = await queryBuilder.getRawMany();
+
+    return rows.map((row) => ({
+      id: row.id ?? null,
+      name: row.name ?? null,
+      currencyCode: row.currencyCode,
+      total: roundMoney(Number(row.total) || 0),
+      count: Number(row.count) || 0,
+    }));
+  }
+
+  /**
+   * Spending broken down by the VALUE of a single KEY:VALUE tag key, over the
+   * standard transaction-list filter surface. Each transaction's absolute
+   * amount is attributed to the value(s) of its own `<key>:*` tags (a
+   * transaction tagged both `country:usa` and `country:poland` counts under
+   * each, so shares can sum past 100%). Split amounts are summed via
+   * `COALESCE(splits.amount, transaction.amount)`, so split transactions still
+   * total correctly; transfers and brokerage side-transactions are excluded by
+   * the shared base query. Attribution is transaction-level -- split-level tags
+   * are not considered here. Rows are per-currency (like `getGroupedTotals`) so
+   * the caller converts to a single display currency.
+   */
+  async getTransactionBreakdownByTagKey(
+    userId: string,
+    key: string,
+    params: {
+      accountIds?: string[];
+      startDate?: string;
+      endDate?: string;
+      categoryIds?: string[];
+      payeeIds?: string[];
+      tagIds?: string[];
+      search?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      limit?: number;
+    } = {},
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      currencyCode: string;
+      total: number;
+      count: number;
+    }>
+  > {
+    const { limit, ...filters } = params;
+    const queryBuilder = await this.createFilteredAnalyticsQuery(
+      userId,
+      filters,
+    );
+
+    const amountExpr = "COALESCE(splits.amount, transaction.amount)";
+    const valueExpr =
+      "TRIM(SUBSTRING(brkTag.name FROM POSITION(':' IN brkTag.name) + 1))";
+
+    queryBuilder
+      .innerJoin("transaction.tags", "brkTag")
+      .andWhere("POSITION(':' IN brkTag.name) > 1")
+      .andWhere(
+        "LOWER(TRIM(SPLIT_PART(brkTag.name, ':', 1))) = LOWER(:brkKey)",
+        {
+          brkKey: key.trim(),
+        },
+      )
+      .andWhere(`${valueExpr} <> ''`)
+      .select(valueExpr, "value")
+      .addSelect("transaction.currencyCode", "currencyCode")
+      .addSelect(`SUM(ABS(${amountExpr}))`, "total")
+      .addSelect("COUNT(DISTINCT transaction.id)", "count")
+      .groupBy(valueExpr)
+      .addGroupBy("transaction.currencyCode")
+      .orderBy(`SUM(ABS(${amountExpr}))`, "DESC")
+      .limit(Math.min(Math.max(limit ?? 100, 1), 500));
+
+    const rows = await queryBuilder.getRawMany();
+
+    return rows.map((row) => ({
+      id: row.value,
+      name: row.value,
+      currencyCode: row.currencyCode,
+      total: roundMoney(Number(row.total) || 0),
+      count: Number(row.count) || 0,
+    }));
+  }
+
+  async getMonthlyTotals(
+    userId: string,
+    accountIds?: string[],
+    startDate?: string,
+    endDate?: string,
+    categoryIds?: string[],
+    payeeIds?: string[],
+    search?: string,
+    amountFrom?: number,
+    amountTo?: number,
+    tagIds?: string[],
+  ): Promise<Array<{ month: string; total: number; count: number }>> {
+    // Reuse the same filtered query builder as getSummary so the chart's
+    // per-month totals and counts reconcile exactly with the category/payee
+    // info widget's headline summary -- identical brokerage exclusion, split
+    // expansion, and transfer-split handling. Previously this method duplicated
+    // the filter logic with slightly different semantics (no transfer-split
+    // exclusion, conditional split join), which let the chart footer count and
+    // the widget count diverge and read as a stale/"caching" mismatch.
+    // getMonthlyTotals is only called when filters are active (the frontend
+    // switches to daily balances otherwise).
+    const queryBuilder = await this.createFilteredAnalyticsQuery(userId, {
+      accountIds,
+      startDate,
+      endDate,
+      categoryIds,
+      payeeIds,
+      search,
+      amountFrom,
+      amountTo,
+      tagIds,
+    });
+
+    // The splits join is always present, so use the split amount for split
+    // transactions (COALESCE falls back to the transaction amount for
+    // non-split rows), keeping the per-month total signed for the bar chart.
+    const amountExpr = "COALESCE(splits.amount, transaction.amount)";
 
     queryBuilder
       .select("TO_CHAR(transaction.transactionDate, 'YYYY-MM')", "month")
       .addSelect(`SUM(${amountExpr})`, "total")
-      .addSelect(
-        splitsJoined ? "COUNT(DISTINCT transaction.id)" : "COUNT(*)",
-        "count",
-      )
+      .addSelect("COUNT(DISTINCT transaction.id)", "count")
       .groupBy("month")
       .orderBy("month", "ASC");
 
@@ -632,6 +851,55 @@ export class TransactionAnalyticsService {
     return rows.map((row) => ({
       month: row.month,
       total: roundMoney(Number(row.total) || 0),
+      count: Number(row.count) || 0,
+    }));
+  }
+
+  /**
+   * Per-month foreign-transaction fee totals for one account, grouped by the
+   * currency the transaction was paid in. Rows cover every non-void
+   * foreign-entered transaction on the account (original_currency_code set).
+   *
+   * The fee is recovered per transaction: the bank's fee is folded into
+   * `amount` (amount = round(originalAmount x exchangeRate) + fee, with
+   * fee <= 0) for both ordinary and split transactions -- a split's category
+   * lines simply sum to that fee-inclusive total -- so the fee is
+   * round(originalAmount x exchangeRate) - amount in every case. A month whose
+   * transactions predate the account's fee percentage sums to 0 rather than
+   * being dropped. Fee amounts are returned positive in the account currency.
+   */
+  async getFxFeeSummary(
+    userId: string,
+    accountId: string,
+  ): Promise<FxFeeMonthlySummaryRow[]> {
+    const feeExpr =
+      "CASE WHEN transaction.originalAmount IS NULL THEN 0 " +
+      "ELSE ROUND(transaction.originalAmount * transaction.exchangeRate, 2) - transaction.amount " +
+      "END";
+
+    const rows = await this.transactionsRepository
+      .createQueryBuilder("transaction")
+      .where("transaction.userId = :userId", { userId })
+      .andWhere("transaction.accountId = :accountId", { accountId })
+      .andWhere("transaction.originalCurrencyCode IS NOT NULL")
+      .andWhere("transaction.parentTransactionId IS NULL")
+      .andWhere("transaction.status != :voidStatus", {
+        voidStatus: TransactionStatus.VOID,
+      })
+      .select("TO_CHAR(transaction.transactionDate, 'YYYY-MM')", "month")
+      .addSelect("transaction.originalCurrencyCode", "currencyCode")
+      .addSelect(`COALESCE(SUM(${feeExpr}), 0)`, "feeTotal")
+      .addSelect("COUNT(DISTINCT transaction.id)", "count")
+      .groupBy("month")
+      .addGroupBy("transaction.originalCurrencyCode")
+      .orderBy("month", "ASC")
+      .addOrderBy("transaction.originalCurrencyCode", "ASC")
+      .getRawMany();
+
+    return rows.map((row) => ({
+      month: row.month,
+      currencyCode: row.currencyCode,
+      feeTotal: roundMoney(Number(row.feeTotal) || 0),
       count: Number(row.count) || 0,
     }));
   }
@@ -928,16 +1196,28 @@ export class TransactionAnalyticsService {
     }
 
     if (safeSearchText) {
+      const parsedSearch = await this.resolveSearchTerm(userId, safeSearchText);
       qb.andWhere(
         buildTransactionSearchClause({ transaction: "t", splits: "ts" }),
-        { search: `%${safeSearchText}%` },
+        {
+          search: `%${safeSearchText}%`,
+          searchAmount: parsedSearch.amount,
+          searchDate: parsedSearch.date,
+        },
       );
     }
 
     switch (groupBy) {
       case "category": {
+        // Grouping stays on the display name so row granularity is unchanged;
+        // MIN() attaches one category id per name for entity deep-links. Two
+        // same-named categories under different parents share a row today, so
+        // the id is an arbitrary member (link filters to a subset). The
+        // "Uncategorized" bucket has no ids and yields null. uuid has no MIN
+        // in PostgreSQL, hence the ::text cast.
         qb.leftJoin("t.category", "cat")
           .select(SPLIT_CATEGORY_NAME, "label")
+          .addSelect(`MIN(${SPLIT_CATEGORY_ID}::text)`, "categoryId")
           .addSelect(`SUM(ABS(${SPLIT_AMOUNT}))`, "total")
           .addSelect("COUNT(*)", "count")
           .groupBy(SPLIT_CATEGORY_NAME);
@@ -946,6 +1226,7 @@ export class TransactionAnalyticsService {
         return rows
           .map((r) => ({
             category: r.label,
+            categoryId: r.categoryId ?? null,
             total: roundMoney(Number(r.total)),
             count: Number(r.count),
           }))
@@ -953,7 +1234,11 @@ export class TransactionAnalyticsService {
       }
 
       case "payee": {
+        // Grouping stays on the denormalized name string; MIN() attaches a
+        // payee id where one exists. Free-text payees (no payee record) and
+        // the "Unknown" bucket yield null, so no deep-link is offered.
         qb.select("COALESCE(t.payeeName, 'Unknown')", "label")
+          .addSelect("MIN(t.payeeId::text)", "payeeId")
           .addSelect(`SUM(ABS(${SPLIT_AMOUNT}))`, "total")
           .addSelect("COUNT(*)", "count")
           .groupBy("t.payeeName");
@@ -962,6 +1247,7 @@ export class TransactionAnalyticsService {
         return enforcePayeeAggregationThreshold(
           rows.map((r) => ({
             payee: r.label,
+            payeeId: r.payeeId ?? null,
             total: roundMoney(Number(r.total)),
             count: Number(r.count),
           })),
@@ -1175,17 +1461,25 @@ export class TransactionAnalyticsService {
     userId: string,
     startDate: string,
     endDate: string,
-    options: { uncategorizedLabel?: string } = {},
+    options: { uncategorizedLabel?: string; payeeIds?: string[] } = {},
   ): Promise<RecurringCharge[]> {
     const categoryNameSelect = options.uncategorizedLabel
       ? "COALESCE(cat.name, :uncategorizedLabel)"
       : "cat.name";
 
-    const rows = await this.transactionsRepository
+    // A transaction linked to a payee record carries payeeId with a NULL
+    // payeeName, so resolve the display name through the payee relation and
+    // fall back to the free-text name (e.g. imported rows).
+    const payeeNameExpr = "COALESCE(chargePayee.name, t.payeeName)";
+
+    const qb = this.transactionsRepository
       .createQueryBuilder("t")
       .leftJoin("t.category", "cat")
-      .select("COALESCE(t.payeeName, 'Unknown')", "payeeName")
+      .leftJoin("t.payee", "chargePayee")
+      .select(payeeNameExpr, "payeeName")
+      .addSelect("chargePayee.id", "payeeId")
       .addSelect(categoryNameSelect, "categoryName")
+      .addSelect("cat.id", "categoryId")
       .addSelect(
         "ARRAY_AGG(ABS(t.amount) ORDER BY t.transactionDate ASC)",
         "amounts",
@@ -1202,7 +1496,7 @@ export class TransactionAnalyticsService {
       .andWhere("t.status != 'VOID'")
       .andWhere("t.isTransfer = false")
       .andWhere("t.parentTransactionId IS NULL")
-      .andWhere("t.payeeName IS NOT NULL")
+      .andWhere("(t.payeeId IS NOT NULL OR t.payeeName IS NOT NULL)")
       // Exclude investment-linked cash debits so regular BUY activity
       // isn't flagged as a subscription-like "recurring charge".
       .andWhere(
@@ -1213,11 +1507,20 @@ export class TransactionAnalyticsService {
           ? { uncategorizedLabel: options.uncategorizedLabel }
           : {},
       )
-      .groupBy("t.payeeName")
+      .groupBy(payeeNameExpr)
+      .addGroupBy("chargePayee.id")
       .addGroupBy("cat.name")
+      .addGroupBy("cat.id")
       .having("COUNT(*) >= 3")
-      .orderBy("COUNT(*)", "DESC")
-      .getRawMany();
+      .orderBy("COUNT(*)", "DESC");
+
+    if (options.payeeIds && options.payeeIds.length > 0) {
+      qb.andWhere("t.payeeId IN (:...payeeIds)", {
+        payeeIds: options.payeeIds,
+      });
+    }
+
+    const rows = await qb.getRawMany();
 
     return rows
       .map((r) => {
@@ -1231,12 +1534,14 @@ export class TransactionAnalyticsService {
 
         return {
           payeeName: r.payeeName,
+          payeeId: r.payeeId || null,
           amounts,
           dates,
           frequency,
           currentAmount,
           previousAmount,
           categoryName: r.categoryName,
+          categoryId: r.categoryId || null,
         };
       })
       .filter((r) => r.frequency !== "irregular");
@@ -1248,15 +1553,25 @@ export class TransactionAnalyticsService {
  * transactions into a single "Other (aggregated)" bucket so individual
  * transaction amounts can't leak via targeted queries.
  */
+interface PayeeBreakdownRow {
+  payee: string;
+  payeeId: string | null;
+  total: number;
+  count: number;
+}
+
 function enforcePayeeAggregationThreshold(
-  rows: Array<{ payee: string; total: number; count: number }>,
-): Array<{ payee: string; total: number; count: number }> {
+  rows: PayeeBreakdownRow[],
+): PayeeBreakdownRow[] {
   const above = rows.filter((r) => r.count >= MIN_AGGREGATION_COUNT);
   const below = rows.filter((r) => r.count < MIN_AGGREGATION_COUNT);
 
   if (below.length > 0) {
+    // The synthetic bucket must never carry a real payee id -- it exists to
+    // hide the identities of the folded groups.
     above.push({
       payee: "Other (aggregated)",
+      payeeId: null,
       total: sumMoney(below.map((r) => r.total)),
       count: below.reduce((sum, r) => sum + r.count, 0),
     });

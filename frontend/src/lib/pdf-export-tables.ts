@@ -6,6 +6,7 @@
 import type jsPDF from 'jspdf';
 import type { CellDef, RowInput } from 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
+import { PDF_FONT } from './pdf-fonts';
 
 export interface PdfTableOptions {
   startY?: number;
@@ -77,16 +78,28 @@ export function addTableToPdf(
     startY,
     theme: 'grid',
     styles: {
+      // Match the embedded UTF-8 font used by the rest of the report so tables
+      // render Polish/diacritics correctly and look consistent with the
+      // headers and summary cards (which use the same font).
+      font: PDF_FONT,
       fontSize,
       cellPadding: 3,
       lineColor: [220, 220, 220],
       lineWidth: 0.25,
+      // Wrap long cell content onto multiple lines (Excel-style) instead of
+      // letting it overflow the cell; autoTable then grows the row height.
+      overflow: 'linebreak',
+      valign: 'middle',
     },
     headStyles: {
+      font: PDF_FONT,
       fillColor: [30, 58, 95],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
     },
+    // Cap column widths so a single wide column can't blow past the page; the
+    // remaining width is shared and content wraps within it.
+    tableWidth: 'auto',
     alternateRowStyles: {
       fillColor: [248, 249, 250],
     },

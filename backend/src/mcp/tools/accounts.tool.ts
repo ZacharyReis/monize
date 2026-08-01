@@ -29,7 +29,11 @@ export class McpAccountsTools {
           "(brokerage accounts show market value; every other account shows " +
           "currentBalance + future transactions), raw currentBalance, credit " +
           "limit, interest rate, currency, closed status, exclude-from-net-worth " +
-          "flag, institution name, and account number. Also returns a summary: " +
+          "flag, institution name, and account number. Loan and mortgage " +
+          "accounts additionally include their payment amount, payment " +
+          "frequency, payment start date, amortization months, and original " +
+          "principal (null on other account types) so a loan's schedule can be " +
+          "reasoned about. Also returns a summary: " +
           "total assets, total liabilities, net worth (all matching the dashboard " +
           "Net Worth widget), and totalAccounts (the count AFTER filtering). " +
           "Filter with accountTypes, status (open/closed/all, default open), " +

@@ -65,11 +65,16 @@
     "cash": "現金",
     "untagged": "タグなし",
     "noTagData": "表示できるタグ付き保有銘柄がありません。タグ別のエクスポージャーを表示するには、銘柄にタグを追加してください。",
-    "tagExposureNote": "タグ別エクスポージャー：複数のタグが付いた保有銘柄は各タグで全額計上されるため、割合の合計が100%を超えることがあります。",
+    "noCountryData": "国別配分データがありません。",
+    "otherCountries": "その他の国",
     "groupBy": {
       "security": "銘柄別",
-      "tag": "タグ別"
-    }
+      "tag": "タグ別",
+      "country": "国別",
+      "tagKey": "キー別"
+    },
+    "noKeyData": "このタグキーの値を持つ保有銘柄がありません。この内訳を表示するには、銘柄を key:value（例: country:usa）としてタグ付けしてください。",
+    "keySelectorLabel": "集計するタグキー"
   },
   "holdingsList": {
     "title": "保有銘柄",
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "ポートフォリオ価値の推移",
+    "viewReport": "レポートを表示",
+    "viewReportTitle": "「ポートフォリオ価値」レポート全体を開く",
     "updatingLabel": "更新中…",
-    "updatingAriaLabel": "更新中",
     "intradayFallbackWarningAriaLabel": "詳細な日中価格データが利用できません",
     "intradayUnavailableTitle": "この口座の組み合わせでは日中ビューが利用できません",
     "intradayUnavailableDescription": "1つ以上の保有銘柄は日中データを公開していない価格プロバイダー（MSN Money）を使用しています。日次スナップショットを確認するには、より長い期間に切り替えてください。",

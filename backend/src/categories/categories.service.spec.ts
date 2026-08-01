@@ -10,6 +10,8 @@ import { TransactionSplit } from "../transactions/entities/transaction-split.ent
 import { Payee } from "../payees/entities/payee.entity";
 import { ScheduledTransaction } from "../scheduled-transactions/entities/scheduled-transaction.entity";
 import { ScheduledTransactionSplit } from "../scheduled-transactions/entities/scheduled-transaction-split.entity";
+import { UserPreference } from "../users/entities/user-preference.entity";
+import { I18nService } from "nestjs-i18n";
 
 describe("CategoriesService", () => {
   let service: CategoriesService;
@@ -19,6 +21,7 @@ describe("CategoriesService", () => {
   let payeesRepository: Record<string, jest.Mock>;
   let scheduledTransactionsRepository: Record<string, jest.Mock>;
   let scheduledSplitsRepository: Record<string, jest.Mock>;
+  let preferencesRepository: Record<string, jest.Mock>;
   let mockDataSource: Record<string, jest.Mock>;
 
   const mockCategory: Category = {
@@ -119,6 +122,10 @@ describe("CategoriesService", () => {
       createQueryBuilder: jest.fn(() => createMockQueryBuilder()),
     };
 
+    preferencesRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+
     mockDataSource = {
       createQueryRunner: jest.fn().mockReturnValue({
         connect: jest.fn(),
@@ -179,10 +186,23 @@ describe("CategoriesService", () => {
           provide: getRepositoryToken(ScheduledTransactionSplit),
           useValue: scheduledSplitsRepository,
         },
+        {
+          provide: getRepositoryToken(UserPreference),
+          useValue: preferencesRepository,
+        },
         { provide: DataSource, useValue: mockDataSource },
         {
           provide: ActionHistoryService,
           useValue: { record: jest.fn().mockResolvedValue(null) },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: jest.fn(
+              (_key: string, opts?: { defaultValue?: string }) =>
+                opts?.defaultValue,
+            ),
+          },
         },
       ],
     }).compile();
@@ -1423,6 +1443,93 @@ describe("CategoriesService", () => {
       subcategories.forEach((sub: Record<string, unknown>) => {
         expect(sub.parentId).toMatch(/^gen-/);
       });
+    });
+
+    const importedNames = async (options?: {
+      country?: string;
+      language?: string;
+    }): Promise<string[]> => {
+      categoriesRepository.count.mockResolvedValue(0);
+      let idCounter = 0;
+      const qr = mockDataSource.createQueryRunner();
+      const qrRepo = qr.manager.getRepository();
+      qrRepo.create.mockImplementation((data: unknown) => ({
+        ...(data as Record<string, unknown>),
+        id: `gen-${++idCounter}`,
+      }));
+      qrRepo.save.mockImplementation((data: unknown) => Promise.resolve(data));
+
+      await service.importDefaults("user-1", options);
+
+      return qrRepo.create.mock.calls.map(
+        (c: unknown[]) => (c[0] as { name: string }).name,
+      );
+    };
+
+    it("imports the country-neutral catalog when no country is given", async () => {
+      const names = await importedNames();
+
+      expect(names).toContain("Income Tax");
+      expect(names).not.toContain("CPP/QPP Contributions");
+      expect(names).not.toContain("Council Tax");
+    });
+
+    it("layers the selected country's additions over the baseline", async () => {
+      const names = await importedNames({ country: "CA" });
+
+      expect(names).toContain("CPP/QPP Contributions");
+      expect(names).toContain("EI Premiums");
+      expect(names).not.toContain("Income Tax");
+    });
+
+    it("falls back to the generic catalog for an unknown country", async () => {
+      const names = await importedNames({ country: "ZZ" });
+
+      expect(names).toContain("Income Tax");
+      expect(names).not.toContain("Council Tax");
+    });
+
+    it("seeds names in the requested language", async () => {
+      const i18n = (service as unknown as { i18n: { translate: jest.Mock } })
+        .i18n;
+
+      await importedNames({ language: "fr" });
+
+      expect(i18n.translate).toHaveBeenCalledWith(
+        "categories.defaults.taxes.name",
+        expect.objectContaining({ lang: "fr" }),
+      );
+      // The stored preference is not consulted when a language is supplied.
+      expect(preferencesRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the stored preference language when none is requested", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ language: "de" });
+      const i18n = (service as unknown as { i18n: { translate: jest.Mock } })
+        .i18n;
+
+      await importedNames({ country: "US" });
+
+      expect(preferencesRepository.findOne).toHaveBeenCalledWith({
+        where: { userId: "user-1" },
+      });
+      expect(i18n.translate).toHaveBeenCalledWith(
+        "categories.defaults.taxes.name",
+        expect.objectContaining({ lang: "de" }),
+      );
+    });
+
+    it("ignores an unsupported language and uses the stored preference", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ language: "es" });
+      const i18n = (service as unknown as { i18n: { translate: jest.Mock } })
+        .i18n;
+
+      await importedNames({ language: "klingon" });
+
+      expect(i18n.translate).toHaveBeenCalledWith(
+        "categories.defaults.taxes.name",
+        expect.objectContaining({ lang: "es" }),
+      );
     });
   });
 

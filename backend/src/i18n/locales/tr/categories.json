@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "Otomobil",
+      "sub": {
+        "accessories": "Aksesuarlar",
+        "carPayment": "Araç Taksiti",
+        "cleaning": "Temizlik",
+        "congestionCharge": "Şehir merkezi ücreti",
+        "fines": "Cezalar",
+        "fuel": "Yakıt",
+        "maintenance": "Bakım",
+        "mot": "Araç muayenesi",
+        "parking": "Otopark",
+        "parts": "Parçalar",
+        "registration": "Ruhsat",
+        "roadTax": "Motorlu taşıtlar vergisi",
+        "tolls": "Geçiş ücretleri"
+      }
+    },
+    "bankFees": {
+      "name": "Banka Ücretleri",
+      "sub": {
+        "annualFee": "Yıllık ücret",
+        "atm": "ATM",
+        "foreignTransaction": "Döviz işlem ücreti",
+        "nsf": "Karşılıksız Çek",
+        "other": "Diğer",
+        "overdraft": "Hesap Aşımı",
+        "serviceCharge": "Hesap işletim ücreti",
+        "unpaidItemFee": "Karşılıksız işlem ücreti"
+      }
+    },
+    "bills": {
+      "name": "Faturalar",
+      "sub": {
+        "electricity": "Elektrik",
+        "internet": "İnternet",
+        "mobilePhone": "Cep telefonu",
+        "naturalGas": "Doğal Gaz",
+        "streamingServices": "Yayın hizmetleri",
+        "telephone": "Telefon",
+        "television": "Televizyon",
+        "tvLicence": "TV lisansı",
+        "wasteCollection": "Çöp toplama",
+        "waterSewer": "Su ve Kanalizasyon"
+      }
+    },
+    "business": {
+      "name": "İş",
+      "sub": {
+        "airfare": "Uçak Bileti",
+        "carRental": "Araç Kiralama",
+        "diningOut": "Dışarıda Yemek",
+        "fuel": "Yakıt",
+        "lodging": "Konaklama",
+        "mileage": "Yol Masrafı",
+        "miscellaneous": "Çeşitli",
+        "mobilePhone": "Cep telefonu",
+        "officeSupplies": "Ofis malzemeleri",
+        "parking": "Otopark",
+        "software": "Yazılım",
+        "transit": "Toplu Taşıma"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "Nakit Çekme",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "Hayır Bağışları",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "Çocuk Bakımı",
+      "sub": {
+        "activities": "Aktiviteler",
+        "allowance": "Harçlık",
+        "babysitting": "Bebek Bakıcılığı",
+        "clothing": "Giyim",
+        "daycare": "Kreş",
+        "schoolSupplies": "Okul malzemeleri",
+        "sports": "Spor",
+        "toysGames": "Oyuncaklar ve Oyunlar"
+      }
+    },
+    "clothing": {
+      "name": "Giyim",
+      "sub": {
+        "accessories": "Aksesuarlar",
+        "clothes": "Kıyafetler",
+        "outerwear": "Dış giyim",
+        "shoes": "Ayakkabı"
+      }
+    },
+    "education": {
+      "name": "Eğitim",
+      "sub": {
+        "529PlanContribution": "529 planı katkısı",
+        "books": "Kitaplar",
+        "fees": "Ücretler",
+        "supplies": "Ders malzemeleri",
+        "tuition": "Okul Ücreti"
+      }
+    },
+    "food": {
+      "name": "Yiyecek",
+      "sub": {
+        "alcohol": "Alkol",
+        "cannabis": "Esrar",
+        "coffeeShops": "Kahveciler",
+        "diningOut": "Dışarıda Yemek",
+        "groceries": "Market Alışverişi",
+        "takeout": "Paket yemek"
+      }
+    },
+    "furnishings": {
+      "name": "Ev Eşyaları",
+      "sub": {
+        "accessories": "Aksesuarlar",
+        "appliances": "Beyaz Eşya",
+        "bathroom": "Banyo",
+        "bedroom": "Yatak Odası",
+        "decor": "Dekorasyon",
+        "dishes": "Tabak Takımı",
+        "kitchen": "Mutfak",
+        "livingRoom": "Oturma Odası",
+        "office": "Çalışma Odası",
+        "outdoor": "Dış Mekan"
+      }
+    },
+    "gifts": {
+      "name": "Hediyeler",
+      "sub": {
+        "anniversary": "Yıl Dönümü",
+        "birthday": "Doğum Günü",
+        "cards": "Kartlar",
+        "flowers": "Çiçekler",
+        "holiday": "Bayramlar",
+        "respContribution": "Eğitim Tasarrufu Katkısı",
+        "wedding": "Düğün"
+      }
+    },
+    "governmentFees": {
+      "name": "Resmi harçlar",
+      "sub": {
+        "licencesPermits": "Ruhsat ve izinler",
+        "passport": "Pasaport"
+      }
+    },
+    "healthcare": {
+      "name": "Sağlık",
+      "sub": {
+        "copay": "Katkı payı",
+        "counselling": "Danışmanlık",
+        "dental": "Diş Bakımı",
+        "eyecare": "Göz Bakımı",
+        "fitness": "Fitness",
+        "healthSavingsAccount": "Sağlık tasarruf hesabı",
+        "hospital": "Hastane",
+        "medication": "İlaç",
+        "physician": "Doktor",
+        "physiotherapy": "Fizik Tedavi",
+        "supplies": "Sağlık Malzemeleri"
+      }
+    },
+    "housing": {
+      "name": "Konut",
+      "sub": {
+        "fees": "Aidatlar",
+        "garden": "Bahçe",
+        "groundRent": "Arsa kirası",
+        "homeImprovement": "Ev Tadilatı",
+        "maintenance": "Bakım",
+        "mortgageInterest": "Konut Kredisi Faizi",
+        "mortgagePrincipal": "Konut Kredisi Anaparası",
+        "rent": "Kira",
+        "serviceCharge": "Aidat",
+        "supplies": "Sarf Malzemeleri",
+        "tools": "Aletler"
+      }
+    },
+    "insurance": {
+      "name": "Sigorta",
+      "sub": {
+        "automobile": "Otomobil",
+        "disability": "Maluliyet",
+        "health": "Sağlık",
+        "home": "Konut",
+        "life": "Hayat",
+        "provincialHealthPremium": "Bölgesel sağlık primi",
+        "renter": "Kiracı",
+        "travel": "Seyahat"
+      }
+    },
+    "interestExpense": {
+      "name": "Faiz Gideri",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "Yatırım Geliri",
+      "sub": {
+        "capitalGains": "Sermaye Kazançları",
+        "dividends": "Temettü",
+        "interest": "Faiz",
+        "respGrant": "Eğitim Tasarrufu Devlet Katkısı"
+      }
+    },
+    "leisure": {
+      "name": "Boş Zaman",
+      "sub": {
+        "booksMagazines": "Kitaplar ve Dergiler",
+        "camping": "Kamp",
+        "concerts": "Konserler",
+        "culturalEvents": "Kültürel Etkinlikler",
+        "electronics": "Elektronik",
+        "games": "Oyunlar",
+        "hobbies": "Hobiler",
+        "movies": "Filmler",
+        "music": "Müzik",
+        "sportingEvents": "Spor Etkinlikleri",
+        "sportingGoods": "Spor Malzemeleri",
+        "sports": "Spor"
+      }
+    },
+    "loan": {
+      "name": "Kredi",
+      "sub": {
+        "loanInterest": "Kredi Faizi",
+        "loanPrincipal": "Kredi Anaparası",
+        "studentLoanInterest": "Öğrenim kredisi faizi",
+        "studentLoanPrincipal": "Öğrenim kredisi anaparası",
+        "studentLoanRepayment": "Öğrenim kredisi ödemesi"
+      }
+    },
+    "miscellaneous": {
+      "name": "Çeşitli",
+      "sub": {
+        "other": "Diğer",
+        "postage": "Posta Ücreti"
+      }
+    },
+    "otherIncome": {
+      "name": "Diğer Gelirler",
+      "sub": {
+        "businessReimbursement": "İş Masrafı İadesi",
+        "canadaChildBenefit": "Çocuk yardımı (Kanada)",
+        "cashback": "Para İadesi",
+        "childBenefit": "Çocuk yardımı",
+        "creditCardReward": "Kredi Kartı Ödülü",
+        "freelance": "Serbest çalışma",
+        "giftsReceived": "Alınan Hediyeler",
+        "gstHstCredit": "GST/HST kredisi",
+        "rentalIncome": "Kira Geliri",
+        "stateTaxRefund": "Eyalet vergi iadesi",
+        "taxRefund": "Vergi iadesi"
+      }
+    },
+    "personalCare": {
+      "name": "Kişisel Bakım",
+      "sub": {
+        "cosmetics": "Kozmetik",
+        "dryCleaning": "Kuru Temizleme",
+        "haircut": "Saç Kesimi",
+        "laundry": "Çamaşır",
+        "spa": "Spa",
+        "toiletries": "Kişisel Bakım Ürünleri"
+      }
+    },
+    "petCare": {
+      "name": "Evcil Hayvan Bakımı",
+      "sub": {
+        "food": "Mama",
+        "grooming": "Pet kuaförü",
+        "supplies": "Malzemeler",
+        "veterinarian": "Veteriner"
+      }
+    },
+    "professionalServices": {
+      "name": "Profesyonel hizmetler",
+      "sub": {
+        "accounting": "Muhasebe",
+        "financialAdvice": "Finansal danışmanlık",
+        "legal": "Hukuki danışmanlık"
+      }
+    },
+    "retirementIncome": {
+      "name": "Emeklilik Geliri",
+      "sub": {
+        "401KWithdrawal": "401(k) çekimi",
+        "annuity": "Yıllık gelir",
+        "cppQppBenefits": "Emeklilik Maaşı",
+        "iraWithdrawal": "IRA çekimi",
+        "oasBenefits": "OAS ödemeleri",
+        "pension": "Emekli maaşı",
+        "retirementAccountWithdrawal": "Emeklilik hesabı çekimi",
+        "rrifWithdrawal": "RRIF çekimi",
+        "rrspWithdrawal": "RRSP çekimi",
+        "socialSecurityBenefits": "Social Security ödemeleri",
+        "statePension": "Devlet emekli maaşı",
+        "workplacePension": "İşyeri emeklilik planı"
+      }
+    },
+    "taxes": {
+      "name": "Vergiler",
+      "sub": {
+        "councilTax": "Belediye vergisi",
+        "cppQppContributions": "Emeklilik Primleri",
+        "eiPremiums": "İşsizlik Sigortası Primleri",
+        "federalIncomeTax": "Federal gelir vergisi",
+        "gstHst": "GST/HST",
+        "incomeTax": "Gelir vergisi",
+        "localIncomeTax": "Yerel gelir vergisi",
+        "medicareTax": "Medicare vergisi",
+        "nationalInsurance": "Ulusal sigorta",
+        "other": "Diğer",
+        "propertyTax": "Emlak vergisi",
+        "provincialIncomeTax": "Bölgesel gelir vergisi",
+        "provincialSalesTax": "Bölgesel satış vergisi",
+        "salesTax": "Satış vergisi",
+        "socialSecurityTax": "Social Security vergisi",
+        "stateIncomeTax": "Eyalet gelir vergisi",
+        "unionDues": "Sendika Aidatları",
+        "vat": "KDV"
+      }
+    },
+    "technology": {
+      "name": "Teknoloji",
+      "sub": {
+        "hardware": "Donanım",
+        "software": "Yazılım",
+        "subscriptions": "Abonelikler",
+        "webHosting": "Web hosting"
+      }
+    },
+    "transportation": {
+      "name": "Ulaşım",
+      "sub": {
+        "bicycle": "Bisiklet",
+        "publicTransit": "Toplu taşıma",
+        "rideshare": "Yolculuk paylaşımı",
+        "taxi": "Taksi"
+      }
+    },
+    "vacation": {
+      "name": "Tatil",
+      "sub": {
+        "activities": "Etkinlikler",
+        "airfare": "Uçak Bileti",
+        "carRental": "Araç Kiralama",
+        "fuel": "Yakıt",
+        "lodging": "Konaklama",
+        "miscellaneous": "Çeşitli",
+        "parking": "Otopark"
+      }
+    },
+    "wagesSalary": {
+      "name": "Ücret ve Maaş",
+      "sub": {
+        "bonus": "Prim",
+        "commission": "Komisyon",
+        "employerMatching": "İşveren Katkısı",
+        "grossPay": "Brüt Ücret",
+        "netPay": "Net Ücret",
+        "overtime": "Fazla Mesai",
+        "stockOptions": "Hisse opsiyonları",
+        "tips": "Bahşiş",
+        "vacationPay": "İzin Ücreti"
+      }
+    }
+  }
+}

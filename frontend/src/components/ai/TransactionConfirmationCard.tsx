@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
+import { formatBytes } from '@/components/transactions/AttachmentsSection';
 import { useNumberFormat } from '@/hooks/useNumberFormat';
 import type { PendingAction } from '@/types/ai';
 
@@ -117,6 +118,15 @@ export function TransactionConfirmationCard({
         label: t('confirmAction.description'),
         value: preview.description,
       });
+    // Files the approval will save as transaction attachments.
+    if (preview.attachments && preview.attachments.length > 0) {
+      preview.attachments.forEach((attachment, i) => {
+        rows.push({
+          label: i === 0 ? t('confirmAction.attachments') : '',
+          value: `${attachment.filename} (${formatBytes(attachment.byteSize)})`,
+        });
+      });
+    }
   } else if (type === 'categorize_transaction') {
     if (preview.payeeName)
       rows.push({ label: t('confirmAction.payee'), value: preview.payeeName });
@@ -358,6 +368,13 @@ export function TransactionConfirmationCard({
         {rows.map((row, i) => (
           <Row key={i} label={row.label} value={row.value} />
         ))}
+        {preview.isReconciled &&
+          (type === 'update_transaction' ||
+            type === 'delete_transaction') && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">
+              {t('confirmAction.reconciledWarning')}
+            </p>
+          )}
       </div>
       <div className="px-3 py-2 border-t border-blue-200 dark:border-blue-900/60">
         {status === 'pending' && (

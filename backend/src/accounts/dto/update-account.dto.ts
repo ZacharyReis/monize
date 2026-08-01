@@ -14,7 +14,11 @@ import {
   ValidateIf,
 } from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { AccountType } from "../entities/account.entity";
+import {
+  AccountType,
+  INTEREST_BOOKING_MODES,
+  InterestBookingMode,
+} from "../entities/account.entity";
 import { PAYMENT_FREQUENCIES, PaymentFrequency } from "./create-account.dto";
 import { SanitizeHtml } from "../../common/decorators/sanitize-html.decorator";
 import { IsCurrencyCode } from "../../common/validators/is-currency-code.validator";
@@ -207,11 +211,64 @@ export class UpdateAccountDto {
   principalCategoryId?: string;
 
   @ApiPropertyOptional({
-    description: "Category ID for interest portion of payments",
+    description:
+      "Category ID for the interest portion of payments. Pass null to clear.",
   })
   @IsOptional()
+  @ValidateIf((o) => o.interestCategoryId !== null)
   @IsUUID()
-  interestCategoryId?: string;
+  interestCategoryId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "How interest is recorded, for rate detection: AUTO, SPLIT, or SEPARATE.",
+    enum: INTEREST_BOOKING_MODES,
+  })
+  @IsOptional()
+  @IsIn(INTEREST_BOOKING_MODES)
+  interestBookingMode?: InterestBookingMode;
+
+  @ApiPropertyOptional({
+    description:
+      "Category ID used to tag standalone overpayments (extra principal). Pass null to clear.",
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.overpaymentCategoryId !== null)
+  @IsUUID()
+  overpaymentCategoryId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Memo text that marks a payment as a standalone overpayment (case-insensitive substring match). Pass null or empty to clear.",
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.overpaymentMemo !== null)
+  @IsString()
+  @MaxLength(255)
+  @SanitizeHtml()
+  overpaymentMemo?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Payee ID whose payments count as standalone overpayments (extra principal). Pass null to clear.",
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.overpaymentPayeeId !== null)
+  @IsUUID()
+  overpaymentPayeeId?: string | null;
+
+  // Foreign-transaction fee
+  @ApiPropertyOptional({
+    example: 2.5,
+    description:
+      "Foreign-currency conversion fee as a percentage (0-100), folded into the converted amount on foreign-entered transactions. Pass null to clear.",
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.fxFeePercent !== null)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(100)
+  fxFeePercent?: number | null;
 
   // Asset-specific fields
   @ApiPropertyOptional({
@@ -228,6 +285,15 @@ export class UpdateAccountDto {
   @IsOptional()
   @IsDateString()
   dateAcquired?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Linked loan/mortgage account ID for the asset equity view (null to unlink)",
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.linkedLoanAccountId !== null)
+  @IsUUID()
+  linkedLoanAccountId?: string | null;
 
   // Mortgage-specific fields
   @ApiPropertyOptional({

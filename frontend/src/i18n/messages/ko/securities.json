@@ -203,7 +203,13 @@
     "addPriceSection": "가격 추가",
     "editPriceSection": "가격 편집",
     "loading": "가격 불러오는 중...",
+    "chartTitle": "가격 이력",
+    "markers": {
+      "bought": "매수 {quantity} · {account}",
+      "sold": "매도 {quantity} · {account}"
+    },
     "empty": "사용 가능한 가격 이력이 없습니다",
+    "showingCount": "{total}개의 가격 중 {shown}개 표시",
     "columns": {
       "date": "날짜",
       "close": "종가",
@@ -230,6 +236,7 @@
     "closeButton": "닫기",
     "deleteConfirm": {
       "title": "가격 삭제",
+      "message": "{date}의 가격 항목을 삭제하시겠습니까?",
       "confirmLabel": "삭제"
     }
   },

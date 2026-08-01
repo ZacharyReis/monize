@@ -25,8 +25,7 @@
   },
   "notConfigured": {
     "heading": "AI가 구성되지 않음",
-    "message": "AI 제공업체가 구성되지 않았습니다. 지출 인사이트를 사용하려면 설정에서 {link}하세요.",
-    "linkText": "AI 제공업체를 구성"
+    "message": "AI 제공업체가 구성되지 않았습니다. 지출 인사이트를 사용하려면 설정에서 {link}하세요."
   },
   "insightTypes": {
     "anomaly": "이상 징후",

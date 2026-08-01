@@ -3,5 +3,8 @@
   "accountSuffix": {
     "cash": "Tunai",
     "brokerage": "Pialang"
+  },
+  "import": {
+    "voidedTransactionNote": "Dibatalkan di sumber; jumlah asli tidak disertakan dalam ekspor dan diimpor sebagai nol."
   }
 }

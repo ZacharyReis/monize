@@ -1,0 +1,198 @@
+{
+  "controls": {
+    "next": "İleri",
+    "back": "Geri",
+    "done": "Bitti",
+    "endTour": "Turu bitir",
+    "tryIt": "Deneyin — siz yapınca tur devam eder",
+    "skipStep": "Bu adımı atla",
+    "stepCounter": "{current} / {total}",
+    "skippedTitle": "Tur tamamlandı",
+    "skippedBody": "Ekranı veya denetimi kullanılamadığı için bazı adımlar atlandı. Turu istediğiniz zaman Ayarlar'dan yeniden alabilirsiniz.",
+    "move": "Bu kartı taşı — sürükleyin veya ok tuşlarıyla kaydırın"
+  },
+  "offer": {
+    "heading": "Kısa bir tur yapın",
+    "subheading": "Bu sürümdeki yeniliklerin kısa anlatımları. Bu pencere tur sürerken kenara çekilir ve tur bitince geri gelir.",
+    "showMe": "Bana göster",
+    "viewed": "Görüntülendi",
+    "introTitle": "Buraya yeni mi geldiniz? Tanıtım turunu yapın",
+    "introSubtitle": "Temel özelliklerin kısa bir anlatımı."
+  },
+  "areas": {
+    "intro": "Başlarken",
+    "transactions": "İşlemler",
+    "accounts": "Hesaplar",
+    "budgets": "Bütçeler",
+    "reports": "Raporlar",
+    "settings": "Ayarlar"
+  },
+  "gettingStarted": {
+    "takeTour": "Turu yap",
+    "retakeTour": "Turu yeniden yap"
+  },
+  "settings": {
+    "title": "Rehberli turlar",
+    "description": "Uygulamanın özelliklerini adım adım keşfedin.",
+    "showList": "Turları göster ({count})",
+    "hideList": "Turları gizle",
+    "start": "Başlat",
+    "restart": "Tekrar al",
+    "statusNotViewed": "Görüntülenmedi",
+    "statusDismissed": "Yarıda bırakıldı",
+    "reset": "Tur ilerlemesini sıfırla",
+    "resetSuccess": "Tur ilerlemesi sıfırlandı.",
+    "resetError": "Tur ilerlemesi sıfırlanamadı. Lütfen tekrar deneyin."
+  },
+  "intro": {
+    "basics": {
+      "title": "Monize'a Giriş",
+      "steps": {
+        "welcome": {
+          "title": "Monize'a hoş geldiniz",
+          "body": "Bu kısa tur, uygulamanın temel bölümlerini tanıtır. İstediğiniz zaman **Escape** tuşuna basarak veya **Turu bitir** seçeneğiyle çıkabilirsiniz."
+        },
+        "dashboard": {
+          "title": "Panonuz",
+          "body": "Bu sizin panonuz. Önem verdiğiniz özetlerin en üstte yer alması için widget'ları yeniden düzenlemek veya gizlemek üzere sağ üstteki **Özelleştir** düğmesini kullanın."
+        },
+        "tools": {
+          "title": "Araçlar menüsü",
+          "body": "**Araçlar** menüsü, finansal yapı taşlarınızı yönettiğiniz yerdir — alıcılar, kategoriler, para birimleri, etiketler ve daha fazlası."
+        },
+        "accounts": {
+          "title": "Hesaplarınız",
+          "body": "Banka, kredi kartı, kredi ve yatırım hesaplarınızı buraya vurgulanan düğmeyle ekleyin. Her bakiye ve işlem bir hesaba aittir."
+        },
+        "transactions": {
+          "title": "İşlemler",
+          "body": "Bu, işlem kayıt defterinizdir — hesaplarınıza ait her ödeme ve yatırma burada bulunur, aramaya ve filtrelemeye hazırdır."
+        },
+        "createTransaction": {
+          "title": "Bir işlem kaydedin",
+          "body": "**Yeni İşlem** ile gelir veya gider ekleyin. Hadi formu açın."
+        },
+        "fields": {
+          "title": "Alıcı ve kategori",
+          "body": "Her işlem için bir alıcı seçer ve bir kategori atarsınız. Kategoriler, bütçelerinizi ve raporlarınızı besleyen unsurlardır; tutar bir sonraki adımda."
+        },
+        "splits": {
+          "title": "İşlemi Böl",
+          "body": "Tek bir alışveriş birden fazla kategoriyi mi kapsıyor? Tek bir işlemi kategorilere bölmek için **İşlemi Böl** seçeneğini kullanın — örneğin tek bir alışverişten market ve ev eşyası gibi."
+        },
+        "currencyField": {
+          "title": "Tutar ve para birimi",
+          "body": "İşlemin tutarını burada girin. Başka bir para biriminde mi ödediniz? Tutarın yanındaki para birimini ayarlayın ve tutarı ödendiği şekilde girin — Monize bunu hesap para birimine sizin için çevirir."
+        },
+        "closeForm": {
+          "title": "Devam etmek için formu kapatın",
+          "body": "İşlem formunu **İptal** ile kapatın veya diğer düğmeyle kaydedin; tur devam edecektir."
+        },
+        "bills": {
+          "title": "Faturalar ve Mevduatlar",
+          "body": "Yaklaşan ödemelerin öngörülebilmesi ve hiçbirinin gözden kaçmaması için tekrarlayan faturaları ve mevduatları planlayın."
+        },
+        "investments": {
+          "title": "Yatırımlar",
+          "body": "Yatırım hesaplarınızdaki varlıklarınızı, fiyatları ve getirileri takip edin."
+        },
+        "budgets": {
+          "title": "Bütçelerle planlayın",
+          "body": "Bütçeler, kategori başına aylık hedefler belirlemenizi ve bunlara göre durumunuzu takip etmenizi sağlar."
+        },
+        "reports": {
+          "title": "Paranızı anlayın",
+          "body": "Raporlar, işlemlerinizi grafiklere dönüştürür — kategoriye göre harcama, zaman içinde net değer ve daha fazlası."
+        },
+        "finish": {
+          "title": "Her şey hazır",
+          "body": "Tur burada bitiyor. **Ayarlar** içindeki **Rehberli turlar** bölümünden istediğiniz zaman yeniden yapabilirsiniz."
+        }
+      }
+    }
+  },
+  "release": {
+    "v1_13_0": {
+      "foreignCurrency": {
+        "title": "Yabancı para birimi işlemleri",
+        "steps": {
+          "welcome": {
+            "title": "Diğer para birimlerindeki harcamalarınızı izleyin",
+            "body": "Yurt dışından bir şey mi aldınız? Bu tur, bir hesabın yabancı para birimi işlem ücretini ayarlar, size yansıtılan para biriminde bir alışveriş kaydeder ve bu maliyetlerin nerede göründüğünü gösterir. **Esc** tuşuyla veya **Turu bitir** ile istediğiniz an çıkabilirsiniz."
+          },
+          "openAccountEdit": {
+            "title": "Hesapla başlayın",
+            "body": "Yabancı para birimi işlem ücretleri hesaba aittir. Yurt dışında ödeme yaptığınız hesabı seçin — kredi kartı, banka kartı ya da telefonunuzun ödeme yaptığı hesap — ve ayarlarını açmak için satırındaki işlemlerden **Düzenle**'yi seçin; mobilde satıra uzun basın."
+          },
+          "fxFeePercent": {
+            "title": "Dönüşüm ücretini belirleyin",
+            "body": "Hesabın yabancı para birimi işlem ücretini buraya yüzde olarak girin — örneğin 2,5. Monize bunu her yurt dışı alışverişin dönüştürülmüş tutarına katar, böylece ücret sizin için kaydedilir."
+          },
+          "closeAccountForm": {
+            "title": "Kaydedin ve kapatın",
+            "body": "Bitirmek için bu düğmeleri kullanın: **Hesabı Güncelle** ücreti kaydeder, **İptal** kaydetmeden kapatır. Her iki durumda da tur devam eder."
+          },
+          "newTransaction": {
+            "title": "Bir yurt dışı alışverişi kaydedin",
+            "body": "Şimdi o hesapla başka bir para biriminde yaptığınız bir alışverişi kaydedin. **Yeni İşlem**'i açın ve hesap olarak onu seçin."
+          },
+          "chooseAccount": {
+            "title": "Hesabı ve tarihi kontrol edin",
+            "body": "Dönüşüm ücreti hesaba ait olduğundan, **Hesap** alanının ücreti az önce belirlediğiniz hesap olduğundan emin olun — değilse buradan değiştirin. **Tarih**'i de alışverişin yapıldığı güne ayarlayın: döviz kuru o tarih için aranır."
+          },
+          "enterDetails": {
+            "title": "Ayrıntıları girin",
+            "body": "Alacaklıyı ve kategoriyi diğer işlemlerde olduğu gibi doldurun. Yabancı para birimi kısmı hemen ardından geliyor."
+          },
+          "entryCurrency": {
+            "title": "Ödeme yaptığınız para birimini seçin",
+            "body": "Bunu açın ve size yansıtılan para birimini seçin. Listede yalnızca kendi para biriminiz mi var? Bir tane eklemek için en alttaki **Para birimi ekle...** seçeneğini kullanın — hemen sizin için seçilir."
+          },
+          "enterAmount": {
+            "title": "Size yansıtılan tutarı girin",
+            "body": "Toplamı ekstrenizde göründüğü gibi tam olarak yazın. Monize işlemin tarihi için **döviz kurunu** arar, dönüştürülmüş toplamı yanında gösterir ve hesapta belirlediğiniz **yabancı para birimi işlem ücretini** ekler — alttaki açıklama ikisini de ayrıntılandırır. Bankanız farklı mı yuvarladı? Kuruşuna kadar tutması için kuru veya dönüştürülmüş toplamı düzenleyin."
+          },
+          "closeTransactionForm": {
+            "title": "Formu kapatın",
+            "body": "Burada da aynısı: işlemi gönder düğmesiyle kaydedin veya **İptal** ile kapatın, tur devam eder."
+          },
+          "openAccountDetail": {
+            "title": "Hesaba geri dönün",
+            "body": "Yabancı para birimi hareketlerinin nasıl özetlendiğini görmek için o hesabın Ayrıntılar sayfasını açın — satırındaki işlemlerden **Ayrıntılar**'ı seçin."
+          },
+          "fxSection": {
+            "title": "Yabancı para birimi bölümünüz",
+            "body": "Yabancı para birimi hareketi olan hesaplar bu bölümü kazanır: para birimi başına ödenen ücretler, zaman içindeki grafik ve eşleşen işlemler; CSV ve PNG olarak dışa aktarılabilir. Hesapta bir yurt dışı alışverişi olduğunda görünür.",
+            "fallbackBody": "Bu hesapta henüz yabancı para birimi hareketi yok, bu yüzden bölüm sayfasında görünmüyor. Hesaba başka bir para biriminde bir alışveriş kaydedin ve bölüm ortaya çıkar: para birimi başına ücretler, zaman içindeki grafik ve CSV ile PNG çıktısı."
+          },
+          "report": {
+            "title": "Yabancı Para Birimi İşlem Ücretleri raporu",
+            "body": "Bu rapor, tüm hesaplarınızdaki ve para birimlerinizdeki yurt dışı alışverişlerini tek yerde toplar; böylece \"yurt dışı işlem ücreti yok\" denen kartların gerçekte ne kadara mal olduğunu görürsünüz. İstediğiniz zaman **Raporlar**'dan açın.",
+            "fallbackBody": "**Yabancı para birimi ücretleri** raporu, tüm hesap ve para birimlerindeki yurt dışı alışverişlerini tek yerde toplar. Şu anda ekranda değil — bir arama ya da kategori filtresi onu gizleyebilir — ama **Raporlar** içinde bulabilirsiniz."
+          },
+          "finish": {
+            "title": "Monize'de yabancı para birimi bu kadar",
+            "body": "Ücreti bir kez belirleyin, alışverişleri size yansıtıldığı gibi girin; ücreler kendi kendini izler. Bu turu istediğiniz zaman **Ayarlar** içindeki **Rehberli turlar** bölümünden tekrar alabilirsiniz."
+          }
+        }
+      },
+      "settings": {
+        "title": "Yenilikler özeti",
+        "steps": {
+          "whatsNewToggle": {
+            "title": "Sürüm öne çıkanları",
+            "body": "Bu anahtar, bir güncellemeden sonra Yenilikler özetinin otomatik olarak açılıp açılmayacağını kontrol eder."
+          },
+          "appVersion": {
+            "title": "Notları yeniden okuyun",
+            "body": "Sürüm notlarını yeniden açmak için istediğiniz zaman **Ayarlar**'ın altındaki sürüm etiketine tıklayın."
+          },
+          "done": {
+            "title": "Hepsi bu",
+            "body": "Bu öne çıkanları istediğiniz zaman buradan, Ayarlar içinden yeniden gözden geçirebilirsiniz."
+          }
+        }
+      }
+    }
+  }
+}

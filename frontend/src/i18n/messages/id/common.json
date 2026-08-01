@@ -5,6 +5,18 @@
   "appVersion": {
     "releaseNotes": "Lihat catatan rilis untuk v{version}"
   },
+  "whatsNew": {
+    "title": "Yang Baru",
+    "versionLabel": "Versi {version}",
+    "expandAll": "Perluas semua",
+    "collapseAll": "Ciutkan semua",
+    "viewFullNotes": "Lihat catatan rilis lengkap",
+    "dontShowAgain": "Jangan tampilkan lagi",
+    "showNextLogin": "Tampilkan saat masuk berikutnya",
+    "close": "Tutup",
+    "unavailable": "Catatan rilis untuk versi ini tidak tersedia.",
+    "englishOnly": "Catatan rilis di bawah ini hanya tersedia dalam bahasa Inggris. Monize sendiri, termasuk tur berpanduan, mengikuti pengaturan bahasa Anda."
+  },
   "save": "Simpan",
   "cancel": "Batal",
   "delete": "Hapus",
@@ -65,6 +77,9 @@
     "downloadAsPng": "Unduh {filename} sebagai PNG",
     "unableToCapture": "Tidak dapat mengambil gambar grafik",
     "failedToDownload": "Gagal mengunduh grafik"
+  },
+  "csvDownload": {
+    "downloadAsCsv": "Unduh {filename} sebagai CSV"
   },
   "chartViewToggle": {
     "pieChart": "Diagram Lingkaran",
@@ -158,10 +173,47 @@
     "length": "Kode harus tepat 6 digit",
     "digits": "Kode harus 6 digit"
   },
-  "monthsShort": ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
-  "weekdaysShort": ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"],
-  "weekdaysMin": ["Mi", "Se", "Sl", "Ra", "Ka", "Ju", "Sa"],
-  "weekdaysNarrow": ["M", "S", "S", "R", "K", "J", "S"],
+  "monthsShort": [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des"
+  ],
+  "weekdaysShort": [
+    "Min",
+    "Sen",
+    "Sel",
+    "Rab",
+    "Kam",
+    "Jum",
+    "Sab"
+  ],
+  "weekdaysMin": [
+    "Mi",
+    "Se",
+    "Sl",
+    "Ra",
+    "Ka",
+    "Ju",
+    "Sa"
+  ],
+  "weekdaysNarrow": [
+    "M",
+    "S",
+    "S",
+    "R",
+    "K",
+    "J",
+    "S"
+  ],
   "dateFormat": {
     "browserAuto": "Gunakan lokal browser (deteksi otomatis: {sample})",
     "custom": "Kustom..."

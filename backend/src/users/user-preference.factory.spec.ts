@@ -30,4 +30,12 @@ describe("buildDefaultPreferences", () => {
     expect(prefs.gettingStartedDismissed).toBe(false);
     expect(prefs.favouriteReportIds).toEqual([]);
   });
+
+  it("starts a new account caught up to the running version (no What's New popup)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { version } = require("../../package.json") as { version: string };
+    const prefs = buildDefaultPreferences("user-1");
+    expect(prefs.showWhatsNew).toBe(true);
+    expect(prefs.lastSeenVersion).toBe(version);
+  });
 });

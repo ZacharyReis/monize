@@ -1,0 +1,372 @@
+{
+  "defaults": {
+    "automobile": {
+      "name": "汽車",
+      "sub": {
+        "accessories": "配件",
+        "carPayment": "車貸分期",
+        "cleaning": "洗車",
+        "congestionCharge": "壅塞費",
+        "fines": "罰款",
+        "fuel": "燃料",
+        "maintenance": "保養維修",
+        "mot": "車輛檢驗",
+        "parking": "停車費",
+        "parts": "零件",
+        "registration": "牌照登記",
+        "roadTax": "牌照稅",
+        "tolls": "過路費"
+      }
+    },
+    "bankFees": {
+      "name": "銀行手續費",
+      "sub": {
+        "annualFee": "年費",
+        "atm": "ATM",
+        "foreignTransaction": "外幣交易手續費",
+        "nsf": "存款不足退票費",
+        "other": "其他",
+        "overdraft": "透支費",
+        "serviceCharge": "帳戶服務費",
+        "unpaidItemFee": "退票手續費"
+      }
+    },
+    "bills": {
+      "name": "帳單",
+      "sub": {
+        "electricity": "電費",
+        "internet": "網路",
+        "mobilePhone": "手機",
+        "naturalGas": "天然氣",
+        "streamingServices": "串流服務",
+        "telephone": "市話",
+        "television": "電視",
+        "tvLicence": "電視執照費",
+        "wasteCollection": "垃圾清運",
+        "waterSewer": "水費與污水處理費"
+      }
+    },
+    "business": {
+      "name": "業務",
+      "sub": {
+        "airfare": "機票",
+        "carRental": "租車",
+        "diningOut": "外食",
+        "fuel": "燃料",
+        "lodging": "住宿",
+        "mileage": "里程費",
+        "miscellaneous": "雜項",
+        "mobilePhone": "手機",
+        "officeSupplies": "辦公用品",
+        "parking": "停車費",
+        "software": "軟體",
+        "transit": "大眾運輸"
+      }
+    },
+    "cashWithdrawal": {
+      "name": "提領現金",
+      "sub": {}
+    },
+    "charitableDonations": {
+      "name": "慈善捐款",
+      "sub": {}
+    },
+    "childcare": {
+      "name": "育兒",
+      "sub": {
+        "activities": "活動",
+        "allowance": "零用錢",
+        "babysitting": "保母",
+        "clothing": "衣物",
+        "daycare": "日間托育",
+        "schoolSupplies": "學用品",
+        "sports": "運動",
+        "toysGames": "玩具與遊戲"
+      }
+    },
+    "clothing": {
+      "name": "服飾",
+      "sub": {
+        "accessories": "配件",
+        "clothes": "衣服",
+        "outerwear": "外套",
+        "shoes": "鞋子"
+      }
+    },
+    "education": {
+      "name": "教育",
+      "sub": {
+        "529PlanContribution": "529計畫提撥",
+        "books": "書籍",
+        "fees": "費用",
+        "supplies": "教材",
+        "tuition": "學費"
+      }
+    },
+    "food": {
+      "name": "飲食",
+      "sub": {
+        "alcohol": "酒類",
+        "cannabis": "大麻",
+        "coffeeShops": "咖啡店",
+        "diningOut": "外食",
+        "groceries": "食品雜貨",
+        "takeout": "外帶"
+      }
+    },
+    "furnishings": {
+      "name": "傢俱與擺設",
+      "sub": {
+        "accessories": "裝飾配件",
+        "appliances": "家電",
+        "bathroom": "浴室",
+        "bedroom": "臥室",
+        "decor": "裝飾品",
+        "dishes": "餐具",
+        "kitchen": "廚房",
+        "livingRoom": "客廳",
+        "office": "辦公室",
+        "outdoor": "戶外"
+      }
+    },
+    "gifts": {
+      "name": "禮品",
+      "sub": {
+        "anniversary": "週年紀念",
+        "birthday": "生日",
+        "cards": "卡片",
+        "flowers": "鮮花",
+        "holiday": "節慶",
+        "respContribution": "教育儲蓄提撥",
+        "wedding": "婚禮"
+      }
+    },
+    "governmentFees": {
+      "name": "行政規費",
+      "sub": {
+        "licencesPermits": "證照與許可",
+        "passport": "護照"
+      }
+    },
+    "healthcare": {
+      "name": "醫療保健",
+      "sub": {
+        "copay": "自付額",
+        "counselling": "心理諮商",
+        "dental": "牙科",
+        "eyecare": "眼科",
+        "fitness": "健身",
+        "healthSavingsAccount": "醫療儲蓄帳戶",
+        "hospital": "住院",
+        "medication": "藥品",
+        "physician": "門診",
+        "physiotherapy": "物理治療",
+        "supplies": "醫療用品"
+      }
+    },
+    "housing": {
+      "name": "住房",
+      "sub": {
+        "fees": "費用",
+        "garden": "園藝",
+        "groundRent": "地租",
+        "homeImprovement": "居家修繕",
+        "maintenance": "維護保養",
+        "mortgageInterest": "房貸利息",
+        "mortgagePrincipal": "房貸本金",
+        "rent": "租金",
+        "serviceCharge": "管理費",
+        "supplies": "居家用品",
+        "tools": "工具"
+      }
+    },
+    "insurance": {
+      "name": "保險",
+      "sub": {
+        "automobile": "汽車保險",
+        "disability": "失能保險",
+        "health": "健康保險",
+        "home": "住宅",
+        "life": "壽險",
+        "provincialHealthPremium": "省級健保費",
+        "renter": "租客",
+        "travel": "旅遊保險"
+      }
+    },
+    "interestExpense": {
+      "name": "利息支出",
+      "sub": {}
+    },
+    "investmentIncome": {
+      "name": "投資收入",
+      "sub": {
+        "capitalGains": "資本利得",
+        "dividends": "股利",
+        "interest": "利息",
+        "respGrant": "教育儲蓄補助金"
+      }
+    },
+    "leisure": {
+      "name": "休閒",
+      "sub": {
+        "booksMagazines": "書籍與雜誌",
+        "camping": "露營",
+        "concerts": "演唱會",
+        "culturalEvents": "文化活動",
+        "electronics": "電子產品",
+        "games": "遊戲",
+        "hobbies": "興趣嗜好",
+        "movies": "電影",
+        "music": "音樂",
+        "sportingEvents": "運動賽事",
+        "sportingGoods": "運動用品",
+        "sports": "運動"
+      }
+    },
+    "loan": {
+      "name": "貸款",
+      "sub": {
+        "loanInterest": "貸款利息",
+        "loanPrincipal": "貸款本金",
+        "studentLoanInterest": "助學貸款利息",
+        "studentLoanPrincipal": "助學貸款本金",
+        "studentLoanRepayment": "助學貸款還款"
+      }
+    },
+    "miscellaneous": {
+      "name": "雜項",
+      "sub": {
+        "other": "其他",
+        "postage": "郵資"
+      }
+    },
+    "otherIncome": {
+      "name": "其他收入",
+      "sub": {
+        "businessReimbursement": "公務報銷",
+        "canadaChildBenefit": "兒童福利金（加拿大）",
+        "cashback": "現金回饋",
+        "childBenefit": "兒童福利金",
+        "creditCardReward": "信用卡回饋",
+        "freelance": "自由接案",
+        "giftsReceived": "收到的禮金",
+        "gstHstCredit": "GST/HST退稅",
+        "rentalIncome": "租金收入",
+        "stateTaxRefund": "州稅退稅",
+        "taxRefund": "退稅"
+      }
+    },
+    "personalCare": {
+      "name": "個人護理",
+      "sub": {
+        "cosmetics": "化妝品",
+        "dryCleaning": "乾洗",
+        "haircut": "理髮",
+        "laundry": "洗衣",
+        "spa": "水療",
+        "toiletries": "盥洗用品"
+      }
+    },
+    "petCare": {
+      "name": "寵物照護",
+      "sub": {
+        "food": "飼料",
+        "grooming": "寵物美容",
+        "supplies": "用品",
+        "veterinarian": "獸醫"
+      }
+    },
+    "professionalServices": {
+      "name": "專業服務",
+      "sub": {
+        "accounting": "會計",
+        "financialAdvice": "理財諮詢",
+        "legal": "法律服務"
+      }
+    },
+    "retirementIncome": {
+      "name": "退休收入",
+      "sub": {
+        "401KWithdrawal": "401(k)提領",
+        "annuity": "年金",
+        "cppQppBenefits": "退休金給付",
+        "iraWithdrawal": "IRA提領",
+        "oasBenefits": "OAS養老金",
+        "pension": "退休金",
+        "retirementAccountWithdrawal": "退休帳戶提領",
+        "rrifWithdrawal": "RRIF提領",
+        "rrspWithdrawal": "RRSP提領",
+        "socialSecurityBenefits": "社會安全給付",
+        "statePension": "國家年金",
+        "workplacePension": "企業年金"
+      }
+    },
+    "taxes": {
+      "name": "稅金",
+      "sub": {
+        "councilTax": "市政稅",
+        "cppQppContributions": "退休金提撥",
+        "eiPremiums": "就業保險費",
+        "federalIncomeTax": "聯邦所得稅",
+        "gstHst": "GST/HST",
+        "incomeTax": "所得稅",
+        "localIncomeTax": "地方所得稅",
+        "medicareTax": "醫療保險稅",
+        "nationalInsurance": "國民保險",
+        "other": "其他",
+        "propertyTax": "房屋稅",
+        "provincialIncomeTax": "省所得稅",
+        "provincialSalesTax": "省銷售稅",
+        "salesTax": "銷售稅",
+        "socialSecurityTax": "社會安全稅",
+        "stateIncomeTax": "州所得稅",
+        "unionDues": "工會會費",
+        "vat": "加值稅"
+      }
+    },
+    "technology": {
+      "name": "科技",
+      "sub": {
+        "hardware": "硬體",
+        "software": "軟體",
+        "subscriptions": "訂閱",
+        "webHosting": "網站代管"
+      }
+    },
+    "transportation": {
+      "name": "交通",
+      "sub": {
+        "bicycle": "自行車",
+        "publicTransit": "大眾運輸",
+        "rideshare": "共乘",
+        "taxi": "計程車"
+      }
+    },
+    "vacation": {
+      "name": "度假",
+      "sub": {
+        "activities": "活動",
+        "airfare": "機票",
+        "carRental": "租車",
+        "fuel": "燃料",
+        "lodging": "住宿",
+        "miscellaneous": "雜項",
+        "parking": "停車費"
+      }
+    },
+    "wagesSalary": {
+      "name": "工資與薪水",
+      "sub": {
+        "bonus": "獎金",
+        "commission": "佣金",
+        "employerMatching": "雇主提撥",
+        "grossPay": "薪資總額",
+        "netPay": "實領薪資",
+        "overtime": "加班費",
+        "stockOptions": "股票選擇權",
+        "tips": "小費",
+        "vacationPay": "休假薪資"
+      }
+    }
+  }
+}

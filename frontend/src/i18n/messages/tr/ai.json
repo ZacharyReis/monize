@@ -8,7 +8,15 @@
     "title": "Yapay Zeka Asistanı",
     "expand": "Tam ekrana genişlet",
     "collapse": "Panele küçült",
-    "close": "Kapat"
+    "close": "Kapat",
+    "movePanel": "Paneli taşı: sürükleyin, ok tuşlarıyla kaydırın ya da tıklayarak bir sonraki köşeye gönderin",
+    "moveCornerTo": "{corner} taşı",
+    "corner": {
+      "bottom-right": "sağ alt köşeye",
+      "bottom-left": "sol alt köşeye",
+      "top-right": "sağ üst köşeye",
+      "top-left": "sol üst köşeye"
+    }
   },
   "chat": {
     "conversationSaved": "Konuşma tarayıcınıza kaydedildi",
@@ -34,8 +42,7 @@
   },
   "notConfigured": {
     "heading": "Yapay Zeka Yapılandırılmamış",
-    "message": "Hiçbir yapay zeka sağlayıcısı yapılandırılmamış. Yapay Zeka Asistanını kullanmak için lütfen ayarlarınızda {link}.",
-    "linkText": "bir yapay zeka sağlayıcısı yapılandırın"
+    "message": "Hiçbir yapay zeka sağlayıcısı yapılandırılmamış. Yapay Zeka Asistanını kullanmak için lütfen ayarlarınızda {link}."
   },
   "suggestedQueries": {
     "heading": "Finanslarınız hakkında sorun",
@@ -70,6 +77,7 @@
     "newPayee": "(yeni alacaklı)",
     "category": "Kategori",
     "splits": "Bölmeler",
+    "attachments": "Ekler",
     "newCategory": "Yeni kategori",
     "currentCategory": "Mevcut kategori",
     "description": "Açıklama",
@@ -104,6 +112,8 @@
     "createdInvestmentTransactions": "{count, plural, =0 {Yatırım işlemi oluşturulmadı} one {# yatırım işlemi oluşturuldu} other {# yatırım işlemi oluşturuldu}}",
     "rowsSkipped": "{count, plural, one {# satır atlandı} other {# satır atlandı}}",
     "rowSkippedBadge": "Atlandı",
+    "reconciledBadge": "Mutabakatlı",
+    "reconciledWarning": "Bu işlemde mutabakat sağlandı. Değiştirmek, tamamlanmış bir mutabakatı etkiler.",
     "investmentActions": {
       "BUY": "Al",
       "SELL": "Sat",
@@ -186,9 +196,10 @@
   },
   "relay": {
     "status": {
-      "offline": "Asistan çevrimdışı",
-      "listening": "Asistan dinliyor",
-      "busy": "Asistan çalışıyor"
+      "offline": "MCP aracı çevrimdışı",
+      "listening": "MCP aracı dinliyor",
+      "busy": "MCP aracı çalışıyor",
+      "idle": "Hareketsizlik nedeniyle bağlantı kesildi — devam etmek için yeniden bağlanın"
     },
     "howToConnect": "Nasıl bağlanılır",
     "hideHelp": "Gizle",

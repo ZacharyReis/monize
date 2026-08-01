@@ -24,6 +24,16 @@
     "createButton": "Crear las mías",
     "hint": "El conjunto predeterminado incluye categorías comunes de ingresos y gastos con subcategorías"
   },
+  "importDialog": {
+    "title": "Importar categorías predeterminadas",
+    "description": "Empieza con un conjunto listo de categorías de ingresos y gastos. Elige tu país para obtener también sus categorías de impuestos y prestaciones, y el idioma en el que se crearán los nombres.",
+    "countryLabel": "País",
+    "countryHelp": "Añade categorías propias del país, como impuestos y prestaciones locales. Elige el conjunto genérico si tu país no aparece.",
+    "genericCountry": "Genérico (sin categorías propias de un país)",
+    "languageLabel": "Idioma",
+    "languageHelp": "Las categorías se crean con nombres en este idioma. Puedes renombrarlas cuando quieras.",
+    "submit": "Importar categorías"
+  },
   "toasts": {
     "created": "Categoría creada correctamente",
     "updated": "Categoría actualizada correctamente",

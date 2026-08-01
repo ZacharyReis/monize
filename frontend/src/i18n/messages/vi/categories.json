@@ -24,6 +24,16 @@
     "createButton": "Tự tạo",
     "hint": "Bộ mặc định bao gồm các danh mục thu nhập và chi tiêu phổ biến với các danh mục con"
   },
+  "importDialog": {
+    "title": "Nhập danh mục mặc định",
+    "description": "Bắt đầu với bộ danh mục thu nhập và chi tiêu có sẵn. Chọn quốc gia để nhận thêm các danh mục thuế và trợ cấp của quốc gia đó, cùng ngôn ngữ dùng để tạo tên.",
+    "countryLabel": "Quốc gia",
+    "countryHelp": "Thêm các danh mục riêng của quốc gia như thuế và trợ cấp địa phương. Chọn bộ chung nếu không có quốc gia của bạn.",
+    "genericCountry": "Chung (không có danh mục riêng theo quốc gia)",
+    "languageLabel": "Ngôn ngữ",
+    "languageHelp": "Danh mục được tạo với tên bằng ngôn ngữ này. Bạn có thể đổi tên bất cứ lúc nào.",
+    "submit": "Nhập danh mục"
+  },
   "toasts": {
     "created": "Đã tạo danh mục thành công",
     "updated": "Đã cập nhật danh mục thành công",

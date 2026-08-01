@@ -1,0 +1,19 @@
+{
+  "title": "Tệp đính kèm",
+  "empty": "Chưa có tệp đính kèm",
+  "upload": "Thêm tệp đính kèm",
+  "download": "Tải xuống",
+  "delete": "Xóa",
+  "remove": "Gỡ bỏ",
+  "pendingHint": "Tệp sẽ được tải lên khi bạn lưu giao tác.",
+  "deleteConfirmTitle": "Xóa tệp đính kèm?",
+  "deleteConfirmMessage": "\"{name}\" sẽ bị xóa vĩnh viễn.",
+  "uploaded": "Đã thêm tệp đính kèm",
+  "deleted": "Đã xóa tệp đính kèm",
+  "loadFailed": "Không tải được tệp đính kèm",
+  "uploadFailed": "Không tải lên được tệp đính kèm",
+  "deleteFailed": "Không xóa được tệp đính kèm",
+  "tooLarge": "Tệp quá lớn (tối đa {max})",
+  "unsupported": "Loại tệp không được hỗ trợ. Cho phép: hình ảnh hoặc PDF",
+  "tooMany": "Tối đa {max} tệp đính kèm cho mỗi giao tác"
+}

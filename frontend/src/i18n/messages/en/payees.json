@@ -4,6 +4,7 @@
     "subtitle": "Manage your payees and their default categories",
     "deactivateUnused": "Deactivate Unused",
     "autoAssignCategories": "Auto-Assign Categories",
+    "maintenance": "Maintenance",
     "autoMergePayees": "Auto-Merge Payees",
     "newPayee": "+ New Payee",
     "searchPlaceholder": "Search payees...",
@@ -60,13 +61,9 @@
     },
     "actions": {
       "reactivate": "Reactivate",
-      "reactivateShort": "Re",
       "merge": "Merge",
-      "mergeShort": "M",
       "edit": "Edit",
-      "editShort": "E",
-      "delete": "Delete",
-      "deleteShort": "X"
+      "delete": "Delete"
     },
     "viewTransactionsTitle": "View transactions with this payee",
     "uncategorizedBadge": "{count, plural, one {# uncategorized} other {# uncategorized}}",
@@ -196,9 +193,10 @@
       "selectAtLeastOne": "Please select at least one group to merge",
       "applied": "Merged {groups, plural, one {# group} other {# groups}} ({payees} payees combined)",
       "backfilled": "{count, plural, one {Categorized # transaction} other {Categorized # transactions}}",
-      "aliasesSkipped": "{count, plural, one {# alias was skipped due to a conflict} other {# aliases were skipped due to conflicts}}",
+      "aliasesSkipped": "{count, plural, one {# alias was skipped due to a conflict} other {# aliases were skipped due to conflicts}}: {aliases}",
       "loadFailed": "Failed to load merge groups",
-      "applyFailed": "Failed to merge payees"
+      "applyFailed": "Failed to merge payees",
+      "someGroupsFailed": "{count, plural, one {# group could not be merged} other {# groups could not be merged}}: {reason}"
     },
     "categoryMatchLabel": "Only merge payees in the same category",
     "categoryMatchHelp": "Keep payees apart when their categories differ, reducing false matches.",

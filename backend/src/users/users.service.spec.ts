@@ -18,7 +18,9 @@ import { PasswordBreachService } from "../auth/password-breach.service";
 import { ModuleRef } from "@nestjs/core";
 import { I18nContext } from "nestjs-i18n";
 import { ExchangeRateService } from "../currencies/exchange-rate.service";
+import { CurrenciesService } from "../currencies/currencies.service";
 import { BackupEncryptionService } from "../backup/backup-encryption.service";
+import { DemoModeService } from "../common/demo-mode.service";
 
 describe("UsersService", () => {
   let service: UsersService;
@@ -28,7 +30,9 @@ describe("UsersService", () => {
   let patRepository: Record<string, jest.Mock>;
   let trustedDevicesRepository: Record<string, jest.Mock>;
   let passwordBreachService: { isBreached: jest.Mock };
+  let demoModeService: { isDemo: boolean };
   let exchangeRateService: { refreshAllRates: jest.Mock };
+  let currenciesService: { ensureSystemCurrency: jest.Mock };
   let backupEncryptionService: { syncOnPasswordChange: jest.Mock };
   let moduleRef: { get: jest.Mock };
   let mockQueryRunner: Record<string, jest.Mock>;
@@ -83,10 +87,12 @@ describe("UsersService", () => {
 
     refreshTokensRepository = {
       update: jest.fn(),
+      delete: jest.fn(),
     };
 
     patRepository = {
       update: jest.fn(),
+      delete: jest.fn(),
     };
 
     trustedDevicesRepository = {
@@ -111,13 +117,20 @@ describe("UsersService", () => {
       syncOnPasswordChange: jest.fn().mockResolvedValue(undefined),
     };
 
+    currenciesService = {
+      ensureSystemCurrency: jest.fn().mockResolvedValue(undefined),
+    };
+
     moduleRef = {
       get: jest.fn((token) => {
         if (token === ExchangeRateService) return exchangeRateService;
         if (token === BackupEncryptionService) return backupEncryptionService;
+        if (token === CurrenciesService) return currenciesService;
         return undefined;
       }),
     };
+
+    demoModeService = { isDemo: false };
 
     mockQueryRunner = {
       connect: jest.fn(),
@@ -156,6 +169,7 @@ describe("UsersService", () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: PasswordBreachService, useValue: passwordBreachService },
         { provide: ModuleRef, useValue: moduleRef },
+        { provide: DemoModeService, useValue: demoModeService },
       ],
     }).compile();
 
@@ -385,6 +399,31 @@ describe("UsersService", () => {
       expect(savedData.defaultCurrency).toBe("USD"); // unchanged
     });
 
+    it("persists the language when not in demo mode", async () => {
+      demoModeService.isDemo = false;
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", { language: "pl" });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      expect(savedData.language).toBe("pl");
+    });
+
+    it("does not persist the language in demo mode (shared account)", async () => {
+      demoModeService.isDemo = true;
+      preferencesRepository.findOne.mockResolvedValue({
+        ...mockPreferences,
+        language: "en",
+      });
+
+      await service.updatePreferences("user-1", { language: "pl", theme: "dark" });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      // Language stays as the shared account had it; other fields still apply.
+      expect(savedData.language).toBe("en");
+      expect(savedData.theme).toBe("dark");
+    });
+
     it("creates defaults first if preferences do not exist", async () => {
       preferencesRepository.findOne.mockResolvedValue(null);
       preferencesRepository.save.mockImplementation((data) => data);
@@ -395,6 +434,24 @@ describe("UsersService", () => {
 
       // First save for creating defaults, second for updating
       expect(preferencesRepository.save).toHaveBeenCalled();
+    });
+
+    it("ensures the chosen default currency exists when it changes", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", { defaultCurrency: "EUR" });
+
+      expect(currenciesService.ensureSystemCurrency).toHaveBeenCalledWith(
+        "EUR",
+      );
+    });
+
+    it("does not ensure a currency when the default is unchanged", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", { defaultCurrency: "USD" });
+
+      expect(currenciesService.ensureSystemCurrency).not.toHaveBeenCalled();
     });
 
     it("updates multiple fields at once", async () => {
@@ -414,6 +471,15 @@ describe("UsersService", () => {
       expect(savedData.gettingStartedDismissed).toBe(true);
     });
 
+    it("updates the showWhatsNew preference", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", { showWhatsNew: false });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      expect(savedData.showWhatsNew).toBe(false);
+    });
+
     it("updates favouriteReportIds", async () => {
       preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
 
@@ -426,6 +492,35 @@ describe("UsersService", () => {
         "spending-by-category",
         "net-worth",
       ]);
+    });
+
+    it("updates dashboardWidgets", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", {
+        dashboardWidgets: ["upcoming-bills", "favourite-accounts"],
+      });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      expect(savedData.dashboardWidgets).toEqual([
+        "upcoming-bills",
+        "favourite-accounts",
+      ]);
+    });
+
+    it("updates dashboardWidgetConfig", async () => {
+      preferencesRepository.findOne.mockResolvedValue({ ...mockPreferences });
+
+      await service.updatePreferences("user-1", {
+        dashboardWidgetConfig: {
+          "spending-by-payee": { range: "6m" },
+        },
+      });
+
+      const savedData = preferencesRepository.save.mock.calls[0][0];
+      expect(savedData.dashboardWidgetConfig).toEqual({
+        "spending-by-payee": { range: "6m" },
+      });
     });
 
     it("updates preferredExchanges", async () => {
@@ -706,6 +801,24 @@ describe("UsersService", () => {
         { isRevoked: true },
       );
       expect(usersRepository.remove).toHaveBeenCalled();
+    });
+
+    it("deletes sessions and tokens so a non-cascading FK cannot block the delete", async () => {
+      const hashedPassword = await bcrypt.hash("CorrectPass123!", 10);
+      usersRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        passwordHash: hashedPassword,
+      });
+
+      await service.deleteAccount("user-1", { password: "CorrectPass123!" });
+
+      expect(refreshTokensRepository.delete).toHaveBeenCalledWith({
+        userId: "user-1",
+      });
+      expect(refreshTokensRepository.delete).toHaveBeenCalledWith({
+        actingAsUserId: "user-1",
+      });
+      expect(patRepository.delete).toHaveBeenCalledWith({ userId: "user-1" });
     });
 
     it("revokes all PATs before deletion", async () => {
@@ -1213,6 +1326,37 @@ describe("UsersService", () => {
       expect(r.deleted.accounts).toBe(0);
       expect(r.deleted.categories).toBe(0);
       expect(r.deleted.exchangeRates).toBe(0);
+    });
+
+    it("deletes scheduled transactions before securities (investment_security_id FK)", async () => {
+      const hashedPassword = await bcrypt.hash("CorrectPass123!", 10);
+      usersRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        passwordHash: hashedPassword,
+      });
+
+      await service.deleteData("user-1", {
+        password: "CorrectPass123!",
+      });
+
+      const sqls = mockQueryRunner.query.mock.calls.map(
+        (call: unknown[]) => call[0] as string,
+      );
+      const scheduledIndex = sqls.findIndex((sql) =>
+        sql.includes("DELETE FROM scheduled_transactions WHERE"),
+      );
+      const splitsIndex = sqls.findIndex((sql) =>
+        sql.includes("DELETE FROM scheduled_transaction_splits"),
+      );
+      const securitiesIndex = sqls.findIndex((sql) =>
+        sql.includes("DELETE FROM securities"),
+      );
+
+      expect(scheduledIndex).toBeGreaterThan(-1);
+      expect(splitsIndex).toBeGreaterThan(-1);
+      expect(securitiesIndex).toBeGreaterThan(-1);
+      expect(scheduledIndex).toBeLessThan(securitiesIndex);
+      expect(splitsIndex).toBeLessThan(securitiesIndex);
     });
   });
 });

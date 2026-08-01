@@ -48,6 +48,7 @@
       "debt-payoff-timeline": "Cronograma de pago de deudas",
       "loan-amortization": "Tabla de amortización del préstamo",
       "credit-utilization": "Utilización del crédito",
+      "loan-overpayment-simulator": "Simulador de pagos anticipados de préstamo",
       "investment-performance": "Rendimiento de inversiones",
       "dividend-income": "Ganancias, dividendos e intereses",
       "sector-weightings": "Ponderaciones por sector",
@@ -57,13 +58,14 @@
       "security-type-allocation": "Asignación por tipo de valor",
       "geographic-allocation": "Asignación geográfica/por bolsa",
       "dividend-yield-growth": "Rendimiento y crecimiento de dividendos",
-      "security-performance": "Rendimiento individual de valores",
+      "security-performance": "Rendimiento de valores",
       "currency-exposure": "Exposición a divisas",
       "monte-carlo-simulation": "Simulación de Monte Carlo",
       "recurring-expenses": "Rastreador de gastos recurrentes",
       "spending-anomalies": "Anomalías en los gastos",
       "weekend-weekday-spending": "Gastos fin de semana vs días de semana",
       "monthly-comparison": "Comparación mensual",
+      "foreign-currency-fees": "Comisiones por transacción en moneda extranjera",
       "uncategorized-transactions": "Transacciones sin categorizar",
       "duplicate-transactions": "Buscador de transacciones duplicadas",
       "upcoming-bills": "Calendario de facturas próximas",
@@ -93,6 +95,7 @@
       "debt-payoff-timeline": "Visualiza el progreso en la reducción de deudas con proyecciones de fechas de pago.",
       "loan-amortization": "Calendarios de pago detallados para hipotecas y préstamos con desglose de capital e intereses.",
       "credit-utilization": "Ve cuánto de tu crédito disponible estás usando en tarjetas de crédito y líneas de crédito.",
+      "loan-overpayment-simulator": "Elija un préstamo y simule pagos adicionales para ver cuánto antes se liquidaría y cuántos intereses ahorraría.",
       "investment-performance": "Rastrea los rendimientos de la cartera, ganancias/pérdidas y asignación de activos a lo largo del tiempo.",
       "dividend-income": "Rastrea las ganancias y pérdidas de capital (realizadas y no realizadas) junto con los ingresos por dividendos e intereses.",
       "sector-weightings": "Analiza la exposición sectorial de la cartera a partir de acciones individuales y ETFs.",
@@ -102,13 +105,14 @@
       "security-type-allocation": "Visualiza la asignación de la cartera por tipo de activo (acciones, ETFs, fondos de inversión, bonos) con desglose de posiciones.",
       "geographic-allocation": "Analiza la exposición geográfica de la cartera por bolsa y región para obtener información sobre diversificación.",
       "dividend-yield-growth": "Rastrea el rendimiento de dividendos, rendimientos por valor, crecimiento año a año y análisis de frecuencia de pagos.",
-      "security-performance": "Análisis detallado del rendimiento de valores individuales con historial de precios, transacciones y retornos.",
+      "security-performance": "Analiza en profundidad el historial de precios, las transacciones y los retornos de un valor, o compara el rendimiento de varios valores en un mismo gráfico.",
       "currency-exposure": "Comprende el riesgo cambiario con la asignación de la cartera por divisa y detalles de tipos de cambio.",
       "monte-carlo-simulation": "Proyecta resultados futuros de la cartera con miles de trayectorias de retorno aleatorias y una biblioteca de escenarios guardados.",
       "recurring-expenses": "Identifica y monitorea suscripciones, membresías y cargos recurrentes.",
       "spending-anomalies": "Detecta transacciones inusualmente grandes y picos de gasto que requieren atención.",
       "weekend-weekday-spending": "Analiza tus patrones de gasto según el día de la semana para entender tus hábitos.",
       "monthly-comparison": "Compara cualquier mes con el mes anterior en ingresos, gastos, patrimonio neto e inversiones.",
+      "foreign-currency-fees": "Rastrea las comisiones por transacción extranjera cobradas en las cuentas que aplican una comisión de conversión.",
       "uncategorized-transactions": "Encuentra y categoriza las transacciones que no tienen categoría.",
       "duplicate-transactions": "Identifica posibles entradas duplicadas que pueden necesitar revisión o eliminación.",
       "upcoming-bills": "Calendario visual de transacciones planificadas y próximas fechas de vencimiento de facturas.",
@@ -132,6 +136,9 @@
   "error": {
     "defaultMessage": "Error al cargar los datos del informe. Por favor, inténtalo de nuevo.",
     "retry": "Intentar de nuevo"
+  },
+  "foreignCurrencyFees": {
+    "noEligibleAccounts": "Ninguna cuenta tiene configurada una comisión por transacción extranjera. Establece un porcentaje de comisión en una cuenta para rastrear aquí sus comisiones en moneda extranjera."
   },
   "accountBalances": {
     "totalAssets": "Total de activos",
@@ -938,7 +945,6 @@
     "cashFlowEventEnd": "Fin: ",
     "cashFlowEventPdfStarts": "Comienza: ",
     "cashFlowEventPdfEnds": "Termina: ",
-    "cashFlowDefaultName": "Flujo de caja",
     "cashFlowPerYear": "/ año",
     "tooltipRow90th": "Percentil 90",
     "tooltipRow75th": "Percentil 75",
@@ -1104,6 +1110,10 @@
     "noData": "No hay datos de inversión para este período.",
     "tooltipPortfolio": "Cartera:",
     "allAccounts": "Todas las cuentas",
+    "viewTotal": "Total",
+    "viewSecurities": "Por valor",
+    "seriesCash": "Efectivo",
+    "seriesOther": "Otros valores",
     "colDate": "Fecha",
     "colPortfolioValue": "Valor de la cartera",
     "breakdownTitle": "Desglose actual de la cartera",
@@ -1268,8 +1278,12 @@
     "pdfColPortfolioPct": "% de la cartera"
   },
   "securityPerformance": {
-    "selectPrompt": "Selecciona un valor arriba para ver sus detalles de rendimiento.",
-    "selectSecurityPlaceholder": "Seleccionar un valor...",
+    "selectPrompt": "Selecciona uno o varios valores arriba para ver su rendimiento. Elige dos o más para compararlos en un mismo gráfico.",
+    "selectSecuritiesPlaceholder": "Seleccionar valores...",
+    "comparisonTitle": "Comparación de rentabilidad",
+    "comparisonSubtitle": "Rentabilidad acumulada de cada valor seleccionado, reajustada al 0 % en su primer precio disponible para compararlos en una misma escala, sin importar el precio ni la moneda.",
+    "comparisonNoData": "No hay historial de precios disponible para los valores seleccionados.",
+    "comparisonError": "No se pudo cargar el historial de precios. Inténtalo de nuevo.",
     "viewPriceChart": "Gráfico de precios",
     "viewTransactions": "Transacciones",
     "viewDividends": "Dividendos",
@@ -1323,11 +1337,6 @@
     "totalHoldings": "Total de posiciones",
     "largestType": "Tipo más grande",
     "assetTypeAllocation": "Asignación por tipo de activo",
-    "typeStocks": "Acciones",
-    "typeEtfs": "ETFs",
-    "typeMutualFunds": "Fondos de inversión",
-    "typeBonds": "Bonos",
-    "typeCash": "Efectivo",
     "holdingsCount": "{count, plural, one {# cuenta} other {# cuentas}}",
     "total": "Total",
     "tooltipHoldings": "{count, plural, one {# posición} other {# posiciones}}",
@@ -1662,5 +1671,10 @@
   },
   "monteCarloSaveAs": {
     "nameRequired": "El nombre es obligatorio"
+  },
+  "loanOverpayment": {
+    "labelSelectAccount": "Seleccionar cuenta de préstamo",
+    "viewTransactions": "Ver transacciones",
+    "empty": "No se encontraron cuentas de préstamo, hipoteca o línea de crédito."
   }
 }

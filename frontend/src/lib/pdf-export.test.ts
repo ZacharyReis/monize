@@ -13,6 +13,8 @@ const mockLine = vi.fn();
 const mockAddPage = vi.fn();
 const mockSetPage = vi.fn();
 const mockGetNumberOfPages = vi.fn().mockReturnValue(1);
+const mockAddFileToVFS = vi.fn();
+const mockAddFont = vi.fn();
 
 vi.mock('jspdf', () => {
   class MockJsPDF {
@@ -28,6 +30,8 @@ vi.mock('jspdf', () => {
     addPage = mockAddPage;
     setPage = mockSetPage;
     getNumberOfPages = mockGetNumberOfPages;
+    addFileToVFS = mockAddFileToVFS;
+    addFont = mockAddFont;
     splitTextToSize = vi.fn((text: string) => [text]);
     getTextWidth = vi.fn(() => 10);
     setFillColor = vi.fn();
@@ -165,18 +169,37 @@ describe('exportToPdf', () => {
     });
 
     expect(mockAddImage).toHaveBeenCalledTimes(3);
+    // Images are embedded with a compression flag so jsPDF deflates the raster
+    // instead of storing raw pixels (the source of the 35 MB reports).
     expect(mockAddImage).toHaveBeenCalledWith(
       'data:image/png;base64,chart1', 'PNG',
       expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
+      undefined, 'FAST',
     );
     expect(mockAddImage).toHaveBeenCalledWith(
       'data:image/png;base64,chart2', 'PNG',
       expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
+      undefined, 'FAST',
     );
     expect(mockAddImage).toHaveBeenCalledWith(
       'data:image/png;base64,chart3', 'PNG',
       expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Number),
+      undefined, 'FAST',
     );
+  });
+
+  it('registers the embedded UTF-8 font before drawing', async () => {
+    const { exportToPdf } = await import('./pdf-export');
+
+    await exportToPdf({ title: 'Polski raport', filename: 'utf8' });
+
+    // Both faces registered under the Roboto family so setFont('Roboto', ...) works.
+    expect(mockAddFileToVFS).toHaveBeenCalledWith('Roboto-Regular.ttf', expect.any(String));
+    expect(mockAddFont).toHaveBeenCalledWith('Roboto-Regular.ttf', 'Roboto', 'normal');
+    expect(mockAddFont).toHaveBeenCalledWith('Roboto-Bold.ttf', 'Roboto', 'bold');
+    // Report text uses the embedded font, not the built-in Helvetica.
+    expect(mockSetFont).toHaveBeenCalledWith('Roboto', expect.any(String));
+    expect(mockSetFont).not.toHaveBeenCalledWith('helvetica', expect.anything());
   });
 
   it('adds page breaks when charts exceed page height', async () => {

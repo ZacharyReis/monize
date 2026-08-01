@@ -32,7 +32,9 @@
     "alreadyHasScheduledPayment": "इस खाते में पहले से एक अनुसूचित भुगतान कॉन्फ़िगर किया गया है। इसके बजाय मौजूदा अनुसूचित लेनदेन संपादित करें।",
     "sourceNotFound": "स्रोत खाता नहीं मिला",
     "ambiguousBrokerage": "\"{{ query }}\" कई ब्रोकरेज खातों से मेल खाता है: {{ list }}. सटीक खाता नाम का उपयोग करें।",
-    "unknownInvestmentAccount": "अज्ञात खाता: {{ name }}. उपयोगकर्ता की खाता सूची से सटीक नाम का उपयोग करें।"
+    "unknownInvestmentAccount": "अज्ञात खाता: {{ name }}. उपयोगकर्ता की खाता सूची से सटीक नाम का उपयोग करें।",
+    "notACreditCard": "स्टेटमेंट चक्र केवल क्रेडिट कार्ड खातों के लिए उपलब्ध हैं",
+    "noStatementSettlementDay": "इस क्रेडिट कार्ड में कोई स्टेटमेंट निपटान दिन कॉन्फ़िगर नहीं किया गया है"
   },
   "actionHistory": {
     "nothingToUndo": "पूर्ववत करने के लिए कुछ नहीं है",
@@ -73,6 +75,8 @@
     "noActiveProviders": "कोई सक्रिय AI प्रदाता कॉन्फ़िगर नहीं है। कृपया AI सेटिंग्स में एक प्रदाता कॉन्फ़िगर करें।",
     "allProvidersFailed": "सभी AI प्रदाता विफल हो गए। कृपया अपना प्रदाता कॉन्फ़िगरेशन जाँचें और पुनः प्रयास करें।",
     "noToolUseProvider": "टूल उपयोग समर्थन वाला कोई AI प्रदाता कॉन्फ़िगर नहीं है। प्राकृतिक भाषा क्वेरी के लिए Anthropic, OpenAI या Ollama आवश्यक है। कृपया AI सेटिंग्स में एक कॉन्फ़िगर करें।",
+    "relayAgentOffline": "आपका MCP रिले एजेंट कनेक्ट नहीं है। अपने एजेंट को कनेक्ट करें और फिर से प्रयास करें।",
+    "relayCompletionTimedOut": "आपके MCP रिले एजेंट ने समय पर उत्तर नहीं दिया। सुनिश्चित करें कि यह कनेक्ट है, फिर से प्रयास करें।",
     "baseUrlInvalidBasic": "baseUrl एक मान्य HTTP या HTTPS URL होनी चाहिए",
     "baseUrlInvalidExternal": "baseUrl किसी बाहरी होस्ट की ओर इशारा करने वाली एक मान्य HTTP/HTTPS URL होनी चाहिए",
     "ollamaCloudApiKeyRequired": "ollama-cloud प्रदाता के लिए apiKey आवश्यक है",
@@ -90,6 +94,7 @@
     "attachmentTooLarge": "एक अनुलग्नक अधिकतम फ़ाइल आकार से अधिक है।",
     "attachmentCorrupt": "एक अनुलग्नक पढ़ा नहीं जा सका या वह उस फ़ाइल प्रकार का नहीं है जिसका वह दावा करता है।",
     "attachmentsTooLarge": "अनुलग्नक कुल आकार सीमा से अधिक हैं।",
+    "attachmentRefExpired": "अटैच की गई फ़ाइल अब उपलब्ध नहीं है। कृपया उसे फिर से अपलोड करें और दोबारा पूछें।",
     "modelNoImageSupport": "चयनित AI मॉडल छवियाँ या PDF नहीं पढ़ सकता। अनुलग्नक हटाएं और टेक्स्ट में पूछें, या AI सेटिंग्स में किसी विज़न-सक्षम मॉडल पर स्विच करें।"
   },
   "auth": {
@@ -145,11 +150,9 @@
     "incorrectPassword": "गलत पासवर्ड"
   },
   "backup": {
-    "folderPathRequired": "स्वचालित बैकअप सक्षम करने से पहले एक फ़ोल्डर पथ सेट होना चाहिए",
     "folderNotExist": "फ़ोल्डर मौजूद नहीं है: {{ safePath }}",
     "folderAccessError": "फ़ोल्डर तक पहुँचने में असमर्थ: {{ safePath }}",
     "pathNotDirectory": "पथ एक निर्देशिका नहीं है: {{ safePath }}",
-    "notConfigured": "ऑटो-बैकअप कॉन्फ़िगर नहीं है। कृपया पहले एक फ़ोल्डर पथ सेट करें।",
     "userNotFound": "उपयोगकर्ता {{ userId }} नहीं मिला",
     "encryptedPasswordDecryptFailed": "एन्क्रिप्टेड बैकअप सक्षम हैं लेकिन संग्रहीत पासवर्ड डिक्रिप्ट नहीं किया जा सका। सुरक्षा सेटिंग्स में एन्क्रिप्शन पुनः सक्षम करें।",
     "pathTraversal": "पथ अतिक्रमण पाया गया: {{ filename }}",
@@ -215,14 +218,17 @@
     "csrfInvalid": "अमान्य CSRF टोकन",
     "demoModeRestricted": "यह क्रिया डेमो मोड में उपलब्ध नहीं है।",
     "serviceNotReady": "सेवा तैयार नहीं है",
-    "oauthProviderNotInitialized": "OAuth प्रदाता प्रारंभ नहीं किया गया"
+    "oauthProviderNotInitialized": "OAuth प्रदाता प्रारंभ नहीं किया गया",
+    "invalidCurrencyCode": "अमान्य मुद्रा कोड: {{ code }}"
   },
   "currencies": {
     "alreadyInList": "मुद्रा \"{{ code }}\" पहले से आपकी सूची में है",
     "notFound": "मुद्रा \"{{ code }}\" नहीं मिली",
     "cannotModifySystem": "सिस्टम मुद्रा मेटाडेटा संशोधित नहीं किया जा सकता",
     "cannotModifyOther": "किसी अन्य उपयोगकर्ता की मुद्रा संशोधित नहीं की जा सकती",
-    "inUse": "मुद्रा \"{{ code }}\" आपके खातों, प्रतिभूतियों या अन्य अभिलेखों में उपयोग में है। इसके बजाय इसे निष्क्रिय करें।"
+    "inUse": "मुद्रा \"{{ code }}\" आपके खातों, प्रतिभूतियों या अन्य अभिलेखों में उपयोग में है। इसके बजाय इसे निष्क्रिय करें।",
+    "invalidRateDate": "date YYYY-MM-DD प्रारूप में होना चाहिए",
+    "alreadyInListInactive": "मुद्रा \"{{ code }}\" पहले से आपकी सूची में है, लेकिन वर्तमान में निष्क्रिय है। इसका उपयोग करने के लिए इसे पुनः सक्रिय करें।"
   },
   "delegation": {
     "delegatedAccessInvalid": "प्रत्यायोजित एक्सेस अब मान्य नहीं है",
@@ -254,6 +260,7 @@
     "passwordBreached": "यह पासवर्ड डेटा उल्लंघन में पाया गया है। कृपया एक अलग पासवर्ड चुनें।"
   },
   "http": {
+    "forbidden": "पहुँच अस्वीकृत",
     "tooManyRequests": "बहुत अधिक अनुरोध। कृपया कुछ मिनट प्रतीक्षा करें और पुनः प्रयास करें।",
     "duplicateRecord": "इस मान के साथ एक अभिलेख पहले से मौजूद है",
     "referencedRecord": "संदर्भित अभिलेख मौजूद नहीं है या हटाया नहीं जा सकता",
@@ -279,7 +286,8 @@
   "netWorth": {
     "invalidStartDate": "startDate YYYY-MM-DD प्रारूप में होनी चाहिए",
     "invalidEndDate": "endDate YYYY-MM-DD प्रारूप में होनी चाहिए",
-    "invalidAccountIds": "accountIds अल्पविराम-अलग UUID होने चाहिए"
+    "invalidAccountIds": "accountIds अल्पविराम-अलग UUID होने चाहिए",
+    "invalidGranularity": "granularity 'daily' या 'monthly' होना चाहिए"
   },
   "notifications": {
     "smtpNotConfigured": "SMTP कॉन्फ़िगर नहीं है। SMTP पर्यावरण चर सेट करें।",
@@ -302,7 +310,9 @@
     "aliasNotFound": "ID {{ id }} वाला उपनाम नहीं मिला",
     "mergeSelf": "किसी भुगतानकर्ता को स्वयं में विलय नहीं किया जा सकता",
     "autoMergeDuplicatePayee": "एक भुगतानकर्ता एक से अधिक विलय समूहों में दिखाई देता है",
-    "autoMergeSourceNotFound": "एक या अधिक स्रोत भुगतानकर्ता नहीं मिले"
+    "autoMergeSourceNotFound": "एक या अधिक स्रोत भुगतानकर्ता नहीं मिले",
+    "autoMergeGroupConflict": "\"{{ name }}\" को मर्ज नहीं किया जा सका: मान \"{{ value }}\" पहले से उपयोग में है",
+    "autoMergeGroupFailed": "\"{{ name }}\" को मर्ज नहीं किया जा सका"
   },
   "reports": {
     "notFound": "ID {{ id }} वाली रिपोर्ट नहीं मिली",
@@ -381,7 +391,8 @@
     "lookupAmbiguous": "\"{{ query }}\" कई प्रतिभूतियों से मेल खाता है: {{ list }}। किसी एक्सचेंज को निर्दिष्ट करते हुए पुनः चलाएँ।",
     "lookupNoCurrency": "\"{{ symbol }}\" के लिए मुद्रा निर्धारित नहीं की जा सकी। इसके बजाय प्रतिभूति को मैन्युअल रूप से जोड़ें।",
     "noUpdateFields": "बदलने के लिए कम से कम एक फ़ील्ड प्रदान करें।",
-    "allocationExceedsTotal": "आवंटन प्रतिशत का योग 100% से अधिक है।"
+    "allocationExceedsTotal": "आवंटन प्रतिशत का योग 100% से अधिक है।",
+    "invalidTagKey": "एक टैग कुंजी (1-100 अक्षर) आवश्यक है"
   },
   "tags": {
     "notFound": "ID {{ id }} वाला टैग नहीं मिला",
@@ -396,6 +407,10 @@
     "targetTransactionIdInvalidUuid": "targetTransactionId एक मान्य UUID होना चाहिए",
     "amountFromMustBeNumber": "amountFrom एक संख्या होनी चाहिए",
     "amountToMustBeNumber": "amountTo एक संख्या होनी चाहिए",
+    "invalidGroupBy": "groupBy 'category' या 'payee' होना चाहिए",
+    "limitMustBePositive": "limit एक धनात्मक संख्या होनी चाहिए",
+    "recurringPayeeRequired": "payeeIds आवश्यक है",
+    "recurringDatesRequired": "startDate और endDate आवश्यक हैं",
     "statementDateFormat": "statementDate YYYY-MM-DD प्रारूप में होनी चाहिए",
     "statementBalanceMustBeNumber": "statementBalance एक संख्या होनी चाहिए",
     "categoryNotFound": "श्रेणी नहीं मिली",
@@ -417,15 +432,22 @@
     "bulkReconcileNotFound": "कुछ लेनदेन नहीं मिले या निर्दिष्ट खाते से संबंधित नहीं हैं",
     "cannotReconcileVoidPlural": "रद्द लेनदेन का समाधान नहीं किया जा सकता",
     "transferSameAccount": "स्रोत और गंतव्य खाते अलग होने चाहिए",
-    "transferSplitFromAccountFixed": "विभाजित स्थानांतरण पंक्ति का स्रोत खाता बदला नहीं जा सकता",
     "transferAmountNegative": "स्थानांतरण राशि नकारात्मक नहीं होनी चाहिए",
     "notATransfer": "लेनदेन स्थानांतरण नहीं है",
+    "splitTransferLegAccountLocked": "यह ट्रांसफ़र एक विभाजित लेनदेन का हिस्सा है। इसके खाते बदलने के लिए स्रोत लेनदेन पर विभाजन को संपादित करें।",
     "notFoundById": "ID {{ id }} वाला लेनदेन नहीं मिला",
     "bulkUpdateNoFields": "कम से कम एक अपडेट फ़ील्ड प्रदान की जानी चाहिए",
     "payeeNotFound": "भुगतानकर्ता नहीं मिला",
     "cannotEditTransfer": "ट्रांसफर यहां संपादित नहीं किए जा सकते। ट्रांसफर को लेन-देन स्क्रीन से संपादित करें।",
     "cannotEditSplit": "विभाजित लेन-देन यहां संपादित नहीं किए जा सकते। विभाजन को लेन-देन स्क्रीन से संपादित करें।",
-    "noUpdateFields": "बदलने के लिए कम से कम एक फ़ील्ड प्रदान करें।"
+    "noUpdateFields": "बदलने के लिए कम से कम एक फ़ील्ड प्रदान करें।",
+    "tagKeyTooLong": "tagKey 100 अक्षरों से अधिक नहीं होना चाहिए",
+    "invalidTagKeyOp": "अमान्य tagKeyOp: {{ op }}",
+    "tagKeyValueRequired": "contains / notContains के लिए tagKeyValue आवश्यक है",
+    "tagKeyRequired": "एक टैग कुंजी (1-100 अक्षर) आवश्यक है",
+    "fxFieldsIncomplete": "originalAmount और originalCurrencyCode एक साथ दिए जाने चाहिए",
+    "fxRateRequired": "विदेशी मुद्रा लेनदेन के लिए एक धनात्मक विनिमय दर आवश्यक है",
+    "fxSignMismatch": "originalAmount और amount का चिह्न समान होना चाहिए"
   },
   "users": {
     "userNotFound": "उपयोगकर्ता नहीं मिला",
@@ -441,5 +463,28 @@
     "deleteLastAdmin": "अंतिम व्यवस्थापक खाता हटाया नहीं जा सकता। पहले किसी अन्य उपयोगकर्ता को पदोन्नत करें।",
     "oidcReauthRequiredForDataDelete": "डेटा हटाने की पुष्टि करने के लिए OIDC पुनः-प्रमाणीकरण आवश्यक है",
     "passwordRequiredForDataDelete": "डेटा हटाने की पुष्टि करने के लिए पासवर्ड आवश्यक है"
+  },
+  "loanScenarios": {
+    "notFound": "आईडी {{ id }} वाला ऋण परिदृश्य नहीं मिला",
+    "nameConflict": "इस खाते के लिए \"{{ name }}\" नाम का परिदृश्य पहले से मौजूद है",
+    "notLoanAccount": "ऋण परिदृश्य केवल ऋण, बंधक और क्रेडिट लाइन खातों के लिए उपलब्ध हैं",
+    "budgetWindowInverted": "बजट अवधि की प्रारंभ तिथि उसकी समाप्ति तिथि को या उससे पहले होनी चाहिए"
+  },
+  "loanRateChanges": {
+    "notFound": "आईडी {{ id }} वाला दर परिवर्तन नहीं मिला",
+    "notLoanAccount": "दर परिवर्तन केवल ऋण और बंधक खातों के लिए उपलब्ध हैं",
+    "duplicateDate": "इस खाते के लिए {{ date }} से प्रभावी दर परिवर्तन पहले से मौजूद है",
+    "paymentModeConflict": "या तो नई किस्त राशि या recalculatePayment प्रदान करें, दोनों नहीं",
+    "recalculateMortgageOnly": "किस्त की पुनर्गणना केवल बंधक खातों के लिए उपलब्ध है",
+    "insufficientData": "दर परिवर्तनों का पता लगाने के लिए ब्याज विवरण वाले पर्याप्त भुगतान नहीं हैं",
+    "frequencyMismatch": "भुगतान तिथियाँ खाते की भुगतान आवृत्ति से मेल नहीं खातीं; अनुमानित दरें कम सटीक हो सकती हैं"
+  },
+  "attachments": {
+    "notFound": "अटैचमेंट नहीं मिला",
+    "transactionNotFound": "लेन-देन नहीं मिला",
+    "empty": "अपलोड की गई फ़ाइल खाली है",
+    "fileTooLarge": "फ़ाइल {{ max }} बाइट्स की अधिकतम सीमा से अधिक है",
+    "unsupportedType": "असमर्थित फ़ाइल प्रकार। अनुमत प्रकार: {{ types }}",
+    "tooMany": "इस लेन-देन में पहले से ही अधिकतम {{ max }} अटैचमेंट हैं"
   }
 }

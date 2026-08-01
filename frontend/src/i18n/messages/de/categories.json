@@ -24,6 +24,16 @@
     "createButton": "Eigene erstellen",
     "hint": "Der Standardsatz enthält gängige Einnahmen- und Ausgabenkategorien mit Unterkategorien"
   },
+  "importDialog": {
+    "title": "Standardkategorien importieren",
+    "description": "Beginnen Sie mit einem fertigen Satz an Einnahmen- und Ausgabenkategorien. Wählen Sie Ihr Land, um zusätzlich dessen Steuer- und Leistungskategorien zu erhalten, und die Sprache, in der die Namen angelegt werden.",
+    "countryLabel": "Land",
+    "countryHelp": "Fügt länderspezifische Kategorien wie lokale Steuern und Leistungen hinzu. Wählen Sie den allgemeinen Satz, wenn Ihr Land nicht aufgeführt ist.",
+    "genericCountry": "Allgemein (keine länderspezifischen Kategorien)",
+    "languageLabel": "Sprache",
+    "languageHelp": "Die Kategorien werden mit Namen in dieser Sprache angelegt. Sie können sie jederzeit umbenennen.",
+    "submit": "Kategorien importieren"
+  },
   "toasts": {
     "created": "Kategorie erfolgreich erstellt",
     "updated": "Kategorie erfolgreich aktualisiert",

@@ -14,7 +14,25 @@ import { Account } from "@/accounts/entities/account.entity";
 import { ScheduledTransactionsService } from "@/scheduled-transactions/scheduled-transactions.service";
 import { ScheduledTransactionOverrideService } from "@/scheduled-transactions/scheduled-transaction-override.service";
 import { ScheduledTransactionLoanService } from "@/scheduled-transactions/scheduled-transaction-loan.service";
+import type { TypeOrmModuleOptions } from "@nestjs/typeorm";
 import * as bcrypt from "bcryptjs";
+
+/**
+ * Shared PostgreSQL connection options for integration suites. Specs that need
+ * a real database with a schema synchronized from the entities use this instead
+ * of copying the env-var defaults, so a config change lives in one place.
+ */
+export const INTEGRATION_TYPEORM_OPTIONS: TypeOrmModuleOptions = {
+  type: "postgres",
+  host: process.env.DATABASE_HOST || "localhost",
+  port: parseInt(process.env.DATABASE_PORT || "5432"),
+  username: process.env.DATABASE_USER || "monize_user",
+  password: process.env.DATABASE_PASSWORD || "monize_password",
+  database: process.env.DATABASE_NAME || "monize_test",
+  entities: [__dirname + "/../../src/**/*.entity{.ts,.js}"],
+  synchronize: true,
+  dropSchema: true,
+};
 
 /**
  * Provides a lightweight I18nService globally to the integration test graph.
@@ -60,17 +78,7 @@ export async function createIntegrationModule(
     imports: [
       ConfigModule.forRoot({ isGlobal: true }),
       TestI18nModule,
-      TypeOrmModule.forRoot({
-        type: "postgres",
-        host: process.env.DATABASE_HOST || "localhost",
-        port: parseInt(process.env.DATABASE_PORT || "5432"),
-        username: process.env.DATABASE_USER || "monize_user",
-        password: process.env.DATABASE_PASSWORD || "monize_password",
-        database: process.env.DATABASE_NAME || "monize_test",
-        entities: [__dirname + "/../../src/**/*.entity{.ts,.js}"],
-        synchronize: true,
-        dropSchema: true,
-      }),
+      TypeOrmModule.forRoot(INTEGRATION_TYPEORM_OPTIONS),
       ...modules,
     ],
   })

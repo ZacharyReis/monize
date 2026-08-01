@@ -65,10 +65,15 @@
     "cash": "Cash",
     "untagged": "Untagged",
     "noTagData": "No tagged holdings to show. Add tags to your securities to see exposure by tag.",
-    "tagExposureNote": "Exposure by tag: a holding with several tags counts in full under each, so percentages can total more than 100%.",
+    "noKeyData": "No holdings carry a value for this tag key. Tag securities as key:value (e.g. country:usa) to see this breakdown.",
+    "noCountryData": "No country allocation data available.",
+    "keySelectorLabel": "Tag key to aggregate by",
+    "otherCountries": "Other Countries",
     "groupBy": {
       "security": "By security",
-      "tag": "By tag"
+      "tag": "By tag",
+      "tagKey": "By key",
+      "country": "By country"
     }
   },
   "holdingsList": {
@@ -103,8 +108,9 @@
   },
   "investmentValueChart": {
     "title": "Portfolio Value Over Time",
+    "viewReport": "View report",
+    "viewReportTitle": "Open the full Portfolio Value report",
     "updatingLabel": "Updating…",
-    "updatingAriaLabel": "Updating",
     "intradayFallbackWarningAriaLabel": "Detailed intraday pricing unavailable",
     "intradayUnavailableTitle": "Intraday view unavailable for this account mix",
     "intradayUnavailableDescription": "One or more holdings use a quote provider (MSN Money) that does not expose intraday data. Switch to a longer range to see daily snapshots.",

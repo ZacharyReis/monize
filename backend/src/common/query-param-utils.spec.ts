@@ -5,6 +5,7 @@ import {
   parseIds,
   parseUuids,
   parseCategoryIds,
+  parseCurrencyCodes,
   validateDateParam,
   assertStringParam,
 } from "./query-param-utils";
@@ -115,6 +116,26 @@ describe("parseCategoryIds()", () => {
 
   it("throws for invalid category IDs", () => {
     expect(() => parseCategoryIds("not-a-uuid")).toThrow(BadRequestException);
+  });
+});
+
+describe("parseCurrencyCodes()", () => {
+  it("returns undefined for empty input", () => {
+    expect(parseCurrencyCodes()).toBeUndefined();
+    expect(parseCurrencyCodes("")).toBeUndefined();
+  });
+
+  it("uppercases and splits comma-separated codes", () => {
+    expect(parseCurrencyCodes("eur, gbp")).toEqual(["EUR", "GBP"]);
+  });
+
+  it("returns undefined when input becomes empty after filtering", () => {
+    expect(parseCurrencyCodes(" , ,")).toBeUndefined();
+  });
+
+  it("throws for a non-3-letter code", () => {
+    expect(() => parseCurrencyCodes("EU")).toThrow(BadRequestException);
+    expect(() => parseCurrencyCodes("EUR,12A")).toThrow(BadRequestException);
   });
 });
 

@@ -126,6 +126,8 @@
     "weekStartsOnLabel": "一周开始于",
     "showCreatedAtLabel": "在交易表单中显示创建日期",
     "showCreatedAtTooltip": "在交易表单中显示交易最初创建的日期和时间。这与交易日期不同，可帮助您了解条目实际添加到 Monize 的时间。",
+    "showWhatsNewLabel": "升级后显示更新内容",
+    "showWhatsNewTooltip": "在 Monize 更新到新版本后，您首次登录时显示版本说明摘要。您随时可以通过点击本页面底部或登录界面上的版本号重新打开它。",
     "timeFormatLabel": "时间格式",
     "recentTransactionsLabel": "快速填充中的近期交易数量",
     "recentTransactionsHelp": "交易表单中收款人字段旁历史按钮弹出框中显示的条目数量。",
@@ -138,7 +140,6 @@
       "colorThemeSaveFailed": "保存颜色主题失败"
     },
     "browserLocale": "使用浏览器语言（自动检测）",
-    "browserTimezonePrefix": "使用浏览器时区（自动检测为 {tz}）",
     "numberFormatOptions": {
       "browser": "使用浏览器语言（自动检测为 {sample}）",
       "enUS": "英语（美国）- 1,234.56",
@@ -228,7 +229,52 @@
     "wiki": {
       "label": "Wiki",
       "description": "浏览指南和文档。"
+    },
+    "supportBackup": {
+      "label": "创建支持备份",
+      "description": "分享一份去标识化且加密的数据副本,让维护者无需看到您的真实名称或金额即可重现问题。"
     }
+  },
+  "supportBackup": {
+    "title": "创建支持备份",
+    "howItWorks": "生成备份的去标识化副本:名称被掩码(保留首尾各两个字符),备注/描述/账号被移除,每笔金额乘以同一个隐藏系数,而公开数值(汇率、价格、利率)保持不变。文件始终使用下方密码加密,并像普通备份一样还原。这只能防范偶然泄露,防不住已经认识您的人——日期、频率和结构会被保留,以便问题仍可重现。",
+    "sectionsLabel": "包含内容",
+    "sections": {
+      "investments": "投资(证券、持仓、价格)",
+      "scheduled": "定期交易",
+      "budgets": "预算",
+      "reports": "报表与预测",
+      "importMappings": "导入列映射",
+      "autoBackup": "自动备份设置"
+    },
+    "priceHistoryLabel": "包含证券价格历史",
+    "priceHistoryHint": "默认关闭:完整的价格序列与公开市场数据一致,可能识别出被掩码的代码。仅当问题涉及价格或估值时才开启。",
+    "accountsLabel": "限定为特定账户",
+    "accountsHint": "全部不勾选则包含所有账户。选择子集时也会带入其引用的账户和收款人。",
+    "dateRangeLabel": "日期范围(可选)",
+    "dateRangeHint": "将导出的历史限定在这些日期内。期初余额会相应调整,使裁剪后的文件依然对账。",
+    "dateFromLabel": "从",
+    "dateToLabel": "至",
+    "multiplierLabel": "金额乘数",
+    "multiplierHint": "每笔私人金额都会乘以该数字,以在保持一致性的同时隐藏真实数值。任何大于 1 的非整数均可;“重新生成”会选取新值。",
+    "multiplierWarning": "请勿将乘数分享给任何人——它是还原隐藏金额的密钥。",
+    "multiplierInvalid": "请输入大于 1 的非整数。",
+    "regenerate": "重新生成",
+    "passwordLabel": "加密密码",
+    "preview": "预览",
+    "previewLabel": "预览",
+    "previewBefore": "之前",
+    "previewAfter": "之后",
+    "previewEmpty": "当前选择没有可预览的示例行。",
+    "previewFailed": "无法生成预览,请重试。",
+    "generate": "生成",
+    "confirmPasswordTitle": "密码保存好了吗?",
+    "confirmPasswordMessage": "文件只能用上方显示的加密密码打开。密码不会被存储在任何地方,之后也无法找回——生成前请确认已妥善保存。",
+    "confirmPasswordConfirm": "已保存——生成",
+    "generatedToast": "支持备份已下载。",
+    "generateFailed": "无法生成支持备份,请重试。",
+    "passwordHint": "文件始终加密。请通过单独渠道将此密码交给排查者,不要与文件一起发送。",
+    "passwordInvalid": "请输入至少 8 个字符。"
   },
   "dangerZone": {
     "heading": "危险区域",
@@ -353,11 +399,11 @@
   },
   "autoBackup": {
     "heading": "自动备份",
-    "description": "按计划自动将数据备份到文件夹。由于 Monize 在 Docker 中运行，您必须将主机文件夹作为卷映射到容器中（例如：-v /host/backups:/backups）。",
+    "description": "按计划自动将数据备份到文件夹。由于 Monize 在 Docker 中运行，您必须将主机文件夹作为卷映射到容器中（例如：-v /host/backups:/data/backups）。",
     "loadingText": "加载中...",
     "enableLabel": "启用自动备份",
     "backupFolderLabel": "备份文件夹",
-    "backupFolderPlaceholder": "/backups",
+    "backupFolderPlaceholder": "/data/backups",
     "browseButton": "浏览...",
     "validateButton": "验证",
     "validatingButton": "验证中...",
