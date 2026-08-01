@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Beberapa transaksi tidak ditemukan atau tidak termasuk dalam akun yang ditentukan",
     "cannotReconcileVoidPlural": "Tidak dapat merekonsiliasi transaksi yang dibatalkan",
     "transferSameAccount": "Akun sumber dan tujuan harus berbeda",
+    "transferSplitFromAccountFixed": "Akun sumber dari baris transfer terpisah tidak dapat diubah",
     "transferAmountNegative": "Jumlah transfer tidak boleh negatif",
     "notATransfer": "Transaksi bukan merupakan transfer",
     "notFoundById": "Transaksi dengan ID {{ id }} tidak ditemukan",

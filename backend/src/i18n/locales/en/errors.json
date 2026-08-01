@@ -420,6 +420,7 @@
     "bulkReconcileNotFound": "Some transactions were not found or do not belong to the specified account",
     "cannotReconcileVoidPlural": "Cannot reconcile void transactions",
     "transferSameAccount": "Source and destination accounts must be different",
+    "transferSplitFromAccountFixed": "The source account of a split transfer line cannot be changed",
     "transferAmountNegative": "Transfer amount must not be negative",
     "notATransfer": "Transaction is not a transfer",
     "notFoundById": "Transaction with ID {{ id }} not found",

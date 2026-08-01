@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Algunas transacciones no se encontraron o no pertenecen a la cuenta especificada",
     "cannotReconcileVoidPlural": "No se pueden conciliar transacciones anuladas",
     "transferSameAccount": "Las cuentas de origen y destino deben ser diferentes",
+    "transferSplitFromAccountFixed": "La cuenta de origen de una línea de transferencia dividida no se puede cambiar",
     "transferAmountNegative": "La cantidad de la transferencia no puede ser negativa",
     "notATransfer": "La transacción no es una transferencia",
     "notFoundById": "Transacción con ID {{ id }} no encontrada",

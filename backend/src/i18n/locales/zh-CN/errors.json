@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "部分交易未找到或不属于指定账户",
     "cannotReconcileVoidPlural": "无法对账作废交易",
     "transferSameAccount": "来源账户和目标账户必须不同",
+    "transferSplitFromAccountFixed": "拆分转账行的来源账户无法更改",
     "transferAmountNegative": "转账金额不能为负数",
     "notATransfer": "交易不是转账",
     "notFoundById": "未找到 ID 为 {{ id }} 的交易",

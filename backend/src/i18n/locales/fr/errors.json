@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Certaines transactions sont introuvables ou n'appartiennent pas au compte spécifié",
     "cannotReconcileVoidPlural": "Impossible de rapprocher des transactions annulées",
     "transferSameAccount": "Les comptes source et destination doivent être différents",
+    "transferSplitFromAccountFixed": "Le compte source d'une ligne de transfert ventilée ne peut pas être modifié",
     "transferAmountNegative": "Le montant du virement ne doit pas être négatif",
     "notATransfer": "La transaction n'est pas un virement",
     "notFoundById": "Transaction avec l'ID {{ id }} introuvable",

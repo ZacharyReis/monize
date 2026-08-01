@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "一部の取引が見つからないか、指定した口座に属していません",
     "cannotReconcileVoidPlural": "無効な取引は照合できません",
     "transferSameAccount": "ソース口座と振替先口座は異なる必要があります",
+    "transferSplitFromAccountFixed": "分割振替明細の送金元口座は変更できません",
     "transferAmountNegative": "振替金額はマイナスにできません",
     "notATransfer": "取引は振替ではありません",
     "notFoundById": "ID {{ id }} の取引が見つかりません",

@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Einige Buchungen wurden nicht gefunden oder gehören nicht zum angegebenen Konto",
     "cannotReconcileVoidPlural": "Ungültige Buchungen können nicht abgeglichen werden",
     "transferSameAccount": "Quell- und Zielkonto müssen verschieden sein",
+    "transferSplitFromAccountFixed": "Das Quellkonto einer Split-Überweisungszeile kann nicht geändert werden",
     "transferAmountNegative": "Überweisungsbetrag darf nicht negativ sein",
     "notATransfer": "Buchung ist keine Überweisung",
     "notFoundById": "Buchung mit ID {{ id }} nicht gefunden",

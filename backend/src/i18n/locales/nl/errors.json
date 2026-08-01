@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Sommige transacties zijn niet gevonden of behoren niet tot de opgegeven rekening",
     "cannotReconcileVoidPlural": "Kan ongeldige transacties niet afstemmen",
     "transferSameAccount": "Bron- en doelrekeningen moeten verschillend zijn",
+    "transferSplitFromAccountFixed": "De bronrekening van een gesplitste overboekingsregel kan niet worden gewijzigd",
     "transferAmountNegative": "Overboekingsbedrag mag niet negatief zijn",
     "notATransfer": "Transactie is geen overboeking",
     "notFoundById": "Transactie met ID {{ id }} niet gevonden",

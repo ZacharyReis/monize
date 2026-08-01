@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "일부 거래를 찾을 수 없거나 지정된 계정에 속하지 않습니다",
     "cannotReconcileVoidPlural": "무효 거래는 조정할 수 없습니다",
     "transferSameAccount": "출금 계정과 입금 계정은 서로 달라야 합니다",
+    "transferSplitFromAccountFixed": "분할 이체 항목의 출금 계좌는 변경할 수 없습니다",
     "transferAmountNegative": "이체 금액은 음수일 수 없습니다",
     "notATransfer": "거래가 이체가 아닙니다",
     "notFoundById": "ID가 {{ id }}인 거래를 찾을 수 없습니다",

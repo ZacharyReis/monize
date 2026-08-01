@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "कुछ लेनदेन नहीं मिले या निर्दिष्ट खाते से संबंधित नहीं हैं",
     "cannotReconcileVoidPlural": "रद्द लेनदेन का समाधान नहीं किया जा सकता",
     "transferSameAccount": "स्रोत और गंतव्य खाते अलग होने चाहिए",
+    "transferSplitFromAccountFixed": "विभाजित स्थानांतरण पंक्ति का स्रोत खाता बदला नहीं जा सकता",
     "transferAmountNegative": "स्थानांतरण राशि नकारात्मक नहीं होनी चाहिए",
     "notATransfer": "लेनदेन स्थानांतरण नहीं है",
     "notFoundById": "ID {{ id }} वाला लेनदेन नहीं मिला",

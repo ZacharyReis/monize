@@ -775,6 +775,26 @@ export class TransactionTransferService {
       );
     }
 
+    // A transfer created from a split line records its linkage on the split row,
+    // and the counterpart's linkedTransactionId points at the split PARENT --
+    // not at a standalone "from" leg. Treating that parent as the from-leg would
+    // write this one leg's amount/date/payee/category onto it and destroy its
+    // split-derived total (a parent's amount must always equal SUM(splits)).
+    // Same detection idiom as removeTransfer().
+    const parentSplit = await this.splitsRepository.findOne({
+      where: { linkedTransactionId: transactionId },
+    });
+
+    if (parentSplit) {
+      return this.updateTransferFromSplit(
+        userId,
+        transaction,
+        parentSplit,
+        updateDto,
+        findOne,
+      );
+    }
+
     const linkedTransaction = await findOne(
       userId,
       transaction.linkedTransactionId,
@@ -965,6 +985,157 @@ export class TransactionTransferService {
     return {
       fromTransaction: await findOne(userId, fromTransaction.id),
       toTransaction: await findOne(userId, toTransaction.id),
+    };
+  }
+
+  /**
+   * Update the counterpart leg of a transfer that originated from a split line.
+   *
+   * The split row *is* the "from" leg, so the edit is applied to the counterpart
+   * transaction and to `parentSplit.amount`; the parent's amount is then
+   * re-derived as SUM(splits). The parent's own date, payee and category are
+   * never touched -- they describe the whole transaction, not this one leg.
+   *
+   * Guards the invariant that broke a live payroll split: editing the far side
+   * of a split transfer must never rewrite the parent transaction's fields.
+   */
+  private async updateTransferFromSplit(
+    userId: string,
+    counterpart: Transaction,
+    parentSplit: TransactionSplit,
+    updateDto: Partial<UpdateTransferDto>,
+    findOne: (userId: string, id: string) => Promise<Transaction>,
+  ): Promise<TransferResult> {
+    const parentTransaction = await findOne(userId, parentSplit.transactionId);
+    const parentAccountId = parentTransaction.accountId;
+
+    // The split line lives in the parent's account by construction; it cannot be
+    // relocated without detaching it from the parent transaction.
+    if (updateDto.fromAccountId && updateDto.fromAccountId !== parentAccountId) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.transferSplitFromAccountFixed",
+          "The source account of a split transfer line cannot be changed",
+        ),
+      );
+    }
+
+    const oldToAccountId = counterpart.accountId;
+    const newToAccountId = updateDto.toAccountId ?? oldToAccountId;
+
+    if (newToAccountId === parentAccountId) {
+      throw new BadRequestException(
+        tr(
+          "errors.transactions.transferSameAccount",
+          "Source and destination accounts must be different",
+        ),
+      );
+    }
+
+    // Ownership check on a relocated destination (return value unused: the
+    // counterpart's own accountId is set from the DTO by buildToUpdateData).
+    if (updateDto.toAccountId && updateDto.toAccountId !== oldToAccountId) {
+      await this.accountsService.findOne(userId, updateDto.toAccountId);
+    }
+
+    // `parentSplit.amount` carries this leg's direction (negative = money leaving
+    // the parent's account). Preserve that sign; the DTO only supplies magnitude.
+    const splitSign = Number(parentSplit.amount) < 0 ? -1 : 1;
+    const oldMagnitude = Math.abs(Number(parentSplit.amount));
+    const newMagnitude = updateDto.amount ?? oldMagnitude;
+    const newExchangeRate =
+      updateDto.exchangeRate ?? Number(counterpart.exchangeRate) ?? 1;
+    const newCounterpartMagnitude =
+      updateDto.toAmount !== undefined
+        ? Math.abs(roundMoney(updateDto.toAmount))
+        : roundMoney(newMagnitude * newExchangeRate);
+
+    const newSplitAmount = roundMoney(splitSign * newMagnitude);
+    const newCounterpartAmount = roundMoney(
+      -splitSign * newCounterpartMagnitude,
+    );
+
+    const amountChanged =
+      updateDto.amount !== undefined ||
+      updateDto.exchangeRate !== undefined ||
+      updateDto.toAmount !== undefined;
+
+    await this.assertCategoryOwned(userId, updateDto.categoryId);
+
+    // Only the counterpart's own fields are built here -- there is deliberately
+    // no buildFromUpdateData() call, because the "from" side is a split row.
+    const counterpartUpdateData = this.buildToUpdateData(
+      updateDto,
+      newCounterpartAmount,
+      newExchangeRate,
+      parentAccountId,
+      oldToAccountId,
+      parentTransaction.account?.name ?? "",
+      counterpart.payeeId,
+      counterpart.payeeName,
+      parentTransaction.account,
+    );
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      if (Object.keys(counterpartUpdateData).length > 0) {
+        await queryRunner.manager.update(
+          Transaction,
+          counterpart.id,
+          counterpartUpdateData,
+        );
+      }
+
+      if (amountChanged) {
+        await queryRunner.manager.update(TransactionSplit, parentSplit.id, {
+          amount: newSplitAmount as any,
+        });
+
+        // Re-derive the parent from its splits rather than assigning a leg amount.
+        const splits = await queryRunner.manager.find(TransactionSplit, {
+          where: { transactionId: parentTransaction.id },
+        });
+        const parentTotal = roundMoney(
+          splits.reduce((sum, s) => sum + Number(s.amount), 0),
+        );
+        await queryRunner.manager.update(Transaction, parentTransaction.id, {
+          amount: parentTotal as any,
+        });
+      }
+
+      // Full recalculation on every touched account: the split leg, the parent
+      // total and the counterpart can all move in one edit, so an incremental
+      // delta is easy to get wrong here.
+      for (const accId of new Set([
+        parentAccountId,
+        oldToAccountId,
+        newToAccountId,
+      ])) {
+        await this.accountsService.recalculateCurrentBalance(accId, queryRunner);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    for (const accId of new Set([
+      parentAccountId,
+      oldToAccountId,
+      newToAccountId,
+    ])) {
+      this.triggerNetWorthRecalc(accId, userId);
+    }
+
+    return {
+      fromTransaction: await findOne(userId, parentTransaction.id),
+      toTransaction: await findOne(userId, counterpart.id),
     };
   }
 

@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Một số giao tác không được tìm thấy hoặc không thuộc tài khoản đã chỉ định",
     "cannotReconcileVoidPlural": "Không thể điều hoà các giao tác bị hủy",
     "transferSameAccount": "Tài khoản nguồn và đích phải khác nhau",
+    "transferSplitFromAccountFixed": "Không thể thay đổi tài khoản nguồn của dòng chuyển khoản đã tách",
     "transferAmountNegative": "Số tiền chuyển không được âm",
     "notATransfer": "Giao tác không phải là chuyển tiền",
     "notFoundById": "Không tìm thấy giao tác với ID {{ id }}",

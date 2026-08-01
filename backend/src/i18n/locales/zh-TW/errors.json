@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "部分交易未找到或不屬於指定科目",
     "cannotReconcileVoidPlural": "無法對帳作廢的交易",
     "transferSameAccount": "來源和目的科目必須不同",
+    "transferSplitFromAccountFixed": "拆分轉帳行的來源帳戶無法變更",
     "transferAmountNegative": "轉帳金額不得為負數",
     "notATransfer": "交易不是轉帳",
     "notFoundById": "找不到 ID 為 {{ id }} 的交易",

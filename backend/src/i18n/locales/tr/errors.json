@@ -417,6 +417,7 @@
     "bulkReconcileNotFound": "Bazı işlemler bulunamadı veya belirtilen hesaba ait değil",
     "cannotReconcileVoidPlural": "Geçersiz işlemler için mutabakat sağlanamaz",
     "transferSameAccount": "Kaynak ve hedef hesaplar farklı olmalıdır",
+    "transferSplitFromAccountFixed": "Bölünmüş transfer satırının kaynak hesabı değiştirilemez",
     "transferAmountNegative": "Transfer tutarı negatif olmamalıdır",
     "notATransfer": "İşlem bir transfer değil",
     "notFoundById": "{{ id }} kimliğine sahip işlem bulunamadı",
