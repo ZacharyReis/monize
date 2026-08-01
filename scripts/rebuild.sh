@@ -19,6 +19,30 @@ log()  { echo -e "${GREEN}[rebuild]${NC} $1"; }
 warn() { echo -e "${YELLOW}[rebuild]${NC} $1"; }
 err()  { echo -e "${RED}[rebuild]${NC} $1"; }
 
+# --- Build memory guard ---
+# zforge has 31 GiB RAM but only 4 GiB swap. An unbounded `next build` fills both,
+# at which point the kernel thrashes in page reclaim rather than OOM-killing
+# anything: the whole desktop locks up and the machine needs a physical reset.
+# That happened twice on 2026-08-01. Nothing lands in dmesg (the reset clears it),
+# so the absence of an OOM message is not evidence it wasn't memory.
+#
+# BUILD_HEAP_MB bounds the *main* Node heap. Note it does NOT bound Next's worker
+# pool, so the pre-flight headroom check below is the actual safety net -- keep
+# both. Override either via the environment if a build legitimately needs more.
+BUILD_HEAP_MB="${MONIZE_BUILD_HEAP_MB:-4096}"
+MIN_FREE_MB="${MONIZE_MIN_FREE_MB:-8192}"
+
+preflight_memory() {
+    local avail
+    avail=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
+    log "Memory pre-flight: ${avail} MiB available; heap cap ${BUILD_HEAP_MB} MiB, floor ${MIN_FREE_MB} MiB."
+    if [ "$avail" -lt "$MIN_FREE_MB" ]; then
+        err "Only ${avail} MiB available, need ${MIN_FREE_MB} MiB to build safely."
+        err "Close memory-heavy apps first, or override: MONIZE_MIN_FREE_MB=<mb> $0 ..."
+        exit 1
+    fi
+}
+
 # --- Migration check ---
 check_migrations() {
     log "Checking for unapplied migrations..."
@@ -77,7 +101,7 @@ ensure_ownership() {
 build_backend() {
     log "Building backend..."
     cd "$MONIZE_DIR/backend"
-    npm run build
+    NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=$BUILD_HEAP_MB" npm run build
     log "Backend build complete."
 }
 
@@ -85,7 +109,7 @@ build_backend() {
 build_frontend() {
     log "Building frontend..."
     cd "$MONIZE_DIR/frontend"
-    npm run build
+    NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=$BUILD_HEAP_MB" npm run build
 
     log "Copying static files to standalone output..."
     # v1.11.3: next.config pins turbopack.root to this app, so standalone output
@@ -112,22 +136,31 @@ restart_services() {
 }
 
 # --- Main ---
+# The memory gate runs before check_migrations for every build target: refusing a
+# build should not leave the database already migrated for code that never got
+# compiled. --migrate-only skips it (no Node build involved).
 case "${1:-all}" in
     --migrate-only)
         check_migrations
         ;;
     --backend-only)
+        preflight_memory
         check_migrations
         build_backend
         restart_services backend
         ;;
     --frontend-only)
+        preflight_memory
         build_frontend
         restart_services frontend
         ;;
     *)
+        preflight_memory
         check_migrations
         build_backend
+        # Re-check: the backend build has just run, so headroom has moved, and the
+        # frontend build is the one that actually takes the machine down.
+        preflight_memory
         build_frontend
         restart_services all
         log "Full rebuild complete."
