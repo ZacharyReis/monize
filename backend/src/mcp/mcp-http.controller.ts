@@ -6,11 +6,12 @@ import {
   Req,
   Res,
   OnModuleDestroy,
+  Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiExcludeController } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Request, Response } from "express";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SkipCsrf } from "../common/decorators/skip-csrf.decorator";
@@ -23,6 +24,37 @@ import { OAuthProviderService } from "../oauth/oauth-provider.service";
 import { ConfigService } from "@nestjs/config";
 
 const SkipPasswordCheck = () => SetMetadata(SKIP_PASSWORD_CHECK_KEY, true);
+
+/**
+ * Who holds a session, for the session log. Everything here is either
+ * client-supplied (sanitized before logging) or a one-way fingerprint.
+ */
+interface SessionMeta {
+  client: string; // clientInfo name/version from `initialize`, or "?"
+  userAgent: string;
+  tokenFp: string; // "pat:" / "oauth:" + first 8 hex of sha256(token)
+  lastUsedAt: number;
+  requests: number;
+  closeReason?: CloseReason; // set when the close is ours to name, before it happens
+}
+
+type CloseReason =
+  | "delete"
+  | "transport-close"
+  | "expired"
+  | "expired-on-access";
+
+/** Strip control characters and cap length: these strings are client-supplied. */
+function forLog(value: unknown, max = 80): string {
+  if (typeof value !== "string" || value === "") return "?";
+  // eslint-disable-next-line no-control-regex
+  const clean = value.replace(/[\x00-\x1f\x7f"]/g, "");
+  return clean.length > max ? `${clean.slice(0, max)}...` : clean;
+}
+
+function minutes(ms: number): string {
+  return `${Math.round(ms / 60_000)}m`;
+}
 
 @ApiExcludeController()
 @ApiTags("MCP")
@@ -38,6 +70,8 @@ export class McpHttpController implements OnModuleDestroy {
   private servers = new Map<string, McpServer>();
   private sessionUsers = new Map<string, McpUserContext>();
   private sessionCreatedAt = new Map<string, number>();
+  private sessionMeta = new Map<string, SessionMeta>();
+  private readonly logger = new Logger("McpSessions");
   private cleanupTimer: ReturnType<typeof setInterval>;
 
   constructor(
@@ -54,25 +88,29 @@ export class McpHttpController implements OnModuleDestroy {
 
   onModuleDestroy() {
     clearInterval(this.cleanupTimer);
-    for (const transport of this.transports.values()) {
-      transport.close().catch(() => {});
+    if (this.transports.size > 0) {
+      this.logger.log(
+        `shutdown: closing ${this.transports.size} session(s) ${this.describeHolders([...this.transports.keys()])}`,
+      );
     }
+    // Clear before closing: each close() re-enters destroySession via onclose,
+    // and the census line above already records these sessions.
+    const transports = [...this.transports.values()];
     this.transports.clear();
     this.servers.clear();
     this.sessionUsers.clear();
     this.sessionCreatedAt.clear();
+    this.sessionMeta.clear();
+    for (const transport of transports) {
+      transport.close().catch(() => {});
+    }
   }
 
   private cleanupExpiredSessions() {
     const now = Date.now();
     for (const [sid, createdAt] of this.sessionCreatedAt.entries()) {
       if (now - createdAt > McpHttpController.SESSION_TTL_MS) {
-        const transport = this.transports.get(sid);
-        if (transport) transport.close().catch(() => {});
-        this.transports.delete(sid);
-        this.servers.delete(sid);
-        this.sessionUsers.delete(sid);
-        this.sessionCreatedAt.delete(sid);
+        this.destroySession(sid, "expired");
       }
     }
   }
@@ -113,7 +151,7 @@ export class McpHttpController implements OnModuleDestroy {
         return;
       }
       if (this.isSessionExpired(sessionId)) {
-        this.destroySession(sessionId);
+        this.destroySession(sessionId, "expired-on-access");
         res.status(404).json({
           jsonrpc: "2.0",
           error: { code: -32004, message: "Session expired" },
@@ -130,15 +168,22 @@ export class McpHttpController implements OnModuleDestroy {
         });
         return;
       }
+      this.touchSession(sessionId);
       await transport.handleRequest(req, res, req.body);
       return;
     }
+
+    const meta = this.describeNewClient(req);
 
     // Enforce per-user session limit
     if (
       this.getUserSessionCount(authResult.userId) >=
       McpHttpController.MAX_SESSIONS_PER_USER
     ) {
+      const held = this.userSessionIds(authResult.userId);
+      this.logger.warn(
+        `refused 429 ${this.describeMeta(meta)} held=${held.length}/${McpHttpController.MAX_SESSIONS_PER_USER} ${this.describeHolders(held)}`,
+      );
       res.status(429).json({
         jsonrpc: "2.0",
         error: {
@@ -157,7 +202,7 @@ export class McpHttpController implements OnModuleDestroy {
     transport.onclose = () => {
       const sid = transport.sessionId;
       if (sid) {
-        this.destroySession(sid);
+        this.destroySession(sid, "transport-close");
       }
     };
 
@@ -177,6 +222,10 @@ export class McpHttpController implements OnModuleDestroy {
         scopes: authResult.scopes,
       });
       this.sessionCreatedAt.set(transport.sessionId, Date.now());
+      this.sessionMeta.set(transport.sessionId, meta);
+      this.logger.log(
+        `open sid=${transport.sessionId.slice(0, 8)} ${this.describeMeta(meta)} held=${this.getUserSessionCount(authResult.userId)}/${McpHttpController.MAX_SESSIONS_PER_USER}`,
+      );
     }
   }
 
@@ -210,7 +259,7 @@ export class McpHttpController implements OnModuleDestroy {
     }
 
     if (this.isSessionExpired(sessionId)) {
-      this.destroySession(sessionId);
+      this.destroySession(sessionId, "expired-on-access");
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32004, message: "Session expired" },
@@ -229,6 +278,7 @@ export class McpHttpController implements OnModuleDestroy {
       return;
     }
 
+    this.touchSession(sessionId);
     await transport.handleRequest(req, res);
   }
 
@@ -262,7 +312,7 @@ export class McpHttpController implements OnModuleDestroy {
     }
 
     if (this.isSessionExpired(sessionId)) {
-      this.destroySession(sessionId);
+      this.destroySession(sessionId, "expired-on-access");
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32004, message: "Session expired" },
@@ -281,19 +331,95 @@ export class McpHttpController implements OnModuleDestroy {
       return;
     }
 
+    // The transport closes itself on DELETE and re-enters via onclose first,
+    // so name the reason before handing the request over.
+    const meta = this.sessionMeta.get(sessionId);
+    if (meta) meta.closeReason = "delete";
     await transport.handleRequest(req, res);
-    this.destroySession(sessionId);
+    this.destroySession(sessionId, "delete");
   }
 
-  private destroySession(sessionId: string) {
+  private destroySession(sessionId: string, reason: CloseReason) {
     const transport = this.transports.get(sessionId);
+    // Log only a session we still hold: our own close() re-enters via onclose.
+    if (transport) this.logClose(sessionId, reason);
     // Delete from maps BEFORE calling close() to prevent re-entrant loop:
     // close() fires transport.onclose → destroySession() → close() → stack overflow
     this.transports.delete(sessionId);
     this.servers.delete(sessionId);
     this.sessionUsers.delete(sessionId);
     this.sessionCreatedAt.delete(sessionId);
+    this.sessionMeta.delete(sessionId);
     if (transport) transport.close().catch(() => {});
+  }
+
+  // ── Session log (T-1034: who fills the per-user cap?) ─────────────
+
+  private describeNewClient(req: Request): SessionMeta {
+    const body = req.body as
+      | {
+          method?: string;
+          params?: { clientInfo?: { name?: unknown; version?: unknown } };
+        }
+      | undefined;
+    const info =
+      body?.method === "initialize" ? body.params?.clientInfo : undefined;
+    const client = info
+      ? `${forLog(info.name, 40)}/${forLog(info.version, 20)}`
+      : "?";
+    const token = req.headers.authorization?.substring(7) ?? "";
+    const kind = token.startsWith("pat_") ? "pat" : "oauth";
+    const fp = createHash("sha256").update(token).digest("hex").slice(0, 8);
+    return {
+      client,
+      userAgent: forLog(req.headers["user-agent"]),
+      tokenFp: `${kind}:${fp}`,
+      lastUsedAt: Date.now(),
+      requests: 1,
+    };
+  }
+
+  private describeMeta(meta: SessionMeta): string {
+    return `client=${meta.client} ua="${meta.userAgent}" auth=${meta.tokenFp}`;
+  }
+
+  private touchSession(sessionId: string) {
+    const meta = this.sessionMeta.get(sessionId);
+    if (meta) {
+      meta.lastUsedAt = Date.now();
+      meta.requests++;
+    }
+  }
+
+  private userSessionIds(userId: string): string[] {
+    const ids: string[] = [];
+    for (const [sid, ctx] of this.sessionUsers.entries()) {
+      if (ctx.userId === userId) ids.push(sid);
+    }
+    return ids;
+  }
+
+  private describeHolders(sessionIds: string[]): string {
+    const now = Date.now();
+    const parts = sessionIds.map((sid) => {
+      const meta = this.sessionMeta.get(sid);
+      const createdAt = this.sessionCreatedAt.get(sid) ?? now;
+      const idle = meta ? minutes(now - meta.lastUsedAt) : "?";
+      return `${sid.slice(0, 8)} ${meta?.client ?? "?"} age=${minutes(now - createdAt)} idle=${idle} req=${meta?.requests ?? "?"}`;
+    });
+    return `holders=[${parts.join("; ")}]`;
+  }
+
+  private logClose(sessionId: string, reason: CloseReason) {
+    const now = Date.now();
+    const meta = this.sessionMeta.get(sessionId);
+    const createdAt = this.sessionCreatedAt.get(sessionId) ?? now;
+    const userId = this.sessionUsers.get(sessionId)?.userId;
+    // Called before the maps are cleared, so the count still includes this one.
+    const remaining = userId ? this.getUserSessionCount(userId) - 1 : "?";
+    this.logger.log(
+      `close sid=${sessionId.slice(0, 8)} reason=${meta?.closeReason ?? reason} client=${meta?.client ?? "?"} age=${minutes(now - createdAt)} idle=${meta ? minutes(now - meta.lastUsedAt) : "?"} req=${meta?.requests ?? "?"} held=${remaining}/${McpHttpController.MAX_SESSIONS_PER_USER}`,
+    );
   }
 
   private async validatePat(req: Request): Promise<McpUserContext | null> {

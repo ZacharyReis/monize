@@ -12,7 +12,10 @@ Built on `@modelcontextprotocol/sdk` (`McpServer` + `StreamableHTTPServerTranspo
 - **Transport** (`mcp-http.controller.ts`): Streamable HTTP at `POST/GET/DELETE /mcp`.
   Manages one transport + one `McpServer` per session, keyed by the
   `Mcp-Session-Id` header. Sessions have a 1h TTL, a per-user cap, and periodic
-  cleanup. `@SkipCsrf()` + bearer auth only (no cookies).
+  cleanup. `@SkipCsrf()` + bearer auth only (no cookies). Every session open,
+  close (with its reason) and cap refusal is logged under `McpSessions`, naming
+  the client (`initialize` clientInfo + user-agent + a sha256 token fingerprint,
+  never the token); a refusal lists the current holders with age and idle time.
 - **Auth** (`validatePat`): `Authorization: Bearer <token>`. `pat_*` tokens go
   through `PatService`; everything else is treated as an OAuth 2.1 access token
   (`OAuthProviderService`). A 401 returns `WWW-Authenticate` with
