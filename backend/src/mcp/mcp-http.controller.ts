@@ -35,12 +35,14 @@ interface SessionMeta {
   tokenFp: string; // "pat:" / "oauth:" + first 8 hex of sha256(token)
   lastUsedAt: number;
   requests: number;
+  inFlight: number; // responses still open on this session, SSE streams included
   closeReason?: CloseReason; // set when the close is ours to name, before it happens
 }
 
 type CloseReason =
   | "delete"
   | "transport-close"
+  | "evicted"
   | "expired"
   | "expired-on-access";
 
@@ -168,14 +170,24 @@ export class McpHttpController implements OnModuleDestroy {
         });
         return;
       }
-      this.touchSession(sessionId);
+      this.touchSession(sessionId, res);
       await transport.handleRequest(req, res, req.body);
       return;
     }
 
     const meta = this.describeNewClient(req);
 
-    // Enforce per-user session limit
+    // Enforce per-user session limit. A full pool evicts its stalest idle
+    // session rather than refusing: clients that re-initialize without a
+    // DELETE (T-1034: Claude desktop every 18 min) otherwise fill the pool
+    // with abandoned sessions, and a refused client may never retry. An
+    // evicted client that is still alive gets 404 and re-initializes.
+    if (
+      this.getUserSessionCount(authResult.userId) >=
+      McpHttpController.MAX_SESSIONS_PER_USER
+    ) {
+      this.evictStalestIdle(authResult.userId, meta);
+    }
     if (
       this.getUserSessionCount(authResult.userId) >=
       McpHttpController.MAX_SESSIONS_PER_USER
@@ -278,7 +290,7 @@ export class McpHttpController implements OnModuleDestroy {
       return;
     }
 
-    this.touchSession(sessionId);
+    this.touchSession(sessionId, res);
     await transport.handleRequest(req, res);
   }
 
@@ -376,6 +388,7 @@ export class McpHttpController implements OnModuleDestroy {
       tokenFp: `${kind}:${fp}`,
       lastUsedAt: Date.now(),
       requests: 1,
+      inFlight: 0,
     };
   }
 
@@ -383,12 +396,41 @@ export class McpHttpController implements OnModuleDestroy {
     return `client=${meta.client} ua="${meta.userAgent}" auth=${meta.tokenFp}`;
   }
 
-  private touchSession(sessionId: string) {
+  /**
+   * Count a request against its session until its response closes. An SSE
+   * stream stays in flight for as long as it is open, so a session a client
+   * is listening on is never the one evicted.
+   */
+  private touchSession(sessionId: string, res: Response) {
     const meta = this.sessionMeta.get(sessionId);
-    if (meta) {
+    if (!meta) return;
+    meta.lastUsedAt = Date.now();
+    meta.requests++;
+    meta.inFlight++;
+    res.once("close", () => {
+      meta.inFlight--;
       meta.lastUsedAt = Date.now();
-      meta.requests++;
+    });
+  }
+
+  /** Free one slot for `newcomer` by closing the user's stalest idle session. */
+  private evictStalestIdle(userId: string, newcomer: SessionMeta) {
+    let victim: string | undefined;
+    let victimLastUsed = Infinity;
+    for (const sid of this.userSessionIds(userId)) {
+      const meta = this.sessionMeta.get(sid);
+      if (meta && meta.inFlight > 0) continue;
+      const lastUsed = meta?.lastUsedAt ?? 0;
+      if (lastUsed < victimLastUsed) {
+        victim = sid;
+        victimLastUsed = lastUsed;
+      }
     }
+    if (!victim) return;
+    this.logger.warn(
+      `evict to admit ${this.describeMeta(newcomer)} held=${this.getUserSessionCount(userId)}/${McpHttpController.MAX_SESSIONS_PER_USER} ${this.describeHolders([victim])}`,
+    );
+    this.destroySession(victim, "evicted");
   }
 
   private userSessionIds(userId: string): string[] {

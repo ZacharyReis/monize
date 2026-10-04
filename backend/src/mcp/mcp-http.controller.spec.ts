@@ -210,13 +210,13 @@ describe("McpHttpController", () => {
       );
     });
 
-    it("should return 429 when per-user session limit is reached", async () => {
+    it("should return 429 when the per-user limit is reached and every session is in flight", async () => {
       patService.validateToken.mockResolvedValue({
         userId: "user-flood",
         scopes: "read",
       });
 
-      // Populate 10 active sessions for the same user
+      // Populate 10 sessions for the same user, each with a response still open
       for (let i = 0; i < 10; i++) {
         const sid = `flood-session-${i}`;
         const mockTransport = {
@@ -232,6 +232,14 @@ describe("McpHttpController", () => {
           scopes: "read",
         });
         (controller as any).sessionCreatedAt.set(sid, Date.now());
+        (controller as any).sessionMeta.set(sid, {
+          client: "?",
+          userAgent: "?",
+          tokenFp: "pat:00000000",
+          lastUsedAt: Date.now(),
+          requests: 1,
+          inFlight: 1,
+        });
       }
 
       // Attempt to create an 11th session (POST without mcp-session-id)
