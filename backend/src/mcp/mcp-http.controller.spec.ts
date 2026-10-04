@@ -245,7 +245,7 @@ describe("McpHttpController", () => {
       // Attempt to create an 11th session (POST without mcp-session-id)
       const req = {
         headers: { authorization: "Bearer pat_test" },
-        body: {},
+        body: { method: "initialize" },
       } as any;
       const res = {
         status: jest.fn().mockReturnThis(),

@@ -15,6 +15,7 @@ jest.mock("@modelcontextprotocol/sdk/server/streamableHttp.js", () => {
     onclose?: () => void;
     constructor(private readonly opts: { sessionIdGenerator: () => string }) {}
     async handleRequest(req: any) {
+      if (req.gate) await req.gate; // lets a test hold a request mid-flight
       if (req.method === "DELETE") {
         await this.close();
         return;
@@ -264,6 +265,71 @@ describe("McpHttpController session log (T-1034)", () => {
       await open();
       expect(transports.has(ids[0])).toBe(true);
       expect(transports.has(ids[2])).toBe(false);
+    });
+
+    it("evicts nothing for a request that cannot open a session", async () => {
+      await fillPool();
+      const notInit = initReq();
+      notInit.body.method = "tools/list";
+
+      const r = res();
+      await controller.handlePost(notInit, r);
+
+      expect(r.status).toHaveBeenCalledWith(429);
+      expect(lines("evict to admit ")).toHaveLength(0);
+      expect(lines("close ")).toHaveLength(0);
+      expect((controller as any).transports.size).toBe(10);
+    });
+
+    it("holds a slot for an initialize in progress, so concurrent ones cannot overshoot", async () => {
+      const ids = await fillPool();
+      let release!: () => void;
+      const slow = initReq({ name: "slow", version: "1" });
+      slow.gate = new Promise<void>((r) => (release = r));
+
+      const first = controller.handlePost(slow, res()); // evicts ids[0], then waits
+      await Promise.resolve();
+      await controller.handlePost(
+        initReq({ name: "fast", version: "1" }),
+        res(),
+      );
+      release();
+      await first;
+
+      const transports = (controller as any).transports as Map<string, unknown>;
+      expect(transports.size).toBe(10);
+      expect(transports.has(ids[0])).toBe(false);
+      expect(transports.has(ids[1])).toBe(false); // the second initialize evicted again
+      expect((controller as any).pendingInits.size).toBe(0);
+    });
+
+    it("releases the held slot when an initialize fails", async () => {
+      await fillPool();
+      const broken = initReq();
+      broken.gate = Promise.reject(new Error("boom"));
+      broken.gate.catch(() => {}); // handled even if a refusal never awaits it
+
+      await expect(controller.handlePost(broken, res())).rejects.toThrow(
+        "boom",
+      );
+
+      expect((controller as any).pendingInits.size).toBe(0);
+      expect((controller as any).transports.size).toBe(9); // its eviction stands
+      await controller.handlePost(initReq(), res());
+      expect((controller as any).transports.size).toBe(10);
+    });
+
+    it("does not count a request whose client hung up before it was served", async () => {
+      const ids = await fillPool();
+      const gone = res();
+      gone.closed = true; // "close" already fired while we authenticated
+
+      await controller.handleGet(sessionReq("GET", ids[0]), gone);
+
+      expect((controller as any).sessionMeta.get(ids[0]).inFlight).toBe(0);
+      expect(gone.once).not.toHaveBeenCalled();
+      await controller.handlePost(initReq(), res());
+      expect((controller as any).transports.has(ids[0])).toBe(false);
     });
 
     it("answers the evicted session's next request with 404 so its client re-initializes", async () => {

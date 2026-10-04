@@ -73,6 +73,7 @@ export class McpHttpController implements OnModuleDestroy {
   private sessionUsers = new Map<string, McpUserContext>();
   private sessionCreatedAt = new Map<string, number>();
   private sessionMeta = new Map<string, SessionMeta>();
+  private pendingInits = new Map<string, number>(); // userId -> initializes in progress
   private readonly logger = new Logger("McpSessions");
   private cleanupTimer: ReturnType<typeof setInterval>;
 
@@ -125,6 +126,13 @@ export class McpHttpController implements OnModuleDestroy {
     return count;
   }
 
+  /** Registered sessions plus initializes still in progress. */
+  private occupancy(userId: string): number {
+    return (
+      this.getUserSessionCount(userId) + (this.pendingInits.get(userId) ?? 0)
+    );
+  }
+
   private isSessionExpired(sessionId: string): boolean {
     const createdAt = this.sessionCreatedAt.get(sessionId);
     if (!createdAt) return true;
@@ -170,31 +178,31 @@ export class McpHttpController implements OnModuleDestroy {
         });
         return;
       }
-      this.touchSession(sessionId, res);
+      if (!this.touchSession(sessionId, res)) return;
       await transport.handleRequest(req, res, req.body);
       return;
     }
 
     const meta = this.describeNewClient(req);
+    const userId = authResult.userId;
 
     // Enforce per-user session limit. A full pool evicts its stalest idle
     // session rather than refusing: clients that re-initialize without a
     // DELETE (T-1034: Claude desktop every 18 min) otherwise fill the pool
     // with abandoned sessions, and a refused client may never retry. An
     // evicted client that is still alive gets 404 and re-initializes.
-    if (
-      this.getUserSessionCount(authResult.userId) >=
-      McpHttpController.MAX_SESSIONS_PER_USER
-    ) {
-      this.evictStalestIdle(authResult.userId, meta);
+    // Only an `initialize` may evict; anything else cannot open a session.
+    // Initializes still in progress hold a reserved slot, so concurrent
+    // ones cannot overshoot the limit between this check and registration.
+    const isInitialize =
+      (req.body as { method?: unknown } | undefined)?.method === "initialize";
+    if (this.occupancy(userId) >= McpHttpController.MAX_SESSIONS_PER_USER) {
+      if (isInitialize) this.evictStalestIdle(userId, meta);
     }
-    if (
-      this.getUserSessionCount(authResult.userId) >=
-      McpHttpController.MAX_SESSIONS_PER_USER
-    ) {
-      const held = this.userSessionIds(authResult.userId);
+    if (this.occupancy(userId) >= McpHttpController.MAX_SESSIONS_PER_USER) {
+      const held = this.userSessionIds(userId);
       this.logger.warn(
-        `refused 429 ${this.describeMeta(meta)} held=${held.length}/${McpHttpController.MAX_SESSIONS_PER_USER} ${this.describeHolders(held)}`,
+        `refused 429 ${this.describeMeta(meta)} held=${held.length}/${McpHttpController.MAX_SESSIONS_PER_USER} pending=${this.pendingInits.get(userId) ?? 0} ${this.describeHolders(held)}`,
       );
       res.status(429).json({
         jsonrpc: "2.0",
@@ -223,20 +231,31 @@ export class McpHttpController implements OnModuleDestroy {
       return this.sessionUsers.get(sessionId);
     };
     const server = this.mcpServerService.createServer(resolve);
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+    this.pendingInits.set(userId, (this.pendingInits.get(userId) ?? 0) + 1);
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      transport.close().catch(() => {});
+      throw err;
+    } finally {
+      // Release and register in the same tick: no gap for another initialize.
+      const pending = (this.pendingInits.get(userId) ?? 1) - 1;
+      if (pending > 0) this.pendingInits.set(userId, pending);
+      else this.pendingInits.delete(userId);
+    }
 
     if (transport.sessionId) {
       this.transports.set(transport.sessionId, transport);
       this.servers.set(transport.sessionId, server);
       this.sessionUsers.set(transport.sessionId, {
-        userId: authResult.userId,
+        userId,
         scopes: authResult.scopes,
       });
       this.sessionCreatedAt.set(transport.sessionId, Date.now());
       this.sessionMeta.set(transport.sessionId, meta);
       this.logger.log(
-        `open sid=${transport.sessionId.slice(0, 8)} ${this.describeMeta(meta)} held=${this.getUserSessionCount(authResult.userId)}/${McpHttpController.MAX_SESSIONS_PER_USER}`,
+        `open sid=${transport.sessionId.slice(0, 8)} ${this.describeMeta(meta)} held=${this.getUserSessionCount(userId)}/${McpHttpController.MAX_SESSIONS_PER_USER}`,
       );
     }
   }
@@ -290,7 +309,7 @@ export class McpHttpController implements OnModuleDestroy {
       return;
     }
 
-    this.touchSession(sessionId, res);
+    if (!this.touchSession(sessionId, res)) return;
     await transport.handleRequest(req, res);
   }
 
@@ -401,9 +420,12 @@ export class McpHttpController implements OnModuleDestroy {
    * stream stays in flight for as long as it is open, so a session a client
    * is listening on is never the one evicted.
    */
-  private touchSession(sessionId: string, res: Response) {
+  private touchSession(sessionId: string, res: Response): boolean {
+    // The client may have hung up while we authenticated; its "close" has
+    // already fired and would never release the count. Nothing to serve.
+    if (res.closed) return false;
     const meta = this.sessionMeta.get(sessionId);
-    if (!meta) return;
+    if (!meta) return true;
     meta.lastUsedAt = Date.now();
     meta.requests++;
     meta.inFlight++;
@@ -411,6 +433,7 @@ export class McpHttpController implements OnModuleDestroy {
       meta.inFlight--;
       meta.lastUsedAt = Date.now();
     });
+    return true;
   }
 
   /** Free one slot for `newcomer` by closing the user's stalest idle session. */
