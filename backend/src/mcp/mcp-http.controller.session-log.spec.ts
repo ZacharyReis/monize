@@ -188,6 +188,7 @@ describe("McpHttpController session log (T-1034)", () => {
       `${first.slice(0, 8)} codex-mcp-client/0.9 age=0m idle=0m req=2 stream=1`,
     );
     expect(line.match(/claude-code\/2\.1\.0/g)).toHaveLength(9);
+    expect(line).toContain(" method=initialize proto=? held=10/10");
   });
 
   describe("a full pool evicts its stalest idle session", () => {
@@ -349,6 +350,35 @@ describe("McpHttpController session log (T-1034)", () => {
       expect(lines("evict to admit ")).toHaveLength(0);
       expect(lines("close ")).toHaveLength(0);
       expect((controller as any).transports.size).toBe(10);
+    });
+
+    it("names what a refused request asked for: method, batch, protocol header", async () => {
+      await fillPool();
+      const plain = initReq();
+      plain.body.method = "tools/list";
+      plain.headers["mcp-protocol-version"] = "2026-07-28";
+      const batch = initReq();
+      batch.body = [batch.body, { jsonrpc: "2.0", method: "ping" }];
+      const empty = initReq();
+      empty.body = undefined;
+      const forged = initReq();
+      forged.body.method = 'x\nrefused 429 method="y"';
+      forged.headers["mcp-protocol-version"] = ["a", "b"];
+
+      for (const r of [plain, batch, empty, forged]) {
+        await controller.handlePost(r, res());
+      }
+
+      const refused = lines("refused 429 ");
+      expect(refused).toHaveLength(4);
+      expect(refused[0]).toContain(" method=tools/list proto=2026-07-28 held=");
+      expect(refused[1]).toContain(" method=batch[2]:initialize proto=? held=");
+      expect(refused[2]).toContain(" method=none proto=? held=");
+      expect(refused[3]).toContain(
+        " method=xrefused 429 method=y proto=? held=",
+      );
+      expect(refused[3]).not.toMatch(/[\r\n]/);
+      expect(lines("evict to admit ")).toHaveLength(0);
     });
 
     it("holds a slot for an initialize in progress, so concurrent ones cannot overshoot", async () => {

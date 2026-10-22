@@ -210,7 +210,7 @@ export class McpHttpController implements OnModuleDestroy {
     if (this.occupancy(userId) >= McpHttpController.MAX_SESSIONS_PER_USER) {
       const held = this.userSessionIds(userId);
       this.logger.warn(
-        `refused 429 ${this.describeMeta(meta)} held=${held.length}/${McpHttpController.MAX_SESSIONS_PER_USER} pending=${this.pendingInits.get(userId) ?? 0} ${this.describeHolders(held)}`,
+        `refused 429 ${this.describeMeta(meta)} ${this.describeRequest(req)} held=${held.length}/${McpHttpController.MAX_SESSIONS_PER_USER} pending=${this.pendingInits.get(userId) ?? 0} ${this.describeHolders(held)}`,
       );
       res.status(429).json({
         jsonrpc: "2.0",
@@ -422,6 +422,27 @@ export class McpHttpController implements OnModuleDestroy {
 
   private describeMeta(meta: SessionMeta): string {
     return `client=${meta.client} ua="${meta.userAgent}" auth=${meta.tokenFp}`;
+  }
+
+  /**
+   * What a session-less request asked for (T-1034: every refusal so far was
+   * not an `initialize`). A JSON-RPC batch shows its size and first method;
+   * proto is the client's MCP-Protocol-Version header.
+   */
+  private describeRequest(req: Request): string {
+    const body: unknown = req.body;
+    const methodOf = (msg: unknown) =>
+      forLog((msg as { method?: unknown } | null)?.method, 40);
+    let method: string;
+    if (Array.isArray(body)) {
+      method = `batch[${body.length}]:${methodOf(body[0])}`;
+    } else if (body && typeof body === "object") {
+      method = methodOf(body);
+    } else {
+      method = "none";
+    }
+    const proto = forLog(req.headers["mcp-protocol-version"], 20);
+    return `method=${method} proto=${proto}`;
   }
 
   /**
