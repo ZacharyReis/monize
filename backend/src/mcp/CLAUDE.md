@@ -12,7 +12,11 @@ Built on `@modelcontextprotocol/sdk` (`McpServer` + `StreamableHTTPServerTranspo
 - **Transport** (`mcp-http.controller.ts`): Streamable HTTP at `POST/GET/DELETE /mcp`.
   Manages one transport + one `McpServer` per session, keyed by the
   `Mcp-Session-Id` header. Sessions have a 1h TTL, a per-user cap, and periodic
-  cleanup. `@SkipCsrf()` + bearer auth only (no cookies). Every session open,
+  cleanup. At the cap, an `initialize` evicts the stalest session with nothing
+  open; failing that, the stalest one whose only open items are GET streams and
+  whose last POST is 15+ min old. A POST in flight is never evicted; streams
+  don't count as use (`idle=` is time since the last POST).
+  `@SkipCsrf()` + bearer auth only (no cookies). Every session open,
   close (with its reason) and cap refusal is logged under `McpSessions`, naming
   the client (`initialize` clientInfo + user-agent + a sha256 token fingerprint,
   never the token); a refusal lists the current holders with age and idle time.

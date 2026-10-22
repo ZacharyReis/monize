@@ -33,11 +33,14 @@ interface SessionMeta {
   client: string; // clientInfo name/version from `initialize`, or "?"
   userAgent: string;
   tokenFp: string; // "pat:" / "oauth:" + first 8 hex of sha256(token)
-  lastUsedAt: number;
+  lastUsedAt: number; // last POST started or finished; streams don't count as use
   requests: number;
-  inFlight: number; // responses still open on this session, SSE streams included
+  inFlight: number; // POST responses still open on this session
+  streams: number; // GET (SSE) streams still open on this session
   closeReason?: CloseReason; // set when the close is ours to name, before it happens
 }
+
+type VictimKind = "idle" | "stream-idle";
 
 type CloseReason =
   | "delete"
@@ -67,6 +70,9 @@ export class McpHttpController implements OnModuleDestroy {
   private static readonly SESSION_TTL_MS = 3_600_000; // 1 hour
   private static readonly MAX_SESSIONS_PER_USER = 10;
   private static readonly CLEANUP_INTERVAL_MS = 300_000; // 5 minutes
+  // A session whose only open item is a stream becomes evictable once its
+  // last request is this old (T-1034: abandoned desktop sessions listen on).
+  private static readonly STREAM_IDLE_EVICT_MS = 900_000; // 15 minutes
 
   private transports = new Map<string, StreamableHTTPServerTransport>();
   private servers = new Map<string, McpServer>();
@@ -178,7 +184,7 @@ export class McpHttpController implements OnModuleDestroy {
         });
         return;
       }
-      if (!this.touchSession(sessionId, res)) return;
+      if (!this.touchSession(sessionId, res, "request")) return;
       await transport.handleRequest(req, res, req.body);
       return;
     }
@@ -190,7 +196,9 @@ export class McpHttpController implements OnModuleDestroy {
     // session rather than refusing: clients that re-initialize without a
     // DELETE (T-1034: Claude desktop every 18 min) otherwise fill the pool
     // with abandoned sessions, and a refused client may never retry. An
-    // evicted client that is still alive gets 404 and re-initializes.
+    // evicted client that is still alive gets 404 and re-initializes. Those
+    // clients can leave an SSE stream open on the abandoned session, so a
+    // stream protects a session only while its requests are recent.
     // Only an `initialize` may evict; anything else cannot open a session.
     // Initializes still in progress hold a reserved slot, so concurrent
     // ones cannot overshoot the limit between this check and registration.
@@ -309,7 +317,7 @@ export class McpHttpController implements OnModuleDestroy {
       return;
     }
 
-    if (!this.touchSession(sessionId, res)) return;
+    if (!this.touchSession(sessionId, res, "stream")) return;
     await transport.handleRequest(req, res);
   }
 
@@ -408,6 +416,7 @@ export class McpHttpController implements OnModuleDestroy {
       lastUsedAt: Date.now(),
       requests: 1,
       inFlight: 0,
+      streams: 0,
     };
   }
 
@@ -416,18 +425,30 @@ export class McpHttpController implements OnModuleDestroy {
   }
 
   /**
-   * Count a request against its session until its response closes. An SSE
-   * stream stays in flight for as long as it is open, so a session a client
-   * is listening on is never the one evicted.
+   * Count a request or stream against its session until its response closes.
+   * Only a request (POST) is use: an SSE stream can stay open on a session its
+   * client has abandoned (T-1034), so opening or closing one leaves lastUsedAt
+   * alone.
    */
-  private touchSession(sessionId: string, res: Response): boolean {
+  private touchSession(
+    sessionId: string,
+    res: Response,
+    kind: "request" | "stream",
+  ): boolean {
     // The client may have hung up while we authenticated; its "close" has
     // already fired and would never release the count. Nothing to serve.
     if (res.closed) return false;
     const meta = this.sessionMeta.get(sessionId);
     if (!meta) return true;
-    meta.lastUsedAt = Date.now();
     meta.requests++;
+    if (kind === "stream") {
+      meta.streams++;
+      res.once("close", () => {
+        meta.streams--;
+      });
+      return true;
+    }
+    meta.lastUsedAt = Date.now();
     meta.inFlight++;
     res.once("close", () => {
       meta.inFlight--;
@@ -436,22 +457,39 @@ export class McpHttpController implements OnModuleDestroy {
     return true;
   }
 
-  /** Free one slot for `newcomer` by closing the user's stalest idle session. */
+  /**
+   * Free one slot for `newcomer`. First choice is the stalest session with
+   * nothing open. Failing that, the stalest one whose only open items are
+   * streams and whose last request is STREAM_IDLE_EVICT_MS old; closing it
+   * ends its streams. A session with a request in flight is never evicted.
+   */
   private evictStalestIdle(userId: string, newcomer: SessionMeta) {
+    const now = Date.now();
     let victim: string | undefined;
+    let victimKind: VictimKind = "idle";
     let victimLastUsed = Infinity;
     for (const sid of this.userSessionIds(userId)) {
       const meta = this.sessionMeta.get(sid);
       if (meta && meta.inFlight > 0) continue;
       const lastUsed = meta?.lastUsedAt ?? 0;
-      if (lastUsed < victimLastUsed) {
+      let kind: VictimKind = "idle";
+      if (meta && meta.streams > 0) {
+        if (now - lastUsed < McpHttpController.STREAM_IDLE_EVICT_MS) continue;
+        kind = "stream-idle";
+      }
+      const better =
+        victim === undefined ||
+        (kind === "idle" && victimKind === "stream-idle") ||
+        (kind === victimKind && lastUsed < victimLastUsed);
+      if (better) {
         victim = sid;
+        victimKind = kind;
         victimLastUsed = lastUsed;
       }
     }
     if (!victim) return;
     this.logger.warn(
-      `evict to admit ${this.describeMeta(newcomer)} held=${this.getUserSessionCount(userId)}/${McpHttpController.MAX_SESSIONS_PER_USER} ${this.describeHolders([victim])}`,
+      `evict to admit ${this.describeMeta(newcomer)} victim=${victimKind} held=${this.getUserSessionCount(userId)}/${McpHttpController.MAX_SESSIONS_PER_USER} ${this.describeHolders([victim])}`,
     );
     this.destroySession(victim, "evicted");
   }
@@ -470,7 +508,7 @@ export class McpHttpController implements OnModuleDestroy {
       const meta = this.sessionMeta.get(sid);
       const createdAt = this.sessionCreatedAt.get(sid) ?? now;
       const idle = meta ? minutes(now - meta.lastUsedAt) : "?";
-      return `${sid.slice(0, 8)} ${meta?.client ?? "?"} age=${minutes(now - createdAt)} idle=${idle} req=${meta?.requests ?? "?"}`;
+      return `${sid.slice(0, 8)} ${meta?.client ?? "?"} age=${minutes(now - createdAt)} idle=${idle} req=${meta?.requests ?? "?"} stream=${meta?.streams ?? "?"}`;
     });
     return `holders=[${parts.join("; ")}]`;
   }

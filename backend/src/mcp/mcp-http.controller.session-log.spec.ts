@@ -185,7 +185,7 @@ describe("McpHttpController session log (T-1034)", () => {
     expect(line).toContain('client=mcp/0.1 ua="python-httpx/0.28.1"');
     expect(line).toContain("held=10/10");
     expect(line).toContain(
-      `${first.slice(0, 8)} codex-mcp-client/0.9 age=0m idle=0m req=2`,
+      `${first.slice(0, 8)} codex-mcp-client/0.9 age=0m idle=0m req=2 stream=1`,
     );
     expect(line.match(/claude-code\/2\.1\.0/g)).toHaveLength(9);
   });
@@ -238,33 +238,103 @@ describe("McpHttpController session log (T-1034)", () => {
       expect(lines("open ").pop()).toContain("held=10/10");
     });
 
-    it("never evicts a session with an open stream, and counts it as used when the stream closes", async () => {
+    it("passes over a listening session whose last request is recent", async () => {
       const ids = await fillPool();
-      const stream = res();
-      await controller.handleGet(sessionReq("GET", ids[0]), stream);
-      tick(60_000);
-
-      const newcomer = await open();
-      const transports = (controller as any).transports as Map<string, unknown>;
-      expect(transports.has(ids[0])).toBe(true); // stalest by open time, but listening
-      expect(transports.has(ids[1])).toBe(false);
-
-      // Everyone else is used after the stream opened...
-      for (const sid of [...ids.slice(2), newcomer]) {
-        tick(60_000);
-        const r = res();
-        await controller.handlePost(sessionReq("POST", sid), r);
-        r.end();
-      }
-      // ...and then the stream ends, which is the session's latest use.
-      tick(60_000);
-      stream.end();
-      expect((controller as any).sessionMeta.get(ids[0]).inFlight).toBe(0);
+      await controller.handleGet(sessionReq("GET", ids[0]), res());
       tick(60_000);
 
       await open();
+      const transports = (controller as any).transports as Map<string, unknown>;
+      expect(transports.has(ids[0])).toBe(true); // stalest by use, but listening
+      expect(transports.has(ids[1])).toBe(false);
+      expect(lines("evict to admit ")[0]).toContain("victim=idle ");
+    });
+
+    it("evicts a listening session once its last request is 15 minutes old, and not a millisecond sooner", async () => {
+      const ids = await fillPool(); // ids[0] last used 10 minutes ago
+      for (const sid of ids) {
+        await controller.handleGet(sessionReq("GET", sid), res()); // left open
+      }
+      tick(5 * 60_000 - 1);
+
+      const early = res();
+      await controller.handlePost(initReq(), early);
+      expect(early.status).toHaveBeenCalledWith(429);
+      expect(lines("evict to admit ")).toHaveLength(0);
+
+      tick(1);
+      const admitted = res();
+      await controller.handlePost(
+        initReq({ name: "late", version: "1" }),
+        admitted,
+      );
+
+      expect(admitted.status).not.toHaveBeenCalledWith(429);
+      const transports = (controller as any).transports as Map<string, unknown>;
+      expect(transports.has(ids[0])).toBe(false);
+      expect(transports.has(ids[1])).toBe(true);
+      expect(transports.size).toBe(10);
+      const [evict] = lines("evict to admit ");
+      expect(evict).toContain("client=late/1 ");
+      expect(evict).toContain("victim=stream-idle ");
+      expect(evict).toContain(
+        `${ids[0].slice(0, 8)} c0/1 age=15m idle=15m req=2 stream=1`,
+      );
+      expect(lines("close ")).toEqual([
+        expect.stringContaining(`sid=${ids[0].slice(0, 8)} reason=evicted `),
+      ]);
+    });
+
+    it("prefers a session with nothing open over a stale listener", async () => {
+      const ids = await fillPool();
+      for (const sid of ids.slice(0, 9)) {
+        await controller.handleGet(sessionReq("GET", sid), res());
+      }
+      tick(30 * 60_000); // every listener is well past the threshold
+
+      await open();
+
+      const transports = (controller as any).transports as Map<string, unknown>;
+      expect(transports.has(ids[9])).toBe(false); // the freshest, but not listening
       expect(transports.has(ids[0])).toBe(true);
-      expect(transports.has(ids[2])).toBe(false);
+      expect(lines("evict to admit ")[0]).toContain("victim=idle ");
+    });
+
+    it("never evicts a session with a request in flight, however stale", async () => {
+      const ids = await fillPool();
+      const held = res();
+      await controller.handlePost(sessionReq("POST", ids[0]), held); // never ends
+      await controller.handleGet(sessionReq("GET", ids[0]), res());
+      tick(30 * 60_000);
+      for (const sid of ids.slice(1)) {
+        const r = res();
+        await controller.handlePost(sessionReq("POST", sid), r);
+        r.end();
+        await controller.handleGet(sessionReq("GET", sid), res());
+      }
+
+      const refused = res();
+      await controller.handlePost(initReq(), refused);
+
+      expect(refused.status).toHaveBeenCalledWith(429);
+      expect((controller as any).transports.has(ids[0])).toBe(true);
+      expect(lines("evict to admit ")).toHaveLength(0);
+    });
+
+    it("does not count opening or closing a stream as use", async () => {
+      const ids = await fillPool();
+      const meta = (controller as any).sessionMeta.get(ids[0]);
+      const before = meta.lastUsedAt;
+      const stream = res();
+      await controller.handleGet(sessionReq("GET", ids[0]), stream);
+      tick(60_000);
+      stream.end();
+
+      expect(meta.lastUsedAt).toBe(before);
+      expect(meta.streams).toBe(0);
+      expect(meta.inFlight).toBe(0);
+      await open();
+      expect((controller as any).transports.has(ids[0])).toBe(false);
     });
 
     it("evicts nothing for a request that cannot open a session", async () => {
@@ -327,6 +397,7 @@ describe("McpHttpController session log (T-1034)", () => {
       await controller.handleGet(sessionReq("GET", ids[0]), gone);
 
       expect((controller as any).sessionMeta.get(ids[0]).inFlight).toBe(0);
+      expect((controller as any).sessionMeta.get(ids[0]).streams).toBe(0);
       expect(gone.once).not.toHaveBeenCalled();
       await controller.handlePost(initReq(), res());
       expect((controller as any).transports.has(ids[0])).toBe(false);
