@@ -190,7 +190,7 @@ describe('aiApi', () => {
     it('getInsights omits includeDismissed when false', async () => {
       vi.mocked(apiClient.get).mockResolvedValue({ data: { insights: [] } });
       await aiApi.getInsights({ includeDismissed: false });
-      const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+      const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
       expect(params.includeDismissed).toBeUndefined();
     });
 

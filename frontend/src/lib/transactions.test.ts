@@ -28,28 +28,28 @@ describe('transactionsApi', () => {
   it('getAll converts accountIds array to comma-separated', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { items: [], total: 0 } });
     await transactionsApi.getAll({ accountIds: ['a1', 'a2'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountIds).toBe('a1,a2');
   });
 
   it('getAll uses accountId when accountIds is empty', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { items: [], total: 0 } });
     await transactionsApi.getAll({ accountId: 'a1', accountIds: [] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountId).toBe('a1');
   });
 
   it('getAll converts categoryIds array', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { items: [], total: 0 } });
     await transactionsApi.getAll({ categoryIds: ['c1', 'c2'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.categoryIds).toBe('c1,c2');
   });
 
   it('getAll converts payeeIds array', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { items: [], total: 0 } });
     await transactionsApi.getAll({ payeeIds: ['p1', 'p2'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.payeeIds).toBe('p1,p2');
   });
 
@@ -74,7 +74,7 @@ describe('transactionsApi', () => {
       const result = await transactionsApi.getAllPages();
       expect(result.map((t) => (t as { id: string }).id)).toEqual(['t1', 't2', 't3']);
       expect(apiClient.get).toHaveBeenCalledTimes(2);
-      const secondCall = vi.mocked(apiClient.get).mock.calls[1][1]!.params;
+      const secondCall = vi.mocked(apiClient.get).mock.calls[1][1]!.params as Record<string, unknown>;
       expect(secondCall.page).toBe(2);
       expect(secondCall.limit).toBe(200);
     });
@@ -88,7 +88,7 @@ describe('transactionsApi', () => {
         endDate: '2026-01-31',
         pageSize: 50,
       });
-      const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+      const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
       expect(params.startDate).toBe('2026-01-01');
       expect(params.endDate).toBe('2026-01-31');
       expect(params.limit).toBe(50);
@@ -157,7 +157,7 @@ describe('transactionsApi', () => {
   it('getSummary fetches /transactions/summary with array params', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { total: 500 } });
     await transactionsApi.getSummary({ accountIds: ['a1'], categoryIds: ['c1'], payeeIds: ['p1'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountIds).toBe('a1');
     expect(params.categoryIds).toBe('c1');
     expect(params.payeeIds).toBe('p1');
@@ -166,7 +166,7 @@ describe('transactionsApi', () => {
   it('getSummary uses singular ids as fallback', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { total: 500 } });
     await transactionsApi.getSummary({ accountId: 'a1', categoryId: 'c1', payeeId: 'p1' });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountId).toBe('a1');
     expect(params.categoryId).toBe('c1');
     expect(params.payeeId).toBe('p1');
@@ -182,7 +182,7 @@ describe('transactionsApi', () => {
       endDate: '2025-12-31',
       search: 'test',
     });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountIds).toBe('a1');
     expect(params.categoryIds).toBe('c1,uncategorized');
     expect(params.payeeIds).toBe('p1');
@@ -194,7 +194,7 @@ describe('transactionsApi', () => {
   it('getMonthlyTotals omits empty arrays from params', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
     await transactionsApi.getMonthlyTotals({});
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.accountIds).toBeUndefined();
     expect(params.categoryIds).toBeUndefined();
     expect(params.payeeIds).toBeUndefined();
@@ -270,7 +270,7 @@ describe('transactionsApi', () => {
   it('getAll forwards tagIds as comma-separated string', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { items: [], total: 0 } });
     await transactionsApi.getAll({ tagIds: ['t1', 't2'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.tagIds).toBe('t1,t2');
   });
 
@@ -285,7 +285,7 @@ describe('transactionsApi', () => {
   it('getRecent forwards payeeId and limit', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
     await transactionsApi.getRecent({ limit: 10, payeeId: 'p-1' });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.limit).toBe(10);
     expect(params.payeeId).toBe('p-1');
   });
@@ -293,14 +293,14 @@ describe('transactionsApi', () => {
   it('getRecent forwards payeeName', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: [] });
     await transactionsApi.getRecent({ payeeName: 'Coffee' });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.payeeName).toBe('Coffee');
   });
 
   it('getSummary uses tagIds', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: {} });
     await transactionsApi.getSummary({ tagIds: ['t1'] });
-    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params;
+    const params = vi.mocked(apiClient.get).mock.calls[0][1]!.params as Record<string, unknown>;
     expect(params.tagIds).toBe('t1');
   });
 

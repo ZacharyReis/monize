@@ -117,7 +117,7 @@
     "uuid": "^14.0.0",
     "fast-uri": "^3.1.2",
     "multer": "^2.2.0",
-    "brace-expansion@>=3": "5.0.8",
+    "brace-expansion@>=3": "5.0.12",
     "typeorm": {
       "glob": "13.0.0"
     },
